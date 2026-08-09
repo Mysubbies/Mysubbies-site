@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mysubbies — My Jobs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #171717; --black: #000000; --white: #FFFFFF; --paper: #F7F7F5;
+    --stone: #6B6B68; --stone-light: #9C9C97; --line: #E4E4E1; --good: #2F7A50; --warn: #B0592E;
+  }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  body { font-family:'Plus Jakarta Sans', system-ui, sans-serif; background: var(--paper); color: var(--ink); line-height:1.5; -webkit-font-smoothing:antialiased; }
+  h1, h2 { font-weight:800; letter-spacing:-0.02em; }
+  a { color:inherit; text-decoration:none; }
+  header { background: var(--black); }
+  .navwrap { max-width:1180px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:64px; }
+  .logo { display:flex; align-items:center; gap:9px; }
+  .logo-mark { width:28px; height:28px; border-radius:7px; background:#fff; }
+  .logo-word { font-weight:800; font-size:19px; color:#fff; }
+  .navlinks { display:flex; align-items:center; gap:22px; font-size:13px; }
+  .navlinks a { color:rgba(255,255,255,0.65); }
+  .navlinks a.current { color:#fff; font-weight:600; }
+  .wrap { max-width:640px; margin:0 auto; padding:32px 24px 80px; }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 20px; border-radius:999px; font-size:14px; font-weight:600; cursor:pointer; border:none; }
+  .btn-black { background:var(--black); color:#fff; }
+  .btn-outline { background:#fff; color:var(--ink); border:1.5px solid var(--line); }
+  .btn-full { width:100%; }
+  input[type=text], input[type=email], input[type=password] { width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:15px; border:1.5px solid var(--line); border-radius:10px; padding:13px 14px; outline:none; margin-bottom:12px; }
+  .loginbox { background:#fff; border:1px solid var(--line); border-radius:16px; padding:28px; margin-top:60px; }
+  .loginbox h1 { font-size:22px; margin-bottom:8px; }
+  .loginbox p { color:var(--stone); font-size:14px; margin-bottom:20px; }
+  .whoami { font-size:12px; color:var(--stone-light); margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; }
+  .whoami a { text-decoration:underline; cursor:pointer; }
+  h1.pagetitle { font-size:24px; margin-bottom:2px; }
+  p.pagesub { color:var(--stone); font-size:13px; margin-bottom:20px; }
+  .jobcard { padding:14px; border-radius:14px; border:1px solid var(--line); background:#fff; cursor:pointer; margin-bottom:10px; text-align:left; width:100%; display:block; }
+  .jobcard:hover { border-color: var(--black); }
+  .pill { font-size:10px; font-weight:700; color:var(--stone); background:var(--paper); padding:2px 7px; border-radius:4px; display:inline-block; }
+  .jobtitle { font-size:14px; font-weight:700; margin-top:4px; }
+  .jobmeta { font-size:12px; color:var(--stone); margin-top:3px; }
+  .empty { text-align:center; padding:60px 20px; color:var(--stone); font-size:14px; }
+  .backbtn { font-size:13px; color:var(--stone); background:none; border:none; cursor:pointer; margin-bottom:16px; display:flex; align-items:center; gap:4px; }
+  .detailcard { background:#fff; border:1px solid var(--line); border-radius:16px; padding:22px; }
+  .row { display:flex; justify-content:space-between; font-size:14px; padding:9px 0; border-top:1px solid var(--paper); }
+  .row:first-child { border-top:none; }
+  .row .l { color:var(--stone); }
+  .row .r { font-weight:700; }
+  .stagebar { display:flex; gap:4px; margin:12px 0; }
+  .stage { flex:1; height:6px; border-radius:3px; background:var(--line); }
+  .stage.done { background:var(--good); }
+  .msgbox { border:1px solid var(--line); border-radius:14px; padding:16px; margin-top:20px; }
+  .msgbox h3 { font-size:14px; margin-bottom:12px; }
+  .msglist { max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+  .msgbubble { max-width:80%; padding:9px 12px; border-radius:12px; font-size:13px; }
+  .msgbubble.mine { align-self:flex-end; background:var(--black); color:#fff; }
+  .msgbubble.theirs { align-self:flex-start; background:var(--paper); color:var(--ink); }
+  .msgmeta { font-size:10px; color:var(--stone-light); margin-bottom:2px; }
+  .msginput { display:flex; gap:8px; }
+  .msginput input { margin-bottom:0; flex:1; }
+  .notify-banner { font-size:12px; color:var(--stone); background:var(--paper); border-radius:10px; padding:10px 14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; }
+  .notify-banner button { font-size:12px; font-weight:600; background:none; border:none; text-decoration:underline; cursor:pointer; }
+</style>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mysubbies">
+</head>
+<body>
+
+<header>
+  <div class="navwrap">
+    <a class="logo" href="mysubbies-website.html">
+      <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="logo-word">Mysubbies</div>
+    </a>
+    <div class="navlinks">
+      <a href="mysubbies-website.html">Site</a>
+      <a class="current" href="mysubbies-customer-portal.html">My Jobs</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap" id="app"></div>
+
+<script>
+  function getJobs() { return JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]'); }
+  function saveJobs(jobs) { localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs)); }
+  function getCustomers() { return JSON.parse(localStorage.getItem('mysubbies_customers') || '{}'); }
+  function saveCustomers(customers) { localStorage.setItem('mysubbies_customers', JSON.stringify(customers)); }
+  function getCurrentCustomerEmail() { return localStorage.getItem('mysubbies_customer_email'); }
+  function escapeHtml(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  }
+
+  let selectedJobId = null;
+  const app = document.getElementById('app');
+
+  function render() {
+    const email = getCurrentCustomerEmail();
+    if (!email) { renderLogin(); return; }
+    if (selectedJobId) { renderDetail(email); return; }
+
+    const jobs = getJobs().filter(j => j.customerEmail === email);
+    const customers = getCustomers();
+    const name = customers[email] ? customers[email].name : email;
+    const myAccount = customers[email] || {};
+    const referredCount = Object.values(customers).filter(c => c.referredBy === myAccount.referralCode).length;
+
+    app.innerHTML = `
+      <div class="whoami">Logged in as <strong>${name}</strong> <a onclick="logout()">Log out</a></div>
+      ${notifyBannerHtml()}
+      <div class="box" style="margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px;">Refer a friend</div>
+        <div style="font-size:12px;color:var(--stone);margin-bottom:8px;">Share your code — ${referredCount} friend${referredCount===1?'':'s'} referred so far.</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <code style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;flex:1;">${myAccount.referralCode || '—'}</code>
+          <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="copyReferralCode('${myAccount.referralCode || ''}')">Copy</button>
+        </div>
+      </div>
+      <h1 class="pagetitle">My jobs</h1>
+      <p class="pagesub">${jobs.length} job${jobs.length === 1 ? '' : 's'}</p>
+    `;
+    if (jobs.length === 0) {
+      app.innerHTML += `<div class="empty">No jobs yet. <a href="mysubbies-website.html#estimate" style="text-decoration:underline;">Get an instant price</a> to submit one.</div>`;
+    } else {
+      jobs.forEach(j => {
+        app.innerHTML += `
+          <button class="jobcard" onclick="selectedJobId='${j.id}'; render();">
+            <span class="pill">${escapeHtml(j.category)}</span>
+            <div class="jobtitle">${escapeHtml(j.category)}</div>
+            <div class="jobmeta">📍 ${escapeHtml(j.suburb)} · ${j.contractor ? escapeHtml(j.contractor) : 'Awaiting contractor'}</div>
+          </button>`;
+      });
+    }
+    wireNotifyButton();
+  }
+
+  function renderDetail(email) {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === selectedJobId);
+    if (!j) { selectedJobId = null; render(); return; }
+    const schedule = j.paymentSchedule || [
+      { key: 'deposit', label: 'Deposit', pct: 5 }, { key: 'materials', label: 'Materials ordered', pct: 35 },
+      { key: 'frame', label: 'Frame stage complete', pct: 50 }, { key: 'completion', label: 'On completion', pct: 10 },
+    ];
+    const paidStages = j.paidStages || { deposit: true, materials: j.materialsPaid, frame: j.frameComplete, completion: j.completionPaid };
+
+    app.innerHTML = `
+      <button class="backbtn" onclick="selectedJobId=null; render();">← Back to my jobs</button>
+      ${notifyBannerHtml()}
+      <div class="detailcard">
+        ${j.photoDataUrl ? `<img src="${j.photoDataUrl}" style="width:100%;border-radius:12px;margin-bottom:16px;max-height:200px;object-fit:cover;">` : ''}
+        <span class="pill">${escapeHtml(j.category)}</span>
+        <h1 class="pagetitle" style="margin-top:8px;">${escapeHtml(j.category)}</h1>
+        <div class="jobmeta" style="margin-bottom:16px;">📍 ${escapeHtml(j.suburb)}</div>
+        <div class="row"><span class="l">Estimated cost</span><span class="r">$${(j.priceLow||j.basePrice||0).toLocaleString()}</span></div>
+        <div class="row"><span class="l">Contractor</span><span class="r">${j.contractor ? escapeHtml(j.contractor) : 'Awaiting acceptance'}</span></div>
+        ${j.contractor ? `<div class="stagebar">${schedule.map(s => `<div class="stage ${paidStages[s.key] ? 'done' : ''}" style="flex:${s.pct};"></div>`).join('')}</div>` : ''}
+        ${j.contractor ? `
+          <div style="margin:10px 0;">
+            ${schedule.map(s => `
+              <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:${paidStages[s.key] ? 'var(--good)' : 'var(--stone)'};">
+                <span>${paidStages[s.key] ? '✓' : '○'} ${s.label} (${s.pct}%)</span>
+                <span>$${Math.round((j.basePrice||0) * (s.pct / 100)).toLocaleString()}</span>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+        ${j.status === 'completed' ? renderRatingSection(j) : ''}
+        ${j.contractor && j.status !== 'completed' ? `<button class="btn btn-outline btn-full" style="margin-top:12px;" onclick="openDisputeForm()">⚠ Report a problem</button>` : ''}
+        <div id="disputeFormWrap"></div>
+      </div>
+
+      ${j.contractor ? `
+        <div class="detailcard">
+          <h3 style="font-size:15px;margin-bottom:10px;">Variations</h3>
+          <p style="font-size:11.5px;color:var(--stone);margin-bottom:8px;">Extra work your contractor has requested, on top of the original price.</p>
+          <div id="variationList">${variationListHtml(j, 'customer')}</div>
+        </div>
+      ` : ''}
+
+      <div class="msgbox">
+        <h3>💬 Messages with your contractor</h3>
+        <div class="msglist" id="msgList"></div>
+        <div class="msginput">
+          <input type="text" id="msgInput" placeholder="${j.contractor ? 'Type a message…' : 'Available once a contractor accepts'}" ${j.contractor ? '' : 'disabled'} onkeydown="if(event.key==='Enter') sendMsg()" />
+          <button class="btn btn-black" onclick="sendMsg()" ${j.contractor ? '' : 'disabled'}>Send</button>
+        </div>
+      </div>
+    `;
+    renderMessages(j);
+    wireNotifyButton();
+  }
+
+  function copyReferralCode(code) {
+    navigator.clipboard.writeText(code).then(() => showToast('Referral code copied!'));
+  }
+  function showToast(msg) {
+    let t = document.getElementById('toastMsg');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'toastMsg';
+      t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--black);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;z-index:20;';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 2000);
+  }
+
+  function renderRatingSection(j) {
+    if (j.customerRating) {
+      return `<div class="row" style="margin-top:10px;"><span class="l">Your rating</span><span class="r">${'★'.repeat(j.customerRating)}${'☆'.repeat(5-j.customerRating)}</span></div>${j.customerReview ? `<div style="font-size:12.5px;color:var(--stone);margin-top:4px;">"${j.customerReview}"</div>` : ''}`;
+    }
+    return `
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--paper);">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Rate your contractor</div>
+        <div id="starPicker" style="display:flex;gap:4px;margin-bottom:10px;">
+          ${[1,2,3,4,5].map(n => `<button onclick="setStarRating(${n})" data-star="${n}" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--stone-light);">☆</button>`).join('')}
+        </div>
+        <input type="text" id="reviewText" placeholder="Optional review" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
+        <button class="btn btn-black btn-full" onclick="submitRating('${j.id}')">Submit rating</button>
+      </div>`;
+  }
+  let selectedStars = 0;
+  function setStarRating(n) {
+    selectedStars = n;
+    document.querySelectorAll('#starPicker button').forEach(b => {
+      b.textContent = Number(b.dataset.star) <= n ? '★' : '☆';
+      b.style.color = Number(b.dataset.star) <= n ? 'var(--ink)' : 'var(--stone-light)';
+    });
+  }
+  function submitRating(jobId) {
+    if (selectedStars === 0) return;
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === jobId);
+    j.customerRating = selectedStars;
+    j.customerReview = document.getElementById('reviewText').value.trim();
+    saveJobs(jobs);
+    selectedStars = 0;
+    renderDetail(getCurrentCustomerEmail());
+  }
+
+  function variationListHtml(j, role) {
+    const variations = j.variations || [];
+    const statusColor = { pending: '#8A6D2E', approved: 'var(--good)', declined: 'var(--warn)' };
+    const statusBg = { pending: '#FFF6E5', approved: '#EAF5EE', declined: '#FDEDEA' };
+    if (variations.length === 0) return '<div style="font-size:12px;color:var(--stone-light);">No variations yet.</div>';
+    return variations.map(v => `
+      <div style="border-top:1px solid var(--paper);padding:10px 0;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;">${escapeHtml(v.description)}</div>
+            ${v.reason ? `<div style="font-size:11.5px;color:var(--stone);margin-top:2px;">${escapeHtml(v.reason)}</div>` : ''}
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-weight:700;font-size:14px;">+$${v.amount.toLocaleString()}</div>
+            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;color:${statusColor[v.status]};background:${statusBg[v.status]};">${v.status}</span>
+          </div>
+        </div>
+        ${role === 'customer' && v.status === 'pending' ? `
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="btn btn-outline" style="flex:1;padding:8px;font-size:12px;" onclick="declineVariation('${v.id}')">Decline</button>
+            <button class="btn btn-black" style="flex:1;padding:8px;font-size:12px;" onclick="approveVariation('${v.id}')">Approve +$${v.amount.toLocaleString()}</button>
+          </div>
+        ` : ''}
+      </div>
+    `).join('');
+  }
+
+  function approveVariation(variationId) {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === selectedJobId);
+    const v = j.variations.find(x => x.id === variationId);
+    v.status = 'approved';
+    v.respondedAt = new Date().toISOString();
+    j.basePrice = (j.basePrice || 0) + v.amount;
+    j.priceLow = Math.round(j.basePrice * 0.96 / 5) * 5;
+    j.priceHigh = Math.round(j.basePrice * 1.05 / 5) * 5;
+    j.messages = j.messages || [];
+    j.messages.push({ id: 'm_' + Date.now(), from: 'customer', authorName: 'You', text: `✓ Approved the variation "${v.description}" (+$${v.amount.toLocaleString()}).`, createdAt: new Date().toISOString() });
+    saveJobs(jobs);
+    renderDetail(getCurrentCustomerEmail());
+  }
+
+  function declineVariation(variationId) {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === selectedJobId);
+    const v = j.variations.find(x => x.id === variationId);
+    v.status = 'declined';
+    v.respondedAt = new Date().toISOString();
+    j.messages = j.messages || [];
+    j.messages.push({ id: 'm_' + Date.now(), from: 'customer', authorName: 'You', text: `✕ Declined the variation "${v.description}".`, createdAt: new Date().toISOString() });
+    saveJobs(jobs);
+    renderDetail(getCurrentCustomerEmail());
+  }
+
+  function openDisputeForm() {
+    document.getElementById('disputeFormWrap').innerHTML = `
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--paper);">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px;">What's the problem?</div>
+        <select id="disputeReason" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
+          <option>Contractor hasn't shown up</option>
+          <option>Work quality issue</option>
+          <option>Price or payment issue</option>
+          <option>Other</option>
+        </select>
+        <textarea id="disputeDetails" placeholder="Tell us what happened" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;min-height:70px;font-family:inherit;"></textarea>
+        <button class="btn btn-black btn-full" onclick="submitDispute('${selectedJobId}')">Submit report</button>
+      </div>`;
+  }
+  function submitDispute(jobId) {
+    const reason = document.getElementById('disputeReason').value;
+    const details = document.getElementById('disputeDetails').value.trim();
+    const disputes = JSON.parse(localStorage.getItem('mysubbies_disputes') || '[]');
+    disputes.unshift({ id: 'dispute_' + Date.now(), jobId, reason, details, status: 'open', reportedAt: new Date().toISOString(), reportedBy: 'customer' });
+    localStorage.setItem('mysubbies_disputes', JSON.stringify(disputes));
+    document.getElementById('disputeFormWrap').innerHTML = `<div class="note" style="margin-top:12px;">✓ Reported — our team will review this and be in touch.</div>`;
+  }
+
+  function renderMessages(j) {
+    const list = document.getElementById('msgList');
+    const msgs = j.messages || [];
+    if (msgs.length === 0) { list.innerHTML = '<div style="font-size:12px;color:var(--stone-light);">No messages yet.</div>'; return; }
+    list.innerHTML = msgs.map(m => `
+      <div class="msgbubble ${m.from === 'customer' ? 'mine' : 'theirs'}">
+        <div class="msgmeta">${m.from === 'customer' ? 'You' : escapeHtml(m.authorName || 'Contractor')}</div>
+        ${escapeHtml(m.text)}
+      </div>
+    `).join('');
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function sendMsg() {
+    const input = document.getElementById('msgInput');
+    const text = input.value.trim();
+    if (!text) return;
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === selectedJobId);
+    j.messages = j.messages || [];
+    j.messages.push({ id: 'm_' + Date.now(), from: 'customer', authorName: 'You', text, createdAt: new Date().toISOString() });
+    saveJobs(jobs);
+    input.value = '';
+    renderDetail(getCurrentCustomerEmail());
+  }
+
+  function renderLogin() {
+    app.innerHTML = `
+      <div class="loginbox">
+        <h1>Log in to My Jobs</h1>
+        <p>Use the email and password you registered with when you booked a job.</p>
+        <input type="email" id="loginEmail" placeholder="Email" />
+        <input type="password" id="loginPassword" placeholder="Password" />
+        <div id="loginError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
+        <button class="btn btn-black btn-full" onclick="doLogin()">Log in →</button>
+        <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:14px;">
+          <a onclick="renderForgotPassword()" style="text-decoration:underline;cursor:pointer;">Forgot password?</a>
+        </div>
+      </div>`;
+  }
+  function renderForgotPassword() {
+    app.innerHTML = `
+      <div class="loginbox">
+        <h1>Reset password</h1>
+        <p>Enter your account email. Our team will verify it's you and help you back in — we don't reset passwords automatically.</p>
+        <input type="email" id="resetEmail" placeholder="Email" />
+        <div id="resetError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
+        <button class="btn btn-black btn-full" onclick="requestPasswordReset()">Request reset →</button>
+        <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:14px;">
+          <a onclick="renderLogin()" style="text-decoration:underline;cursor:pointer;">Back to log in</a>
+        </div>
+      </div>`;
+  }
+  function requestPasswordReset() {
+    const email = document.getElementById('resetEmail').value.trim().toLowerCase();
+    if (!email) { document.getElementById('resetError').textContent = 'Enter your email.'; return; }
+    const requests = JSON.parse(localStorage.getItem('mysubbies_password_reset_requests') || '[]');
+    requests.unshift({ id: 'reset_' + Date.now(), role: 'customer', email, status: 'pending', requestedAt: new Date().toISOString() });
+    localStorage.setItem('mysubbies_password_reset_requests', JSON.stringify(requests));
+    app.innerHTML = `
+      <div class="loginbox">
+        <h1>Request received</h1>
+        <p>If that email matches an account, our team will contact you directly to verify your identity and reset your password. This won't happen automatically.</p>
+        <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:14px;">
+          <a onclick="renderLogin()" style="text-decoration:underline;cursor:pointer;">Back to log in</a>
+        </div>
+      </div>`;
+  }
+  function doLogin() {
+    const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+    const password = document.getElementById('loginPassword').value;
+    const customers = getCustomers();
+    const account = customers[email];
+    if (!account || account.password !== password) {
+      document.getElementById('loginError').textContent = 'No account found with those details.';
+      return;
+    }
+    localStorage.setItem('mysubbies_customer_email', email);
+    render();
+  }
+  function logout() {
+    localStorage.removeItem('mysubbies_customer_email');
+    selectedJobId = null;
+    render();
+  }
+
+  // ---- Real browser notifications (while this tab is open) + cross-tab live updates ----
+  function notifyBannerHtml() {
+    if (!('Notification' in window)) return '';
+    if (Notification.permission === 'granted') return '';
+    if (Notification.permission === 'denied') return '';
+    return `<div class="notify-banner"><span>Get a desktop alert when your contractor replies (while this tab is open)</span><button id="notifyBtn">Turn on</button></div>`;
+  }
+  function wireNotifyButton() {
+    const btn = document.getElementById('notifyBtn');
+    if (btn) btn.onclick = () => Notification.requestPermission().then(() => render());
+  }
+  function notify(text) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('Mysubbies', { body: text });
+    }
+  }
+  let lastMsgCount = {};
+  function checkForNewMessages() {
+    const email = getCurrentCustomerEmail();
+    if (!email) return;
+    getJobs().filter(j => j.customerEmail === email).forEach(j => {
+      const count = (j.messages || []).length;
+      const last = j.messages && j.messages[j.messages.length - 1];
+      if (lastMsgCount[j.id] !== undefined && count > lastMsgCount[j.id] && last && last.from !== 'customer') {
+        notify(`${j.contractor || 'Your contractor'}: ${last.text}`);
+      }
+      lastMsgCount[j.id] = count;
+    });
+  }
+  window.addEventListener('storage', (e) => { if (e.key === 'mysubbies_jobs') { checkForNewMessages(); render(); } });
+  setInterval(checkForNewMessages, 3000);
+
+  render();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>

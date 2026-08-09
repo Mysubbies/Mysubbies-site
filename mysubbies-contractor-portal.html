@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mysubbies — Contractor Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #171717; --black: #000000; --white: #FFFFFF; --paper: #F7F7F5;
+    --stone: #6B6B68; --stone-light: #9C9C97; --line: #E4E4E1; --good: #2F7A50; --warn: #B0592E;
+  }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  body { font-family:'Plus Jakarta Sans', system-ui, sans-serif; background: var(--paper); color: var(--ink); line-height:1.5; -webkit-font-smoothing:antialiased; }
+  h1, h2 { font-weight:800; letter-spacing:-0.02em; }
+  a { color:inherit; text-decoration:none; }
+  header { background: var(--black); }
+  .navwrap { max-width:1180px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:64px; }
+  .logo { display:flex; align-items:center; gap:9px; }
+  .logo-mark { width:28px; height:28px; border-radius:7px; background:#fff; }
+  .logo-word { font-weight:800; font-size:19px; color:#fff; }
+  .navlinks { display:flex; align-items:center; gap:22px; font-size:13px; }
+  .navlinks a { color:rgba(255,255,255,0.65); }
+  .navlinks a.current { color:#fff; font-weight:600; }
+  .wrap { max-width:640px; margin:0 auto; padding:32px 24px 80px; }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 20px; border-radius:999px; font-size:14px; font-weight:600; cursor:pointer; border:none; }
+  .btn-black { background:var(--black); color:#fff; }
+  .btn-outline { background:#fff; color:var(--ink); border:1.5px solid var(--line); }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+  .btn-full { width:100%; }
+  input[type=text], input[type=email], input[type=password] { width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:15px; border:1.5px solid var(--line); border-radius:10px; padding:13px 14px; outline:none; }
+  .loginbox { background:#fff; border:1px solid var(--line); border-radius:16px; padding:28px; text-align:center; margin-top:60px; }
+  .loginbox h1 { font-size:22px; margin-bottom:8px; }
+  .loginbox p { color:var(--stone); font-size:14px; margin-bottom:20px; }
+  .tabs { display:flex; gap:6px; background:#EFEDE9; padding:4px; border-radius:10px; margin-bottom:24px; }
+  .tabs button { flex:1; padding:9px; border-radius:7px; font-size:13px; font-weight:600; border:none; cursor:pointer; background:transparent; color:var(--stone); }
+  .tabs button.active { background:#fff; color:var(--ink); }
+  .whoami { font-size:12px; color:var(--stone-light); margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; }
+  .whoami a { text-decoration:underline; cursor:pointer; }
+  h1.pagetitle { font-size:24px; margin-bottom:2px; }
+  p.pagesub { color:var(--stone); font-size:13px; margin-bottom:20px; }
+  .jobcard { display:flex; gap:12px; padding:14px; border-radius:14px; border:1px solid var(--line); background:#fff; cursor:pointer; margin-bottom:10px; text-align:left; width:100%; }
+  .jobcard:hover { border-color: var(--black); }
+  .thumb { width:52px; height:52px; border-radius:10px; background:var(--paper); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:22px; overflow:hidden; }
+  .thumb img { width:100%; height:100%; object-fit:cover; }
+  .pill { font-size:10px; font-weight:700; color:var(--stone); background:var(--paper); padding:2px 7px; border-radius:4px; display:inline-block; }
+  .jobtitle { font-size:14px; font-weight:700; margin-top:4px; }
+  .jobmeta { font-size:12px; color:var(--stone); margin-top:3px; }
+  .jobprice { font-size:14px; font-weight:800; margin-top:4px; }
+  .empty { text-align:center; padding:60px 20px; color:var(--stone); font-size:14px; }
+  .backbtn { font-size:13px; color:var(--stone); background:none; border:none; cursor:pointer; margin-bottom:16px; display:flex; align-items:center; gap:4px; }
+  .detailcard { background:#fff; border:1px solid var(--line); border-radius:16px; padding:22px; }
+  .row { display:flex; justify-content:space-between; font-size:14px; padding:9px 0; border-top:1px solid var(--paper); }
+  .row:first-child { border-top:none; }
+  .row .l { color:var(--stone); }
+  .row .r { font-weight:700; }
+  .row.big .r { font-size:20px; color:var(--good); }
+  .stagebar { display:flex; gap:4px; margin:12px 0; }
+  .stage { flex:1; height:6px; border-radius:3px; background:var(--line); }
+  .stage.done { background:var(--good); }
+  .note { font-size:12px; color:var(--stone-light); line-height:1.5; margin-top:10px; }
+  img.jobphoto { width:100%; border-radius:12px; margin-bottom:16px; max-height:220px; object-fit:cover; }
+  .msgbox { border:1px solid var(--line); border-radius:14px; padding:16px; margin-top:16px; background:#fff; }
+  .msgbox h3 { font-size:14px; margin-bottom:12px; }
+  .msglist { max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+  .msgbubble { max-width:80%; padding:9px 12px; border-radius:12px; font-size:13px; }
+  .msgbubble.mine { align-self:flex-end; background:var(--black); color:#fff; }
+  .msgbubble.theirs { align-self:flex-start; background:var(--paper); color:var(--ink); }
+  .msgmeta { font-size:10px; color:var(--stone-light); margin-bottom:2px; }
+  .msginput { display:flex; gap:8px; }
+  .msginput input { margin-bottom:0; flex:1; }
+</style>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mysubbies">
+</head>
+<body>
+
+<header>
+  <div class="navwrap">
+    <a class="logo" href="mysubbies-website.html">
+      <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="logo-word">Mysubbies</div>
+    </a>
+    <div class="navlinks">
+      <a href="mysubbies-website.html">Site</a>
+      <a href="mysubbies-customer-portal.html">My Jobs</a>
+      <a class="current" href="mysubbies-contractor-portal.html">Contractor Portal</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap" id="app"></div>
+
+<script>
+  function getJobs() { return JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]'); }
+  function saveJobs(jobs) { localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs)); }
+  function getContractorName() { return localStorage.getItem('mysubbies_contractor_name'); }
+  function escapeHtml(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  }
+
+  let tab = 'feed';
+  let selectedJobId = null;
+  const app = document.getElementById('app');
+
+  function render() {
+    const name = getContractorName();
+    if (!name) { renderLogin(); return; }
+
+    if (selectedJobId) { renderDetail(name); return; }
+
+    const jobs = getJobs();
+    const feedJobs = jobs.filter(j => j.status === 'feed');
+    const myJobs = jobs.filter(j => j.contractor === name);
+
+    app.innerHTML = `
+      <div class="whoami">Logged in as <strong>${name}</strong> <a onclick="logout()">Log out</a></div>
+      ${(() => {
+        const myApp = getApplications().find(a => a.business === name);
+        if (!myApp || !myApp.referralCode) return '';
+        const referredCount = getApplications().filter(a => a.referredBy === myApp.referralCode).length;
+        return `<div class="box" style="margin-bottom:16px;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px;">Refer another contractor</div>
+          <div style="font-size:12px;color:var(--stone);margin-bottom:8px;">${referredCount} contractor${referredCount===1?'':'s'} referred so far.</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <code style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;flex:1;">${myApp.referralCode}</code>
+          </div>
+        </div>`;
+      })()}
+      <div class="tabs">
+        <button class="${tab==='feed'?'active':''}" onclick="tab='feed'; render();">Job Feed ${feedJobs.length ? '('+feedJobs.length+')' : ''}</button>
+        <button class="${tab==='myjobs'?'active':''}" onclick="tab='myjobs'; render();">My Jobs ${myJobs.length ? '('+myJobs.length+')' : ''}</button>
+        <button class="${tab==='earnings'?'active':''}" onclick="tab='earnings'; render();">Earnings</button>
+      </div>
+    `;
+
+    if (tab === 'earnings') {
+      const completed = myJobs.filter(j => j.status === 'completed');
+      const totalEarned = completed.reduce((s, j) => s + Math.round((j.basePrice || 0) * 0.75), 0);
+      const rated = completed.filter(j => j.customerRating);
+      const avgRating = rated.length ? (rated.reduce((s, j) => s + j.customerRating, 0) / rated.length).toFixed(1) : null;
+      app.innerHTML += `
+        <h1 class="pagetitle">Earnings</h1>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+          <div class="box"><div style="font-size:22px;font-weight:800;">$${totalEarned.toLocaleString()}</div><div class="jobmeta">Total earned</div></div>
+          <div class="box"><div style="font-size:22px;font-weight:800;">${completed.length}</div><div class="jobmeta">Jobs completed</div></div>
+        </div>
+        ${avgRating ? `<div class="box" style="margin-bottom:20px;"><div style="font-size:18px;font-weight:800;">${'★'.repeat(Math.round(avgRating))}${'☆'.repeat(5-Math.round(avgRating))} ${avgRating}</div><div class="jobmeta">Average rating (${rated.length} review${rated.length===1?'':'s'})</div></div>` : `<p class="note">No ratings yet — they'll show here once customers rate completed jobs.</p>`}
+        ${completed.length === 0 ? '<div class="empty">No completed jobs yet.</div>' : completed.map(j => `
+          <div class="jobcard" style="cursor:default;">
+            <div class="jobtitle">${j.category} — ${j.suburb}</div>
+            <div class="jobmeta" style="justify-content:space-between;"><span>$${Math.round((j.basePrice||0)*0.75).toLocaleString()}</span>${j.customerRating ? `<span>${'★'.repeat(j.customerRating)}${'☆'.repeat(5-j.customerRating)}</span>` : '<span style="color:var(--stone-light);">Not yet rated</span>'}</div>
+          </div>
+        `).join('')}
+      `;
+      return;
+    }
+
+    if (tab === 'feed') {
+      app.innerHTML += `<h1 class="pagetitle">New jobs near you</h1><p class="pagesub">No lead fees. No bidding against other contractors for the same job.</p>`;
+      if (feedJobs.length === 0) {
+        app.innerHTML += `<div class="empty">No open jobs right now.<br>Go submit one from the site to see it appear here.</div>`;
+      } else {
+        feedJobs.forEach(j => app.innerHTML += jobCardHtml(j));
+      }
+    } else {
+      app.innerHTML += `<h1 class="pagetitle">My jobs</h1><p class="pagesub">${myJobs.length} active</p>`;
+      if (myJobs.length === 0) {
+        app.innerHTML += `<div class="empty">No accepted jobs yet.</div>`;
+      } else {
+        myJobs.forEach(j => app.innerHTML += myJobCardHtml(j));
+      }
+    }
+  }
+
+  function jobCardHtml(j) {
+    const payout = Math.round(j.basePrice * 0.75);
+    const titleDetail = j.items && j.items.length === 1 ? j.items[0].taskName
+      : j.items && j.items.length > 1 ? j.items.length + ' items'
+      : `${j.qty} ${j.unit}`;
+    return `
+      <button class="jobcard" onclick="selectedJobId='${j.id}'; render();">
+        <div class="thumb">${j.photoDataUrl ? `<img src="${j.photoDataUrl}">` : j.icon}</div>
+        <div style="flex:1;min-width:0;">
+          <span class="pill">${escapeHtml(j.category)}</span>
+          <div class="jobtitle">${escapeHtml(titleDetail)}</div>
+          <div class="jobmeta">📍 ${escapeHtml(j.suburb)}</div>
+          <div class="jobprice">$${payout.toLocaleString()} payout</div>
+        </div>
+      </button>`;
+  }
+
+  function myJobCardHtml(j) {
+    const schedule = j.paymentSchedule || [
+      { key: 'deposit', pct: 5 }, { key: 'materials', pct: 35 }, { key: 'frame', pct: 50 }, { key: 'completion', pct: 10 },
+    ];
+    const paidStages = j.paidStages || { deposit: true, materials: j.materialsPaid, frame: j.frameComplete, completion: j.completionPaid };
+    const titleDetail = j.items && j.items.length === 1 ? j.items[0].taskName : j.category;
+    return `
+      <button class="jobcard" onclick="selectedJobId='${j.id}'; render();" style="display:block;">
+        <div style="display:flex;justify-content:space-between;">
+          <div class="jobtitle">${escapeHtml(titleDetail)} — ${escapeHtml(j.suburb)}</div>
+          <div class="jobprice">$${Math.round(j.basePrice*0.75).toLocaleString()}</div>
+        </div>
+        <div class="stagebar">
+          ${schedule.map(s => `<div class="stage ${paidStages[s.key] ? 'done' : ''}" style="flex:${s.pct};"></div>`).join('')}
+        </div>
+        <div class="jobmeta">${j.status === 'feed' ? 'Awaiting acceptance' : j.status === 'assigned' ? 'Assigned' : j.status}</div>
+      </button>`;
+  }
+
+  function renderDetail(name) {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === selectedJobId);
+    if (!j) { selectedJobId = null; render(); return; }
+    const isMine = j.contractor === name;
+    const payout = Math.round(j.basePrice * 0.75);
+
+    // Fall back to the old fixed schedule for any job created before this system existed.
+    const schedule = j.paymentSchedule || [
+      { key: 'deposit', label: 'Deposit', pct: 5 }, { key: 'materials', label: 'Materials ordered', pct: 35 },
+      { key: 'frame', label: 'Frame stage complete', pct: 50 }, { key: 'completion', label: 'On completion', pct: 10 },
+    ];
+    const paidStages = j.paidStages || { deposit: true, materials: j.materialsPaid, frame: j.frameComplete, completion: j.completionPaid };
+    const nextStage = schedule.find(s => !paidStages[s.key]);
+
+    let actions = '';
+    if (!isMine) {
+      actions = `
+        <div style="display:flex;gap:8px;margin-top:16px;">
+          <button class="btn btn-outline" style="flex:1;" onclick="declineJob('${j.id}')">✕ Decline</button>
+          <button class="btn btn-black" style="flex:2;" onclick="acceptJob('${j.id}')">Accept job →</button>
+        </div>`;
+    } else if (nextStage) {
+      const amount = Math.round(j.basePrice * (nextStage.pct / 100));
+      actions = `<button class="btn btn-black btn-full" style="margin-top:16px;" onclick="advancePaymentStage('${j.id}','${nextStage.key}')">Confirm: ${nextStage.label} — $${amount.toLocaleString()} (${nextStage.pct}%)</button>`;
+    } else {
+      actions = `<div class="note">✓ Job complete — fully paid.</div>`;
+    }
+
+    const doneCount = schedule.filter(s => paidStages[s.key]).length;
+
+    app.innerHTML = `
+      <button class="backbtn" onclick="selectedJobId=null; render();">← Back</button>
+      ${notifyBannerHtml()}
+      <div class="detailcard">
+        ${j.photoDataUrls && j.photoDataUrls.length > 1 ? `
+          <div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:16px;">
+            ${j.photoDataUrls.map(src => `<img src="${src}" style="width:90px;height:90px;border-radius:10px;object-fit:cover;flex-shrink:0;" />`).join('')}
+          </div>
+        ` : j.photoDataUrl ? `<img class="jobphoto" src="${j.photoDataUrl}">` : ''}
+        <span class="pill">${escapeHtml(j.category)}</span>
+        <h1 class="pagetitle" style="margin-top:8px;">${escapeHtml(j.category)}${j.items && j.items.length > 1 ? '' : ` — ${j.qty} ${escapeHtml(j.unit)}`}</h1>
+        <div class="jobmeta" style="margin-bottom:16px;">📍 ${escapeHtml(isMine ? (j.address || j.suburb) : j.suburb)} ${isMine ? '· ' + escapeHtml(j.customerName) : ''}</div>
+        ${j.items && j.items.length ? `
+          <div style="border-top:1px solid var(--paper);border-bottom:1px solid var(--paper);padding:10px 0;margin-bottom:8px;">
+            ${j.items.map(i => `
+              <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;">
+                <span>${i.catIcon || ''} ${escapeHtml(i.taskName)} <span style="color:var(--stone);">(${i.qty} ${escapeHtml(i.unit)})</span></span>
+                <span style="font-weight:600;">$${Math.round(i.base * 0.75).toLocaleString()}</span>
+              </div>
+              ${i.notes ? `<div style="font-size:11.5px;color:var(--stone);margin-bottom:4px;">${escapeHtml(i.notes)}</div>` : ''}
+            `).join('')}
+          </div>
+        ` : ''}
+        <div class="row big"><span class="l">${isMine ? 'Your payout' : 'Confirmed payout'}</span><span class="r">$${payout.toLocaleString()}</span></div>
+        ${isMine ? `<div class="stagebar">${schedule.map(s => `<div class="stage ${paidStages[s.key] ? 'done' : ''}" style="flex:${s.pct};"></div>`).join('')}</div>` : ''}
+        ${isMine ? `
+          <div style="margin:10px 0;">
+            ${schedule.map(s => `
+              <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:${paidStages[s.key] ? 'var(--good)' : 'var(--stone)'};">
+                <span>${paidStages[s.key] ? '✓' : '○'} ${s.label} (${s.pct}%)</span>
+                <span>$${Math.round(j.basePrice * (s.pct / 100)).toLocaleString()}</span>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+        ${j.site ? `<div class="row"><span class="l">On site</span><span class="r">${escapeHtml(j.site)}</span></div>` : ''}
+        ${j.access ? `<div class="row"><span class="l">Access</span><span class="r">${escapeHtml(j.access)}</span></div>` : ''}
+        ${j.urgency ? `<div class="row"><span class="l">Urgency</span><span class="r">${escapeHtml(j.urgency)}</span></div>` : ''}
+        ${!isMine ? '<div class="note">Full address is shared once you accept. Message the customer in-app — their phone number is not shared with contractors. No fee or commission is shown or deducted from what you see here.</div>' : ''}
+        ${isMine ? '<div class="note">Keep all communication with the customer in the message thread below — their phone number isn\'t shared with contractors.</div>' : ''}
+        ${actions}
+      </div>
+      ${isMine ? `
+        <div class="detailcard" style="margin-top:14px;">
+          <h3 style="font-size:15px;margin-bottom:10px;">Variations</h3>
+          <div id="variationList">${variationListHtml(j, 'contractor')}</div>
+          <div id="variationFormWrap"></div>
+          <button class="btn btn-outline btn-full" style="margin-top:10px;" onclick="openVariationForm()">+ Request a variation</button>
+        </div>
+      ` : ''}
+      ${isMine ? `
+        <div class="msgbox">
+          <h3>💬 Messages with customer</h3>
+          <div class="msglist" id="msgListCustomer"></div>
+          <div class="msginput">
+            <input type="text" id="msgInputCustomer" placeholder="Type a message…" onkeydown="if(event.key==='Enter') sendMsg('messages')" />
+            <button class="btn btn-black" onclick="sendMsg('messages')">Send</button>
+          </div>
+        </div>
+        <div class="msgbox">
+          <h3>🔒 Messages with Mysubbies (private — customer never sees this)</h3>
+          <div class="msglist" id="msgListAdmin"></div>
+          <div class="msginput">
+            <input type="text" id="msgInputAdmin" placeholder="e.g. requesting a document, asking about payment…" onkeydown="if(event.key==='Enter') sendMsg('internalMessages')" />
+            <button class="btn btn-black" onclick="sendMsg('internalMessages')">Send</button>
+          </div>
+        </div>
+      ` : ''}
+    `;
+    if (isMine) {
+      renderThread(j, 'messages', 'msgListCustomer', 'contractor');
+      renderThread(j, 'internalMessages', 'msgListAdmin', 'contractor');
+      wireNotifyButton();
+    }
+  }
+
+  function variationListHtml(j, role) {
+    const variations = j.variations || [];
+    const statusColor = { pending: '#8A6D2E', approved: 'var(--good)', declined: 'var(--warn)' };
+    const statusBg = { pending: '#FFF6E5', approved: '#EAF5EE', declined: '#FDEDEA' };
+    if (variations.length === 0) return '<div style="font-size:12px;color:var(--stone-light);">No variations yet.</div>';
+    return variations.map(v => `
+      <div style="border-top:1px solid var(--paper);padding:10px 0;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;">${escapeHtml(v.description)}</div>
+            ${v.reason ? `<div style="font-size:11.5px;color:var(--stone);margin-top:2px;">${escapeHtml(v.reason)}</div>` : ''}
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-weight:700;font-size:14px;">+$${v.amount.toLocaleString()}</div>
+            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;color:${statusColor[v.status]};background:${statusBg[v.status]};">${v.status}</span>
+          </div>
+        </div>
+        ${role === 'customer' && v.status === 'pending' ? `
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="btn btn-outline" style="flex:1;padding:8px;font-size:12px;" onclick="declineVariation('${v.id}')">Decline</button>
+            <button class="btn btn-black" style="flex:1;padding:8px;font-size:12px;" onclick="approveVariation('${v.id}')">Approve +$${v.amount.toLocaleString()}</button>
+          </div>
+        ` : ''}
+      </div>
+    `).join('');
+  }
+
+  function openVariationForm() {
+    document.getElementById('variationFormWrap').innerHTML = `
+      <div style="border-top:1px solid var(--paper);padding-top:12px;margin-top:10px;">
+        <input type="text" id="varDescription" placeholder="What's the extra work? e.g. Extra 3m of fencing" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:8px;">
+        <input type="number" id="varAmount" placeholder="Additional cost ($)" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:8px;">
+        <input type="text" id="varReason" placeholder="Reason (optional)" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
+        <button class="btn btn-black btn-full" onclick="submitVariation('${selectedJobId}')">Send to customer for approval →</button>
+      </div>`;
+  }
+
+  function submitVariation(jobId) {
+    const description = document.getElementById('varDescription').value.trim();
+    const amount = Number(document.getElementById('varAmount').value);
+    const reason = document.getElementById('varReason').value.trim();
+    if (!description || !amount) return;
+
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === jobId);
+    j.variations = j.variations || [];
+    const variation = { id: 'var_' + Date.now(), description, amount, reason, status: 'pending', requestedAt: new Date().toISOString() };
+    j.variations.push(variation);
+    j.messages = j.messages || [];
+    j.messages.push({ id: 'm_' + Date.now(), from: 'contractor', authorName: getContractorName(), text: `📋 Requested a variation: "${description}" for +$${amount.toLocaleString()} — please review and approve in My Jobs.`, createdAt: new Date().toISOString() });
+    saveJobs(jobs);
+    renderDetail(getContractorName());
+  }
+
+  function renderThread(j, key, listId, myRole) {
+    const list = document.getElementById(listId);
+    const msgs = j[key] || [];
+    if (msgs.length === 0) { list.innerHTML = '<div style="font-size:12px;color:var(--stone-light);">No messages yet.</div>'; return; }
+    list.innerHTML = msgs.map(m => `
+      <div class="msgbubble ${m.from === myRole ? 'mine' : 'theirs'}">
+        <div class="msgmeta">${m.from === myRole ? 'You' : escapeHtml(m.authorName || m.from)}</div>
+        ${escapeHtml(m.text)}
+      </div>
+    `).join('');
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function sendMsg(key) {
+    const inputId = key === 'messages' ? 'msgInputCustomer' : 'msgInputAdmin';
+    const input = document.getElementById(inputId);
+    const text = input.value.trim();
+    if (!text) return;
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === selectedJobId);
+    j[key] = j[key] || [];
+    j[key].push({ id: 'm_' + Date.now(), from: 'contractor', authorName: getContractorName(), text, createdAt: new Date().toISOString() });
+    saveJobs(jobs);
+    input.value = '';
+    renderDetail(getContractorName());
+  }
+
+  // ---- Real browser notifications (while this tab is open) + cross-tab live updates ----
+  function notifyBannerHtml() {
+    if (!('Notification' in window) || Notification.permission !== 'default') return '';
+    return `<div class="note" style="background:var(--paper);padding:10px 12px;border-radius:8px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;"><span>Get a desktop alert on new messages (while this tab is open)</span><button id="notifyBtn" style="background:none;border:none;text-decoration:underline;font-size:12px;cursor:pointer;">Turn on</button></div>`;
+  }
+  function wireNotifyButton() {
+    const btn = document.getElementById('notifyBtn');
+    if (btn) btn.onclick = () => Notification.requestPermission().then(() => renderDetail(getContractorName()));
+  }
+  function notify(text) {
+    if ('Notification' in window && Notification.permission === 'granted') new Notification('Mysubbies', { body: text });
+  }
+  let lastMsgCounts = {};
+  function checkForNewMessages() {
+    const contractorName = getContractorName();
+    if (!contractorName) return;
+    getJobs().filter(j => j.contractor === contractorName).forEach(j => {
+      ['messages', 'internalMessages'].forEach(key => {
+        const arr = j[key] || [];
+        const cacheKey = j.id + '_' + key;
+        const last = arr[arr.length - 1];
+        if (lastMsgCounts[cacheKey] !== undefined && arr.length > lastMsgCounts[cacheKey] && last && last.from !== 'contractor') {
+          notify(`${last.authorName || last.from}: ${last.text}`);
+        }
+        lastMsgCounts[cacheKey] = arr.length;
+      });
+    });
+  }
+  window.addEventListener('storage', (e) => { if (e.key === 'mysubbies_jobs') { checkForNewMessages(); render(); } });
+  setInterval(checkForNewMessages, 3000);
+
+  function acceptJob(id) {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === id);
+    j.status = 'assigned';
+    j.contractor = getContractorName();
+    saveJobs(jobs);
+    render();
+  }
+  function declineJob(id) { selectedJobId = null; render(); }
+  function advancePaymentStage(id, stageKey) {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === id);
+    const schedule = j.paymentSchedule || [
+      { key: 'deposit', pct: 5 }, { key: 'materials', pct: 35 }, { key: 'frame', pct: 50 }, { key: 'completion', pct: 10 },
+    ];
+    j.paidStages = j.paidStages || { deposit: true };
+    j.paidStages[stageKey] = true;
+    const allPaid = schedule.every(s => j.paidStages[s.key]);
+    if (allPaid) { j.status = 'completed'; }
+    saveJobs(jobs);
+    render();
+  }
+
+  function getApplications() { return JSON.parse(localStorage.getItem('mysubbies_contractor_applications') || '[]'); }
+  function saveApplications(apps) { localStorage.setItem('mysubbies_contractor_applications', JSON.stringify(apps)); }
+
+  function renderLogin() {
+    app.innerHTML = `
+      <div class="loginbox">
+        <h1>Contractor Portal</h1>
+        <p>Separate from customer logins.</p>
+        <input type="email" id="loginEmail" placeholder="Email" style="margin-bottom:10px;" />
+        <input type="password" id="loginPassword" placeholder="Password" style="margin-bottom:14px;" />
+        <div id="loginError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
+        <button class="btn btn-black btn-full" onclick="doLogin()">Log in →</button>
+        <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:14px;">
+          <a onclick="renderForgotPassword()" style="text-decoration:underline;cursor:pointer;">Forgot password?</a>
+        </div>
+        <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:8px;">
+          Not registered yet? <a href="mysubbies-contractor-signup.html" style="font-weight:600;color:var(--ink);text-decoration:underline;">Apply to join</a>
+        </div>
+      </div>`;
+  }
+  function renderForgotPassword() {
+    app.innerHTML = `
+      <div class="loginbox">
+        <h1>Reset password</h1>
+        <p>Enter your application email. Our team will verify it's you and help you back in — we don't reset passwords automatically.</p>
+        <input type="email" id="resetEmail" placeholder="Email" style="margin-bottom:10px;" />
+        <div id="resetError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
+        <button class="btn btn-black btn-full" onclick="requestPasswordReset()">Request reset →</button>
+        <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:14px;">
+          <a onclick="renderLogin()" style="text-decoration:underline;cursor:pointer;">Back to log in</a>
+        </div>
+      </div>`;
+  }
+  function requestPasswordReset() {
+    const email = document.getElementById('resetEmail').value.trim().toLowerCase();
+    if (!email) { document.getElementById('resetError').textContent = 'Enter your email.'; return; }
+    const requests = JSON.parse(localStorage.getItem('mysubbies_password_reset_requests') || '[]');
+    requests.unshift({ id: 'reset_' + Date.now(), role: 'contractor', email, status: 'pending', requestedAt: new Date().toISOString() });
+    localStorage.setItem('mysubbies_password_reset_requests', JSON.stringify(requests));
+    app.innerHTML = `
+      <div class="loginbox">
+        <h1>Request received</h1>
+        <p>If that email matches an application on file, our team will contact you directly to verify your identity and reset your password. This won't happen automatically.</p>
+        <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:14px;">
+          <a onclick="renderLogin()" style="text-decoration:underline;cursor:pointer;">Back to log in</a>
+        </div>
+      </div>`;
+  }
+  function doLogin() {
+    const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+    const password = document.getElementById('loginPassword').value;
+    const errBox = document.getElementById('loginError');
+    if (!email || !password) { errBox.textContent = 'Enter your email and password.'; return; }
+
+    const apps = getApplications();
+    const application = apps.find(a => a.email === email);
+    if (!application || application.password !== password) {
+      errBox.textContent = 'No account found with those details.';
+      return;
+    }
+    if (application.status === 'pending') {
+      errBox.textContent = '';
+      app.innerHTML = `
+        <div class="loginbox">
+          <h1>Application under review</h1>
+          <p>Thanks for applying, ${application.contact} — we're still reviewing your application for <strong>${application.business}</strong>. You'll be able to log in once it's approved.</p>
+          <button class="btn btn-outline btn-full" onclick="renderLogin()">Back</button>
+        </div>`;
+      return;
+    }
+    if (application.status === 'rejected') {
+      errBox.textContent = '';
+      app.innerHTML = `
+        <div class="loginbox">
+          <h1>Application not approved</h1>
+          <p>Your application for <strong>${application.business}</strong> wasn't approved at this time. Contact us if you'd like to discuss.</p>
+          <button class="btn btn-outline btn-full" onclick="renderLogin()">Back</button>
+        </div>`;
+      return;
+    }
+    localStorage.setItem('mysubbies_contractor_name', application.business);
+    localStorage.setItem('mysubbies_contractor_email', email);
+    render();
+  }
+  function logout() {
+    localStorage.removeItem('mysubbies_contractor_name');
+    localStorage.removeItem('mysubbies_contractor_email');
+    selectedJobId = null;
+    render();
+  }
+
+  render();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>

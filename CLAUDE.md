@@ -1,0 +1,233 @@
+# Mysubbies Group — Project Context
+
+## What this is
+A Melbourne renovation/construction marketplace. Uber-style model: customer picks
+a service, gets an instant price, approves it, job is dispatched to one matched
+contractor from a vetted panel — not open bidding. 25% platform commission.
+Solo founder, no dev team, built entirely through Claude conversations to date.
+
+## CRITICAL — read this before touching anything
+
+**There is no backend.** This is 14 static HTML files (13 distinct pages plus
+`index.html`, a duplicate of the homepage — see below), each fully self-contained
+(inline CSS/JS, no build step, no framework, no bundler). All "shared" data —
+jobs, messages, the rate card, customer/contractor accounts, disputes, ratings,
+referrals — lives in the browser's `localStorage`, keyed by strings like
+`mysubbies_jobs`, `mysubbies_ratecard`, `mysubbies_customers`,
+`mysubbies_contractor_applications`, `mysubbies_disputes`,
+`mysubbies_password_reset_requests`.
+
+This means: everything works beautifully for one person testing solo in one
+browser (including cross-tab sync via the native `storage` event — genuinely
+real, not faked). It does **not** yet work for different real people on
+different devices — a customer's phone and a contractor's laptop won't see
+each other's data. Getting there needs a real database and backend, not just
+hosting these files somewhere. Don't let a request to "make it live" imply
+that gap is solved unless it's been explicitly addressed.
+
+**Nothing here processes real payments.** Payment "stages" are boolean flags a
+contractor manually ticks in their portal — no Stripe, no money movement, no
+transaction ledger. Be upfront about this if asked to touch payment logic.
+
+**The admin portal has a password gate, not real security.** It's a
+client-side JS check (`Mysubbies2026!`, hardcoded, visible in page source) —
+a deterrent for keeping the page out of casual view during testing, not
+something to describe as secure. It is also no longer linked from the
+contractor portal nav (was previously a public "Admin" link in the header —
+removed). On the live Vercel deployment as of Aug 2026, `mysubbies-admin-portal.html`
+404s while every other page resolves — the deploy appears incomplete/stale,
+not a deliberate security measure. Worth checking before assuming it's live.
+
+**`index.html` is a byte-for-byte duplicate of `mysubbies-website.html`.**
+It exists purely so static hosts that require `index.html` at the root still
+serve the homepage. There's no build step or rewrite config to keep them in
+sync — if you edit one, copy it over the other (`cp mysubbies-website.html
+index.html`) before finishing, or they silently drift apart. A `vercel.json`
+rewrite (`/` → `/mysubbies-website.html`) would remove this duplication but
+hasn't been added since it can't be verified without pushing to the live
+deploy — flag it if asked to touch routing.
+
+**Any place that renders another user's free text via `innerHTML` must
+escape it.** Messages (customer↔contractor↔admin), dispute details, variation
+descriptions/reasons, and contractor application fields (business name,
+contact, phone, ABN, licence, insurer, profile photo) are all stored as raw
+user input and interpolated into template-literal `innerHTML` blocks — this
+was a real stored-XSS surface (confirmed and fixed Aug 2026) since the admin
+portal renders all of it, meaning any customer or an unvetted contractor
+applicant could execute script in the founder's admin session. Each portal
+file (`customer-portal`, `contractor-portal`, `admin-portal`,
+`contractor-signup`) now defines its own local `escapeHtml()` helper (no
+shared JS file, per the self-contained-page convention) — wrap any
+interpolated user-supplied string in it before adding new render code.
+
+**Self-service password reset was removed in favor of a logged request.**
+The old flow let anyone who knew a customer's or contractor's email set a new
+password instantly with zero verification — a full account-takeover hole,
+and it also leaked account existence via a distinct error message. There's no
+email/SMS delivery in this static architecture, so a "send a real reset
+link" fix isn't possible — instead, "Forgot password?" now logs a request to
+`mysubbies_password_reset_requests` (role, email, timestamp) with an
+identical response regardless of whether the account exists, and the founder
+resolves it manually out-of-band. There's no admin UI to action these yet —
+just the raw log — that's a known gap, not an oversight.
+
+## Files and what they do
+- `mysubbies-website.html` — homepage + the instant-quote estimator (the core
+  product). Category picker → task picker → quantity → price → cart. Supports
+  cross-category bundling (splits into separate jobs per trade at booking).
+- `mysubbies-booking.html` — registration/login + job creation. Splits a
+  multi-trade cart into separate job records sharing a `bundleId`.
+- `mysubbies-customer-portal.html` — "My Jobs": tracking, messaging, ratings
+  (post-completion only, never fabricated), dispute reporting, referral code,
+  variation approve/decline.
+- `mysubbies-contractor-portal.html` — job feed, My Jobs, dual messaging
+  (customer-facing + private admin thread), payment stage actions, earnings,
+  variation requests, referral code.
+- `mysubbies-contractor-signup.html` — application with trade/suburb
+  selection, insurance/licence document upload, profile photo, referral code
+  field. Goes to `pending` status until admin approves.
+- `mysubbies-admin-portal.html` — password-gated. Tabs: All Jobs, Applications
+  (approve/reject with document review), Disputes, Rate Card (upload CSV,
+  bulk % update with CPI reference, Manage Existing with inline edit +
+  disable/enable, Research New with a guided-search-not-automatic workflow).
+- `mysubbies-faq.html`, `mysubbies-terms.html`, `mysubbies-privacy-policy.html`,
+  `mysubbies-contractor-agreement.html` — legal/trust pages. All four are
+  explicitly marked as drafts pending real solicitor review — don't remove
+  that banner without asking. `mysubbies-terms.html` is customer-facing only;
+  `mysubbies-contractor-agreement.html` (added Aug 2026) is what
+  contractor-signup actually links to — they'd previously been pointed at the
+  customer terms by mistake.
+- `mysubbies-blog.html` + 2 cost-guide posts (Decking, Fencing) — only 2 of 21
+  categories have guides; more were planned but not built.
+
+## Key architectural decisions worth knowing
+- **Contractors never see the customer's phone number** (added Aug 2026). All
+  contractor↔customer communication is meant to happen in the in-app message
+  thread only. `job.customerPhone` is intentionally omitted from every
+  contractor-portal render (job cards and job detail) — only admin-portal
+  shows it, for customer-service purposes. If you add a new contractor-facing
+  job view, don't wire `customerPhone` into it. Customer *name* is still
+  shown to contractors (only the phone number is restricted).
+- **Job `urgency` field** (added Aug 2026): free-text "How urgent is this
+  job?" captured in the estimator (`selectedUrgency` in website.html), carried
+  through `quote.urgency` → `job.urgency` in booking.html, same pattern as
+  `site`/`access`. Displayed to contractor and admin, not customer (customer
+  already knows what they typed).
+- **Rate card tasks already carry a customer-facing `notes` field** (material
+  details/specs, e.g. "AS/NZS 3000... WaterMark-certified...") — this isn't
+  new, it's been in `DEFAULT_CATEGORIES` since the start and was already
+  displayed to customers in the estimator/cart. What was missing until Aug
+  2026 was an admin UI to edit it — `rateCardManageHtml()` in
+  admin-portal.html now has a textarea per task wired to the existing generic
+  `editService(cat, idx, 'notes', value)`, no schema change needed.
+- **Large-job inspection policy** (added Aug 2026): for jobs $20,000+
+  (reusing the threshold already established in the Terms' deposit-cap
+  clause, for consistency — not a new number), a Mysubbies inspector reviews
+  completed work before the job is marked complete. This is currently policy
+  copy only (Terms §5, FAQ) — there's no backend to actually enforce a
+  completion gate, since there's no backend at all. Don't let anyone assume
+  this is enforced in-app.
+- **Rate card**: 21 categories, ~163 individually priced tasks, sourced from
+  the founder's real Melbourne rate card (not invented). Lives in
+  `DEFAULT_CATEGORIES` in website.html, seeded into `localStorage` on first
+  load, then merged (never overwritten) on every subsequent load via
+  `mergeRateCardUpdates()` — this additive-merge exists specifically because
+  a plain "seed if empty" approach silently stopped propagating code updates
+  to anyone who'd already opened the site once. If you change
+  `DEFAULT_CATEGORIES`, the merge will add new fields/categories/tasks to
+  already-stored data without touching anything an admin has edited
+  (rate, disabled status). If you need to *remove* a field that's already
+  shipped, add explicit cleanup logic to that same function (see the
+  reference-photo removal for the pattern).
+- **Pricing shows ONE number, not a range.** This was deliberately changed
+  from an earlier ±3-5% widened range — don't reintroduce range display
+  without being asked.
+- **Payment schedules are category-specific**, defined per category in the
+  rate card as a `paymentSchedule` array of `{key, label, pct}`. Skip Bins:
+  10/90. Electrical/Plumbing: 10/30/60. Everything else defaults to 5/35/50/10
+  (in `DEFAULT_PAYMENT_SCHEDULE` in booking.html). Jobs store their own copy
+  of the schedule at creation time (`job.paymentSchedule`) plus a
+  `paidStages` object tracking what's been confirmed — this locks in the
+  schedule even if the category's default changes later. Older test jobs
+  without this field fall back gracefully to the default 4-stage schedule —
+  preserve that fallback if you touch this code.
+- **"Estimated," never "Fixed."** Copy was deliberately changed site-wide from
+  "fixed price" to "estimated price" — keep this consistent in any new copy.
+- **Logo**: current mark is a plain "M" monogram (simple geometric stroke),
+  white square on the black header. Two other directions (an "MS" monogram,
+  and a geometric hammer icon) were tried and explicitly rejected — don't
+  reintroduce either without being asked. If asked to touch the logo, check
+  what's actually live in the page first rather than assuming.
+- **No AI-generated visuals.** A request for AI-rendered "your deck in your
+  yard" images was deliberately turned down in favor of real reference
+  photos — which were then themselves removed after testing (see the
+  `mergeRateCardUpdates` cleanup step). Don't add AI image generation to the
+  estimator without discussing the reasoning already established.
+
+## Testing conventions used throughout this project
+Every change has been verified with real interaction testing (Playwright),
+not just read-through:
+1. After any HTML/JS edit, a quick brace/paren balance check
+   (`content.count('{') - content.count('}')` etc.) to catch unbalanced edits
+   before testing.
+2. Real browser automation for functional changes — actually click through
+   the flow, don't assume. Several real bugs in this project were only found
+   this way (e.g. a duplicated icon, a stale-cache bug, a CSS selector that
+   silently missed `type=email`/`type=password` inputs).
+3. Cross-page/cross-role flows tested end-to-end in one continuous script
+   (customer → contractor → admin) since isolated per-page tests miss
+   integration bugs — this caught a real bug where the contractor job feed
+   showed the category instead of the specific task name.
+4. Multi-file link integrity check (grep every `href="mysubbies-*.html"` and
+   confirm the target file exists) before any deployment handoff.
+
+## Known gaps / explicitly deferred, not forgotten
+- Document upload for permits/plans in the customer quote flow — not built.
+- Compliance flags: jobs over $10K need an updated builder's licence flag,
+  over $20K need indemnity insurance flag — not built.
+- 19 of 21 categories still have no blog cost-guide post.
+- Contractor referral code mechanism exists and works (generated at signup,
+  tracked when redeemed) but a plain-language "how do I use this" walkthrough
+  for the founder was requested and not yet delivered.
+- No dispute/refund UI existed until recently added — customer-facing report
+  flow + admin review queue now exist; no automated resolution or refund
+  logic beyond marking resolved.
+
+## PWA setup (added Aug 2026)
+The site installs as a PWA (add-to-home-screen, standalone window, offline
+app-shell). Three shared files, unavoidably not self-contained per-page since
+a manifest/service worker are inherently global — this is the one deliberate
+exception to the "no shared external files" rule:
+- `manifest.json` — name, icons, `start_url: "/"`, `display: standalone`,
+  black theme/background color matching the header.
+- `sw.js` — **network-first, cache-fallback**. Deliberately not
+  cache-first/stale-while-revalidate: this project has already shipped one
+  real stale-cache bug (see Testing conventions), and a cache-first service
+  worker would silently serve old HTML after every future edit. Precaches
+  all 14 pages + manifest + icons on install; purges old cache versions by
+  bumping `CACHE_VERSION` in `sw.js` (currently `mysubbies-v1`) — bump this
+  string whenever precached content should be forcibly refreshed for
+  returning visitors.
+- `icons/` — `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`,
+  `apple-touch-icon.png` (180×180), `favicon-32.png`. Generated (not
+  designed) from the existing header "M" mark's exact SVG path via a
+  PowerShell/System.Drawing script, at each required size — this was a
+  faithful export, not a new logo direction. Regenerate the same way if the
+  mark ever changes; don't hand-design new icons independently or they'll
+  drift from the header logo.
+
+Every page's `<head>` links the manifest + icons + `theme-color` +
+`apple-mobile-web-app-*` meta tags, and every page registers `sw.js` in an
+inline `<script>` before `</body>` (same duplication pattern as everything
+else in this codebase — no shared JS file). If you add a 15th page, copy
+both blocks from an existing page and add the new page's path to
+`PRECACHE_URLS` in `sw.js`.
+
+## When making changes
+- Keep every page fully self-contained — no shared external JS/CSS files,
+  matching every existing page.
+- If touching the rate card or anything category-related, remember the
+  additive-merge migration system — new code changes need to actually reach
+  browsers with already-seeded data.
+- Test real flows before calling something done, the way this whole project
+  has been built.

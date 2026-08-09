@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mysubbies — Admin Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #171717; --black: #000000; --white: #FFFFFF; --paper: #F7F7F5;
+    --stone: #6B6B68; --stone-light: #9C9C97; --line: #E4E4E1; --good: #2F7A50; --warn: #B0592E;
+  }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  body { font-family:'Plus Jakarta Sans', system-ui, sans-serif; background: var(--paper); color: var(--ink); line-height:1.5; -webkit-font-smoothing:antialiased; }
+  h1, h2 { font-weight:800; letter-spacing:-0.02em; }
+  a { color:inherit; text-decoration:none; }
+  header { background: var(--black); }
+  .navwrap { max-width:1180px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:64px; }
+  .logo { display:flex; align-items:center; gap:9px; }
+  .logo-mark { width:28px; height:28px; border-radius:7px; background:#fff; }
+  .logo-word { font-weight:800; font-size:19px; color:#fff; }
+  .navlinks { display:flex; align-items:center; gap:22px; font-size:13px; }
+  .navlinks a { color:rgba(255,255,255,0.65); }
+  .navlinks a.current { color:#fff; font-weight:600; }
+  .wrap { max-width:880px; margin:0 auto; padding:32px 24px 80px; }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 18px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; border:none; }
+  .btn-black { background:var(--black); color:#fff; }
+  .btn-outline { background:#fff; color:var(--ink); border:1.5px solid var(--line); }
+  .statgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:28px; }
+  @media (max-width:700px) { .statgrid { grid-template-columns:1fr 1fr; } }
+  .statcard { background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; }
+  .statcard .num { font-size:24px; font-weight:800; }
+  .statcard .lab { font-size:12px; color:var(--stone); margin-top:2px; }
+  .tabs { display:flex; gap:6px; background:#EFEDE9; padding:4px; border-radius:10px; margin-bottom:24px; width:fit-content; }
+  .tabs button { padding:9px 16px; border-radius:7px; font-size:13px; font-weight:600; border:none; cursor:pointer; background:transparent; color:var(--stone); }
+  .tabs button.active { background:#fff; color:var(--ink); }
+  h1.pagetitle { font-size:22px; margin-bottom:16px; }
+  table { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+  th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:var(--stone); padding:12px 16px; background:var(--paper); }
+  td { padding:14px 16px; font-size:13px; border-top:1px solid var(--paper); }
+  tr.jobrow { cursor:pointer; }
+  tr.jobrow:hover { background:var(--paper); }
+  .badge { font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; display:inline-block; }
+  .badge-feed { background:#FFF6E5; color:#8A6D2E; }
+  .badge-assigned { background:#E9F1F9; color:#2E5E8A; }
+  .badge-completed { background:#EAF5EE; color:var(--good); }
+  .badge-rejected { background:#FDEDEA; color:var(--warn); }
+  .empty { text-align:center; padding:60px 20px; color:var(--stone); font-size:14px; }
+  .backbtn { font-size:13px; color:var(--stone); background:none; border:none; cursor:pointer; margin-bottom:16px; display:flex; align-items:center; gap:4px; }
+  .detailcard { background:#fff; border:1px solid var(--line); border-radius:16px; padding:24px; max-width:520px; }
+  .row { display:flex; justify-content:space-between; font-size:14px; padding:9px 0; border-top:1px solid var(--paper); }
+  .row:first-child { border-top:none; }
+  .row .l { color:var(--stone); }
+  .row .r { font-weight:700; }
+  .row.commission .r { color:var(--warn); }
+  .row.payout .r { color:var(--good); font-size:16px; }
+  img.jobphoto { width:100%; border-radius:12px; margin-bottom:16px; max-height:200px; object-fit:cover; }
+  .msgbox { border:1px solid var(--line); border-radius:14px; padding:16px; margin-top:16px; background:#fff; max-width:520px; }
+  .msgbox h3 { font-size:14px; margin-bottom:12px; }
+  .msglist { max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+  .msgbubble { max-width:80%; padding:9px 12px; border-radius:12px; font-size:13px; }
+  .msgbubble.mine { align-self:flex-end; background:var(--black); color:#fff; }
+  .msgbubble.theirs { align-self:flex-start; background:var(--paper); color:var(--ink); }
+  .msgmeta { font-size:10px; color:var(--stone-light); margin-bottom:2px; }
+  .msginput { display:flex; gap:8px; }
+  .msginput input { flex:1; font-family:'Plus Jakarta Sans',sans-serif; font-size:13px; border:1.5px solid var(--line); border-radius:8px; padding:9px 12px; }
+  .reassign { display:flex; gap:8px; margin-top:16px; }
+  .reassign input { flex:1; font-family:'Plus Jakarta Sans',sans-serif; font-size:13px; border:1.5px solid var(--line); border-radius:8px; padding:9px 12px; }
+</style>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mysubbies">
+</head>
+<body>
+
+<header>
+  <div class="navwrap">
+    <a class="logo" href="mysubbies-website.html">
+      <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="logo-word">Mysubbies</div>
+    </a>
+    <div class="navlinks">
+      <a href="mysubbies-website.html">Site</a>
+      <a href="mysubbies-customer-portal.html">My Jobs</a>
+      <a href="mysubbies-contractor-portal.html">Contractor Portal</a>
+      <a class="current" href="mysubbies-admin-portal.html">Admin</a>
+      <a onclick="adminLogout()" style="cursor:pointer;">Log out</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap" id="app"></div>
+
+<script>
+  const ADMIN_PASSWORD = 'Mysubbies2026!';
+
+  function checkAdminAuth() {
+    if (localStorage.getItem('mysubbies_admin_authed') === 'true') { render(); return; }
+    document.getElementById('app').innerHTML = `
+      <div style="max-width:360px;margin:80px auto 0;background:#fff;border:1px solid var(--line);border-radius:16px;padding:28px;">
+        <h1 style="font-size:22px;font-weight:800;margin-bottom:8px;">Admin login</h1>
+        <p style="font-size:13px;color:var(--stone);margin-bottom:20px;">This is a basic gate to keep the page out of casual view during testing — not real security.</p>
+        <input type="password" id="adminPasswordInput" placeholder="Password" style="width:100%;font-size:15px;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:10px;" onkeydown="if(event.key==='Enter') adminLogin()">
+        <div id="adminLoginError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
+        <button onclick="adminLogin()" style="width:100%;background:#000;color:#fff;border:none;border-radius:999px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;">Log in →</button>
+      </div>`;
+  }
+  function adminLogin() {
+    const val = document.getElementById('adminPasswordInput').value;
+    if (val === ADMIN_PASSWORD) {
+      localStorage.setItem('mysubbies_admin_authed', 'true');
+      render();
+    } else {
+      document.getElementById('adminLoginError').textContent = 'Incorrect password.';
+    }
+  }
+  function adminLogout() {
+    localStorage.removeItem('mysubbies_admin_authed');
+    checkAdminAuth();
+  }
+
+  function getJobs() { return JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]'); }
+  function saveJobs(jobs) { localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs)); }
+
+  let tab = 'overview';
+  let selectedJobId = null;
+  const app = document.getElementById('app');
+  function escapeHtml(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  }
+
+  function getApplications() { return JSON.parse(localStorage.getItem('mysubbies_contractor_applications') || '[]'); }
+  function saveApplications(apps) { localStorage.setItem('mysubbies_contractor_applications', JSON.stringify(apps)); }
+  function getDisputes() { return JSON.parse(localStorage.getItem('mysubbies_disputes') || '[]'); }
+  function saveDisputes(d) { localStorage.setItem('mysubbies_disputes', JSON.stringify(d)); }
+
+  function renderDisputesTab(disputes, jobs) {
+    if (disputes.length === 0) return '<div class="empty">No disputes reported.</div>';
+    return `
+      <h1 class="pagetitle">Disputes</h1>
+      ${disputes.map(d => {
+        const job = jobs.find(j => j.id === d.jobId);
+        return `
+          <div class="detailcard" style="max-width:640px;margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div>
+                <div style="font-weight:700;font-size:15px;">${escapeHtml(d.reason)}</div>
+                <div style="font-size:12px;color:var(--stone);margin-top:2px;">${job ? escapeHtml(job.category + ' — ' + job.suburb) : 'Job not found'} · reported by ${escapeHtml(d.reportedBy)} · ${new Date(d.reportedAt).toLocaleDateString('en-AU')}</div>
+              </div>
+              <span class="badge ${d.status === 'open' ? 'badge-feed' : 'badge-completed'}">${d.status}</span>
+            </div>
+            <div style="font-size:13px;color:#333;margin-top:10px;">${d.details ? escapeHtml(d.details) : '(no further details provided)'}</div>
+            ${d.status === 'open' ? `<button class="btn btn-outline" style="margin-top:12px;" onclick="resolveDispute('${d.id}')">Mark resolved</button>` : ''}
+          </div>`;
+      }).join('')}
+    `;
+  }
+  function resolveDispute(id) {
+    const disputes = getDisputes();
+    const d = disputes.find(x => x.id === id);
+    d.status = 'resolved';
+    saveDisputes(disputes);
+    render();
+  }
+
+  function render() {
+    if (selectedJobId) { renderDetail(); return; }
+    const jobs = getJobs();
+    const commission = jobs.reduce((s, j) => s + Math.round((j.basePrice || 0) * 0.25), 0);
+    const gmv = jobs.reduce((s, j) => s + (j.basePrice || 0), 0);
+    const applications = getApplications();
+    const pendingCount = applications.filter(a => a.status === 'pending').length;
+    const disputes = getDisputes();
+    const openDisputeCount = disputes.filter(d => d.status === 'open').length;
+
+    app.innerHTML = `
+      <div class="statgrid">
+        <div class="statcard"><div class="num">${jobs.length}</div><div class="lab">Total jobs</div></div>
+        <div class="statcard"><div class="num">${jobs.filter(j=>j.status==='feed').length}</div><div class="lab">Awaiting contractor</div></div>
+        <div class="statcard"><div class="num">$${gmv.toLocaleString()}</div><div class="lab">Gross job value</div></div>
+        <div class="statcard"><div class="num">$${commission.toLocaleString()}</div><div class="lab">Platform commission</div></div>
+      </div>
+      <div class="tabs">
+        <button class="${tab==='overview'?'active':''}" onclick="tab='overview'; render();">All Jobs</button>
+        <button class="${tab==='applications'?'active':''}" onclick="tab='applications'; render();">Applications ${pendingCount ? '(' + pendingCount + ')' : ''}</button>
+        <button class="${tab==='disputes'?'active':''}" onclick="tab='disputes'; render();">Disputes ${openDisputeCount ? '(' + openDisputeCount + ')' : ''}</button>
+        <button class="${tab==='ratecard'?'active':''}" onclick="tab='ratecard'; render();">Rate Card</button>
+      </div>
+      ${tab === 'overview' ? `
+        <h1 class="pagetitle">Jobs</h1>
+        ${jobs.length === 0 ? '<div class="empty">No jobs yet. Submit one from the site to see it here.</div>' : jobsTableHtml(jobs)}
+      ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : renderRateCardTab()}
+    `;
+    if (tab === 'ratecard') wireRateCardTab();
+  }
+
+  function variationListHtml(j) {
+    const variations = j.variations || [];
+    const statusColor = { pending: '#8A6D2E', approved: 'var(--good)', declined: 'var(--warn)' };
+    const statusBg = { pending: '#FFF6E5', approved: '#EAF5EE', declined: '#FDEDEA' };
+    return variations.map(v => `
+      <div style="border-top:1px solid var(--paper);padding:10px 0;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;">${escapeHtml(v.description)}</div>
+            ${v.reason ? `<div style="font-size:11.5px;color:var(--stone);margin-top:2px;">${escapeHtml(v.reason)}</div>` : ''}
+            <div style="font-size:10.5px;color:var(--stone-light);margin-top:2px;">Requested ${new Date(v.requestedAt).toLocaleDateString('en-AU')}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-weight:700;font-size:14px;">+$${v.amount.toLocaleString()}</div>
+            <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;color:${statusColor[v.status]};background:${statusBg[v.status]};">${v.status}</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function docChipsHtml(docs) {
+    if (!docs || docs.length === 0) return '<span style="color:var(--stone-light);">None uploaded</span>';
+    return docs.map(d => `
+      <a href="${d.dataUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:5px 10px;margin:2px 4px 2px 0;text-decoration:none;color:var(--ink);">
+        ${d.isImage ? '🖼️' : '📄'} ${d.name}
+      </a>
+    `).join('');
+  }
+
+  // --- Rate card storage: same localStorage key the live estimator reads from ---
+  function getRateCard() {
+    const stored = localStorage.getItem('mysubbies_ratecard');
+    return stored ? JSON.parse(stored) : [];
+  }
+  function saveRateCard(categories) {
+    localStorage.setItem('mysubbies_ratecard', JSON.stringify(categories));
+  }
+
+  let pendingUploadRows = null;
+  let rcMode = 'manage';
+
+  function renderRateCardTab() {
+    const categories = getRateCard();
+    const totalTasks = categories.reduce((s, c) => s + c.tasks.length, 0);
+    return `
+      <h1 class="pagetitle">Rate card</h1>
+      <p style="color:var(--stone);font-size:13px;margin-bottom:20px;margin-top:-8px;">${categories.length} categories, ${totalTasks} priced tasks \u2014 this feeds the live price estimator directly.</p>
+
+      <div class="detailcard" style="max-width:640px;margin-bottom:20px;">
+        <h3 style="font-size:15px;margin-bottom:8px;">Upload a rate card</h3>
+        <p style="font-size:12.5px;color:var(--stone);margin-bottom:12px;">CSV file with columns: <strong>Category, Task, Unit, Rate, Notes</strong> (Notes optional). This replaces the entire rate card \u2014 you'll see a preview before it goes live.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="downloadRateCardTemplate()">Download CSV template</button>
+          <button class="btn btn-outline" onclick="document.getElementById('rcFileInput').click()">Upload CSV</button>
+          <input type="file" id="rcFileInput" accept=".csv" style="display:none;" onchange="onRateCardFileSelected(event)" />
+        </div>
+        <div id="rcUploadPreview"></div>
+      </div>
+
+      <div class="detailcard" style="max-width:640px;margin-bottom:20px;">
+        <h3 style="font-size:15px;margin-bottom:8px;">Bulk price update</h3>
+        <p style="font-size:12.5px;color:var(--stone);margin-bottom:12px;">Apply a percentage change across every rate at once \u2014 useful for an annual CPI adjustment. You'll see exactly what changes before it's applied.</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+          <input type="number" id="bulkPct" placeholder="e.g. 3.8" step="0.1" style="width:110px;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
+          <span style="font-size:13px;color:var(--stone);">%</span>
+          <button class="btn btn-outline" onclick="document.getElementById('bulkPct').value=3.8; previewBulkUpdate();">Use current CPI (3.8%)</button>
+          <button class="btn btn-outline" onclick="previewBulkUpdate()">Preview change</button>
+        </div>
+        <div style="font-size:11px;color:var(--stone-light);margin-bottom:10px;">3.8% is the ABS CPI figure for the 12 months to June 2026. Use a negative number to reduce prices.</div>
+        <div id="bulkPreview"></div>
+        <div id="bulkHistory"></div>
+      </div>
+
+      <div class="detailcard" style="max-width:640px;">
+        <div class="tabs" style="margin-bottom:16px;">
+          <button class="${rcMode==='manage'?'active':''}" onclick="rcMode='manage'; render();">Manage Existing</button>
+          <button class="${rcMode==='research'?'active':''}" onclick="rcMode='research'; render();">Research New</button>
+        </div>
+        ${rcMode === 'manage' ? `
+          <div id="rcManageList">${rateCardManageHtml(categories)}</div>
+        ` : `
+          <p style="font-size:12.5px;color:var(--stone);margin-bottom:14px;">Look up current pricing, then add it below. This opens a search for you \u2014 it's not automatic; review what you find before adding it to the live rate card.</p>
+          <div style="display:flex;gap:8px;margin-bottom:16px;">
+            <input type="text" id="researchQuery" placeholder="Category to research (e.g. Pool Fencing)" style="flex:1;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
+            <button class="btn btn-outline" onclick="openResearch()">🔍 Research</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <input type="text" id="newSvcCategory" placeholder="Category (e.g. Fencing)" list="rcCatList" style="font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
+            <input type="text" id="newSvcTask" placeholder="Task name" style="font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
+            <input type="text" id="newSvcUnit" placeholder="Unit (e.g. m\u00b2, lm, hr)" style="font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
+            <input type="number" id="newSvcRate" placeholder="Rate ($)" style="font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
+          </div>
+          <input type="text" id="newSvcNotes" placeholder="Notes (optional \u2014 shown to customers as 'what's included')" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
+          <datalist id="rcCatList">${categories.map(c => `<option value="${c.label}">`).join('')}</datalist>
+          <button class="btn btn-black" onclick="addNewService()">+ Add to rate card</button>
+          <div id="addSvcError"></div>
+        `}
+      </div>
+    `;
+  }
+
+  function rateCardManageHtml(categories) {
+    if (categories.length === 0) return '<div class="empty">No rate card loaded yet. Visit the live site once to initialize it from the defaults, upload a CSV above, or add your first service via Research New.</div>';
+    return categories.map(c => `
+      <div style="margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--stone);margin-bottom:6px;">${c.icon || ''} ${c.label}</div>
+        ${c.tasks.map((t, tIdx) => `
+          <div style="padding:8px 0;border-top:1px solid var(--paper); ${t.disabled ? 'opacity:0.5;' : ''}">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <input type="text" value="${escapeHtml(t.name)}" onchange="editService('${c.label.replace(/'/g,"\\'")}', ${tIdx}, 'name', this.value)" style="flex:1;min-width:140px;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;" ${t.disabled ? 'disabled' : ''} />
+              <input type="text" value="${escapeHtml(t.unit)}" onchange="editService('${c.label.replace(/'/g,"\\'")}', ${tIdx}, 'unit', this.value)" style="width:60px;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;" ${t.disabled ? 'disabled' : ''} />
+              <span style="font-size:12px;color:var(--stone);">$</span>
+              <input type="number" value="${t.rate === null ? '' : t.rate}" onchange="editService('${c.label.replace(/'/g,"\\'")}', ${tIdx}, 'rate', this.value)" style="width:80px;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;" ${t.disabled ? 'disabled' : ''} />
+              <button onclick="toggleServiceDisabled('${c.label.replace(/'/g,"\\'")}', ${tIdx})" class="btn btn-outline" style="padding:6px 12px;font-size:11.5px;width:auto;">${t.disabled ? 'Enable' : 'Disable'}</button>
+            </div>
+            <div style="margin-top:6px;">
+              <label style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--stone-light);display:block;margin-bottom:3px;">Customer-facing details / specs</label>
+              <textarea onchange="editService('${c.label.replace(/'/g,"\\'")}', ${tIdx}, 'notes', this.value)" placeholder="What's included, materials/spec standards, exclusions — shown to the customer under this task in the estimator." style="width:100%;font-size:12px;padding:7px 9px;border:1px solid var(--line);border-radius:6px;font-family:inherit;min-height:52px;resize:vertical;" ${t.disabled ? 'disabled' : ''}>${escapeHtml(t.notes || '')}</textarea>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+  }
+
+  function openResearch() {
+    const q = document.getElementById('researchQuery').value.trim();
+    if (!q) return;
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(q + ' Melbourne trade price 2026')}`, '_blank');
+    document.getElementById('newSvcCategory').value = q;
+  }
+
+  function editService(catLabel, taskIdx, field, value) {
+    const categories = getRateCard();
+    const cat = categories.find(c => c.label === catLabel);
+    if (!cat) return;
+    const task = cat.tasks[taskIdx];
+    task[field] = field === 'rate' ? (value === '' ? null : Number(value)) : value;
+    saveRateCard(categories);
+  }
+
+  function toggleServiceDisabled(catLabel, taskIdx) {
+    const categories = getRateCard();
+    const cat = categories.find(c => c.label === catLabel);
+    if (!cat) return;
+    cat.tasks[taskIdx].disabled = !cat.tasks[taskIdx].disabled;
+    saveRateCard(categories);
+    render();
+  }
+
+  function getBulkHistory() { return JSON.parse(localStorage.getItem('mysubbies_ratecard_bulklog') || '[]'); }
+  function saveBulkHistory(log) { localStorage.setItem('mysubbies_ratecard_bulklog', JSON.stringify(log)); }
+
+  function previewBulkUpdate() {
+    const pct = parseFloat(document.getElementById('bulkPct').value);
+    if (isNaN(pct)) {
+      document.getElementById('bulkPreview').innerHTML = '<div class="error" style="margin-top:8px;">Enter a percentage first.</div>';
+      return;
+    }
+    const categories = getRateCard();
+    let rows = [];
+    categories.forEach(c => c.tasks.forEach(t => {
+      if (t.rate === null) return;
+      const newRate = Math.round(t.rate * (1 + pct / 100) * 100) / 100;
+      rows.push({ cat: c.label, task: t.name, oldRate: t.rate, newRate });
+    }));
+    const preview = document.getElementById('bulkPreview');
+    if (rows.length === 0) { preview.innerHTML = '<div class="empty" style="margin-top:8px;">No priced tasks to update.</div>'; return; }
+    const sample = rows.slice(0, 6);
+    preview.innerHTML = `
+      <div style="background:var(--paper);border-radius:10px;padding:14px;margin-top:4px;">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px;">${pct > 0 ? '+' : ''}${pct}% across ${rows.length} priced tasks</div>
+        ${sample.map(r => `
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;">
+            <span style="color:var(--stone);">${r.cat} \u2014 ${r.task}</span>
+            <span>$${r.oldRate.toLocaleString()} \u2192 <strong>$${r.newRate.toLocaleString()}</strong></span>
+          </div>
+        `).join('')}
+        ${rows.length > 6 ? `<div style="font-size:11.5px;color:var(--stone-light);margin-top:4px;">+ ${rows.length - 6} more</div>` : ''}
+        <button class="btn btn-black" style="margin-top:12px;" onclick="confirmBulkUpdate(${pct})">Confirm & apply to all ${rows.length} tasks</button>
+      </div>
+    `;
+  }
+
+  function confirmBulkUpdate(pct) {
+    const categories = getRateCard();
+    let count = 0;
+    categories.forEach(c => c.tasks.forEach(t => {
+      if (t.rate === null) return;
+      t.rate = Math.round(t.rate * (1 + pct / 100) * 100) / 100;
+      count++;
+    }));
+    saveRateCard(categories);
+
+    const log = getBulkHistory();
+    log.unshift({ pct, taskCount: count, appliedAt: new Date().toISOString() });
+    saveBulkHistory(log);
+
+    document.getElementById('bulkPct').value = '';
+    render();
+  }
+
+  function renderBulkHistoryHtml() {
+    const log = getBulkHistory();
+    const box = document.getElementById('bulkHistory');
+    if (!box) return;
+    if (log.length === 0) { box.innerHTML = ''; return; }
+    box.innerHTML = `
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--stone);margin-bottom:8px;">Update history</div>
+        ${log.slice(0, 5).map(l => `
+          <div style="font-size:12px;color:var(--stone);padding:3px 0;">
+            ${l.pct > 0 ? '+' : ''}${l.pct}% applied to ${l.taskCount} tasks \u00b7 ${new Date(l.appliedAt).toLocaleDateString('en-AU')} ${new Date(l.appliedAt).toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit'})}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function wireRateCardTab() {
+    renderBulkHistoryHtml();
+  }
+
+  function downloadRateCardTemplate() {
+    const categories = getRateCard();
+    let csv = 'Category,Task,Unit,Rate,Notes\n';
+    categories.forEach(c => {
+      c.tasks.forEach(t => {
+        const notes = (t.notes || '').replace(/"/g, '""');
+        csv += `"${c.label}","${t.name}","${t.unit}",${t.rate === null ? '' : t.rate},"${notes}"\n`;
+      });
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'mysubbies-ratecard-template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Minimal CSV parser handling quoted fields with embedded commas.
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], field = '', inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i], next = text[i + 1];
+      if (inQuotes) {
+        if (ch === '"' && next === '"') { field += '"'; i++; }
+        else if (ch === '"') { inQuotes = false; }
+        else { field += ch; }
+      } else {
+        if (ch === '"') inQuotes = true;
+        else if (ch === ',') { row.push(field); field = ''; }
+        else if (ch === '\n' || ch === '\r') {
+          if (ch === '\r' && next === '\n') i++;
+          row.push(field); field = '';
+          if (row.some(f => f !== '')) rows.push(row);
+          row = [];
+        } else { field += ch; }
+      }
+    }
+    if (field !== '' || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  function onRateCardFileSelected(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const rows = parseCSV(ev.target.result);
+      if (rows.length < 2) { document.getElementById('rcUploadPreview').innerHTML = '<div class="error" style="margin-top:12px;">That file doesn\u2019t look right \u2014 no rows found.</div>'; return; }
+      const header = rows[0].map(h => h.trim().toLowerCase());
+      const idx = { category: header.indexOf('category'), task: header.indexOf('task'), unit: header.indexOf('unit'), rate: header.indexOf('rate'), notes: header.indexOf('notes') };
+      if (idx.category === -1 || idx.task === -1 || idx.unit === -1 || idx.rate === -1) {
+        document.getElementById('rcUploadPreview').innerHTML = '<div class="error" style="margin-top:12px;">Missing required columns. Expected: Category, Task, Unit, Rate (Notes optional).</div>';
+        return;
+      }
+      const dataRows = rows.slice(1).filter(r => r[idx.category]);
+      pendingUploadRows = dataRows.map(r => ({
+        category: r[idx.category].trim(), task: r[idx.task].trim(), unit: r[idx.unit].trim(),
+        rate: r[idx.rate].trim() === '' ? null : Number(r[idx.rate]),
+        notes: idx.notes > -1 ? (r[idx.notes] || '').trim() : '',
+      }));
+      const uniqueCats = [...new Set(pendingUploadRows.map(r => r.category))];
+      document.getElementById('rcUploadPreview').innerHTML = `
+        <div style="background:var(--paper);border-radius:10px;padding:14px;margin-top:14px;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:6px;">Preview: ${pendingUploadRows.length} tasks across ${uniqueCats.length} categories</div>
+          <div style="font-size:12px;color:var(--stone);margin-bottom:10px;">${uniqueCats.slice(0, 8).join(', ')}${uniqueCats.length > 8 ? ', +' + (uniqueCats.length - 8) + ' more' : ''}</div>
+          <div style="font-size:12px;color:var(--warn);margin-bottom:10px;">⚠ This will replace the entire live rate card.</div>
+          <button class="btn btn-black" onclick="confirmRateCardUpload()">Confirm & publish</button>
+        </div>
+      `;
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
+  function confirmRateCardUpload() {
+    if (!pendingUploadRows) return;
+    const grouped = {};
+    pendingUploadRows.forEach(r => {
+      if (!grouped[r.category]) grouped[r.category] = { label: r.category, icon: '🔧', tasks: [] };
+      grouped[r.category].tasks.push({ name: r.task, unit: r.unit, rate: r.rate, notes: r.notes });
+    });
+    saveRateCard(Object.values(grouped));
+    pendingUploadRows = null;
+    render();
+  }
+
+  function addNewService() {
+    const category = document.getElementById('newSvcCategory').value.trim();
+    const task = document.getElementById('newSvcTask').value.trim();
+    const unit = document.getElementById('newSvcUnit').value.trim();
+    const rate = document.getElementById('newSvcRate').value.trim();
+    const notes = document.getElementById('newSvcNotes').value.trim();
+    const errBox = document.getElementById('addSvcError');
+    if (!category || !task || !unit || !rate) {
+      errBox.innerHTML = '<div class="error" style="margin-top:10px;">Category, task, unit and rate are all required.</div>';
+      return;
+    }
+    const categories = getRateCard();
+    let cat = categories.find(c => c.label.toLowerCase() === category.toLowerCase());
+    if (!cat) { cat = { label: category, icon: '🔧', tasks: [] }; categories.push(cat); }
+    cat.tasks.push({ name: task, unit, rate: Number(rate), notes });
+    saveRateCard(categories);
+    render();
+  }
+
+  function renderApplicationsTab(applications) {
+    if (applications.length === 0) return '<div class="empty">No contractor applications yet.</div>';
+    const statusBadge = { pending: 'badge-feed', approved: 'badge-completed', rejected: 'badge-rejected' };
+    return `
+      <h1 class="pagetitle">Contractor applications</h1>
+      ${applications.map(a => `
+        <div class="detailcard" style="max-width:640px;margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div style="display:flex;gap:12px;align-items:center;">
+              ${a.profilePhoto ? `<img src="${escapeHtml(a.profilePhoto)}" style="width:44px;height:44px;border-radius:999px;object-fit:cover;">` : ''}
+              <div>
+                <div style="font-weight:700;font-size:16px;">${escapeHtml(a.business)}</div>
+                <div style="font-size:12px;color:var(--stone);margin-top:2px;">${escapeHtml(a.contact)} \u00b7 ${escapeHtml(a.email)} \u00b7 ${escapeHtml(a.phone)}</div>
+              </div>
+            </div>
+            <span class="badge ${statusBadge[a.status]}">${a.status}</span>
+          </div>
+          <div class="row"><span class="l">ABN</span><span class="r">${escapeHtml(a.abn)}</span></div>
+          <div class="row"><span class="l">Trades</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml(a.trades.join(', '))}</span></div>
+          <div class="row"><span class="l">Service suburbs</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml(a.suburbs.length ? a.suburbs.join(', ') : 'All Melbourne metro')}</span></div>
+          ${a.licence ? `<div class="row"><span class="l">Licence</span><span class="r">${escapeHtml(a.licence)}</span></div>` : ''}
+          ${a.insurer ? `<div class="row"><span class="l">Insurer</span><span class="r">${escapeHtml(a.insurer)}</span></div>` : ''}
+          <div class="row"><span class="l">Applied</span><span class="r">${new Date(a.appliedAt).toLocaleDateString('en-AU')}</span></div>
+          <div style="border-top:1px solid var(--paper);margin-top:10px;padding-top:10px;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--stone);margin-bottom:6px;">Insurance certificate</div>
+            <div>${docChipsHtml(a.insuranceDocs)}</div>
+          </div>
+          <div style="margin-top:10px;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--stone);margin-bottom:6px;">Trade certificate / licence</div>
+            <div>${docChipsHtml(a.certDocs)}</div>
+          </div>
+          ${a.status === 'pending' ? `
+            <div style="display:flex;gap:8px;margin-top:14px;">
+              <button class="btn btn-outline" style="flex:1;" onclick="rejectApplication('${a.id}')">Reject</button>
+              <button class="btn btn-black" style="flex:2;" onclick="approveApplication('${a.id}')">Approve \u2192</button>
+            </div>
+          ` : ''}
+        </div>
+      `).join('')}
+    `;
+  }
+
+  function approveApplication(id) {
+    const apps = getApplications();
+    const a = apps.find(x => x.id === id);
+    a.status = 'approved';
+    saveApplications(apps);
+    render();
+  }
+  function rejectApplication(id) {
+    const apps = getApplications();
+    const a = apps.find(x => x.id === id);
+    a.status = 'rejected';
+    saveApplications(apps);
+    render();
+  }
+
+  function jobsTableHtml(jobs) {
+    const badgeClass = { feed: 'badge-feed', assigned: 'badge-assigned', completed: 'badge-completed' };
+    const badgeLabel = { feed: 'Awaiting contractor', assigned: 'Assigned', completed: 'Completed' };
+    return `
+      <table>
+        <thead><tr><th>Job</th><th>Suburb</th><th>Contractor</th><th>Status</th><th>Value</th></tr></thead>
+        <tbody>
+          ${jobs.map(j => `
+            <tr class="jobrow" onclick="selectedJobId='${j.id}'; render();">
+              <td><strong>${j.icon || ''} ${escapeHtml(j.category)}</strong><br><span style="color:var(--stone);font-size:12px;">${j.items && j.items.length > 1 ? j.items.length + ' items' : (j.qty || '') + ' ' + escapeHtml(j.unit || '')}</span></td>
+              <td>${escapeHtml(j.suburb)}</td>
+              <td>${escapeHtml(j.contractor || '—')}</td>
+              <td><span class="badge ${badgeClass[j.status] || 'badge-feed'}">${badgeLabel[j.status] || j.status}</span></td>
+              <td>$${(j.basePrice || 0).toLocaleString()}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  function renderDetail() {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === selectedJobId);
+    if (!j) { selectedJobId = null; render(); return; }
+    const commission = Math.round((j.basePrice || 0) * 0.25);
+    const payout = (j.basePrice || 0) - commission;
+
+    app.innerHTML = `
+      <button class="backbtn" onclick="selectedJobId=null; render();">← Back to jobs</button>
+      <div class="detailcard">
+        ${j.photoDataUrls && j.photoDataUrls.length > 1 ? `
+          <div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:16px;">
+            ${j.photoDataUrls.map(src => `<img src="${src}" style="width:90px;height:90px;border-radius:10px;object-fit:cover;flex-shrink:0;" />`).join('')}
+          </div>
+        ` : j.photoDataUrl ? `<img class="jobphoto" src="${j.photoDataUrl}">` : ''}
+        <h1 class="pagetitle" style="margin-bottom:2px;">${j.icon || ''} ${escapeHtml(j.category)}</h1>
+        <div style="color:var(--stone);font-size:13px;margin-bottom:16px;">${j.items && j.items.length > 1 ? j.items.length + ' items' : `${j.qty || ''} ${escapeHtml(j.unit || '')}`} · 📍 ${j.address ? escapeHtml(j.address) + ', ' : ''}${escapeHtml(j.suburb)}</div>
+
+        ${j.items && j.items.length ? `
+          <div style="border-top:1px solid var(--paper);border-bottom:1px solid var(--paper);padding:10px 0;margin-bottom:8px;">
+            ${j.items.map(i => `
+              <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;">
+                <span>${i.catIcon || ''} ${escapeHtml(i.taskName)} <span style="color:var(--stone);">(${i.qty} ${escapeHtml(i.unit)})</span></span>
+                <span style="font-weight:600;">$${i.base.toLocaleString()}</span>
+              </div>
+              ${i.notes ? `<div style="font-size:11.5px;color:var(--stone);margin-bottom:4px;">${escapeHtml(i.notes)}</div>` : ''}
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <div class="row"><span class="l">Customer</span><span class="r">${escapeHtml(j.customerName || '—')}</span></div>
+        <div class="row"><span class="l">Phone</span><span class="r">${escapeHtml(j.customerPhone || '—')}</span></div>
+        <div class="row"><span class="l">Contractor</span><span class="r">${escapeHtml(j.contractor || 'Unassigned')}</span></div>
+        <div class="row"><span class="l">On site / access</span><span class="r">${escapeHtml(j.site || '—')} ${j.access ? '· ' + escapeHtml(j.access) : ''}</span></div>
+        ${j.urgency ? `<div class="row"><span class="l">Urgency</span><span class="r">${escapeHtml(j.urgency)}</span></div>` : ''}
+        <div class="row"><span class="l">Total job value</span><span class="r">$${(j.basePrice || 0).toLocaleString()}</span></div>
+        <div class="row commission"><span class="l">Platform commission (25%)</span><span class="r">$${commission.toLocaleString()}</span></div>
+        <div class="row payout"><span class="l">Contractor payout</span><span class="r">$${payout.toLocaleString()}</span></div>
+
+        ${!j.contractor ? `
+          <div class="reassign">
+            <input type="text" id="reassignInput" placeholder="Assign to (business name)" />
+            <button class="btn btn-black" onclick="reassign('${j.id}')">Assign</button>
+          </div>
+        ` : ''}
+      </div>
+      ${j.variations && j.variations.length ? `
+        <div class="detailcard" style="margin-top:14px;">
+          <h3 style="font-size:15px;margin-bottom:10px;">Variations</h3>
+          ${variationListHtml(j)}
+        </div>
+      ` : ''}
+      ${notifyBannerHtml()}
+      <div class="msgbox">
+        <h3>💬 Customer ↔ Contractor <span style="font-weight:400;color:var(--stone);">(visible to customer)</span></h3>
+        <div class="msglist" id="msgListPublic"></div>
+        <div class="msginput">
+          <input type="text" id="msgInputPublic" placeholder="Reply in this thread…" onkeydown="if(event.key==='Enter') sendMsg('messages')" />
+          <button class="btn btn-black" onclick="sendMsg('messages')">Send</button>
+        </div>
+      </div>
+      <div class="msgbox">
+        <h3>🔒 Admin ↔ Contractor <span style="font-weight:400;color:var(--stone);">(private — customer never sees this)</span></h3>
+        <div class="msglist" id="msgListPrivate"></div>
+        <div class="msginput">
+          <input type="text" id="msgInputPrivate" placeholder="e.g. request a document…" onkeydown="if(event.key==='Enter') sendMsg('internalMessages')" />
+          <button class="btn btn-black" onclick="sendMsg('internalMessages')">Send</button>
+        </div>
+      </div>
+    `;
+    renderThread(j, 'messages', 'msgListPublic');
+    renderThread(j, 'internalMessages', 'msgListPrivate');
+    wireNotifyButton();
+  }
+
+  function renderThread(j, key, listId) {
+    const list = document.getElementById(listId);
+    const msgs = j[key] || [];
+    if (msgs.length === 0) { list.innerHTML = '<div style="font-size:12px;color:var(--stone-light);">No messages yet.</div>'; return; }
+    list.innerHTML = msgs.map(m => `
+      <div class="msgbubble ${m.from === 'admin' ? 'mine' : 'theirs'}">
+        <div class="msgmeta">${m.from === 'admin' ? 'You (Mysubbies)' : escapeHtml(m.authorName || m.from)}</div>
+        ${escapeHtml(m.text)}
+      </div>
+    `).join('');
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function sendMsg(key) {
+    const inputId = key === 'messages' ? 'msgInputPublic' : 'msgInputPrivate';
+    const input = document.getElementById(inputId);
+    const text = input.value.trim();
+    if (!text) return;
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === selectedJobId);
+    j[key] = j[key] || [];
+    j[key].push({ id: 'm_' + Date.now(), from: 'admin', authorName: 'Mysubbies support', text, createdAt: new Date().toISOString() });
+    saveJobs(jobs);
+    input.value = '';
+    renderDetail();
+  }
+
+  function notifyBannerHtml() {
+    if (!('Notification' in window) || Notification.permission !== 'default') return '';
+    return `<div class="note" style="background:var(--paper);padding:10px 12px;border-radius:8px;margin-top:16px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--stone);"><span>Get a desktop alert on new messages (while this tab is open)</span><button id="notifyBtn" style="background:none;border:none;text-decoration:underline;font-size:12px;cursor:pointer;">Turn on</button></div>`;
+  }
+  function wireNotifyButton() {
+    const btn = document.getElementById('notifyBtn');
+    if (btn) btn.onclick = () => Notification.requestPermission().then(() => renderDetail());
+  }
+  function notify(text) {
+    if ('Notification' in window && Notification.permission === 'granted') new Notification('Mysubbies admin', { body: text });
+  }
+  let lastAdminMsgCounts = {};
+  function checkForNewMessages() {
+    getJobs().forEach(j => {
+      ['messages', 'internalMessages'].forEach(key => {
+        const arr = j[key] || [];
+        const cacheKey = j.id + '_' + key;
+        const last = arr[arr.length - 1];
+        if (lastAdminMsgCounts[cacheKey] !== undefined && arr.length > lastAdminMsgCounts[cacheKey] && last && last.from !== 'admin') {
+          notify(`${j.category} — ${last.authorName || last.from}: ${last.text}`);
+        }
+        lastAdminMsgCounts[cacheKey] = arr.length;
+      });
+    });
+  }
+  window.addEventListener('storage', (e) => { if (e.key === 'mysubbies_jobs') { checkForNewMessages(); render(); } });
+  setInterval(checkForNewMessages, 3000);
+
+  function reassign(id) {
+    const val = document.getElementById('reassignInput').value.trim();
+    if (!val) return;
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === id);
+    j.contractor = val;
+    j.status = 'assigned';
+    saveJobs(jobs);
+    render();
+  }
+
+  checkAdminAuth();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
