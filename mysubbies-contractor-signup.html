@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Join the Mysubbies Panel | Contractor Application</title>
+<meta name="description" content="Apply to join the Mysubbies contractor panel in Melbourne. No lead fees, no bidding wars — fixed jobs sent directly to you." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #171717; --black: #000000; --white: #FFFFFF; --paper: #F7F7F5;
+    --stone: #6B6B68; --stone-light: #9C9C97; --line: #E4E4E1; --good: #2F7A50; --warn: #B0592E;
+  }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  body { font-family:'Plus Jakarta Sans', system-ui, sans-serif; background: var(--paper); color: var(--ink); line-height:1.5; -webkit-font-smoothing:antialiased; }
+  h1, h2 { font-weight:800; letter-spacing:-0.02em; }
+  a { color:inherit; text-decoration:none; }
+  header { background: var(--black); }
+  .navwrap { max-width:1180px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:64px; }
+  .logo { display:flex; align-items:center; gap:9px; }
+  .logo-mark { width:28px; height:28px; border-radius:7px; background:#fff; }
+  .logo-word { font-weight:800; font-size:19px; color:#fff; }
+  .navlinks a { color:rgba(255,255,255,0.65); font-size:13px; }
+  .wrap { max-width:640px; margin:0 auto; padding:48px 24px 80px; }
+  .pitch { background:var(--black); color:#fff; border-radius:16px; padding:24px; margin-bottom:32px; }
+  .pitch h1 { font-size:22px; margin-bottom:10px; }
+  .pitch ul { list-style:none; font-size:13.5px; color:rgba(255,255,255,0.8); }
+  .pitch li { padding:5px 0; display:flex; gap:8px; }
+  h1.pagetitle { font-size:24px; margin-bottom:6px; }
+  p.pagesub { color:var(--stone); font-size:14px; margin-bottom:24px; }
+  .field { margin-bottom:16px; }
+  label { display:block; font-size:13px; font-weight:600; color:var(--ink); margin-bottom:6px; }
+  label .req { color:var(--warn); }
+  label .opt { color:var(--stone-light); font-weight:400; }
+  input[type=text], input[type=email], input[type=password], input[type=tel] {
+    width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:15px; color:var(--ink);
+    border:1.5px solid var(--line); border-radius:10px; padding:13px 14px; outline:none; background:#fff;
+  }
+  input:focus { border-color: var(--black); }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:520px) { .row2 { grid-template-columns:1fr; } }
+  .section-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--stone); margin:28px 0 14px; padding-top:16px; border-top:1px solid var(--line); }
+  .section-label:first-of-type { margin-top:0; padding-top:0; border-top:none; }
+  .chiprow { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
+  .chip { font-size:12.5px; font-weight:500; padding:8px 13px; border-radius:999px; border:1.5px solid var(--line); background:#fff; cursor:pointer; color:var(--ink); }
+  .chip.selected { border-color: var(--black); background: var(--black); color:#fff; }
+  .field-note { font-size:11.5px; color:var(--stone-light); margin-top:6px; }
+  .btn-outline { background:#fff; color:var(--ink); border:1.5px solid var(--line); width:auto; padding:10px 16px; font-size:13.5px; }
+  .doc-list { margin-top:8px; }
+  .doc-item { display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 10px; margin-bottom:6px; }
+  .doc-item .doc-thumb { width:36px; height:36px; border-radius:6px; object-fit:cover; flex-shrink:0; background:var(--paper); display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .doc-item .doc-name { font-size:12.5px; color:var(--ink); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .doc-item .doc-remove { background:none; border:none; color:var(--stone-light); cursor:pointer; font-size:14px; padding:2px 6px; }
+  .doc-item .doc-remove:hover { color:var(--warn); }
+  .profile-photo-preview { width:72px; height:72px; border-radius:999px; object-fit:cover; margin-bottom:10px; display:block; }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:14px 24px; border-radius:999px; font-size:15px; font-weight:600; cursor:pointer; border:none; width:100%; }
+  .btn-black { background:var(--black); color:#fff; }
+  .btn-ghost { background:none; color:var(--stone); font-weight:500; }
+  .terms { display:flex; gap:10px; align-items:flex-start; font-size:13px; color:var(--stone); margin:20px 0; cursor:pointer; }
+  .terms input { margin-top:3px; width:auto; }
+  .error { display:flex; gap:8px; align-items:center; padding:12px 14px; border-radius:10px; background:#FDEDEA; color:var(--warn); font-size:13px; margin-bottom:16px; }
+  .confirm { text-align:center; padding:40px 0; }
+  .confirm .tick { width:56px; height:56px; border-radius:999px; background:#EAF5EE; display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:26px; }
+  .confirm h1 { margin-bottom:10px; }
+  .confirm p { color:var(--stone); margin-bottom:12px; line-height:1.6; }
+  .toggle-mode { text-align:center; font-size:13px; color:var(--stone); margin-top:14px; }
+  .toggle-mode a { font-weight:600; color:var(--ink); text-decoration:underline; }
+  footer { background:var(--black); color:rgba(255,255,255,0.5); padding:32px 24px; text-align:center; font-size:13px; margin-top:40px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="navwrap">
+    <a class="logo" href="mysubbies-website.html">
+      <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="logo-word">Mysubbies</div>
+    </a>
+    <div class="navlinks"><a href="mysubbies-contractor-portal.html">Already applied? Log in</a></div>
+  </div>
+</header>
+
+<div class="wrap" id="app"></div>
+
+<footer>© 2026 Mysubbies group. Melbourne, VIC. · <a href="mysubbies-terms.html" style="color:inherit;">Terms</a></footer>
+
+<script>
+  const TRADES = ['Fencing','Pergola','Decking','Grass Installation','Retaining Wall','Concreting',
+    'Gardening & Lawn Mowing','Tree Pruning & Removal','Painting','Rendering','Cabinetry','Stonemason',
+    'Flooring','Earth Works','Demolition','Skip Bins','Cleaning','Tiling','Tiled Roof Repair',
+    'Electrical','Plumbing'];
+
+  function getApplications() { return JSON.parse(localStorage.getItem('mysubbies_contractor_applications') || '[]'); }
+  function saveApplications(apps) { localStorage.setItem('mysubbies_contractor_applications', JSON.stringify(apps)); }
+
+  let selectedTrades = [];
+  let insuranceDocs = [];
+  let certDocs = [];
+  let profilePhoto = null;
+
+  function onDocSelected(e, type) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    let remaining = files.length;
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const doc = { name: file.name, dataUrl: ev.target.result, isImage: file.type.startsWith('image/') };
+        if (type === 'insurance') insuranceDocs.push(doc); else certDocs.push(doc);
+        remaining--;
+        if (remaining === 0) renderDocList(type);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  }
+
+  function removeDoc(type, idx) {
+    if (type === 'insurance') insuranceDocs.splice(idx, 1); else certDocs.splice(idx, 1);
+    renderDocList(type);
+  }
+
+  function renderDocList(type) {
+    const docs = type === 'insurance' ? insuranceDocs : certDocs;
+    const list = document.getElementById(type === 'insurance' ? 'insuranceDocList' : 'certDocList');
+    list.innerHTML = docs.map((d, idx) => `
+      <div class="doc-item">
+        <div class="doc-thumb">${d.isImage ? `<img src="${d.dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">` : '📄'}</div>
+        <div class="doc-name">${d.name}</div>
+        <button class="doc-remove" onclick="removeDoc('${type}', ${idx})" title="Remove">✕</button>
+      </div>
+    `).join('');
+  }
+
+  function onProfilePhotoSelected(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      profilePhoto = ev.target.result;
+      const wrap = document.getElementById('profilePhotoWrap');
+      wrap.innerHTML = `
+        <img class="profile-photo-preview" src="${profilePhoto}" />
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoInput').click()">Change photo</button>
+          <button type="button" class="btn btn-outline" onclick="removeProfilePhoto()">Remove</button>
+        </div>`;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeProfilePhoto() {
+    profilePhoto = null;
+    document.getElementById('profilePhotoWrap').innerHTML = `<button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoInput').click()">📷 Upload a photo</button>`;
+  }
+
+  const app = document.getElementById('app');
+
+  function render() {
+    app.innerHTML = `
+      <div class="pitch">
+        <h1>Join the Mysubbies panel</h1>
+        <ul>
+          <li>✓ No lead fees, ever</li>
+          <li>✓ No bidding against other contractors for the same job</li>
+          <li>✓ Fixed payout shown before you accept</li>
+          <li>✓ Paid in stages as the job progresses</li>
+        </ul>
+      </div>
+
+      <h1 class="pagetitle">Apply to join</h1>
+      <p class="pagesub">We review every application before granting portal access — usually within a few business days.</p>
+
+      <div id="errorBox"></div>
+
+      <div class="section-label">Business details</div>
+      <div class="field"><label>Business name <span class="req">*</span></label><input type="text" id="fBusiness" placeholder="e.g. Coburg Decks Co" /></div>
+      <div class="row2">
+        <div class="field"><label>ABN <span class="req">*</span></label><input type="text" id="fAbn" placeholder="11 digits" /></div>
+        <div class="field"><label>Contact name <span class="req">*</span></label><input type="text" id="fContact" placeholder="Your name" /></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Phone <span class="req">*</span></label><input type="tel" id="fPhone" placeholder="04xx xxx xxx" /></div>
+        <div class="field"><label>Email <span class="req">*</span></label><input type="email" id="fEmail" placeholder="you@example.com" /></div>
+      </div>
+      <div class="field"><label>Password <span class="req">*</span></label><input type="password" id="fPassword" placeholder="Choose a password" /></div>
+
+      <div class="section-label">Trade categories</div>
+      <label>Which categories do you work in? <span class="req">*</span></label>
+      <div class="chiprow" id="tradeChips"></div>
+      <div class="field-note">Select all that apply — you'll only be sent jobs matching your approved categories.</div>
+
+      <div class="section-label">Service area</div>
+      <div class="field"><label>Suburbs you service <span class="req">*</span></label><input type="text" id="fSuburbs" placeholder="e.g. Brunswick, Coburg, Preston, Northcote" /></div>
+      <div class="field-note">Comma-separated. Leave blank to be considered for all Melbourne metro areas.</div>
+
+      <div class="section-label">Licensing & insurance</div>
+      <div class="row2">
+        <div class="field"><label>Licence number <span class="opt">(if applicable)</span></label><input type="text" id="fLicence" placeholder="e.g. electrical/plumbing licence" /></div>
+        <div class="field"><label>Public liability insurer</label><input type="text" id="fInsurer" placeholder="Insurer name" /></div>
+      </div>
+
+      <div class="section-label">Documents</div>
+      <p class="field-note" style="margin-top:-8px;margin-bottom:14px;">Photos or scans are fine \u2014 PDF, JPG or PNG. We review these before approving your application.</p>
+
+      <label>Insurance certificate <span class="opt">(e.g. public liability, workers comp)</span></label>
+      <input type="file" id="fInsuranceInput" accept="image/*,application/pdf" multiple style="display:none;" onchange="onDocSelected(event, 'insurance')" />
+      <button type="button" class="btn btn-outline" onclick="document.getElementById('fInsuranceInput').click()" style="margin-bottom:8px;">📄 Upload insurance certificate</button>
+      <div class="doc-list" id="insuranceDocList"></div>
+
+      <div style="height:14px;"></div>
+      <label>Trade certificate / licence document <span class="opt">(optional)</span></label>
+      <input type="file" id="fCertInput" accept="image/*,application/pdf" multiple style="display:none;" onchange="onDocSelected(event, 'cert')" />
+      <button type="button" class="btn btn-outline" onclick="document.getElementById('fCertInput').click()" style="margin-bottom:8px;">📄 Upload trade certificate</button>
+      <div class="doc-list" id="certDocList"></div>
+
+      <div style="height:14px;"></div>
+      <label>Profile photo <span class="opt">(optional \u2014 shown to customers once approved)</span></label>
+      <input type="file" id="fPhotoInput" accept="image/*" style="display:none;" onchange="onProfilePhotoSelected(event)" />
+      <div id="profilePhotoWrap">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoInput').click()">📷 Upload a photo</button>
+      </div>
+
+      <div class="section-label">Referral</div>
+      <div class="field"><label>Referral code <span class="opt">(optional — from another contractor)</span></label><input type="text" id="fContractorReferral" placeholder="e.g. DECK4821" /></div>
+
+      <label class="terms" style="margin-top:24px;"><input type="checkbox" id="fTerms" /> I confirm the above is accurate and I have read and accept the <a href="mysubbies-terms.html" target="_blank" style="text-decoration:underline;">Mysubbies Contractor Agreement</a>.</label>
+
+      <button class="btn btn-black" onclick="submitApplication()">Submit application →</button>
+      <div class="toggle-mode">Already applied? <a href="mysubbies-contractor-portal.html">Log in</a></div>
+    `;
+    renderTradeChips();
+  }
+
+  function renderTradeChips() {
+    const row = document.getElementById('tradeChips');
+    row.innerHTML = '';
+    TRADES.forEach(trade => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip' + (selectedTrades.includes(trade) ? ' selected' : '');
+      btn.textContent = trade;
+      btn.onclick = () => {
+        if (selectedTrades.includes(trade)) selectedTrades = selectedTrades.filter(t => t !== trade);
+        else selectedTrades.push(trade);
+        renderTradeChips();
+      };
+      row.appendChild(btn);
+    });
+  }
+
+  function showError(msg) {
+    document.getElementById('errorBox').innerHTML = `<div class="error">⚠ ${msg}</div>`;
+  }
+
+  function submitApplication() {
+    const business = document.getElementById('fBusiness').value.trim();
+    const abn = document.getElementById('fAbn').value.trim();
+    const contact = document.getElementById('fContact').value.trim();
+    const phone = document.getElementById('fPhone').value.trim();
+    const email = document.getElementById('fEmail').value.trim().toLowerCase();
+    const password = document.getElementById('fPassword').value;
+    const suburbs = document.getElementById('fSuburbs').value.trim();
+    const licence = document.getElementById('fLicence').value.trim();
+    const insurer = document.getElementById('fInsurer').value.trim();
+    const terms = document.getElementById('fTerms').checked;
+
+    if (!business || !abn || !contact || !phone || !email || !password) { showError('Please fill in all required business details.'); return; }
+    if (selectedTrades.length === 0) { showError('Select at least one trade category.'); return; }
+    if (!terms) { showError('Please accept the Contractor Agreement to continue.'); return; }
+
+    const referralInput = document.getElementById('fContractorReferral') ? document.getElementById('fContractorReferral').value.trim().toUpperCase() : '';
+
+    const apps = getApplications();
+    if (apps.some(a => a.email === email)) { showError('An application with this email already exists.'); return; }
+
+    const referralCode = (business.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'TRDE') + Math.floor(1000 + Math.random() * 9000);
+    const referredBy = apps.some(a => a.referralCode === referralInput) ? referralInput : null;
+    const application = {
+      id: 'app_' + Date.now(), business, abn, contact, phone, email, password,
+      trades: selectedTrades, suburbs: suburbs ? suburbs.split(',').map(s => s.trim()).filter(Boolean) : [],
+      licence, insurer, insuranceDocs, certDocs, profilePhoto, referralCode, referredBy,
+      status: 'pending', appliedAt: new Date().toISOString(),
+    };
+    apps.unshift(application);
+    saveApplications(apps);
+
+    app.innerHTML = `
+      <div class="confirm">
+        <div class="tick">✓</div>
+        <h1>Application received</h1>
+        <p>Thanks, ${contact} — we've received your application for <strong>${business}</strong>.</p>
+        <p>We review every application before granting portal access. You'll be able to log in once approved.</p>
+        <a class="btn btn-black" href="mysubbies-website.html" style="max-width:280px;margin:20px auto 0;">Back to site</a>
+      </div>`;
+  }
+
+  render();
+</script>
+</body>
+</html>

@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mysubbies — Complete your booking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #171717; --black: #000000; --white: #FFFFFF; --paper: #F7F7F5;
+    --stone: #6B6B68; --stone-light: #9C9C97; --line: #E4E4E1; --good: #2F7A50; --warn: #B0592E;
+  }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  body { font-family:'Plus Jakarta Sans', system-ui, sans-serif; background: var(--paper); color: var(--ink); line-height:1.5; -webkit-font-smoothing:antialiased; }
+  h1, h2 { font-weight:800; letter-spacing:-0.02em; }
+  a { color:inherit; text-decoration:none; }
+  header { background: var(--black); }
+  .navwrap { max-width:1180px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:64px; }
+  .logo { display:flex; align-items:center; gap:9px; }
+  .logo-mark { width:28px; height:28px; border-radius:7px; background:#fff; }
+  .logo-word { font-weight:800; font-size:19px; color:#fff; }
+  .backlink { font-size:13px; color:rgba(255,255,255,0.65); }
+  .wrap { max-width:640px; margin:0 auto; padding:48px 24px 80px; }
+  .quote-summary { background:#fff; border:1px solid var(--line); border-radius:16px; padding:20px; display:flex; gap:14px; align-items:center; margin-bottom:32px; }
+  .quote-summary .qicon { font-size:26px; }
+  .quote-summary .qcat { font-weight:700; font-size:16px; }
+  .quote-summary .qsub { font-size:13px; color:var(--stone); margin-top:2px; }
+  .quote-summary .qprice { margin-left:auto; font-weight:800; font-size:18px; white-space:nowrap; }
+  .quote-summary img { width:56px; height:56px; border-radius:10px; object-fit:cover; }
+  h1.pagetitle { font-size:26px; margin-bottom:6px; }
+  p.pagesub { color:var(--stone); font-size:14px; margin-bottom:28px; }
+  .field { margin-bottom:16px; }
+  label { display:block; font-size:13px; font-weight:600; color:var(--ink); margin-bottom:6px; }
+  input[type=text], input[type=email], input[type=password], input[type=tel] {
+    width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:15px; color:var(--ink);
+    border:1.5px solid var(--line); border-radius:10px; padding:13px 14px; outline:none; background:#fff;
+  }
+  input:focus { border-color: var(--black); }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:520px) { .row2 { grid-template-columns:1fr; } }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:14px 24px; border-radius:999px; font-size:15px; font-weight:600; cursor:pointer; border:none; width:100%; }
+  .btn-black { background:var(--black); color:#fff; }
+  .btn-ghost { background:none; color:var(--stone); font-weight:500; }
+  .terms { display:flex; gap:10px; align-items:flex-start; font-size:13px; color:var(--stone); margin:20px 0; cursor:pointer; }
+  .terms input { margin-top:3px; }
+  .error { display:flex; gap:8px; align-items:center; padding:12px 14px; border-radius:10px; background:#FDEDEA; color:var(--warn); font-size:13px; margin-bottom:16px; }
+  .toggle-mode { text-align:center; font-size:13px; color:var(--stone); margin-top:14px; }
+  .toggle-mode a { font-weight:600; color:var(--ink); text-decoration:underline; }
+  .empty-state { text-align:center; padding:60px 20px; }
+  .empty-state p { color:var(--stone); margin-bottom:24px; }
+  .confirm { text-align:center; padding:40px 0; }
+  .confirm .tick { width:56px; height:56px; border-radius:999px; background:#EAF5EE; display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:26px; }
+  .confirm h1 { margin-bottom:10px; }
+  .confirm p { color:var(--stone); margin-bottom:28px; }
+  .divider { border-top:1px solid var(--line); margin:24px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="navwrap">
+    <a class="logo" href="mysubbies-website.html">
+      <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="logo-word">Mysubbies</div>
+    </a>
+    <a class="backlink" href="mysubbies-website.html">← Back to site</a>
+  </div>
+</header>
+
+<div class="wrap" id="app"></div>
+
+<script>
+  function getJobs() { return JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]'); }
+  function saveJobs(jobs) { localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs)); }
+  function getCustomers() { return JSON.parse(localStorage.getItem('mysubbies_customers') || '{}'); }
+  function saveCustomers(c) { localStorage.setItem('mysubbies_customers', JSON.stringify(c)); }
+  function getPendingQuote() { return JSON.parse(localStorage.getItem('mysubbies_pending_quote') || 'null'); }
+
+  const quote = getPendingQuote();
+  const app = document.getElementById('app');
+  let mode = 'register'; // or 'login'
+
+  function renderGroupedItems(items) {
+    const uniqueCats = [...new Set(items.map(i => i.catLabel))];
+    const groups = uniqueCats.map(catLabel => ({
+      catLabel, catIcon: items.find(i => i.catLabel === catLabel).catIcon,
+      items: items.filter(i => i.catLabel === catLabel),
+    }));
+    const bundleNote = uniqueCats.length > 1
+      ? `<div style="font-size:11.5px;color:var(--stone);background:var(--paper);border-radius:8px;padding:9px 12px;margin-top:10px;line-height:1.5;">This will be booked as ${uniqueCats.length} separate jobs \u2014 one per trade, each with its own contractor.</div>`
+      : '';
+    return `
+      <div style="border-top:1px solid var(--line);padding-top:12px;">
+        ${groups.map(g => `
+          ${uniqueCats.length > 1 ? `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--stone);margin:8px 0 4px;">${g.catIcon} ${g.catLabel}</div>` : ''}
+          ${g.items.map(i => `
+            <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;color:var(--stone);">
+              <span>${uniqueCats.length > 1 ? '' : (i.catIcon || '') + ' '}${i.taskName} <span style="color:var(--stone-light);">(${i.qty} ${i.unit})</span></span>
+              <span style="font-weight:600;color:var(--ink);">$${i.base.toLocaleString()}</span>
+            </div>
+          `).join('')}
+        `).join('')}
+      </div>
+      ${bundleNote}
+    `;
+  }
+
+  function render() {
+    if (!quote) {
+      app.innerHTML = `
+        <div class="empty-state">
+          <h1 class="pagetitle">No job in progress</h1>
+          <p>Head back to the site and get an instant price first — that quote carries through to this booking step.</p>
+          <a class="btn btn-black" href="mysubbies-website.html" style="max-width:280px;margin:0 auto;">Get an instant price →</a>
+        </div>`;
+      return;
+    }
+
+    app.innerHTML = `
+      <div class="quote-summary" style="flex-direction:column;align-items:stretch;">
+        <div style="display:flex;gap:14px;align-items:center;margin-bottom:${quote.items && quote.items.length ? '14px' : '0'};">
+          ${quote.photoDataUrl && (!quote.photoDataUrls || quote.photoDataUrls.length <= 1) ? `<img src="${quote.photoDataUrl}" />` : `<div class="qicon">${quote.icon}</div>`}
+          <div>
+            <div class="qcat">${quote.category}</div>
+            <div class="qsub">${quote.items ? quote.items.length + ' item' + (quote.items.length===1?'':'s') : ''}${quote.suburb ? ' · ' + quote.suburb : ''}</div>
+          </div>
+          <div class="qprice">$${quote.low.toLocaleString()}</div>
+        </div>
+        ${quote.items && quote.items.length ? renderGroupedItems(quote.items) : ''}
+        ${quote.photoDataUrls && quote.photoDataUrls.length > 1 ? `
+          <div style="display:flex;gap:8px;overflow-x:auto;padding-top:12px;margin-top:12px;border-top:1px solid var(--line);">
+            ${quote.photoDataUrls.map(src => `<img src="${src}" style="width:64px;height:64px;border-radius:8px;object-fit:cover;flex-shrink:0;" />`).join('')}
+          </div>
+        ` : ''}
+      </div>
+
+      <h1 class="pagetitle">${mode === 'register' ? 'A few details to send this off' : 'Welcome back'}</h1>
+      <p class="pagesub">${mode === 'register' ? 'This creates your Mysubbies account so you can track the job — separate from contractor logins.' : 'Log in to continue and track this job under your existing account.'}</p>
+
+      <div id="errorBox"></div>
+
+      ${mode === 'register' ? `
+        <div class="field"><label>Your name</label><input type="text" id="fName" placeholder="e.g. Sarah Nguyen" /></div>
+        <div class="row2">
+          <div class="field"><label>Phone</label><input type="tel" id="fPhone" placeholder="04xx xxx xxx" /></div>
+          <div class="field"><label>Suburb</label><input type="text" id="fSuburb" value="${quote.suburb || ''}" /></div>
+        </div>
+        <div class="field"><label>Address</label><input type="text" id="fAddress" placeholder="Street address" /></div>
+        <div class="field"><label>Referral code <span style="color:var(--stone-light);font-weight:400;">(optional)</span></label><input type="text" id="fReferral" placeholder="Got a code from a friend?" /></div>
+      ` : ''}
+
+      <div class="field"><label>Email</label><input type="email" id="fEmail" placeholder="you@example.com" /></div>
+      <div class="field"><label>Password</label><input type="password" id="fPassword" placeholder="${mode === 'register' ? 'Choose a password' : 'Your password'}" /></div>
+
+      ${mode === 'register' ? `
+        <div style="background:var(--paper);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:var(--stone);line-height:1.5;">
+          <strong style="color:var(--ink);">Cancellation:</strong> free if no contractor has accepted yet. Once accepted, cancelling may incur a fee reflecting work or materials already committed. <a href="mysubbies-faq.html" target="_blank" style="text-decoration:underline;">Read more</a>
+        </div>
+        <label class="terms"><input type="checkbox" id="fTerms" /> I have read and accept the Mysubbies <a href="mysubbies-terms.html" target="_blank" style="text-decoration:underline;">Terms &amp; Conditions</a>, including how payment is collected.</label>
+      ` : '<div class="divider"></div>'}
+
+      <button class="btn btn-black" onclick="submitBooking()">${mode === 'register' ? 'Approve & send to a contractor' : 'Log in & continue'}</button>
+      <div class="toggle-mode">
+        ${mode === 'register' ? `Already registered? <a href="#" onclick="mode='login'; render(); return false;">Log in</a>` : `New here? <a href="#" onclick="mode='register'; render(); return false;">Create an account</a>`}
+      </div>
+    `;
+  }
+
+  function showError(msg) {
+    document.getElementById('errorBox').innerHTML = `<div class="error">⚠ ${msg}</div>`;
+  }
+
+  function submitBooking() {
+    const email = document.getElementById('fEmail').value.trim().toLowerCase();
+    const password = document.getElementById('fPassword').value;
+    if (!email || !password) { showError('Enter your email and password.'); return; }
+
+    const customers = getCustomers();
+
+    if (mode === 'login') {
+      const existing = customers[email];
+      if (!existing || existing.password !== password) { showError('No account found with those details.'); return; }
+      createJob(existing);
+      return;
+    }
+
+    // register
+    const name = document.getElementById('fName').value.trim();
+    const phone = document.getElementById('fPhone').value.trim();
+    const suburb = document.getElementById('fSuburb').value.trim();
+    const address = document.getElementById('fAddress').value.trim();
+    const referralInput = document.getElementById('fReferral').value.trim().toUpperCase();
+    const terms = document.getElementById('fTerms').checked;
+    if (!name || !phone || !address || !terms) { showError('Please fill in all fields and accept the terms.'); return; }
+    if (customers[email]) { showError('An account with this email already exists — log in instead.'); return; }
+
+    const referralCode = (name.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'FRND') + Math.floor(1000 + Math.random() * 9000);
+    const referredBy = Object.values(customers).some(c => c.referralCode === referralInput) ? referralInput : null;
+    const account = { name, phone, email, password, referralCode, referredBy, createdAt: new Date().toISOString() };
+    customers[email] = account;
+    saveCustomers(customers);
+    createJob({ ...account, address, suburb });
+  }
+
+  const DEFAULT_PAYMENT_SCHEDULE = [
+    { key: 'deposit', label: 'Deposit', pct: 5 },
+    { key: 'materials', label: 'Materials ordered', pct: 35 },
+    { key: 'frame', label: 'Frame stage complete', pct: 50 },
+    { key: 'completion', label: 'On completion', pct: 10 },
+  ];
+  function getPaymentScheduleForCategory(catLabel) {
+    try {
+      const rateCard = JSON.parse(localStorage.getItem('mysubbies_ratecard') || '[]');
+      const cat = rateCard.find(c => c.label === catLabel);
+      if (cat && cat.paymentSchedule) return cat.paymentSchedule;
+    } catch (e) { /* fall through to default */ }
+    return DEFAULT_PAYMENT_SCHEDULE;
+  }
+
+  function createJob(customer) {
+    const jobs = getJobs();
+    const items = quote.items || [];
+    const uniqueCats = [...new Set(items.map(i => i.catLabel))];
+    const isBundle = uniqueCats.length > 1;
+    const bundleId = isBundle ? 'bundle_' + Date.now() : null;
+    const createdJobs = [];
+
+    uniqueCats.forEach(catLabel => {
+      const catItems = items.filter(i => i.catLabel === catLabel);
+      const catBase = catItems.reduce((s, i) => s + i.base, 0);
+      const catLow = catBase;
+      const catHigh = catBase;
+      const singleItem = catItems.length === 1 ? catItems[0] : null;
+      const paymentSchedule = getPaymentScheduleForCategory(catLabel);
+      const job = {
+        id: 'job_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+        category: catLabel, icon: catItems[0].catIcon,
+        items: catItems,
+        unit: singleItem ? singleItem.unit : null, qty: singleItem ? singleItem.qty : null,
+        basePrice: catBase, priceLow: catLow, priceHigh: catHigh,
+        suburb: customer.suburb || quote.suburb || 'Melbourne', address: customer.address || '',
+        customerName: customer.name, customerPhone: customer.phone, customerEmail: customer.email,
+        site: quote.site, access: quote.access, hasPhoto: quote.hasPhoto, photoDataUrl: quote.photoDataUrl || null, photoDataUrls: quote.photoDataUrls || (quote.photoDataUrl ? [quote.photoDataUrl] : []),
+        status: 'feed', contractor: null,
+        bundleId, bundleCategories: isBundle ? uniqueCats : null,
+        paymentSchedule, paidStages: { deposit: true },
+        messages: [], internalMessages: [],
+        createdAt: new Date().toISOString(),
+      };
+      jobs.unshift(job);
+      createdJobs.push(job);
+    });
+
+    saveJobs(jobs);
+    localStorage.removeItem('mysubbies_pending_quote');
+
+    app.innerHTML = `
+      <div class="confirm">
+        <div class="tick">✓</div>
+        <h1>${isBundle ? createdJobs.length + ' jobs sent!' : 'Job sent!'}</h1>
+        <p>${isBundle
+          ? `Your renovation in ${createdJobs[0].suburb} is now live on the contractor board \u2014 ${uniqueCats.join(', ')}, dispatched separately to the right trade for each.`
+          : `${createdJobs[0].category} in ${createdJobs[0].suburb} is now live on the contractor board.`}</p>
+        <a class="btn btn-black" href="mysubbies-customer-portal.html" style="max-width:320px;margin:0 auto 12px;">Track ${isBundle ? 'them' : 'it'} in My Jobs →</a>
+        <a class="btn btn-ghost" href="mysubbies-website.html" style="max-width:320px;margin:0 auto;">Back to site</a>
+      </div>`;
+  }
+
+  render();
+</script>
+</body>
+</html>
