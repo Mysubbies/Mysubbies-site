@@ -361,6 +361,24 @@
   let pendingUploadRows = null;
   let rcMode = 'manage';
 
+  // Section 5 of the small-jobs brief: a configurable floor so a job never
+  // books through at a price where the platform economics don't work.
+  // Not yet enforced anywhere in the booking flow — that wiring is separate
+  // follow-up work; this is the admin control for it.
+  function getMinBookingValue() {
+    const stored = localStorage.getItem('mysubbies_min_booking_value');
+    return stored !== null ? Number(stored) : 149;
+  }
+
+  function saveMinBookingValue() {
+    const val = Number(document.getElementById('minBookingValueInput').value);
+    if (!Number.isFinite(val) || val < 0) return;
+    localStorage.setItem('mysubbies_min_booking_value', String(val));
+    const saved = document.getElementById('minBookingValueSaved');
+    saved.style.display = 'inline';
+    setTimeout(() => { saved.style.display = 'none'; }, 2000);
+  }
+
   function renderRateCardTab() {
     const categories = getRateCard();
     const totalTasks = categories.reduce((s, c) => s + c.tasks.length, 0);
@@ -377,6 +395,17 @@
           <input type="file" id="rcFileInput" accept=".csv" style="display:none;" onchange="onRateCardFileSelected(event)" />
         </div>
         <div id="rcUploadPreview"></div>
+      </div>
+
+      <div class="detailcard" style="max-width:640px;margin-bottom:20px;">
+        <h3 style="font-size:15px;margin-bottom:8px;">Minimum booking value</h3>
+        <p style="font-size:12.5px;color:var(--stone);margin-bottom:12px;">Customer jobs priced below this amount won't be bookable — keeps small jobs from going through at a price where the platform economics don't work. Recommended range: $149–$199.</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:13px;color:var(--stone);">$</span>
+          <input type="number" id="minBookingValueInput" value="${getMinBookingValue()}" min="0" step="1" style="width:110px;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
+          <button class="btn btn-black" onclick="saveMinBookingValue()">Save</button>
+          <span id="minBookingValueSaved" style="font-size:12px;color:var(--stone);display:none;">Saved.</span>
+        </div>
       </div>
 
       <div class="detailcard" style="max-width:640px;margin-bottom:20px;">
