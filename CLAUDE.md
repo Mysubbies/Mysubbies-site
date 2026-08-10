@@ -55,18 +55,49 @@ credentials exist. See `.env.example` for the exact Vercel environment
 variable names needed, and `supabase/schema.sql` for the DB schema to run
 in the Supabase SQL editor before anything will work.
 
+**Real-world discovery (Aug 2026): Connect needs its own Stripe account.**
+The founder's original Stripe account (`mysubbies.com.au`) turned out to be
+Xero-linked and Stripe flatly refuses to enable Connect on it — the
+dashboard says outright "Connect is not available for this account, please
+create a new account." A second account ("Mysubbies Site") was created
+specifically for Connect, using the **Marketplace** business model (buyer →
+platform → contractor, matching the "customers and contractors never deal
+with payment directly" requirement — the alternative "Platform" model has
+contractors collecting payment directly, which is the opposite of what was
+wanted). Consequence: `STRIPE_SECRET_KEY` must be the key from whichever
+account actually charges customers. If that ever needs to change, every
+downstream key/webhook/publishable-key value changes with it — they're not
+portable between Stripe accounts.
+
+**Two separate webhook destinations, two separate secrets.** Stripe will
+not let one destination mix "Your account" scope (payment_intent events)
+with "Connected accounts" scope (account.updated) — their own UI copy says
+"create two separate destinations." Each destination gets its own signing
+secret, so `api/stripe-webhook.js` tries both `STRIPE_WEBHOOK_SECRET` and
+`STRIPE_WEBHOOK_SECRET_CONNECT` when verifying a request, since there's no
+way to know in advance which destination sent it.
+
 Required setup before any of this goes live:
 1. Run `supabase/schema.sql` in the Supabase project's SQL editor.
-2. Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `SUPABASE_URL`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET` in Vercel env vars (never in
-   code — see `.env.example`).
-3. Register the webhook endpoint in Stripe: `https://yourdomain/api/stripe-webhook`,
-   listening for `payment_intent.succeeded`, `payment_intent.payment_failed`,
-   and `account.updated` (with "listen to events on connected accounts" on).
+2. Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_WEBHOOK_SECRET_CONNECT`,
+   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET` in Vercel env
+   vars (never in code — see `.env.example`).
+3. In Stripe, register **two** event destinations at the same URL
+   (`https://yourdomain/api/stripe-webhook`): one scoped to "Your account"
+   listening for `payment_intent.succeeded` + `payment_intent.payment_failed`,
+   and one scoped to "Connected accounts" listening for `account.updated`.
 4. Replace `STRIPE_PUBLISHABLE_KEY` in `mysubbies-booking.html` with the
    real publishable key (safe to be client-visible, unlike the secret key).
 5. Set the same `CRON_SECRET` value in Vercel's Cron configuration for this
    project.
+
+**Note on Stripe's newer dashboard UI**: the Connect-enabled account uses a
+"Workbench" webhook creation flow with heavily obfuscated, non-standard
+form components (no real `<input type=checkbox>`, custom `<a role="button">`
+elements instead of `<button>`, layout that shifts under automation). If
+scripting against this again, expect standard DOM queries to fail silently
+— full pointer-event sequences dispatched on the exact text-matching leaf
+element were what actually worked.
 
 ## Company-only ABN verification (added Aug 2026, ABR lookup live from day one)
 Contractor signup requires both an ABN and an ACN, and validates that the
