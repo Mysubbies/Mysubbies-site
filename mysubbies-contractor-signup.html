@@ -185,9 +185,14 @@
       <div id="errorBox"></div>
 
       <div class="section-label">Business details</div>
-      <div class="field"><label>Business name <span class="req">*</span></label><input type="text" id="fBusiness" placeholder="e.g. Coburg Decks Co" /></div>
+      <div class="field"><label>Business name <span class="req">*</span></label><input type="text" id="fBusiness" placeholder="e.g. Coburg Decks Pty Ltd" /></div>
       <div class="row2">
-        <div class="field"><label>ABN <span class="req">*</span></label><input type="text" id="fAbn" placeholder="11 digits" /></div>
+        <div class="field"><label>ABN <span class="req">*</span></label><input type="text" id="fAbn" placeholder="11 digits" onblur="verifyAbnWithAbr()" /></div>
+        <div class="field"><label>ACN <span class="req">*</span></label><input type="text" id="fAcn" placeholder="9 digits" /></div>
+      </div>
+      <div id="abrLookupResult"></div>
+      <p style="font-size:12px;color:var(--stone);margin:-8px 0 14px;">Mysubbies currently only registers contractors operating through a company (Pty Ltd) — your ACN confirms this. Sole trader ABNs can't be accepted at this time.</p>
+      <div class="row2">
         <div class="field"><label>Contact name <span class="req">*</span></label><input type="text" id="fContact" placeholder="Your name" /></div>
       </div>
       <div class="row2">
@@ -264,9 +269,87 @@
     document.getElementById('errorBox').innerHTML = `<div class="error">⚠ ${msg}</div>`;
   }
 
+  // ATO ABN checksum algorithm (ato.gov.au) — validates the number is a real ABN.
+  function isValidAbnFormat(abn) {
+    const digits = String(abn).replace(/\s/g, '');
+    if (!/^\d{11}$/.test(digits)) return false;
+    const weights = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19];
+    const nums = digits.split('').map(Number);
+    nums[0] -= 1;
+    const sum = nums.reduce((s, d, i) => s + d * weights[i], 0);
+    return sum % 89 === 0;
+  }
+  // ASIC ACN checksum algorithm — validates the number is a real ACN.
+  function isValidAcnFormat(acn) {
+    const digits = String(acn).replace(/\s/g, '');
+    if (!/^\d{9}$/.test(digits)) return false;
+    const weights = [8, 7, 6, 5, 4, 3, 2, 1];
+    const nums = digits.split('').map(Number);
+    const sum = nums.slice(0, 8).reduce((s, d, i) => s + d * weights[i], 0);
+    let checkDigit = 10 - (sum % 10);
+    if (checkDigit === 10) checkDigit = 0;
+    return checkDigit === nums[8];
+  }
+  // A company's ABN is derived from its ACN — the last 9 digits of a
+  // company ABN equal its ACN. Sole traders have no ACN, so they can't pass
+  // this. This confirms company registration without needing the ABR API.
+  function abnMatchesAcn(abn, acn) {
+    return String(abn).replace(/\s/g, '').slice(2) === String(acn).replace(/\s/g, '');
+  }
+
+  // ABR (Australian Business Register) ABN Lookup — real registry data,
+  // not just checksum math. The GUID below is meant to sit in a browser
+  // URL: the ABR JSON API is JSONP-only, so there is no way to call it
+  // without the GUID being client-visible. That's a different risk profile
+  // to the Stripe/Supabase secret keys elsewhere in this project (which are
+  // server-only, in Vercel env vars, never in any file) — this one is
+  // supposed to be here.
+  const ABR_GUID = 'ef5da995-e327-4fd6-b93e-32df88909564';
+  let abrLookupSeq = 0;
+
+  function verifyAbnWithAbr() {
+    const abn = document.getElementById('fAbn').value.trim().replace(/\s/g, '');
+    const resultBox = document.getElementById('abrLookupResult');
+    if (!isValidAbnFormat(abn)) { resultBox.innerHTML = ''; return; }
+
+    const seq = ++abrLookupSeq; // guards against an earlier, slower lookup overwriting a later one
+    resultBox.innerHTML = `<p style="font-size:12px;color:var(--stone);margin-bottom:8px;">Checking ABR…</p>`;
+
+    const callbackName = 'abrCallback_' + seq;
+    window[callbackName] = function (data) {
+      delete window[callbackName];
+      document.getElementById(callbackName + '_script')?.remove();
+      if (seq !== abrLookupSeq) return; // a newer lookup has already started
+
+      if (data.Message) {
+        resultBox.innerHTML = `<p style="font-size:12px;color:var(--warn);margin-bottom:8px;">Couldn't verify with the ABR: ${escapeHtml(data.Message)}. Double-check the ABN.</p>`;
+        return;
+      }
+      const isActive = data.AbnStatus === 'Active';
+      const looksLikeCompany = /company/i.test(data.EntityTypeName || '');
+      resultBox.innerHTML = `
+        <div style="background:var(--paper);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:12.5px;">
+          <div><strong>Registered as:</strong> ${escapeHtml(data.EntityName || '—')}</div>
+          <div style="color:${isActive ? 'var(--good, #2F7A50)' : 'var(--warn)'};">${escapeHtml(data.AbnStatus || 'Unknown status')}</div>
+          <div style="color:var(--stone);">${escapeHtml(data.EntityTypeName || '')}</div>
+          ${!looksLikeCompany ? `<div style="color:var(--warn);margin-top:4px;">This doesn't look like a company entity type — Mysubbies only registers company-structured contractors.</div>` : ''}
+        </div>
+      `;
+    };
+
+    const script = document.createElement('script');
+    script.id = callbackName + '_script';
+    script.src = `https://abr.business.gov.au/json/AbnDetails.aspx?abn=${encodeURIComponent(abn)}&callback=${callbackName}&guid=${ABR_GUID}`;
+    script.onerror = () => {
+      if (seq === abrLookupSeq) resultBox.innerHTML = `<p style="font-size:12px;color:var(--warn);margin-bottom:8px;">Couldn't reach the ABR lookup right now — you can still submit; we'll check it during review.</p>`;
+    };
+    document.body.appendChild(script);
+  }
+
   function submitApplication() {
     const business = document.getElementById('fBusiness').value.trim();
     const abn = document.getElementById('fAbn').value.trim();
+    const acn = document.getElementById('fAcn').value.trim();
     const contact = document.getElementById('fContact').value.trim();
     const phone = document.getElementById('fPhone').value.trim();
     const email = document.getElementById('fEmail').value.trim().toLowerCase();
@@ -276,7 +359,10 @@
     const insurer = document.getElementById('fInsurer').value.trim();
     const terms = document.getElementById('fTerms').checked;
 
-    if (!business || !abn || !contact || !phone || !email || !password) { showError('Please fill in all required business details.'); return; }
+    if (!business || !abn || !acn || !contact || !phone || !email || !password) { showError('Please fill in all required business details.'); return; }
+    if (!isValidAbnFormat(abn)) { showError('That ABN doesn\'t look valid — double-check the 11 digits.'); return; }
+    if (!isValidAcnFormat(acn)) { showError('That ACN doesn\'t look valid — double-check the 9 digits.'); return; }
+    if (!abnMatchesAcn(abn, acn)) { showError('That ABN and ACN don\'t match a registered company. Mysubbies only registers company (Pty Ltd) contractors — sole trader ABNs aren\'t eligible.'); return; }
     if (selectedTrades.length === 0) { showError('Select at least one trade category.'); return; }
     if (!terms) { showError('Please accept the Contractor Agreement to continue.'); return; }
 
@@ -288,7 +374,7 @@
     const referralCode = (business.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'TRDE') + Math.floor(1000 + Math.random() * 9000);
     const referredBy = apps.some(a => a.referralCode === referralInput) ? referralInput : null;
     const application = {
-      id: 'app_' + Date.now(), business, abn, contact, phone, email, password,
+      id: 'app_' + Date.now(), business, abn, acn, contact, phone, email, password,
       trades: selectedTrades, suburbs: suburbs ? suburbs.split(',').map(s => s.trim()).filter(Boolean) : [],
       licence, insurer, insuranceDocs, certDocs, profilePhoto, referralCode, referredBy,
       status: 'pending', appliedAt: new Date().toISOString(),

@@ -1,0 +1,10 @@
+{
+  "name": "mysubbies-backend",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Serverless payment/payout functions for the Mysubbies static site. The HTML pages at the repo root are unaffected by this — no bundler, no framework, still deployed as-is. This file exists only so Vercel installs dependencies for the /api functions.",
+  "dependencies": {
+    "stripe": "^17.0.0",
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}

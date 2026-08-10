@@ -6,6 +6,7 @@
 <title>Mysubbies — Complete your booking</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://js.stripe.com/v3/"></script>
 <style>
   :root {
     --ink: #171717; --black: #000000; --white: #FFFFFF; --paper: #F7F7F5;
@@ -86,7 +87,23 @@
 
   const quote = getPendingQuote();
   const app = document.getElementById('app');
+
+  // Publishable keys are safe to expose client-side by design (unlike the
+  // secret key, which only ever lives in Vercel env vars for /api
+  // functions). Replace this with your real Stripe publishable key —
+  // starts with pk_test_ in test mode, pk_live_ once you go live.
+  const STRIPE_PUBLISHABLE_KEY = 'pk_test_REPLACE_ME';
+  const stripe = (typeof Stripe !== 'undefined' && !STRIPE_PUBLISHABLE_KEY.includes('REPLACE_ME'))
+    ? Stripe(STRIPE_PUBLISHABLE_KEY) : null;
+
   let mode = 'register'; // or 'login'
+  let jobType = 'private'; // or 'business'
+  function setJobType(type) {
+    jobType = type;
+    document.getElementById('jobTypePrivateBtn').className = 'btn ' + (type === 'private' ? 'btn-black' : 'btn-ghost');
+    document.getElementById('jobTypeBusinessBtn').className = 'btn ' + (type === 'business' ? 'btn-black' : 'btn-ghost');
+    document.getElementById('businessNameField').style.display = type === 'business' ? '' : 'none';
+  }
 
   function renderGroupedItems(items) {
     const uniqueCats = [...new Set(items.map(i => i.catLabel))];
@@ -154,6 +171,16 @@
           <div class="field"><label>Suburb</label><input type="text" id="fSuburb" value="${quote.suburb || ''}" /></div>
         </div>
         <div class="field"><label>Address</label><input type="text" id="fAddress" placeholder="Street address" /></div>
+
+        <div class="field">
+          <label>Is this a business or private job?</label>
+          <div style="display:flex;gap:8px;">
+            <button type="button" id="jobTypePrivateBtn" class="btn ${jobType === 'private' ? 'btn-black' : 'btn-ghost'}" style="flex:1;" onclick="setJobType('private')">Private</button>
+            <button type="button" id="jobTypeBusinessBtn" class="btn ${jobType === 'business' ? 'btn-black' : 'btn-ghost'}" style="flex:1;" onclick="setJobType('business')">Business</button>
+          </div>
+        </div>
+        <div class="field" id="businessNameField" style="${jobType === 'business' ? '' : 'display:none;'}"><label>Business name <span style="color:var(--stone-light);font-weight:400;">(for your invoice)</span></label><input type="text" id="fBusinessName" placeholder="e.g. Nguyen Property Co" /></div>
+
         <div class="field"><label>Referral code <span style="color:var(--stone-light);font-weight:400;">(optional)</span></label><input type="text" id="fReferral" placeholder="Got a code from a friend?" /></div>
       ` : ''}
 
@@ -191,7 +218,7 @@
     if (mode === 'login') {
       const existing = customers[email];
       if (!existing || existing.password !== password) { showError('No account found with those details.'); return; }
-      createJob(existing);
+      beginBookingFlow(existing);
       return;
     }
 
@@ -202,7 +229,9 @@
     const address = document.getElementById('fAddress').value.trim();
     const referralInput = document.getElementById('fReferral').value.trim().toUpperCase();
     const terms = document.getElementById('fTerms').checked;
+    const businessName = jobType === 'business' ? document.getElementById('fBusinessName').value.trim() : '';
     if (!name || !phone || !address || !terms) { showError('Please fill in all fields and accept the terms.'); return; }
+    if (jobType === 'business' && !businessName) { showError('Enter the business name for your invoice.'); return; }
     if (customers[email]) { showError('An account with this email already exists — log in instead.'); return; }
 
     const referralCode = (name.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'FRND') + Math.floor(1000 + Math.random() * 9000);
@@ -210,7 +239,7 @@
     const account = { name, phone, email, password, referralCode, referredBy, createdAt: new Date().toISOString() };
     customers[email] = account;
     saveCustomers(customers);
-    createJob({ ...account, address, suburb });
+    beginBookingFlow({ ...account, address, suburb, jobType, businessName });
   }
 
   const DEFAULT_PAYMENT_SCHEDULE = [
@@ -228,7 +257,89 @@
     return DEFAULT_PAYMENT_SCHEDULE;
   }
 
-  function createJob(customer) {
+  // Entry point after login/registration. Single-category bookings go
+  // through a real Stripe deposit payment first — the job isn't created
+  // (and never reaches the contractor board) until that succeeds. Bundles
+  // (multiple trades in one cart) are a known gap: a single Stripe
+  // PaymentIntent maps to one job in this v1 backend, and bundles create
+  // several job records at once, so they still use the pre-Stripe
+  // immediate-fictional-deposit path below until that's built out properly
+  // — see CLAUDE.md.
+  function beginBookingFlow(customer) {
+    const items = quote.items || [];
+    const uniqueCats = [...new Set(items.map(i => i.catLabel))];
+    if (uniqueCats.length === 1 && stripe) {
+      renderDepositPayment(customer, uniqueCats[0]);
+    } else {
+      createJob(customer);
+    }
+  }
+
+  function renderDepositPayment(customer, catLabel) {
+    const items = quote.items || [];
+    const catItems = items.filter(i => i.catLabel === catLabel);
+    const catBase = catItems.reduce((s, i) => s + i.base, 0);
+    const paymentSchedule = getPaymentScheduleForCategory(catLabel);
+    const depositStage = paymentSchedule.find(s => s.key === 'deposit') || paymentSchedule[0];
+    const depositAmount = Math.round(catBase * (depositStage.pct / 100) * 100) / 100;
+    const jobId = 'job_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+    app.innerHTML = `
+      <h1 class="pagetitle">Pay your deposit</h1>
+      <p class="pagesub">${depositStage.label || 'Deposit'} (${depositStage.pct}%) for ${catLabel} — the rest follows the staged schedule shown in your job tracker.</p>
+      <div style="background:var(--paper);border-radius:10px;padding:16px;margin-bottom:16px;">
+        <div class="row"><span class="l">Deposit due now</span><span class="r" style="font-weight:700;">$${depositAmount.toLocaleString()}</span></div>
+      </div>
+      <div id="cardElement" style="padding:13px 14px;border:1.5px solid var(--line);border-radius:10px;background:#fff;margin-bottom:10px;"></div>
+      <div id="depositError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
+      <button class="btn btn-black" id="payDepositBtn" onclick="confirmDepositPayment('${jobId}', '${catLabel.replace(/'/g,"\\'")}')">Pay $${depositAmount.toLocaleString()} deposit →</button>
+    `;
+
+    const elements = stripe.elements();
+    window.__mysubbiesCardElement = elements.create('card');
+    window.__mysubbiesCardElement.mount('#cardElement');
+    window.__mysubbiesPendingBooking = { customer, catLabel, catBase, depositAmount, jobId };
+  }
+
+  async function confirmDepositPayment(jobId, catLabel) {
+    const pending = window.__mysubbiesPendingBooking;
+    if (!pending) return;
+    const btn = document.getElementById('payDepositBtn');
+    const errBox = document.getElementById('depositError');
+    btn.disabled = true;
+    btn.textContent = 'Processing…';
+    errBox.textContent = '';
+
+    try {
+      const res = await fetch('/api/create-deposit-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId: pending.jobId,
+          category: pending.catLabel,
+          suburb: pending.customer.suburb || quote.suburb || 'Melbourne',
+          contractorEmail: null,
+          basePriceCents: Math.round(pending.catBase * 100),
+          depositAmountCents: Math.round(pending.depositAmount * 100),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not start payment.');
+
+      const result = await stripe.confirmCardPayment(data.clientSecret, {
+        payment_method: { card: window.__mysubbiesCardElement },
+      });
+      if (result.error) throw new Error(result.error.message);
+
+      createJob(pending.customer, { presetJobId: pending.jobId, depositPaymentIntentId: result.paymentIntent.id, depositPaid: true });
+    } catch (err) {
+      errBox.textContent = err.message || 'Payment failed. Please try again.';
+      btn.disabled = false;
+      btn.textContent = `Pay $${pending.depositAmount.toLocaleString()} deposit →`;
+    }
+  }
+
+  function createJob(customer, paymentInfo) {
     const jobs = getJobs();
     const items = quote.items || [];
     const uniqueCats = [...new Set(items.map(i => i.catLabel))];
@@ -243,18 +354,26 @@
       const catHigh = catBase;
       const singleItem = catItems.length === 1 ? catItems[0] : null;
       const paymentSchedule = getPaymentScheduleForCategory(catLabel);
+      const useRealPayment = !isBundle && paymentInfo && paymentInfo.presetJobId;
       const job = {
-        id: 'job_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+        id: useRealPayment ? paymentInfo.presetJobId : ('job_' + Date.now() + '_' + Math.floor(Math.random() * 1000)),
         category: catLabel, icon: catItems[0].catIcon,
         items: catItems,
         unit: singleItem ? singleItem.unit : null, qty: singleItem ? singleItem.qty : null,
         basePrice: catBase, priceLow: catLow, priceHigh: catHigh,
         suburb: customer.suburb || quote.suburb || 'Melbourne', address: customer.address || '',
         customerName: customer.name, customerPhone: customer.phone, customerEmail: customer.email,
+        jobType: customer.jobType || 'private', businessName: customer.businessName || '',
         site: quote.site, access: quote.access, urgency: quote.urgency, hasPhoto: quote.hasPhoto, photoDataUrl: quote.photoDataUrl || null, photoDataUrls: quote.photoDataUrls || (quote.photoDataUrl ? [quote.photoDataUrl] : []),
         status: 'feed', contractor: null,
         bundleId, bundleCategories: isBundle ? uniqueCats : null,
-        paymentSchedule, paidStages: { deposit: true },
+        paymentSchedule,
+        // Bundles (and any booking made before Stripe was wired up) still use
+        // the old fictional immediate-deposit flag — see beginBookingFlow().
+        // Single-category real payments record the true PaymentIntent id and
+        // require an actual Stripe success before this ever runs.
+        paidStages: { deposit: useRealPayment ? !!paymentInfo.depositPaid : true },
+        depositPaymentIntentId: useRealPayment ? paymentInfo.depositPaymentIntentId : null,
         messages: [], internalMessages: [],
         createdAt: new Date().toISOString(),
       };

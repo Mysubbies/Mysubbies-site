@@ -190,13 +190,133 @@
         <button class="${tab==='applications'?'active':''}" onclick="tab='applications'; render();">Applications ${pendingCount ? '(' + pendingCount + ')' : ''}</button>
         <button class="${tab==='disputes'?'active':''}" onclick="tab='disputes'; render();">Disputes ${openDisputeCount ? '(' + openDisputeCount + ')' : ''}</button>
         <button class="${tab==='ratecard'?'active':''}" onclick="tab='ratecard'; render();">Rate Card</button>
+        <button class="${tab==='reports'?'active':''}" onclick="tab='reports'; render();">Reports</button>
       </div>
       ${tab === 'overview' ? `
         <h1 class="pagetitle">Jobs</h1>
         ${jobs.length === 0 ? '<div class="empty">No jobs yet. Submit one from the site to see it here.</div>' : jobsTableHtml(jobs)}
-      ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : renderRateCardTab()}
+      ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab()}
     `;
     if (tab === 'ratecard') wireRateCardTab();
+  }
+
+  function getCustomersMap() { return JSON.parse(localStorage.getItem('mysubbies_customers') || '{}'); }
+
+  function barHtml(label, value, max, valueLabel) {
+    const pct = max > 0 ? Math.max(2, Math.round((value / max) * 100)) : 0;
+    return `
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:3px;">
+          <span>${escapeHtml(label)}</span><span style="font-weight:600;">${valueLabel}</span>
+        </div>
+        <div style="background:var(--paper);border-radius:5px;height:8px;overflow:hidden;">
+          <div style="background:var(--black);height:100%;width:${pct}%;"></div>
+        </div>
+      </div>`;
+  }
+
+  function renderReportsTab(jobs, applications, disputes) {
+    const customers = getCustomersMap();
+    const customerList = Object.values(customers);
+    const newsletterCount = JSON.parse(localStorage.getItem('mysubbies_newsletter_signups') || '[]').length;
+
+    const gmv = jobs.reduce((s, j) => s + (j.basePrice || 0), 0);
+    const commission = Math.round(gmv * 0.25);
+    const payout = gmv - commission;
+    const completedJobs = jobs.filter(j => j.status === 'completed');
+    const completedGmv = completedJobs.reduce((s, j) => s + (j.basePrice || 0), 0);
+
+    const approved = applications.filter(a => a.status === 'approved');
+    const pendingApps = applications.filter(a => a.status === 'pending');
+    const rejectedApps = applications.filter(a => a.status === 'rejected');
+    const openDisputes = disputes.filter(d => d.status === 'open');
+    const disputeRate = jobs.length ? ((disputes.length / jobs.length) * 100).toFixed(1) : '0.0';
+    const referredCustomers = customerList.filter(c => c.referredBy).length;
+
+    // Revenue by category
+    const byCategory = {};
+    jobs.forEach(j => {
+      const cat = j.category || 'Unknown';
+      if (!byCategory[cat]) byCategory[cat] = { count: 0, value: 0 };
+      byCategory[cat].count++;
+      byCategory[cat].value += j.basePrice || 0;
+    });
+    const catRows = Object.entries(byCategory).sort((a, b) => b[1].value - a[1].value);
+    const maxCatValue = catRows.length ? catRows[0][1].value : 0;
+
+    // Demand by suburb (top 5)
+    const bySuburb = {};
+    jobs.forEach(j => { const s = j.suburb || 'Unknown'; bySuburb[s] = (bySuburb[s] || 0) + 1; });
+    const suburbRows = Object.entries(bySuburb).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const maxSuburbCount = suburbRows.length ? suburbRows[0][1] : 0;
+
+    // Jobs per month (sortable key -> display label)
+    const monthMap = {};
+    jobs.forEach(j => {
+      const d = new Date(j.createdAt);
+      if (isNaN(d)) return;
+      const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      monthMap[key] = (monthMap[key] || 0) + 1;
+    });
+    const monthKeys = Object.keys(monthMap).sort();
+    const maxMonthCount = monthKeys.length ? Math.max(...monthKeys.map(k => monthMap[k])) : 0;
+
+    // Contractor category coverage (approved contractors per trade)
+    const coverage = {};
+    approved.forEach(a => (a.trades || []).forEach(t => { coverage[t] = (coverage[t] || 0) + 1; }));
+    const uncoveredCats = catRows.filter(([cat]) => !coverage[cat]).map(([cat]) => cat);
+
+    return `
+      <h1 class="pagetitle">Reports</h1>
+      <p class="pagesub">Built from live platform data — refreshes every time you open this tab.</p>
+
+      <div class="detailcard" style="margin-bottom:14px;">
+        <h3 style="font-size:15px;margin-bottom:12px;">Finance</h3>
+        <div class="row"><span class="l">Gross merchandise value (all jobs)</span><span class="r">$${gmv.toLocaleString()}</span></div>
+        <div class="row"><span class="l">Platform commission (25%)</span><span class="r">$${commission.toLocaleString()}</span></div>
+        <div class="row"><span class="l">Contractor payout (75%)</span><span class="r">$${payout.toLocaleString()}</span></div>
+        <div class="row"><span class="l">Completed jobs value</span><span class="r">$${completedGmv.toLocaleString()} (${completedJobs.length} jobs)</span></div>
+        <div class="row"><span class="l">Average job value</span><span class="r">$${jobs.length ? Math.round(gmv / jobs.length).toLocaleString() : 0}</span></div>
+      </div>
+
+      <div class="detailcard" style="margin-bottom:14px;">
+        <h3 style="font-size:15px;margin-bottom:12px;">Revenue by category</h3>
+        ${catRows.length === 0 ? '<div class="empty">No jobs yet.</div>' : catRows.map(([cat, d]) => barHtml(cat, d.value, maxCatValue, `$${d.value.toLocaleString()} · ${d.count} job${d.count === 1 ? '' : 's'}`)).join('')}
+      </div>
+
+      <div class="detailcard" style="margin-bottom:14px;">
+        <h3 style="font-size:15px;margin-bottom:12px;">Jobs booked by month</h3>
+        ${monthKeys.length === 0 ? '<div class="empty">No jobs yet.</div>' : monthKeys.map(k => {
+          const [y, m] = k.split('-');
+          const label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' });
+          return barHtml(label, monthMap[k], maxMonthCount, String(monthMap[k]));
+        }).join('')}
+      </div>
+
+      <div class="detailcard" style="margin-bottom:14px;">
+        <h3 style="font-size:15px;margin-bottom:12px;">Marketing</h3>
+        <div class="row"><span class="l">Total customer accounts</span><span class="r">${customerList.length}</span></div>
+        <div class="row"><span class="l">Customers who used a referral code</span><span class="r">${referredCustomers}</span></div>
+        <div class="row"><span class="l">Newsletter signups</span><span class="r">${newsletterCount}</span></div>
+        <div style="margin-top:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--stone);margin-bottom:8px;">Top demand by suburb</div>
+        ${suburbRows.length === 0 ? '<div class="empty">No jobs yet.</div>' : suburbRows.map(([sub, count]) => barHtml(sub, count, maxSuburbCount, `${count} job${count === 1 ? '' : 's'}`)).join('')}
+      </div>
+
+      <div class="detailcard" style="margin-bottom:14px;">
+        <h3 style="font-size:15px;margin-bottom:12px;">Director / CEO overview</h3>
+        <div class="row"><span class="l">Total jobs</span><span class="r">${jobs.length}</span></div>
+        <div class="row"><span class="l">Approved contractors</span><span class="r">${approved.length}</span></div>
+        <div class="row"><span class="l">Applications awaiting review</span><span class="r">${pendingApps.length}</span></div>
+        <div class="row"><span class="l">Applications rejected</span><span class="r">${rejectedApps.length}</span></div>
+        <div class="row"><span class="l">Open disputes</span><span class="r">${openDisputes.length} of ${disputes.length} total</span></div>
+        <div class="row"><span class="l">Dispute rate</span><span class="r">${disputeRate}% of jobs</span></div>
+        ${uncoveredCats.length ? `
+          <div style="margin-top:12px;padding:10px 12px;background:#FFF6E5;border:1px solid #F0DCA6;border-radius:8px;font-size:12.5px;color:#7A5C1E;">
+            <strong>No approved contractors yet</strong> in categories with active demand: ${uncoveredCats.map(escapeHtml).join(', ')}.
+          </div>
+        ` : ''}
+      </div>
+    `;
   }
 
   function variationListHtml(j) {
@@ -281,20 +401,20 @@
         ${rcMode === 'manage' ? `
           <div id="rcManageList">${rateCardManageHtml(categories)}</div>
         ` : `
-          <p style="font-size:12.5px;color:var(--stone);margin-bottom:14px;">Look up current pricing, then add it below. This opens a search for you \u2014 it's not automatic; review what you find before adding it to the live rate card.</p>
+          <p style="font-size:12.5px;color:var(--stone);margin-bottom:10px;">This still opens a real search for you to review \u2014 there's no live pricing feed wired up, so nothing is picked without you looking at it first. Enter what you find as a low-high range per sub-category below; the rate added to the card is the average of your range.</p>
+          <div style="background:var(--paper);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--stone);margin-bottom:14px;line-height:1.5;">
+            <strong style="color:var(--ink);">Tip:</strong> most trades split into sub-categories \u2014 install vs. repair vs. replace, or small/medium/large size bands. Add one row per sub-category you find, not just one row for the whole category.
+            ${categories.length ? `<br><strong style="color:var(--ink);">Which existing categories do well?</strong> Check the <a href="#" onclick="tab='reports'; render(); return false;" style="text-decoration:underline;">Reports</a> tab's Revenue by category section \u2014 real sales data beats a guess. A brand-new category has no sales history yet, so that call is still yours.` : ''}
+          </div>
           <div style="display:flex;gap:8px;margin-bottom:16px;">
             <input type="text" id="researchQuery" placeholder="Category to research (e.g. Pool Fencing)" style="flex:1;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
             <button class="btn btn-outline" onclick="openResearch()">🔍 Research</button>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-            <input type="text" id="newSvcCategory" placeholder="Category (e.g. Fencing)" list="rcCatList" style="font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
-            <input type="text" id="newSvcTask" placeholder="Task name" style="font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
-            <input type="text" id="newSvcUnit" placeholder="Unit (e.g. m\u00b2, lm, hr)" style="font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
-            <input type="number" id="newSvcRate" placeholder="Rate ($)" style="font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
-          </div>
-          <input type="text" id="newSvcNotes" placeholder="Notes (optional \u2014 shown to customers as 'what's included')" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;">
+            <input type="text" id="newSvcCategory" placeholder="Category (e.g. Fencing)" list="rcCatList" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:12px;">
           <datalist id="rcCatList">${categories.map(c => `<option value="${c.label}">`).join('')}</datalist>
-          <button class="btn btn-black" onclick="addNewService()">+ Add to rate card</button>
+          <div id="researchRowsWrap">${researchRowsHtml()}</div>
+          <button class="btn btn-outline" style="margin-bottom:12px;" onclick="addResearchRow()">+ Add sub-category row</button>
+          <button class="btn btn-black" onclick="addResearchedServices()">Add all to rate card \u2192</button>
           <div id="addSvcError"></div>
         `}
       </div>
@@ -330,6 +450,75 @@
     if (!q) return;
     window.open(`https://www.google.com/search?q=${encodeURIComponent(q + ' Melbourne trade price 2026')}`, '_blank');
     document.getElementById('newSvcCategory').value = q;
+  }
+
+  let researchRows = [{ task: '', unit: '', low: '', high: '', notes: '' }, { task: '', unit: '', low: '', high: '', notes: '' }, { task: '', unit: '', low: '', high: '', notes: '' }];
+
+  function researchRowAvg(row) {
+    const low = parseFloat(row.low), high = parseFloat(row.high);
+    if (!isNaN(low) && !isNaN(high)) return Math.round((low + high) / 2 * 100) / 100;
+    if (!isNaN(low)) return low;
+    if (!isNaN(high)) return high;
+    return null;
+  }
+
+  function researchRowsHtml() {
+    return `
+      <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
+        <thead><tr>
+          <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">Sub-category / task</th>
+          <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;width:60px;">Unit</th>
+          <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;width:70px;">Low $</th>
+          <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;width:70px;">High $</th>
+          <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;width:70px;">Avg $</th>
+          <th style="width:24px;"></th>
+        </tr></thead>
+        <tbody>
+          ${researchRows.map((row, i) => {
+            const avg = researchRowAvg(row);
+            return `
+            <tr>
+              <td style="padding:3px;"><input type="text" value="${escapeHtml(row.task)}" oninput="researchRows[${i}].task=this.value" placeholder="e.g. Install — small" style="width:100%;font-size:12px;padding:6px 7px;border:1px solid var(--line);border-radius:5px;"></td>
+              <td style="padding:3px;"><input type="text" value="${escapeHtml(row.unit)}" oninput="researchRows[${i}].unit=this.value" placeholder="m²" style="width:100%;font-size:12px;padding:6px 7px;border:1px solid var(--line);border-radius:5px;"></td>
+              <td style="padding:3px;"><input type="number" value="${row.low}" oninput="researchRows[${i}].low=this.value; document.getElementById('researchAvg${i}').textContent = researchRowAvg(researchRows[${i}]) === null ? '—' : '$' + researchRowAvg(researchRows[${i}]).toLocaleString();" style="width:100%;font-size:12px;padding:6px 7px;border:1px solid var(--line);border-radius:5px;"></td>
+              <td style="padding:3px;"><input type="number" value="${row.high}" oninput="researchRows[${i}].high=this.value; document.getElementById('researchAvg${i}').textContent = researchRowAvg(researchRows[${i}]) === null ? '—' : '$' + researchRowAvg(researchRows[${i}]).toLocaleString();" style="width:100%;font-size:12px;padding:6px 7px;border:1px solid var(--line);border-radius:5px;"></td>
+              <td style="padding:3px;font-size:12.5px;font-weight:600;" id="researchAvg${i}">${avg === null ? '—' : '$' + avg.toLocaleString()}</td>
+              <td style="padding:3px;text-align:center;"><span onclick="removeResearchRow(${i})" style="cursor:pointer;color:var(--stone-light);font-size:14px;" title="Remove row">✕</span></td>
+            </tr>
+            <tr><td colspan="6" style="padding:0 3px 6px;"><input type="text" value="${escapeHtml(row.notes)}" oninput="researchRows[${i}].notes=this.value" placeholder="Notes shown to customers (optional)" style="width:100%;font-size:11.5px;padding:5px 7px;border:1px solid var(--line);border-radius:5px;color:var(--stone);"></td></tr>
+          `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function addResearchRow() {
+    researchRows.push({ task: '', unit: '', low: '', high: '', notes: '' });
+    document.getElementById('researchRowsWrap').innerHTML = researchRowsHtml();
+  }
+
+  function removeResearchRow(i) {
+    researchRows.splice(i, 1);
+    document.getElementById('researchRowsWrap').innerHTML = researchRowsHtml();
+  }
+
+  function addResearchedServices() {
+    const category = document.getElementById('newSvcCategory').value.trim();
+    const errBox = document.getElementById('addSvcError');
+    if (!category) { errBox.innerHTML = '<div class="error" style="margin-top:10px;">Enter a category name first.</div>'; return; }
+    const validRows = researchRows.filter(r => r.task.trim() && r.unit.trim() && researchRowAvg(r) !== null);
+    if (validRows.length === 0) { errBox.innerHTML = '<div class="error" style="margin-top:10px;">Fill in at least one row with a task, unit, and a low or high price.</div>'; return; }
+
+    const categories = getRateCard();
+    let cat = categories.find(c => c.label.toLowerCase() === category.toLowerCase());
+    if (!cat) { cat = { label: category, icon: '🔧', tasks: [] }; categories.push(cat); }
+    validRows.forEach(r => cat.tasks.push({ name: r.task.trim(), unit: r.unit.trim(), rate: researchRowAvg(r), notes: r.notes.trim() }));
+    saveRateCard(categories);
+
+    researchRows = [{ task: '', unit: '', low: '', high: '', notes: '' }, { task: '', unit: '', low: '', high: '', notes: '' }, { task: '', unit: '', low: '', high: '', notes: '' }];
+    errBox.innerHTML = `<div class="note" style="margin-top:10px;">✓ Added ${validRows.length} service${validRows.length === 1 ? '' : 's'} to ${escapeHtml(category)}.</div>`;
+    document.getElementById('researchRowsWrap').innerHTML = researchRowsHtml();
   }
 
   function editService(catLabel, taskIdx, field, value) {
@@ -510,24 +699,6 @@
     render();
   }
 
-  function addNewService() {
-    const category = document.getElementById('newSvcCategory').value.trim();
-    const task = document.getElementById('newSvcTask').value.trim();
-    const unit = document.getElementById('newSvcUnit').value.trim();
-    const rate = document.getElementById('newSvcRate').value.trim();
-    const notes = document.getElementById('newSvcNotes').value.trim();
-    const errBox = document.getElementById('addSvcError');
-    if (!category || !task || !unit || !rate) {
-      errBox.innerHTML = '<div class="error" style="margin-top:10px;">Category, task, unit and rate are all required.</div>';
-      return;
-    }
-    const categories = getRateCard();
-    let cat = categories.find(c => c.label.toLowerCase() === category.toLowerCase());
-    if (!cat) { cat = { label: category, icon: '🔧', tasks: [] }; categories.push(cat); }
-    cat.tasks.push({ name: task, unit, rate: Number(rate), notes });
-    saveRateCard(categories);
-    render();
-  }
 
   function renderApplicationsTab(applications) {
     if (applications.length === 0) return '<div class="empty">No contractor applications yet.</div>';
@@ -547,6 +718,7 @@
             <span class="badge ${statusBadge[a.status]}">${a.status}</span>
           </div>
           <div class="row"><span class="l">ABN</span><span class="r">${escapeHtml(a.abn)}</span></div>
+          ${a.acn ? `<div class="row"><span class="l">ACN</span><span class="r">${escapeHtml(a.acn)}</span></div>` : ''}
           <div class="row"><span class="l">Trades</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml(a.trades.join(', '))}</span></div>
           <div class="row"><span class="l">Service suburbs</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml(a.suburbs.length ? a.suburbs.join(', ') : 'All Melbourne metro')}</span></div>
           ${a.licence ? `<div class="row"><span class="l">Licence</span><span class="r">${escapeHtml(a.licence)}</span></div>` : ''}
@@ -637,6 +809,7 @@
         ` : ''}
 
         <div class="row"><span class="l">Customer</span><span class="r">${escapeHtml(j.customerName || '—')}</span></div>
+        ${j.jobType === 'business' ? `<div class="row"><span class="l">Invoice to</span><span class="r">${escapeHtml(j.businessName || '—')} (business)</span></div>` : ''}
         <div class="row"><span class="l">Phone</span><span class="r">${escapeHtml(j.customerPhone || '—')}</span></div>
         <div class="row"><span class="l">Contractor</span><span class="r">${escapeHtml(j.contractor || 'Unassigned')}</span></div>
         <div class="row"><span class="l">On site / access</span><span class="r">${escapeHtml(j.site || '—')} ${j.access ? '· ' + escapeHtml(j.access) : ''}</span></div>

@@ -6,6 +6,88 @@ a service, gets an instant price, approves it, job is dispatched to one matched
 contractor from a vetted panel — not open bidding. 25% platform commission.
 Solo founder, no dev team, built entirely through Claude conversations to date.
 
+## Real payment backend (added Aug 2026) — deposit only, not fully live yet
+This project now has an actual backend for the first time: a `package.json`
+(first build dependency this repo has ever had — the HTML pages themselves
+are still unbundled, unframeworked, self-contained; only `/api` needs npm),
+Stripe (Connect **Standard**, chosen for lower onboarding/support burden
+over Express), and **Supabase (Postgres)** as the source of truth for
+payment/payout state, since that can never live in localStorage.
+
+**Scope is deliberately narrow — v1 is deposit-only:**
+- Only the deposit payment stage is real money via Stripe. Materials/frame/
+  completion stages are still the pre-existing manual tick-off in the
+  contractor portal (localStorage) — not yet wired to Stripe.
+- Only single-category bookings go through real Stripe payment
+  (`beginBookingFlow()` in booking.html). Multi-category bundles still use
+  the old immediate-fictional-deposit path, because one Stripe PaymentIntent
+  maps to one job in the current schema and bundles create several job rows
+  at once — extending this to bundles is unbuilt follow-up work, not
+  forgotten.
+- The weekly payout batch (`api/weekly-payout.js`, Vercel Cron, Mondays
+  01:00 UTC by default) only ever transfers a contractor's 75% share of the
+  captured *deposit* — never the full job value, because the platform
+  doesn't actually hold the rest of that money yet under this scope.
+- Payout eligibility (matching the founder's explicit requirement): job's
+  deposit webhook-confirmed, not disputed, at least `HOLD_DAYS` (3, constant
+  at the top of weekly-payout.js) since payment succeeded, and the
+  contractor's Stripe Connect onboarding is complete. A job can only ever be
+  paid out once (enforced by a DB unique index, not just application logic).
+
+**Known correctness gap, flagged deliberately:** the rate card (21
+categories, ~163 tasks) still lives only in browser localStorage, not in
+Supabase. `api/create-deposit-intent.js` therefore can't independently
+recompute a job's price the way a fully server-authoritative system should
+— it trusts the client-submitted amount **once**, on first sight of a given
+job ID, then locks it into the database; every later call for that same
+job ID reuses the stored amount and ignores whatever the client sends. This
+stops a customer manipulating the charge after the fact, but doesn't stop a
+wrong number being submitted the very first time. Closing that fully means
+moving the rate card server-side too — out of scope for this pass.
+
+**Not yet tested against live services** — built without real Stripe test
+keys or a live Supabase project in the loop, so verified for syntax,
+balance, and the pre-Stripe fallback path only (confirmed the site still
+works exactly as before when `STRIPE_PUBLISHABLE_KEY` is left as the
+`REPLACE_ME` placeholder — see `stripe` guard in booking.html). The actual
+card-entry-to-webhook-to-payout path needs a real test-mode pass once
+credentials exist. See `.env.example` for the exact Vercel environment
+variable names needed, and `supabase/schema.sql` for the DB schema to run
+in the Supabase SQL editor before anything will work.
+
+Required setup before any of this goes live:
+1. Run `supabase/schema.sql` in the Supabase project's SQL editor.
+2. Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET` in Vercel env vars (never in
+   code — see `.env.example`).
+3. Register the webhook endpoint in Stripe: `https://yourdomain/api/stripe-webhook`,
+   listening for `payment_intent.succeeded`, `payment_intent.payment_failed`,
+   and `account.updated` (with "listen to events on connected accounts" on).
+4. Replace `STRIPE_PUBLISHABLE_KEY` in `mysubbies-booking.html` with the
+   real publishable key (safe to be client-visible, unlike the secret key).
+5. Set the same `CRON_SECRET` value in Vercel's Cron configuration for this
+   project.
+
+## Company-only ABN verification (added Aug 2026, ABR lookup live from day one)
+Contractor signup requires both an ABN and an ACN, and validates that the
+ABN is genuinely derived from that ACN (`abn.slice(2) === acn`, after each
+passes its own real checksum — ATO algorithm for ABN, ASIC algorithm for
+ACN). This is real, correct, instant, client-side verification that a
+company-structured ABN was supplied — sole traders have no ACN and can't
+pass it.
+
+On top of that, `verifyAbnWithAbr()` in mysubbies-contractor-signup.html
+calls the real ABR (Australian Business Register) JSON API on ABN field
+blur and shows the actual registered entity name, status, and entity type
+— live-tested against the real registry (confirmed working: looked up a
+real ABN and got back the correct entity name and a correct "not a
+company" warning for a non-company entity type). The `ABR_GUID` constant is
+hardcoded directly in that page's client-side JS **on purpose** — the ABR
+API is JSONP-only, so the GUID has to be browser-visible for it to work at
+all; this is a fundamentally different risk than the Stripe/Supabase
+secrets elsewhere in this project, which are server-only and must never
+appear in any file. Don't "fix" this by trying to move it server-side.
+
 ## CRITICAL — read this before touching anything
 
 **There is no backend.** This is 14 static HTML files (13 distinct pages plus
@@ -127,6 +209,25 @@ just the raw log — that's a known gap, not an oversight.
   copy only (Terms §5, FAQ) — there's no backend to actually enforce a
   completion gate, since there's no backend at all. Don't let anyone assume
   this is enforced in-app.
+- **Homepage leads with categories, not the estimator** (reordered Aug 2026):
+  category grid now sits directly under the hero, before the "for
+  customers/for contractors" split panels. There was previously a duplicate
+  category grid further down the page (after the split panels) — that's
+  gone, there's exactly one now. If you touch homepage layout, keep
+  categories as the first visual thing after the hero headline.
+- **Admin Reports tab** (added Aug 2026): `renderReportsTab()` in
+  admin-portal.html — finance/marketing/director-CEO views built entirely
+  from existing localStorage data (jobs, customers, applications, disputes,
+  newsletter signups). No new data source, just aggregation. Recomputes
+  live every time the tab opens, nothing cached.
+- **Research New now does bulk multi-row entry with an auto-averaged rate**
+  (changed Aug 2026, reversing the earlier deliberate "guided, not
+  automatic" decision on request): admin enters a low–high price range per
+  sub-category found during research; the system averages it and adds every
+  filled row to the rate card in one click. There is still no live pricing
+  API — "automatic" here means the math, not the research itself; the admin
+  still has to actually go look up prices via the Research button (opens
+  Google) and type in what they find.
 - **Rate card**: 21 categories, ~163 individually priced tasks, sourced from
   the founder's real Melbourne rate card (not invented). Lives in
   `DEFAULT_CATEGORIES` in website.html, seeded into `localStorage` on first
