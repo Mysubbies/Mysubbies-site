@@ -7,6 +7,7 @@
 <meta name="description" content="Apply to join the Mysubbies contractor panel in Melbourne. No lead fees, no bidding wars — fixed jobs sent directly to you." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     --ink: #171717; --black: #000000; --white: #FFFFFF; --paper: #F7F7F5;
@@ -103,6 +104,15 @@
     return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   }
   function saveApplications(apps) { localStorage.setItem('mysubbies_contractor_applications', JSON.stringify(apps)); }
+
+  // Same publishable/safe-to-expose Supabase key used on the customer side
+  // (mysubbies-booking.html) — protected by RLS, not secrecy. See
+  // supabase/schema_v2_marketplace.sql for the "manage your own row only"
+  // policies on the `contractors` table.
+  const SUPABASE_URL = 'https://yloiecuvrejaxxqvjglw.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_dxp8_eCHY9nP1xF-LmxfuQ_h427tK3Y';
+  const sb = (typeof window.supabase !== 'undefined')
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
 
   let selectedTrades = [];
   let insuranceDocs = [];
@@ -346,7 +356,7 @@
     document.body.appendChild(script);
   }
 
-  function submitApplication() {
+  async function submitApplication() {
     const business = document.getElementById('fBusiness').value.trim();
     const abn = document.getElementById('fAbn').value.trim();
     const acn = document.getElementById('fAcn').value.trim();
@@ -370,6 +380,27 @@
 
     const apps = getApplications();
     if (apps.some(a => a.email === email)) { showError('An application with this email already exists.'); return; }
+
+    const submitBtn = document.querySelector('.btn-black');
+    const submitBtnLabel = submitBtn ? submitBtn.textContent : '';
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
+
+    // Real account + backend profile row, same pattern as customer signup.
+    // Approval status (pending/approved/rejected) below is still driven by
+    // the existing localStorage application record — admin approval hasn't
+    // been migrated to the contractors table yet, so this only upgrades
+    // the password/account layer without changing that workflow.
+    if (sb) {
+      const { error: authError } = await sb.auth.signUp({ email, password });
+      if (authError) { showError(authError.message); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = submitBtnLabel; } return; }
+      const { data: { user } } = await sb.auth.getUser();
+      if (user) {
+        await sb.from('contractors').insert({
+          auth_user_id: user.id, email, business_name: business, abn, acn, phone,
+          categories: selectedTrades,
+        });
+      }
+    }
 
     const referralCode = (business.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'TRDE') + Math.floor(1000 + Math.random() * 9000);
     const referredBy = apps.some(a => a.referralCode === referralInput) ? referralInput : null;

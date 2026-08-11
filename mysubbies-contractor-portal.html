@@ -6,6 +6,7 @@
 <title>Mysubbies — Contractor Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     --ink: #171717; --black: #000000; --white: #FFFFFF; --paper: #F7F7F5;
@@ -460,6 +461,13 @@
   function getApplications() { return JSON.parse(localStorage.getItem('mysubbies_contractor_applications') || '[]'); }
   function saveApplications(apps) { localStorage.setItem('mysubbies_contractor_applications', JSON.stringify(apps)); }
 
+  // Same publishable/safe-to-expose Supabase key as the customer and
+  // contractor-signup pages — protected by RLS, not secrecy.
+  const SUPABASE_URL = 'https://yloiecuvrejaxxqvjglw.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_dxp8_eCHY9nP1xF-LmxfuQ_h427tK3Y';
+  const sb = (typeof window.supabase !== 'undefined')
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
+
   function renderLogin() {
     app.innerHTML = `
       <div class="loginbox">
@@ -505,7 +513,7 @@
         </div>
       </div>`;
   }
-  function doLogin() {
+  async function doLogin() {
     const email = document.getElementById('loginEmail').value.trim().toLowerCase();
     const password = document.getElementById('loginPassword').value;
     const errBox = document.getElementById('loginError');
@@ -513,10 +521,33 @@
 
     const apps = getApplications();
     const application = apps.find(a => a.email === email);
-    if (!application || application.password !== password) {
-      errBox.textContent = 'No account found with those details.';
-      return;
+    if (!application) { errBox.textContent = 'No account found with those details.'; return; }
+
+    // Real password verification. Accounts created before this change only
+    // exist in localStorage (no Supabase Auth user yet) — if the real check
+    // fails, fall back to the legacy comparison so existing contractors
+    // aren't locked out, and lazily create their real account in the
+    // background so next login goes through the real path.
+    let verified = false;
+    if (sb) {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      verified = !error;
     }
+    if (!verified) {
+      if (application.password !== password) { errBox.textContent = 'No account found with those details.'; return; }
+      if (sb) {
+        sb.auth.signUp({ email, password }).then(({ data }) => {
+          if (data?.user) {
+            sb.from('contractors').insert({
+              auth_user_id: data.user.id, email, business_name: application.business,
+              abn: application.abn, acn: application.acn, phone: application.phone,
+              categories: application.trades || [],
+            }).then(() => {});
+          }
+        });
+      }
+    }
+
     if (application.status === 'pending') {
       errBox.textContent = '';
       app.innerHTML = `
