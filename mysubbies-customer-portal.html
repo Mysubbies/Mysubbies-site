@@ -405,23 +405,26 @@
     const password = document.getElementById('loginPassword').value;
     const customers = getCustomers();
     const account = customers[email];
-    if (!account) {
-      document.getElementById('loginError').textContent = 'No account found with those details.';
-      return;
-    }
 
-    // Real password verification first (this is the same account booking.html
-    // creates via Supabase Auth). Accounts created before that change only
-    // exist in localStorage — fall back to the legacy check for those, and
-    // lazily create their real account in the background so next login goes
-    // through the real path, same pattern as the contractor portal.
+    // Try the REAL account first, regardless of whether this browser has a
+    // local cache entry — that's what makes this work cross-device (e.g.
+    // logging in from a phone that never touched booking.html on this
+    // browser). Only fall back to the local-only legacy check if that fails
+    // or Supabase isn't reachable.
     let verified = false;
     if (sb) {
-      const { error } = await sb.auth.signInWithPassword({ email, password });
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
       verified = !error;
+      if (verified) {
+        const { data: profile } = await sb.from('customers').select('*').eq('auth_user_id', data.user.id).maybeSingle();
+        if (profile) {
+          customers[email] = { ...account, name: profile.name || account?.name, phone: profile.phone || account?.phone, email, password };
+          saveCustomers(customers);
+        }
+      }
     }
     if (!verified) {
-      if (account.password !== password) {
+      if (!account || account.password !== password) {
         document.getElementById('loginError').textContent = 'No account found with those details.';
         return;
       }

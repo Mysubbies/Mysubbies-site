@@ -521,20 +521,21 @@
 
     const apps = getApplications();
     const application = apps.find(a => a.email === email);
-    if (!application) { errBox.textContent = 'No account found with those details.'; return; }
 
-    // Real password verification. Accounts created before this change only
-    // exist in localStorage (no Supabase Auth user yet) — if the real check
-    // fails, fall back to the legacy comparison so existing contractors
-    // aren't locked out, and lazily create their real account in the
-    // background so next login goes through the real path.
+    // Try the REAL account first, regardless of whether this browser has a
+    // local application record — that's what makes this work cross-device.
+    // Known gap: contractor approval status still only lives in the local
+    // application record (admin approval hasn't been migrated to the
+    // `contractors` table yet), so a verified login with no local record
+    // can't determine approved/pending/rejected — handled honestly below
+    // rather than guessing.
     let verified = false;
     if (sb) {
       const { error } = await sb.auth.signInWithPassword({ email, password });
       verified = !error;
     }
     if (!verified) {
-      if (application.password !== password) { errBox.textContent = 'No account found with those details.'; return; }
+      if (!application || application.password !== password) { errBox.textContent = 'No account found with those details.'; return; }
       if (sb) {
         sb.auth.signUp({ email, password }).then(({ data }) => {
           if (data?.user) {
@@ -546,6 +547,17 @@
           }
         });
       }
+    }
+
+    if (verified && !application) {
+      errBox.textContent = '';
+      app.innerHTML = `
+        <div class="loginbox">
+          <h1>Password verified — one more step</h1>
+          <p>We've confirmed your password, but we don't have your application status on this device yet. Please log in from the device you applied from, or contact us to confirm your approval status.</p>
+          <button class="btn btn-outline btn-full" onclick="renderLogin()">Back</button>
+        </div>`;
+      return;
     }
 
     if (application.status === 'pending') {
