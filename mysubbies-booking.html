@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://js.stripe.com/v3/"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     --ink: #171717; --black: #000000; --white: #FFFFFF; --paper: #F7F7F5;
@@ -95,6 +96,17 @@
   const STRIPE_PUBLISHABLE_KEY = 'pk_test_51U2ob6B25lHD6dwFqx6bGEipaEkk6A74k1eU9F12rF6gPNju9U9vnjZ5jj23z7Zi8IckThWii8kf6MF2tBXjXtSA00pOTmdFUJ';
   const stripe = (typeof Stripe !== 'undefined' && !STRIPE_PUBLISHABLE_KEY.includes('REPLACE_ME'))
     ? Stripe(STRIPE_PUBLISHABLE_KEY) : null;
+
+  // Same publishable/safe-to-expose category as the Stripe key above — this
+  // is Supabase's "publishable" key, explicitly designed to be safe in
+  // browser code as long as Row Level Security is on (it is; see
+  // supabase/schema.sql and schema_v2_marketplace.sql). It can only ever do
+  // what RLS policies allow, which for `customers` is "manage your own row,
+  // once logged in" — nothing else.
+  const SUPABASE_URL = 'https://yloiecuvrejaxxqvjglw.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_dxp8_eCHY9nP1xF-LmxfuQ_h427tK3Y';
+  const sb = (typeof window.supabase !== 'undefined')
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
 
   let mode = 'register'; // or 'login'
   let jobType = 'private'; // or 'business'
@@ -210,38 +222,63 @@
     document.getElementById('errorBox').innerHTML = `<div class="error">⚠ ${msg}</div>`;
   }
 
-  function submitBooking() {
+  async function submitBooking() {
     const email = document.getElementById('fEmail').value.trim().toLowerCase();
     const password = document.getElementById('fPassword').value;
     if (!email || !password) { showError('Enter your email and password.'); return; }
 
     const customers = getCustomers();
+    const btn = document.querySelector('.btn-black');
+    const btnLabel = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Please wait…'; }
 
-    if (mode === 'login') {
-      const existing = customers[email];
-      if (!existing || existing.password !== password) { showError('No account found with those details.'); return; }
-      beginBookingFlow(existing);
-      return;
+    try {
+      if (mode === 'login') {
+        if (!sb) { showError('Login is temporarily unavailable — please try again shortly.'); return; }
+        const { data, error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) { showError(error.message === 'Invalid login credentials' ? 'No account found with those details.' : error.message); return; }
+
+        // Real account is now the source of truth; keep the local cache
+        // (used elsewhere, e.g. the separate My Jobs login) in sync too.
+        const { data: profile } = await sb.from('customers').select('*').eq('auth_user_id', data.user.id).maybeSingle();
+        const existing = customers[email] || {};
+        const merged = { ...existing, name: profile?.name || existing.name, phone: profile?.phone || existing.phone, email, password };
+        customers[email] = merged;
+        saveCustomers(customers);
+        beginBookingFlow(merged);
+        return;
+      }
+
+      // register
+      const name = document.getElementById('fName').value.trim();
+      const phone = document.getElementById('fPhone').value.trim();
+      const suburb = document.getElementById('fSuburb').value.trim();
+      const address = document.getElementById('fAddress').value.trim();
+      const referralInput = document.getElementById('fReferral').value.trim().toUpperCase();
+      const terms = document.getElementById('fTerms').checked;
+      const businessName = jobType === 'business' ? document.getElementById('fBusinessName').value.trim() : '';
+      if (!name || !phone || !address || !terms) { showError('Please fill in all fields and accept the terms.'); return; }
+      if (jobType === 'business' && !businessName) { showError('Enter the business name for your invoice.'); return; }
+      if (customers[email]) { showError('An account with this email already exists — log in instead.'); return; }
+
+      const referralCode = (name.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'FRND') + Math.floor(1000 + Math.random() * 9000);
+      const referredBy = Object.values(customers).some(c => c.referralCode === referralInput) ? referralInput : null;
+
+      if (sb) {
+        const { data, error } = await sb.auth.signUp({ email, password });
+        if (error) { showError(error.message); return; }
+        if (data.user) {
+          await sb.from('customers').insert({ auth_user_id: data.user.id, email, name, phone });
+        }
+      }
+
+      const account = { name, phone, email, password, referralCode, referredBy, createdAt: new Date().toISOString() };
+      customers[email] = account;
+      saveCustomers(customers);
+      beginBookingFlow({ ...account, address, suburb, jobType, businessName });
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
     }
-
-    // register
-    const name = document.getElementById('fName').value.trim();
-    const phone = document.getElementById('fPhone').value.trim();
-    const suburb = document.getElementById('fSuburb').value.trim();
-    const address = document.getElementById('fAddress').value.trim();
-    const referralInput = document.getElementById('fReferral').value.trim().toUpperCase();
-    const terms = document.getElementById('fTerms').checked;
-    const businessName = jobType === 'business' ? document.getElementById('fBusinessName').value.trim() : '';
-    if (!name || !phone || !address || !terms) { showError('Please fill in all fields and accept the terms.'); return; }
-    if (jobType === 'business' && !businessName) { showError('Enter the business name for your invoice.'); return; }
-    if (customers[email]) { showError('An account with this email already exists — log in instead.'); return; }
-
-    const referralCode = (name.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'FRND') + Math.floor(1000 + Math.random() * 9000);
-    const referredBy = Object.values(customers).some(c => c.referralCode === referralInput) ? referralInput : null;
-    const account = { name, phone, email, password, referralCode, referredBy, createdAt: new Date().toISOString() };
-    customers[email] = account;
-    saveCustomers(customers);
-    beginBookingFlow({ ...account, address, suburb, jobType, businessName });
   }
 
   const DEFAULT_PAYMENT_SCHEDULE = [

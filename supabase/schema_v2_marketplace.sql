@@ -291,3 +291,27 @@ alter table job_offers enable row level security;
 alter table variations enable row level security;
 alter table job_events enable row level security;
 alter table ratings enable row level security;
+
+-- ============================================================
+-- The ONE deliberate exception to "service_role only, no policies": a
+-- logged-in Supabase Auth user may view/create/update ONLY their own
+-- customer/contractor profile row (matched via auth_user_id = auth.uid()).
+-- This is what lets the browser call Supabase Auth directly with the
+-- public anon key for signup/login, without needing a custom /api
+-- endpoint just to create a session. Every other table (jobs, payments,
+-- job_offers, etc.) still has zero policies — untouchable except via the
+-- service_role key in /api functions.
+-- ============================================================
+create policy "customers can view own row" on customers
+  for select using (auth.uid() = auth_user_id);
+create policy "customers can insert own row" on customers
+  for insert with check (auth.uid() = auth_user_id);
+create policy "customers can update own row" on customers
+  for update using (auth.uid() = auth_user_id);
+
+create policy "contractors can view own row" on contractors
+  for select using (auth.uid() = auth_user_id);
+create policy "contractors can insert own row" on contractors
+  for insert with check (auth.uid() = auth_user_id);
+create policy "contractors can update own row" on contractors
+  for update using (auth.uid() = auth_user_id);
