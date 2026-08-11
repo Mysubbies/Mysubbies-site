@@ -66,7 +66,7 @@
   img { max-width: 100%; display: block; }
   .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
   section { padding: 96px 0; }
-  @media (max-width: 720px) { section { padding: 56px 0; } }
+  @media (max-width: 720px) { section { padding: 56px 0; } .hero { padding: 24px 0 16px; } }
 
   header {
     position: sticky; top: 0; z-index: 50;
@@ -183,7 +183,7 @@
   .stat .num { font-weight:800; font-size:26px; color: var(--black); }
   .stat .lab { font-size:13px; color: var(--stone); margin-top:2px; }
 
-  .split { display:grid; grid-template-columns:1fr 1fr; gap:2px; background:var(--line); }
+  .split { display:grid; grid-template-columns:1fr 1fr; gap:2px; background:var(--line); padding:0; }
   @media (max-width: 780px) { .split { grid-template-columns:1fr; } }
   .split-panel { background:var(--white); padding:64px 56px; }
   .split-panel.dark { background:var(--black); color:#fff; }
@@ -309,7 +309,7 @@
 <section class="hero" id="top">
 
   <div class="wrap">
-    <div class="personal-tradie-tag">Mysubbies: Your Personal Tradies</div>
+    <div class="personal-tradie-tag">Mysubbies: Your Personal Tradie</div>
     <h1>Fix everything for the outside<br>and most of the inside.</h1>
     <p class="lede">No chasing quotes. No bidding wars. An estimated, upfront price and a vetted contractor — sent straight to your job, not shopped around a dozen tradies first.</p>
 
