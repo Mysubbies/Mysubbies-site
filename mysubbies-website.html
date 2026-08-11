@@ -1108,12 +1108,32 @@
 
   function continueToEstimatorFromFs(category, likelyService) {
     closeFixSomething();
-    goToEstimatorWithCategory(category);
+    // The AI only sees category NAMES, not the task list inside each one, so
+    // it sometimes picks a plausible-sounding category (e.g. "Fencing" for a
+    // gate) instead of the one that actually contains the matching rate-card
+    // line item (e.g. "Gate repair" lives under Property Maintenance). Search
+    // the real rate card for the closest task name match and prefer that
+    // category over the AI's guess whenever one is found.
+    let targetCategory = category;
+    let matchedTaskName = null;
+    let matchedTaskAvailable = false;
     if (likelyService) {
+      const needle = likelyService.toLowerCase();
+      for (const cat of CATEGORIES) {
+        // Match against ALL tasks, including ones still "pending founder
+        // review" (unavailable) — the category itself is still the right
+        // place to land even if that specific line item isn't priced yet.
+        const match = cat.tasks.find(t =>
+          needle.includes(t.name.toLowerCase()) || t.name.toLowerCase().includes(needle));
+        if (match) { targetCategory = cat.label; matchedTaskName = match.name; matchedTaskAvailable = !match.unavailable; break; }
+      }
+    }
+    goToEstimatorWithCategory(targetCategory);
+    if (matchedTaskName && matchedTaskAvailable) {
       setTimeout(() => {
         const chips = document.querySelectorAll('#estTierChips .chip-est');
         chips.forEach(chip => {
-          if (chip.textContent.trim() === likelyService.trim()) chip.click();
+          if (chip.textContent.trim() === matchedTaskName) chip.click();
         });
       }, 500);
     }
