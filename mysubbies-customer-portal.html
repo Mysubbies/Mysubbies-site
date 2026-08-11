@@ -6,6 +6,7 @@
 <title>Mysubbies — My Jobs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     --ink: #171717; --black: #000000; --white: #FFFFFF; --paper: #F7F7F5;
@@ -94,6 +95,13 @@
   function getCustomers() { return JSON.parse(localStorage.getItem('mysubbies_customers') || '{}'); }
   function saveCustomers(customers) { localStorage.setItem('mysubbies_customers', JSON.stringify(customers)); }
   function getCurrentCustomerEmail() { return localStorage.getItem('mysubbies_customer_email'); }
+
+  // Same publishable/safe-to-expose Supabase key as booking.html and the
+  // contractor pages — protected by RLS, not secrecy.
+  const SUPABASE_URL = 'https://yloiecuvrejaxxqvjglw.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_dxp8_eCHY9nP1xF-LmxfuQ_h427tK3Y';
+  const sb = (typeof window.supabase !== 'undefined')
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   }
@@ -392,15 +400,40 @@
         </div>
       </div>`;
   }
-  function doLogin() {
+  async function doLogin() {
     const email = document.getElementById('loginEmail').value.trim().toLowerCase();
     const password = document.getElementById('loginPassword').value;
     const customers = getCustomers();
     const account = customers[email];
-    if (!account || account.password !== password) {
+    if (!account) {
       document.getElementById('loginError').textContent = 'No account found with those details.';
       return;
     }
+
+    // Real password verification first (this is the same account booking.html
+    // creates via Supabase Auth). Accounts created before that change only
+    // exist in localStorage — fall back to the legacy check for those, and
+    // lazily create their real account in the background so next login goes
+    // through the real path, same pattern as the contractor portal.
+    let verified = false;
+    if (sb) {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      verified = !error;
+    }
+    if (!verified) {
+      if (account.password !== password) {
+        document.getElementById('loginError').textContent = 'No account found with those details.';
+        return;
+      }
+      if (sb) {
+        sb.auth.signUp({ email, password }).then(({ data }) => {
+          if (data?.user) {
+            sb.from('customers').insert({ auth_user_id: data.user.id, email, name: account.name, phone: account.phone }).then(() => {});
+          }
+        });
+      }
+    }
+
     localStorage.setItem('mysubbies_customer_email', email);
     render();
   }
