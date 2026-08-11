@@ -138,6 +138,22 @@ each other's data. Getting there needs a real database and backend, not just
 hosting these files somewhere. Don't let a request to "make it live" imply
 that gap is solved unless it's been explicitly addressed.
 
+**Partial exception, added Aug 2026:** customer registration/login on
+`mysubbies-booking.html` now goes through real Supabase Auth
+(`signUp`/`signInWithPassword`, publishable key embedded client-side like
+Stripe's) instead of a plaintext password field — verified live end-to-end.
+On success the profile is also written to a real `customers` table
+(RLS-protected: `auth.uid() = auth_user_id`, see
+`supabase/schema_v2_marketplace.sql`). This is a genuine security upgrade
+and the first real account-level backend piece, but it does **not** yet mean
+cross-device jobs — `mysubbies-customer-portal.html`'s separate "My Jobs"
+login still checks `mysubbies_customers` in localStorage directly (untouched
+on purpose, kept working via a dual-write from booking.html), and job
+records themselves still live in localStorage except for the thin
+payment-mirror row in Supabase. Contractor accounts haven't been migrated
+yet either. Don't assume "accounts are real now" implies "jobs sync across
+devices now" — they're separate, sequential pieces of the same migration.
+
 **Nothing here processes real payments.** Payment "stages" are boolean flags a
 contractor manually ticks in their portal — no Stripe, no money movement, no
 transaction ledger. Be upfront about this if asked to touch payment logic.
