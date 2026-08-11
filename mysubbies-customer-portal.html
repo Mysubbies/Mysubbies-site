@@ -91,7 +91,29 @@
 
 <script>
   function getJobs() { return JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]'); }
-  function saveJobs(jobs) { localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs)); }
+  function saveJobs(jobs) {
+    localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs));
+    fetch('/api/sync-jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs }) }).catch(() => {});
+  }
+  // Runs once before the first render: pulls this customer's jobs from
+  // Supabase and merges them into localStorage, so a job created on another
+  // device (or before this browser had a local copy) shows up here too.
+  // Local jobs not yet known to the server are left alone — they'll sync up
+  // next time anything calls saveJobs().
+  async function hydrateJobsFromServer() {
+    const email = getCurrentCustomerEmail();
+    if (!email) return;
+    try {
+      const res = await fetch('/api/get-jobs?customerEmail=' + encodeURIComponent(email));
+      if (!res.ok) return;
+      const { jobs: remoteJobs } = await res.json();
+      if (!Array.isArray(remoteJobs) || remoteJobs.length === 0) return;
+      const localJobs = getJobs();
+      const byId = new Map(localJobs.map(j => [j.id, j]));
+      remoteJobs.forEach(rj => { if (rj && rj.id) byId.set(rj.id, rj); });
+      localStorage.setItem('mysubbies_jobs', JSON.stringify(Array.from(byId.values())));
+    } catch (e) { /* offline or first load — local data still works */ }
+  }
   function getCustomers() { return JSON.parse(localStorage.getItem('mysubbies_customers') || '{}'); }
   function saveCustomers(customers) { localStorage.setItem('mysubbies_customers', JSON.stringify(customers)); }
   function getCurrentCustomerEmail() { return localStorage.getItem('mysubbies_customer_email'); }
@@ -478,7 +500,7 @@
   window.addEventListener('storage', (e) => { if (e.key === 'mysubbies_jobs') { checkForNewMessages(); render(); } });
   setInterval(checkForNewMessages, 3000);
 
-  render();
+  hydrateJobsFromServer().then(render);
 </script>
 <script>
 if ('serviceWorker' in navigator) {

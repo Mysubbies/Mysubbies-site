@@ -81,7 +81,14 @@
 
 <script>
   function getJobs() { return JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]'); }
-  function saveJobs(jobs) { localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs)); }
+  function saveJobs(jobs) {
+    localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs));
+    // Fire-and-forget mirror to Supabase so this job is visible from any
+    // device, not just this browser — see api/sync-jobs.js. Every page's
+    // saveJobs() does this, so every mutation (not just creation) stays in
+    // sync without each call site needing to know about the backend.
+    fetch('/api/sync-jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs }) }).catch(() => {});
+  }
   function getCustomers() { return JSON.parse(localStorage.getItem('mysubbies_customers') || '{}'); }
   function saveCustomers(c) { localStorage.setItem('mysubbies_customers', JSON.stringify(c)); }
   function getPendingQuote() { return JSON.parse(localStorage.getItem('mysubbies_pending_quote') || 'null'); }

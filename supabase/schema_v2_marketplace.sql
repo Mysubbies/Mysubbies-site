@@ -196,6 +196,23 @@ alter table jobs add column if not exists stage text not null default 'submitted
                     'completed', 'signed_off', 'cancelled'));
 
 -- ============================================================
+-- Cross-device job sync (Aug 2026 Phase 2). Rather than modelling every
+-- field (messages, photos, variations, payment stage ticks) as its own
+-- column right now, `full_record` mirrors the exact job object shape that
+-- has always lived in localStorage's `mysubbies_jobs` — the fastest honest
+-- path to "a job created on one device is visible on another," synced via
+-- api/sync-jobs.js every time any page calls its local saveJobs(). The
+-- structured columns above remain the source of truth for payment logic;
+-- full_record is for display/read access across devices. A more properly
+-- relational model (job_events, variations tables already exist for this)
+-- is real follow-up work, not a replacement for this.
+-- ============================================================
+alter table jobs add column if not exists full_record jsonb;
+alter table jobs add column if not exists customer_email text;
+alter table jobs add column if not exists updated_at timestamptz not null default now();
+create index if not exists jobs_customer_email_idx on jobs(customer_email);
+
+-- ============================================================
 -- JOB_OFFERS — contractor dispatch (section 6-7). One job can be offered to
 -- multiple eligible contractors in sequence/parallel per the matching logic;
 -- only one can accept.

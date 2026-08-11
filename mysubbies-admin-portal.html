@@ -100,7 +100,7 @@
   const ADMIN_PASSWORD = 'Mysubbies2026!';
 
   function checkAdminAuth() {
-    if (localStorage.getItem('mysubbies_admin_authed') === 'true') { render(); return; }
+    if (localStorage.getItem('mysubbies_admin_authed') === 'true') { hydrateJobsFromServer().then(render); return; }
     document.getElementById('app').innerHTML = `
       <div style="max-width:360px;margin:80px auto 0;background:#fff;border:1px solid var(--line);border-radius:16px;padding:28px;">
         <h1 style="font-size:22px;font-weight:800;margin-bottom:8px;">Admin login</h1>
@@ -114,7 +114,7 @@
     const val = document.getElementById('adminPasswordInput').value;
     if (val === ADMIN_PASSWORD) {
       localStorage.setItem('mysubbies_admin_authed', 'true');
-      render();
+      hydrateJobsFromServer().then(render);
     } else {
       document.getElementById('adminLoginError').textContent = 'Incorrect password.';
     }
@@ -125,7 +125,25 @@
   }
 
   function getJobs() { return JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]'); }
-  function saveJobs(jobs) { localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs)); }
+  function saveJobs(jobs) {
+    localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs));
+    fetch('/api/sync-jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs }) }).catch(() => {});
+  }
+  // Pulls every job from Supabase (admin sees everything) and merges into
+  // localStorage, so All Jobs reflects work created on any device, not
+  // just this admin browser. See api/get-jobs.js.
+  async function hydrateJobsFromServer() {
+    try {
+      const res = await fetch('/api/get-jobs?all=1');
+      if (!res.ok) return;
+      const { jobs: remoteJobs } = await res.json();
+      if (!Array.isArray(remoteJobs) || remoteJobs.length === 0) return;
+      const localJobs = getJobs();
+      const byId = new Map(localJobs.map(j => [j.id, j]));
+      remoteJobs.forEach(rj => { if (rj && rj.id) byId.set(rj.id, rj); });
+      localStorage.setItem('mysubbies_jobs', JSON.stringify(Array.from(byId.values())));
+    } catch (e) { /* offline or first load — local data still works */ }
+  }
 
   let tab = 'overview';
   let selectedJobId = null;
