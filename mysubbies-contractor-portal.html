@@ -609,6 +609,9 @@
     }
     localStorage.setItem('mysubbies_contractor_name', application.business);
     localStorage.setItem('mysubbies_contractor_email', email);
+    // Same fix as customer-portal.html: the page-load hydrate already ran
+    // and no-op'd before this login existed, so it needs to run again now.
+    await hydrateJobsFromServer();
     render();
   }
   function logout() {

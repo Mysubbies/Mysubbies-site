@@ -460,6 +460,11 @@
     }
 
     localStorage.setItem('mysubbies_customer_email', email);
+    // The page-load hydrate (bottom of this script) already ran and no-op'd
+    // before this login existed — it needs to run again now that we know
+    // who's logged in, or a first login on a fresh device shows "0 jobs"
+    // even though jobs exist on the server. Found via live testing.
+    await hydrateJobsFromServer();
     render();
   }
   function logout() {
