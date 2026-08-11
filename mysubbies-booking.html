@@ -342,7 +342,13 @@
     `;
 
     const elements = stripe.elements();
-    window.__mysubbiesCardElement = elements.create('card');
+    // hidePostalCode: Stripe's built-in postal code field defaults to
+    // US-style 5-digit validation with no way to configure it for
+    // Australia's 4-digit postcodes — it rejected a real postcode like
+    // "3000" as "incomplete". We already collect suburb/address in the
+    // registration step above, so the field is redundant anyway; hiding it
+    // removes the confusing mismatch instead of working around it.
+    window.__mysubbiesCardElement = elements.create('card', { hidePostalCode: true });
     window.__mysubbiesCardElement.mount('#cardElement');
     window.__mysubbiesPendingBooking = { customer, catLabel, catBase, depositAmount, jobId };
   }
