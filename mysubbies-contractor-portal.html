@@ -261,14 +261,6 @@
     const isMine = j.contractor === name;
     const payout = Math.round(j.basePrice * 0.75);
 
-    // Fall back to the old fixed schedule for any job created before this system existed.
-    const schedule = j.paymentSchedule || [
-      { key: 'deposit', label: 'Deposit', pct: 5 }, { key: 'materials', label: 'Materials ordered', pct: 35 },
-      { key: 'frame', label: 'Frame stage complete', pct: 50 }, { key: 'completion', label: 'On completion', pct: 10 },
-    ];
-    const paidStages = j.paidStages || { deposit: true, materials: j.materialsPaid, frame: j.frameComplete, completion: j.completionPaid };
-    const nextStage = schedule.find(s => !paidStages[s.key]);
-
     let actions = '';
     if (!isMine) {
       actions = `
@@ -276,17 +268,9 @@
           <button class="btn btn-outline" style="flex:1;" onclick="declineJob('${j.id}')">✕ Decline</button>
           <button class="btn btn-black" style="flex:2;" onclick="acceptJob('${j.id}')">Accept job →</button>
         </div>`;
-    } else if (nextStage) {
-      const amount = Math.round(j.basePrice * (nextStage.pct / 100));
-      const requested = j.stageRequested && j.stageRequested[nextStage.key];
-      actions = requested
-        ? `<div class="note" style="margin-top:16px;">⏳ Waiting on the customer to approve and pay <strong>${nextStage.label}</strong> — $${amount.toLocaleString()} (${nextStage.pct}%). They've been notified.</div>`
-        : `<button class="btn btn-black btn-full" style="margin-top:16px;" onclick="requestStageApproval('${j.id}','${nextStage.key}','${escapeHtml(nextStage.label)}')">Request customer approval: ${nextStage.label} — $${amount.toLocaleString()} (${nextStage.pct}%)</button>`;
     } else {
-      actions = `<div class="note">✓ Job complete — fully paid.</div>`;
+      actions = `<div id="milestoneClaimWrap"><div class="note">Loading payment schedule…</div></div>`;
     }
-
-    const doneCount = schedule.filter(s => paidStages[s.key]).length;
 
     app.innerHTML = `
       <button class="backbtn" onclick="selectedJobId=null; render();">← Back</button>
@@ -312,17 +296,6 @@
           </div>
         ` : ''}
         <div class="row big"><span class="l">${isMine ? 'Your payout' : 'Confirmed payout'}</span><span class="r">$${payout.toLocaleString()}</span></div>
-        ${isMine ? `<div class="stagebar">${schedule.map(s => `<div class="stage ${paidStages[s.key] ? 'done' : ''}" style="flex:${s.pct};"></div>`).join('')}</div>` : ''}
-        ${isMine ? `
-          <div style="margin:10px 0;">
-            ${schedule.map(s => `
-              <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:${paidStages[s.key] ? 'var(--good)' : 'var(--stone)'};">
-                <span>${paidStages[s.key] ? '✓' : '○'} ${s.label} (${s.pct}%)</span>
-                <span>$${Math.round(j.basePrice * (s.pct / 100)).toLocaleString()}</span>
-              </div>
-            `).join('')}
-          </div>
-        ` : ''}
         ${j.site ? `<div class="row"><span class="l">On site</span><span class="r">${escapeHtml(j.site)}</span></div>` : ''}
         ${j.access ? `<div class="row"><span class="l">Access</span><span class="r">${escapeHtml(j.access)}</span></div>` : ''}
         ${j.urgency ? `<div class="row"><span class="l">Urgency</span><span class="r">${escapeHtml(j.urgency)}</span></div>` : ''}
@@ -369,6 +342,156 @@
       renderThread(j, 'messages', 'msgListCustomer', 'contractor');
       renderThread(j, 'internalMessages', 'msgListAdmin', 'contractor');
       wireNotifyButton();
+      renderMilestoneClaimSection(j.id);
+    }
+  }
+
+  // Fetches the REAL, backend-calculated schedule (api/job-payment-schedule.js)
+  // instead of the old client-authored job.paymentSchedule/paidStages — the
+  // whole reason this system exists is that the schedule + milestone state
+  // now lives server-side, validated, not trusted from the client.
+  async function renderMilestoneClaimSection(jobId) {
+    const wrap = document.getElementById('milestoneClaimWrap');
+    if (!wrap) return;
+    let data;
+    try {
+      const res = await fetch('/api/job-payment-schedule?jobId=' + encodeURIComponent(jobId));
+      data = await res.json();
+    } catch (e) {
+      wrap.innerHTML = '<div class="note">Could not load the payment schedule — try again shortly.</div>';
+      return;
+    }
+    if (!data.schedule) { wrap.innerHTML = '<div class="note">No payment schedule found for this job yet.</div>'; return; }
+    if (data.schedule.status === 'pending_admin_schedule') {
+      wrap.innerHTML = '<div class="note">This is a large or complex project — Mysubbies is preparing a project-specific payment plan with the customer before further milestones open up.</div>';
+      return;
+    }
+
+    const milestones = data.milestones || [];
+    const doneCount = milestones.filter(m => m.status === 'paid').length;
+    const stagebar = `<div class="stagebar">${milestones.map(m => `<div class="stage ${m.status === 'paid' ? 'done' : ''}" style="flex:${m.pct};"></div>`).join('')}</div>`;
+    const list = `<div style="margin:10px 0;">${milestones.map(m => `
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:${m.status === 'paid' ? 'var(--good)' : 'var(--stone)'};">
+        <span>${m.status === 'paid' ? '✓' : '○'} ${escapeHtml(m.label)} (${m.pct}%)</span>
+        <span>$${(m.amount_cents / 100).toLocaleString()}</span>
+      </div>`).join('')}</div>`;
+
+    const next = milestones.find(m => m.status !== 'paid');
+    let actionHtml;
+    if (!next) {
+      actionHtml = '<div class="note">✓ Job complete — fully paid.</div>';
+    } else if (next.milestone_type === 'deposit') {
+      actionHtml = '<div class="note">Waiting on the deposit payment.</div>';
+    } else if (next.status === 'available') {
+      actionHtml = `<button class="btn btn-black btn-full" style="margin-top:10px;" onclick="openMilestoneClaimForm('${jobId}','${next.key}')">Claim: ${escapeHtml(next.label)} — $${(next.amount_cents / 100).toLocaleString()} (${next.pct}%)</button><div id="milestoneClaimFormWrap"></div>`;
+    } else if (next.status === 'awaiting_customer') {
+      actionHtml = `<div class="note">⏳ Waiting on the customer to review <strong>${escapeHtml(next.label)}</strong>.</div>`;
+    } else if (next.status === 'disputed') {
+      actionHtml = `<div class="note" style="color:var(--warn);">⚠ The customer raised an issue with <strong>${escapeHtml(next.label)}</strong> — Mysubbies is reviewing it.</div>`;
+    } else if (next.status === 'payment_processing') {
+      actionHtml = `<div class="note">Payment for <strong>${escapeHtml(next.label)}</strong> is processing.</div>`;
+    } else {
+      actionHtml = `<div class="note">${escapeHtml(next.label)} is ${next.status}.</div>`;
+    }
+
+    wrap.innerHTML = stagebar + list + actionHtml;
+    window.__mysubbiesMilestones = milestones;
+  }
+
+  let claimPhotos = [];
+  function openMilestoneClaimForm(jobId, milestoneKey) {
+    const milestone = (window.__mysubbiesMilestones || []).find(m => m.key === milestoneKey);
+    if (!milestone) return;
+    claimPhotos = [];
+    const needsDocket = milestone.requires_evidence_type === 'delivery_docket';
+    const needsInspection = milestone.requires_evidence_type === 'inspection_certificate';
+    document.getElementById('milestoneClaimFormWrap').innerHTML = `
+      <div style="background:var(--paper);border-radius:10px;padding:14px;margin-top:10px;">
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px;">Claim: ${escapeHtml(milestone.label)}</div>
+        <textarea id="claimDescription" placeholder="Describe the progress/work completed" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;min-height:60px;font-family:inherit;"></textarea>
+        ${needsDocket ? `<div class="field-note" style="margin-bottom:4px;">Delivery docket / supplier invoice (required — materials must be delivered to the property)</div>
+        <input type="file" id="claimDocketInput" accept="image/*,application/pdf" style="margin-bottom:10px;" onchange="onClaimDocketSelected(event)" />` : ''}
+        ${needsInspection ? `<div class="field-note" style="margin-bottom:4px;">Inspection record ID (must already be marked passed)</div>
+        <input type="text" id="claimInspectionId" placeholder="Inspection record ID" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;" />` : ''}
+        <div class="field-note" style="margin-bottom:4px;">Site photos</div>
+        <div id="claimPhotoGridWrap">${claimPhotoGridHtml()}</div>
+        <input type="file" id="claimPhotoCamera" accept="image/*" capture="environment" multiple style="display:none;" onchange="onClaimPhotoSelected(event)" />
+        <input type="file" id="claimPhotoGallery" accept="image/*" multiple style="display:none;" onchange="onClaimPhotoSelected(event)" />
+        <div class="photoset-addrow">
+          <div class="photoset-addbtn" onclick="document.getElementById('claimPhotoCamera').click()">📷 Take a photo</div>
+          <div class="photoset-addbtn" onclick="document.getElementById('claimPhotoGallery').click()">🖼️ Gallery</div>
+        </div>
+        <label style="display:flex;gap:8px;align-items:flex-start;margin:10px 0;font-size:12px;">
+          <input type="checkbox" id="claimDeclaration" style="margin-top:2px;" />
+          <span>I confirm the work described above for this milestone is genuinely complete.</span>
+        </label>
+        <div id="claimError" style="color:var(--warn);font-size:13px;margin-bottom:8px;"></div>
+        <button class="btn btn-black btn-full" onclick="submitMilestoneClaim('${jobId}','${milestoneKey}')">Submit claim</button>
+      </div>`;
+  }
+
+  function claimPhotoGridHtml() {
+    if (claimPhotos.length === 0) return '';
+    return `<div class="photoset-grid">${claimPhotos.map((src, idx) => `
+      <div class="photoset-thumb"><img src="${src}" /><button onclick="removeClaimPhoto(${idx})" title="Remove">✕</button></div>
+    `).join('')}</div>`;
+  }
+  function onClaimPhotoSelected(e) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    let remaining = files.length;
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        claimPhotos.push(ev.target.result);
+        remaining--;
+        if (remaining === 0) { const gridWrap = document.getElementById('claimPhotoGridWrap'); if (gridWrap) gridWrap.innerHTML = claimPhotoGridHtml(); }
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  }
+  function removeClaimPhoto(idx) {
+    claimPhotos.splice(idx, 1);
+    const gridWrap = document.getElementById('claimPhotoGridWrap');
+    if (gridWrap) gridWrap.innerHTML = claimPhotoGridHtml();
+  }
+
+  let claimDocketDataUrl = null;
+  function onClaimDocketSelected(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => { claimDocketDataUrl = ev.target.result; };
+    reader.readAsDataURL(file);
+  }
+
+  async function submitMilestoneClaim(jobId, milestoneKey) {
+    const errBox = document.getElementById('claimError');
+    const description = document.getElementById('claimDescription').value.trim();
+    const declared = document.getElementById('claimDeclaration').checked;
+    const inspectionInput = document.getElementById('claimInspectionId');
+    errBox.textContent = '';
+    if (!declared) { errBox.textContent = 'Please confirm the declaration checkbox.'; return; }
+
+    try {
+      const res = await fetch('/api/milestone', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'claim', jobId, milestoneKey,
+          contractorId: null, description,
+          photoUrls: claimPhotos, deliveryDocketUrl: claimDocketDataUrl,
+          inspectionRecordId: inspectionInput ? inspectionInput.value.trim() || null : null,
+          declarationConfirmed: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not submit claim.');
+      claimPhotos = [];
+      claimDocketDataUrl = null;
+      renderMilestoneClaimSection(jobId);
+    } catch (err) {
+      errBox.textContent = err.message || 'Could not submit claim.';
     }
   }
 
@@ -549,22 +672,6 @@
     const j = jobs.find(x => x.id === selectedJobId);
     j[key].splice(idx, 1);
     saveJobs(jobs);
-    render();
-  }
-  // Contractor can no longer mark a stage paid directly — they request it,
-  // the customer approves and pays via real Stripe (see
-  // mysubbies-customer-portal.html's approveAndPayStage()), which is what
-  // actually flips paidStages[stageKey] to true. This function only raises
-  // the request and notifies the customer.
-  function requestStageApproval(id, stageKey, stageLabel) {
-    const jobs = getJobs();
-    const j = jobs.find(x => x.id === id);
-    j.stageRequested = j.stageRequested || {};
-    j.stageRequested[stageKey] = true;
-    saveJobs(jobs);
-    if (j.customerEmail) {
-      fetch('/api/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'stage-requested', customerEmail: j.customerEmail, category: j.category, stageLabel }) }).catch(() => {});
-    }
     render();
   }
 

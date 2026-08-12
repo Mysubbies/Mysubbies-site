@@ -29,7 +29,20 @@ module.exports = async (req, res) => {
           .from('payment_milestones').select('*').eq('job_payment_schedule_id', schedule.id)
           .order('milestone_index', { ascending: true });
         if (mErr) throw mErr;
-        res.status(200).json({ schedule, milestones: milestones || [] });
+
+        // Latest evidence per milestone — the customer's review UI needs
+        // this to show what the contractor actually submitted before
+        // approving payment.
+        const milestoneIds = (milestones || []).map(m => m.id);
+        let evidenceByMilestone = {};
+        if (milestoneIds.length) {
+          const { data: evidence } = await supabase
+            .from('milestone_evidence').select('*').in('milestone_id', milestoneIds)
+            .order('submitted_at', { ascending: false });
+          (evidence || []).forEach(ev => { if (!evidenceByMilestone[ev.milestone_id]) evidenceByMilestone[ev.milestone_id] = ev; });
+        }
+
+        res.status(200).json({ schedule, milestones: milestones || [], evidenceByMilestone });
         return;
       }
 
