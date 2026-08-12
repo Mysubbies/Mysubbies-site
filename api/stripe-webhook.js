@@ -85,16 +85,31 @@ module.exports = async (req, res) => {
 
       if (newStatus === 'succeeded') {
         const stage = (intent.metadata && intent.metadata.stage) || 'deposit';
+        const milestoneId = intent.metadata && intent.metadata.milestoneId;
 
-        // Only the deposit ever touches jobs.status — later stages
-        // (materials/frame/completion) are tracked purely in the payments
-        // table plus the client-side paidStages flag the customer's own
-        // browser sets right after stripe.confirmCardPayment() succeeds
-        // (same pattern the deposit already used before this stage-payment
-        // flow existed). This avoids the webhook and the client racing to
-        // write the same jobs.full_record.paidStages field.
+        // Only the deposit ever touches the legacy jobs.status column.
         if (stage === 'deposit') {
           await supabase.from('jobs').update({ status: 'deposit_paid' }).eq('id', jobId);
+        }
+
+        // payment_milestones is a real relational row per milestone, not a
+        // jsonb blob — a targeted UPDATE here is safe (no read-modify-write
+        // race like the old full_record.paidStages approach had), so the
+        // webhook is the authoritative place to mark a milestone paid.
+        if (milestoneId) {
+          const { data: milestoneRow } = await supabase.from('payment_milestones').select('*').eq('id', milestoneId).maybeSingle();
+          if (milestoneRow && milestoneRow.status !== 'paid') {
+            await supabase.from('payment_milestones').update({ status: 'paid', paid_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', milestoneId);
+            await supabase.from('payment_audit_logs').insert({
+              entity_type: 'payment_milestone', entity_id: milestoneId, action: 'payment_captured',
+              actor_role: 'system', before_state: { status: milestoneRow.status }, after_state: { status: 'paid' },
+            });
+
+            const { data: remaining } = await supabase.from('payment_milestones').select('status').eq('job_payment_schedule_id', milestoneRow.job_payment_schedule_id);
+            if (remaining && remaining.every(m => m.status === 'paid')) {
+              await supabase.from('job_payment_schedules').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', milestoneRow.job_payment_schedule_id);
+            }
+          }
         }
 
         // Best-effort confirmation email — never lets an email failure
@@ -126,6 +141,32 @@ module.exports = async (req, res) => {
         await supabase.from('contractor_connect_accounts')
           .update({ onboarding_status: 'complete' })
           .eq('stripe_connect_account_id', account.id);
+      }
+    } else if (event.type === 'charge.refunded') {
+      const charge = event.data.object;
+      const intentId = charge.payment_intent;
+      if (intentId) {
+        await supabase.from('payments').update({ status: 'refunded', stripe_event_id: event.id, updated_at: new Date().toISOString() }).eq('stripe_payment_intent_id', intentId);
+        const { data: milestoneRow } = await supabase.from('payment_milestones').select('id, status').eq('stripe_payment_intent_id', intentId).maybeSingle();
+        if (milestoneRow) {
+          await supabase.from('payment_milestones').update({ status: 'refunded', updated_at: new Date().toISOString() }).eq('id', milestoneRow.id);
+          await supabase.from('payment_audit_logs').insert({
+            entity_type: 'payment_milestone', entity_id: milestoneRow.id, action: charge.amount_refunded < charge.amount ? 'partially_refunded' : 'refunded',
+            actor_role: 'system', before_state: { status: milestoneRow.status }, after_state: { status: 'refunded', amount_refunded_cents: charge.amount_refunded },
+          });
+        }
+      }
+    } else if (event.type === 'charge.dispute.created') {
+      const dispute = event.data.object;
+      const intentId = dispute.payment_intent;
+      if (intentId) {
+        const { data: paymentRow } = await supabase.from('payments').select('job_id, stage').eq('stripe_payment_intent_id', intentId).maybeSingle();
+        if (paymentRow) {
+          await supabase.from('payment_audit_logs').insert({
+            entity_type: 'payment', entity_id: intentId, action: 'stripe_chargeback_opened',
+            actor_role: 'system', after_state: { job_id: paymentRow.job_id, stage: paymentRow.stage, dispute_reason: dispute.reason, amount_cents: dispute.amount },
+          });
+        }
       }
     }
 

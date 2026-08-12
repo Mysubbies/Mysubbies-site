@@ -37,7 +37,31 @@ module.exports = async (req, res) => {
       return;
     }
 
-    res.status(400).json({ error: 'type must be applications or customers.' });
+    // Milestones sitting in 'disputed' status — the Admin Resolution Queue.
+    if (type === 'milestone-claims') {
+      const { data, error } = await supabase
+        .from('payment_milestones')
+        .select('*, payment_milestone_disputes(*)')
+        .in('status', ['disputed'])
+        .order('updated_at', { ascending: true })
+        .limit(500);
+      if (error) throw error;
+      res.status(200).json({ milestones: data || [] });
+      return;
+    }
+
+    if (type === 'payment-audit') {
+      const { data, error } = await supabase
+        .from('payment_audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1000);
+      if (error) throw error;
+      res.status(200).json({ logs: data || [] });
+      return;
+    }
+
+    res.status(400).json({ error: 'type must be applications, customers, milestone-claims, or payment-audit.' });
   } catch (err) {
     console.error('get-admin-list error:', err);
     res.status(500).json({ error: 'Could not fetch data.' });
