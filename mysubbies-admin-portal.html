@@ -160,10 +160,10 @@
   }
   // Pulls every full application from Supabase (mirrors hydrateJobsFromServer)
   // so admin sees applications submitted from any device, not just this
-  // browser. See api/get-applications.js.
+  // browser. See api/get-admin-list.js?type=applications.
   async function hydrateApplicationsFromServer() {
     try {
-      const res = await fetch('/api/get-applications');
+      const res = await fetch('/api/get-admin-list?type=applications');
       if (!res.ok) return;
       const { applications: remoteApps } = await res.json();
       if (!Array.isArray(remoteApps) || remoteApps.length === 0) return;
@@ -261,7 +261,7 @@
   }
   async function exportCustomersCsv() {
     try {
-      const res = await fetch('/api/get-customers');
+      const res = await fetch('/api/get-admin-list?type=customers');
       const { customers } = await res.json();
       const csv = toCsv(customers || [], [
         { key: 'name', label: 'Name' }, { key: 'email', label: 'Email' },

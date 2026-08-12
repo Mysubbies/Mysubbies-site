@@ -497,7 +497,7 @@
     j.contractorEmail = localStorage.getItem('mysubbies_contractor_email');
     saveJobs(jobs);
     if (j.customerEmail) {
-      fetch('/api/notify-job-assigned', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customerEmail: j.customerEmail, category: j.category, suburb: j.suburb, contractorName: j.contractor }) }).catch(() => {});
+      fetch('/api/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'job-assigned', customerEmail: j.customerEmail, category: j.category, suburb: j.suburb, contractorName: j.contractor }) }).catch(() => {});
     }
     render();
   }
@@ -563,7 +563,7 @@
     j.stageRequested[stageKey] = true;
     saveJobs(jobs);
     if (j.customerEmail) {
-      fetch('/api/notify-stage-requested', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customerEmail: j.customerEmail, category: j.category, stageLabel }) }).catch(() => {});
+      fetch('/api/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'stage-requested', customerEmail: j.customerEmail, category: j.category, stageLabel }) }).catch(() => {});
     }
     render();
   }
