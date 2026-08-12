@@ -1225,14 +1225,15 @@
   function calculateItemPrice() {
     if (!selectedCat || !selectedTier) {
       const chips = document.getElementById('estTierChips');
-      chips.style.outline = '2px solid #000';
-      setTimeout(() => { chips.style.outline = 'none'; }, 1200);
+      chips.style.outline = '2px solid #B4232C';
+      chips.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => { chips.style.outline = 'none'; }, 1600);
       return;
     }
     const qtyRaw = document.getElementById('estQty').value;
-    if (!qtyRaw) { document.getElementById('estQty').style.borderColor = '#000000'; return; }
+    if (!qtyRaw) { document.getElementById('estQty').style.borderColor = '#B4232C'; document.getElementById('estQty').focus(); return; }
     const qty = parseQuantity(qtyRaw, selectedTier.unit);
-    if (!qty) { document.getElementById('estQty').style.borderColor = '#000000'; return; }
+    if (!qty) { document.getElementById('estQty').style.borderColor = '#B4232C'; document.getElementById('estQty').focus(); return; }
     document.getElementById('estQty').style.borderColor = '';
 
     const base = Math.round(qty * selectedTier.rate);
@@ -1438,8 +1439,9 @@
 
     if (cart.length === 0) {
       const chips = document.getElementById('estTierChips');
-      chips.style.outline = '2px solid #000';
-      setTimeout(() => { chips.style.outline = 'none'; }, 1200);
+      chips.style.outline = '2px solid #B4232C';
+      chips.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => { chips.style.outline = 'none'; }, 1600);
       return;
     }
 

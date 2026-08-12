@@ -39,6 +39,8 @@
     border:1.5px solid var(--line); border-radius:10px; padding:13px 14px; outline:none; background:#fff;
   }
   input:focus { border-color: var(--black); }
+  input.field-invalid { border-color:#B4232C !important; background:#FDF3F2; }
+  .field-error-label { color:#B4232C; }
   .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   @media (max-width:520px) { .row2 { grid-template-columns:1fr; } }
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:14px 24px; border-radius:999px; font-size:15px; font-weight:600; cursor:pointer; border:none; width:100%; }
@@ -232,10 +234,24 @@
     document.getElementById('errorBox').innerHTML = `<div class="error">⚠ ${msg}</div>`;
   }
 
+  // Marks each empty required field with a red border and scrolls to the
+  // first one, instead of leaving the customer to guess which of several
+  // fields the generic error message was about.
+  function highlightMissingFields(ids) {
+    document.querySelectorAll('.field-invalid').forEach(el => el.classList.remove('field-invalid'));
+    let first = null;
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && !el.value.trim()) { el.classList.add('field-invalid'); if (!first) first = el; }
+    });
+    if (first) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); first.focus(); }
+    return first;
+  }
+
   async function submitBooking() {
     const email = document.getElementById('fEmail').value.trim().toLowerCase();
     const password = document.getElementById('fPassword').value;
-    if (!email || !password) { showError('Enter your email and password.'); return; }
+    if (!email || !password) { showError('Enter your email and password.'); highlightMissingFields(['fEmail', 'fPassword']); return; }
 
     const customers = getCustomers();
     const btn = document.querySelector('.btn-black');
@@ -267,8 +283,13 @@
       const referralInput = document.getElementById('fReferral').value.trim().toUpperCase();
       const terms = document.getElementById('fTerms').checked;
       const businessName = jobType === 'business' ? document.getElementById('fBusinessName').value.trim() : '';
-      if (!name || !phone || !address || !terms) { showError('Please fill in all fields and accept the terms.'); return; }
-      if (jobType === 'business' && !businessName) { showError('Enter the business name for your invoice.'); return; }
+      if (!name || !phone || !suburb || !address || !email || !password) {
+        showError('Please fill in the highlighted fields.');
+        highlightMissingFields(['fName', 'fPhone', 'fSuburb', 'fAddress', 'fEmail', 'fPassword']);
+        return;
+      }
+      if (!terms) { showError('Please accept the Terms & Conditions to continue.'); return; }
+      if (jobType === 'business' && !businessName) { showError('Enter the business name for your invoice.'); highlightMissingFields(['fBusinessName']); return; }
       if (customers[email]) { showError('An account with this email already exists — log in instead.'); return; }
 
       const referralCode = (name.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'FRND') + Math.floor(1000 + Math.random() * 9000);

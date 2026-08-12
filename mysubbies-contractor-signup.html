@@ -39,6 +39,7 @@
     border:1.5px solid var(--line); border-radius:10px; padding:13px 14px; outline:none; background:#fff;
   }
   input:focus { border-color: var(--black); }
+  input.field-invalid { border-color:#B4232C !important; background:#FDF3F2; }
   .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   @media (max-width:520px) { .row2 { grid-template-columns:1fr; } }
   .section-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--stone); margin:28px 0 14px; padding-top:16px; border-top:1px solid var(--line); }
@@ -294,6 +295,17 @@
     document.getElementById('errorBox').innerHTML = `<div class="error">⚠ ${msg}</div>`;
   }
 
+  function highlightMissingFields(ids) {
+    document.querySelectorAll('.field-invalid').forEach(el => el.classList.remove('field-invalid'));
+    let first = null;
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && !el.value.trim()) { el.classList.add('field-invalid'); if (!first) first = el; }
+    });
+    if (first) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); first.focus(); }
+    return first;
+  }
+
   // ATO ABN checksum algorithm (ato.gov.au) — validates the number is a real ABN.
   function isValidAbnFormat(abn) {
     const digits = String(abn).replace(/\s/g, '');
@@ -384,11 +396,15 @@
     const insurer = document.getElementById('fInsurer').value.trim();
     const terms = document.getElementById('fTerms').checked;
 
-    if (!business || !abn || !acn || !contact || !phone || !email || !password) { showError('Please fill in all required business details.'); return; }
+    if (!business || !abn || !acn || !contact || !phone || !email || !password) {
+      showError('Please fill in the highlighted fields.');
+      highlightMissingFields(['fBusiness', 'fAbn', 'fAcn', 'fContact', 'fPhone', 'fEmail', 'fPassword']);
+      return;
+    }
     if (!isValidAbnFormat(abn)) { showError('That ABN doesn\'t look valid — double-check the 11 digits.'); return; }
     if (!isValidAcnFormat(acn)) { showError('That ACN doesn\'t look valid — double-check the 9 digits.'); return; }
     if (!abnMatchesAcn(abn, acn)) { showError('That ABN and ACN don\'t match a registered company. Mysubbies only registers company (Pty Ltd) contractors — sole trader ABNs aren\'t eligible.'); return; }
-    if (selectedTrades.length === 0) { showError('Select at least one trade category.'); return; }
+    if (selectedTrades.length === 0) { showError('Select at least one trade category.'); document.getElementById('tradeChips').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     if (!terms) { showError('Please accept the Contractor Agreement to continue.'); return; }
 
     const referralInput = document.getElementById('fContractorReferral') ? document.getElementById('fContractorReferral').value.trim().toUpperCase() : '';
