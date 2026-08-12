@@ -513,7 +513,7 @@
     const { templates, rules, config, disputedMilestones, pendingScheduleJobs, error } = paymentTabData;
     const ruleByCategory = {};
     rules.forEach(r => { ruleByCategory[r.category] = r; });
-    const categories = getRateCard().map(c => c.name);
+    const categories = getRateCard().map(c => c.label);
 
     return `
       <h1 class="pagetitle">Payment Schedules</h1>
