@@ -86,14 +86,24 @@ async function resolveScheduleForJob(supabase, category, priceCents) {
   const rule = await getCategoryRule(supabase, category);
 
   if (rule.schedule_type === 'manual_review') {
+    // Deposit-only, same as the $20,000+ structural case below — this is
+    // NOT a full 100%-summing schedule (there's deliberately only one
+    // milestone here), so computeMilestoneAmounts (which balances a
+    // rounding remainder across a full set) must not be used: the
+    // deposit's amount is directly cap% of the price, full stop.
     const cap = depositCapPct(config, priceCents);
-    const depositMilestone = { key: 'deposit', label: 'Booking Deposit', pct: cap, milestone_type: 'deposit', requires_evidence_type: 'none', requires_customer_approval: false, review_period_hours: 72, auto_capture_enabled: false };
+    const depositMilestone = {
+      key: 'deposit', label: 'Booking Deposit', pct: cap, milestone_type: 'deposit',
+      requires_evidence_type: 'none', requires_customer_approval: false,
+      review_period_hours: 72, auto_capture_enabled: false,
+      amount_cents: Math.round(priceCents * (cap / 100)),
+    };
     return {
       status: 'pending_admin_schedule',
       schedule_type: 'manual_review',
       template_id: null,
       deposit_pct: cap,
-      milestones: computeMilestoneAmounts([{ ...depositMilestone, pct: 100 }], priceCents).map(m => ({ ...m, pct: cap })),
+      milestones: [depositMilestone],
     };
   }
 
@@ -124,8 +134,20 @@ async function resolveScheduleForJob(supabase, category, priceCents) {
   // an admin builds the same way) is deposit-only by design — a single
   // milestone means the "remaining balance" is deliberately left
   // unscheduled until an admin builds a project-specific plan for this job.
+  // Its percentage deliberately does NOT sum to 100% (it's a fragment, not
+  // a full schedule), so it must bypass validateSchedule's 100%-sum check
+  // and computeMilestoneAmounts' remainder-balancing — both of which are
+  // only correct for a schedule that represents the FULL contract.
   const isDepositOnly = template.milestones.length === 1 && template.milestones[0].milestone_type === 'deposit';
-  const milestonesWithAmounts = validateSchedule(template.milestones, priceCents, config, priceCents);
+  let milestonesWithAmounts;
+  if (isDepositOnly) {
+    const m = template.milestones[0];
+    const cap = depositCapPct(config, priceCents);
+    if (Number(m.pct) > cap + 0.01) throw new ScheduleValidationError(`Deposit cannot exceed ${cap}% for a contract of this value.`);
+    milestonesWithAmounts = [{ ...m, amount_cents: Math.round(priceCents * (Number(m.pct) / 100)) }];
+  } else {
+    milestonesWithAmounts = validateSchedule(template.milestones, priceCents, config, priceCents);
+  }
 
   return {
     status: isDepositOnly ? 'pending_admin_schedule' : 'pending_customer_acceptance',
