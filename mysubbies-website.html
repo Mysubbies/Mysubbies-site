@@ -229,7 +229,10 @@
      any viewport width without a separate mobile layout. */
   .welcome-splash { position:fixed; inset:0; z-index:500; overflow-y:auto; transition:opacity .35s ease, visibility .35s ease; }
   .welcome-splash.hide { opacity:0; visibility:hidden; pointer-events:none; }
-  .welcome-bg { position:absolute; inset:0; background:var(--black) url('images/welcome-hero.jpg') center/cover no-repeat; }
+  /* The source photo has empty wall on its left third and the people
+     grouped in the right two-thirds — bias the crop rightward so the
+     people land centered in the viewport instead of the wall. */
+  .welcome-bg { position:absolute; inset:0; background:var(--black) url('images/welcome-hero.jpg') 72% center/cover no-repeat; }
   .welcome-bg::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.85) 100%); }
   .welcome-content { position:relative; z-index:1; min-height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:48px 24px; }
   .welcome-content .logo-mark { width:56px; height:56px; border-radius:14px; background:#fff; margin-bottom:16px; }
