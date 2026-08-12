@@ -15,6 +15,7 @@
 // can never do this directly — Stripe's signed event is the sole source of
 // truth, verified below before anything touches the database.
 const { getStripe, getSupabase } = require('./_lib/clients');
+const { sendEmail, wrapEmail } = require('./_lib/email');
 
 // Vercel must NOT pre-parse the body — Stripe's signature is computed over
 // the exact raw bytes, and JSON.parse+reserialize would break verification.
@@ -84,6 +85,24 @@ module.exports = async (req, res) => {
 
       if (newStatus === 'succeeded') {
         await supabase.from('jobs').update({ status: 'deposit_paid' }).eq('id', jobId);
+
+        // Best-effort confirmation email — never lets an email failure
+        // affect the payment/webhook outcome above.
+        try {
+          const { data: jobRow } = await supabase.from('jobs').select('customer_email, full_record').eq('id', jobId).maybeSingle();
+          const record = jobRow && jobRow.full_record;
+          if (jobRow && jobRow.customer_email && record) {
+            await sendEmail({
+              to: jobRow.customer_email,
+              subject: `Booking confirmed — ${record.category} in ${record.suburb}`,
+              html: wrapEmail(`
+                <h2 style="margin-top:0;">Your job is booked!</h2>
+                <p>Thanks, ${record.customerName || 'there'} — your deposit has been received and <strong>${record.category}</strong> in <strong>${record.suburb}</strong> is now live on the contractor board.</p>
+                <p>We'll email you again once a contractor accepts. You can track everything, message your contractor, and see payment stages any time in <a href="https://mysubbies-site.vercel.app/mysubbies-customer-portal.html">My Jobs</a>.</p>
+              `),
+            });
+          }
+        } catch (emailErr) { console.error('deposit confirmation email failed:', emailErr); }
       }
     } else if (event.type === 'account.updated') {
       const account = event.data.object;

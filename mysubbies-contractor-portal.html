@@ -480,6 +480,9 @@
     // filtering in get-jobs.js.
     j.contractorEmail = localStorage.getItem('mysubbies_contractor_email');
     saveJobs(jobs);
+    if (j.customerEmail) {
+      fetch('/api/notify-job-assigned', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customerEmail: j.customerEmail, category: j.category, suburb: j.suburb, contractorName: j.contractor }) }).catch(() => {});
+    }
     render();
   }
   function declineJob(id) { selectedJobId = null; render(); }

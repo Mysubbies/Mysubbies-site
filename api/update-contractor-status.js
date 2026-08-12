@@ -16,6 +16,7 @@
 // created with the correct status the next time they do log in, via
 // contractor-portal.html's own lazy-migration signUp path.
 const { getSupabase } = require('./_lib/clients');
+const { sendEmail, wrapEmail } = require('./_lib/email');
 
 const ALLOWED_STATUSES = ['approved', 'preferred', 'watchlist', 'suspended', 'expired_documents', 'manual_review', 'rejected'];
 
@@ -36,6 +37,18 @@ module.exports = async (req, res) => {
       .eq('email', String(email).toLowerCase())
       .select('id');
     if (error) throw error;
+
+    if (status === 'approved' || status === 'rejected') {
+      try {
+        await sendEmail({
+          to: email,
+          subject: status === 'approved' ? 'Your Mysubbies application has been approved' : 'Your Mysubbies application update',
+          html: wrapEmail(status === 'approved'
+            ? `<h2 style="margin-top:0;">You're in!</h2><p>Your contractor application has been approved. You can now log in and start accepting jobs in your approved trade categories.</p><p><a href="https://mysubbies-site.vercel.app/mysubbies-contractor-portal.html">Log in to the Contractor Portal</a></p>`
+            : `<h2 style="margin-top:0;">Application update</h2><p>Thanks for applying to join the Mysubbies panel. After review, we're not able to approve your application at this time.</p><p>If you think this is a mistake, reply to this email and our team will take another look.</p>`),
+        });
+      } catch (emailErr) { console.error('application status email failed:', emailErr); }
+    }
 
     res.status(200).json({ updated: (data || []).length });
   } catch (err) {
