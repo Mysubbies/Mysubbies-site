@@ -100,6 +100,12 @@
     'Flooring','Earth Works','Demolition','Skip Bins','Cleaning','Tiling','Tiled Roof Repair',
     'Electrical','Plumbing'];
 
+  // Broad regional groupings rather than an exhaustive suburb/postcode
+  // database — a contractor covering "most of the north" shouldn't have to
+  // type dozens of suburbs one by one. The free-text field below still lets
+  // them narrow or add specific suburbs/postcodes on top of a region pick.
+  const REGIONS = ['Northern Melbourne', 'Western Melbourne', 'Inner/CBD Melbourne', 'Southern Melbourne', 'Eastern Melbourne'];
+
   function getApplications() { return JSON.parse(localStorage.getItem('mysubbies_contractor_applications') || '[]'); }
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
@@ -124,6 +130,7 @@
 
   let selectedTrades = [];
   let otherTradeText = '';
+  let selectedRegions = [];
   let insuranceDocs = [];
   let certDocs = [];
   let profilePhoto = null;
@@ -230,8 +237,10 @@
       <div class="field" id="otherTradeField" style="display:none;margin-top:10px;"><label>Tell us what other trade(s)</label><input type="text" id="fOtherTrade" placeholder="e.g. Roof plumbing, pool fencing" oninput="otherTradeText = this.value" /></div>
 
       <div class="section-label">Service area</div>
-      <div class="field"><label>Suburbs you service <span class="req">*</span></label><input type="text" id="fSuburbs" placeholder="e.g. Brunswick, Coburg, Preston, Northcote" /></div>
-      <div class="field-note">Comma-separated. Leave blank to be considered for all Melbourne metro areas.</div>
+      <label>Which parts of Melbourne do you cover?</label>
+      <div class="chiprow" id="regionChips"></div>
+      <div class="field-note">Pick one or more regions — much faster than listing every postcode. Leave blank to be considered for all Melbourne metro areas.</div>
+      <div class="field" style="margin-top:10px;"><label>Specific suburbs or postcodes <span class="opt">(optional — narrows it down further)</span></label><input type="text" id="fSuburbs" placeholder="e.g. Brunswick, Coburg, 3056, 3058" /></div>
 
       <div class="section-label">Licensing & insurance</div>
       <div class="row2">
@@ -271,6 +280,24 @@
       <div class="toggle-mode">Already applied? <a href="mysubbies-contractor-portal.html">Log in</a></div>
     `;
     renderTradeChips();
+    renderRegionChips();
+  }
+
+  function renderRegionChips() {
+    const row = document.getElementById('regionChips');
+    row.innerHTML = '';
+    REGIONS.forEach(region => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip' + (selectedRegions.includes(region) ? ' selected' : '');
+      btn.textContent = region;
+      btn.onclick = () => {
+        if (selectedRegions.includes(region)) selectedRegions = selectedRegions.filter(r => r !== region);
+        else selectedRegions.push(region);
+        renderRegionChips();
+      };
+      row.appendChild(btn);
+    });
   }
 
   function renderTradeChips() {
@@ -437,7 +464,9 @@
     const referredBy = apps.some(a => a.referralCode === referralInput) ? referralInput : null;
     const application = {
       id: 'app_' + Date.now(), business, abn, acn, contact, phone, email, password,
-      trades: selectedTrades, otherTrade: otherTradeText.trim() || null, suburbs: suburbs ? suburbs.split(',').map(s => s.trim()).filter(Boolean) : [],
+      trades: selectedTrades, otherTrade: otherTradeText.trim() || null,
+      regions: selectedRegions,
+      suburbs: [...selectedRegions, ...(suburbs ? suburbs.split(',').map(s => s.trim()).filter(Boolean) : [])],
       licence, insurer, insuranceDocs, certDocs, profilePhoto, referralCode, referredBy,
       status: 'pending', appliedAt: new Date().toISOString(),
       agreementVersion: 'contractor-agreement-2026-08-draft', agreementAcceptedAt: new Date().toISOString(),
