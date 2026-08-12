@@ -206,6 +206,13 @@
         ${j.status === 'completed' ? renderRatingSection(j) : ''}
         ${j.contractor && j.status !== 'completed' ? `<button class="btn btn-outline btn-full" style="margin-top:12px;" onclick="openDisputeForm()">⚠ Report a problem</button>` : ''}
         <div id="disputeFormWrap"></div>
+        ${!j.contractor && j.status === 'feed' ? `
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <button class="btn btn-outline" style="flex:1;" onclick="openEditJobForm()">Edit job</button>
+            <button class="btn btn-outline" style="flex:1;color:var(--warn);" onclick="cancelJob('${j.id}')">Cancel job</button>
+          </div>
+          <div id="editJobFormWrap"></div>
+        ` : ''}
       </div>
 
       ${j.contractor ? `
@@ -353,6 +360,47 @@
     disputes.unshift({ id: 'dispute_' + Date.now(), jobId, reason, details, status: 'open', reportedAt: new Date().toISOString(), reportedBy: 'customer' });
     localStorage.setItem('mysubbies_disputes', JSON.stringify(disputes));
     document.getElementById('disputeFormWrap').innerHTML = `<div class="note" style="margin-top:12px;">✓ Reported — our team will review this and be in touch.</div>`;
+  }
+
+  // Cancel/edit are only offered while a job is still unallocated (status
+  // 'feed', no contractor) — once a contractor has accepted, changing scope
+  // or cancelling needs a real conversation, not a self-service button.
+  function cancelJob(jobId) {
+    if (!confirm('Cancel this job? This can\'t be undone — you\'ll need to submit a new job if you change your mind.')) return;
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === jobId);
+    if (!j) return;
+    j.status = 'cancelled';
+    saveJobs(jobs);
+    render();
+  }
+
+  function openEditJobForm() {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === selectedJobId);
+    document.getElementById('editJobFormWrap').innerHTML = `
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--paper);">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Edit job details</div>
+        <div style="font-size:12px;color:var(--stone);margin-bottom:10px;">The category and price are locked in from your quote — cancel and rebook if those need to change.</div>
+        <div style="font-size:12px;color:var(--stone);margin-bottom:2px;">Address</div>
+        <input type="text" id="editAddress" value="${escapeHtml(j.address || '')}" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;" />
+        <div style="font-size:12px;color:var(--stone);margin-bottom:2px;">What's currently on the site?</div>
+        <input type="text" id="editSite" value="${escapeHtml(j.site || '')}" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;" />
+        <div style="font-size:12px;color:var(--stone);margin-bottom:2px;">How urgent is this job?</div>
+        <input type="text" id="editUrgency" value="${escapeHtml(j.urgency || '')}" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;" />
+        <button class="btn btn-black btn-full" onclick="saveEditJobForm('${j.id}')">Save changes</button>
+      </div>`;
+  }
+
+  function saveEditJobForm(jobId) {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === jobId);
+    if (!j) return;
+    j.address = document.getElementById('editAddress').value.trim();
+    j.site = document.getElementById('editSite').value.trim();
+    j.urgency = document.getElementById('editUrgency').value.trim();
+    saveJobs(jobs);
+    document.getElementById('editJobFormWrap').innerHTML = `<div class="note" style="margin-top:12px;">✓ Job updated.</div>`;
   }
 
   function renderMessages(j) {

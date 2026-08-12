@@ -239,6 +239,50 @@
 
   function getCustomersMap() { return JSON.parse(localStorage.getItem('mysubbies_customers') || '{}'); }
 
+  // CSV export, sourced from the real Supabase tables (not local cache) so
+  // the export reflects every customer/contractor across every device,
+  // not just whoever registered in this browser.
+  function toCsv(rows, columns) {
+    const esc = v => {
+      const s = v == null ? '' : String(v);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const header = columns.map(c => esc(c.label)).join(',');
+    const body = rows.map(r => columns.map(c => esc(r[c.key])).join(',')).join('\n');
+    return header + '\n' + body;
+  }
+  function downloadCsv(filename, csv) {
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  async function exportCustomersCsv() {
+    try {
+      const res = await fetch('/api/get-customers');
+      const { customers } = await res.json();
+      const csv = toCsv(customers || [], [
+        { key: 'name', label: 'Name' }, { key: 'email', label: 'Email' },
+        { key: 'phone', label: 'Phone' }, { key: 'created_at', label: 'Registered' },
+      ]);
+      downloadCsv('mysubbies-customers.csv', csv);
+    } catch (e) { alert('Could not export customers — try again.'); }
+  }
+  function exportContractorsCsv() {
+    const apps = getApplications();
+    const rows = apps.map(a => ({ ...a, tradesCsv: (a.trades || []).join('; '), suburbsCsv: (a.suburbs || []).join('; ') }));
+    downloadCsv('mysubbies-contractors.csv', toCsv(rows, [
+      { key: 'business', label: 'Business name' }, { key: 'contact', label: 'Contact' },
+      { key: 'email', label: 'Email' }, { key: 'phone', label: 'Phone' },
+      { key: 'abn', label: 'ABN' }, { key: 'acn', label: 'ACN' },
+      { key: 'status', label: 'Status' },
+      { key: 'tradesCsv', label: 'Trades' }, { key: 'suburbsCsv', label: 'Suburbs' },
+      { key: 'appliedAt', label: 'Applied' },
+    ]));
+  }
+
   function barHtml(label, value, max, valueLabel) {
     const pct = max > 0 ? Math.max(2, Math.round((value / max) * 100)) : 0;
     return `
@@ -306,6 +350,14 @@
     return `
       <h1 class="pagetitle">Reports</h1>
       <p class="pagesub">Built from live platform data — refreshes every time you open this tab.</p>
+
+      <div class="detailcard" style="margin-bottom:14px;">
+        <h3 style="font-size:15px;margin-bottom:12px;">Export for marketing / analysis</h3>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" style="flex:1;" onclick="exportCustomersCsv()">Export customers CSV</button>
+          <button class="btn btn-outline" style="flex:1;" onclick="exportContractorsCsv()">Export contractors CSV</button>
+        </div>
+      </div>
 
       <div class="detailcard" style="margin-bottom:14px;">
         <h3 style="font-size:15px;margin-bottom:12px;">Finance</h3>
@@ -898,12 +950,16 @@
         <div class="row commission"><span class="l">Platform commission (25%)</span><span class="r">$${commission.toLocaleString()}</span></div>
         <div class="row payout"><span class="l">Contractor payout</span><span class="r">$${payout.toLocaleString()}</span></div>
 
-        ${!j.contractor ? `
-          <div class="reassign">
-            <input type="text" id="reassignInput" placeholder="Assign to (business name)" />
-            <button class="btn btn-black" onclick="reassign('${j.id}')">Assign</button>
-          </div>
-        ` : ''}
+        <div class="reassign">
+          <select id="reassignSelect" style="flex:1;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
+            <option value="">${j.contractor ? 'Reassign to…' : 'Assign to…'}</option>
+            ${approvedContractorOptions(j)}
+          </select>
+          <button class="btn btn-black" onclick="reassign('${j.id}')">${j.contractor ? 'Reassign' : 'Assign'}</button>
+          ${j.contractor ? `<button class="btn btn-outline" onclick="unassign('${j.id}')">Unassign</button>` : ''}
+        </div>
+        <button class="btn btn-outline" style="margin-top:10px;width:100%;" onclick="toggleEditJob()">Edit job details</button>
+        <div id="editJobWrap"></div>
       </div>
       ${j.variations && j.variations.length ? `
         <div class="detailcard" style="margin-top:14px;">
@@ -989,15 +1045,74 @@
   window.addEventListener('storage', (e) => { if (e.key === 'mysubbies_jobs') { checkForNewMessages(); render(); } });
   setInterval(checkForNewMessages, 3000);
 
+  // Approved contractors first (and ones covering this job's category
+  // floated to the top), so reassigning is a pick-from-list action instead
+  // of retyping a business name — which also fixes a real gap where the
+  // old free-text "Assign" never set contractorEmail, so the job never
+  // synced to that contractor's own device (see api/sync-jobs.js).
+  function approvedContractorOptions(j) {
+    const eligible = getApplications().filter(a => ['approved', 'preferred'].includes(a.status) && a.email !== (j.contractorEmail || ''));
+    eligible.sort((a, b) => {
+      const aMatch = (a.trades || []).includes(j.category) ? 0 : 1;
+      const bMatch = (b.trades || []).includes(j.category) ? 0 : 1;
+      return aMatch - bMatch || a.business.localeCompare(b.business);
+    });
+    return eligible.map(a => `<option value="${escapeHtml(a.email)}" data-name="${escapeHtml(a.business)}">${escapeHtml(a.business)}${(a.trades || []).includes(j.category) ? ' ✓ ' + escapeHtml(j.category) : ''}</option>`).join('');
+  }
+
   function reassign(id) {
-    const val = document.getElementById('reassignInput').value.trim();
-    if (!val) return;
+    const select = document.getElementById('reassignSelect');
+    const email = select.value;
+    if (!email) return;
+    const name = select.selectedOptions[0].getAttribute('data-name');
     const jobs = getJobs();
     const j = jobs.find(x => x.id === id);
-    j.contractor = val;
+    j.contractor = name;
+    j.contractorEmail = email;
     j.status = 'assigned';
     saveJobs(jobs);
     render();
+  }
+
+  function unassign(id) {
+    if (!confirm('Unassign this job? It will go back to the open feed for matching contractors.')) return;
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === id);
+    j.contractor = null;
+    j.contractorEmail = null;
+    j.status = 'feed';
+    saveJobs(jobs);
+    render();
+  }
+
+  function toggleEditJob() {
+    const wrap = document.getElementById('editJobWrap');
+    if (wrap.innerHTML) { wrap.innerHTML = ''; return; }
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === selectedJobId);
+    wrap.innerHTML = `
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--paper);">
+        <div style="font-size:12px;color:var(--stone);margin-bottom:2px;">Suburb</div>
+        <input type="text" id="editSuburb" value="${escapeHtml(j.suburb || '')}" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;" />
+        <div style="font-size:12px;color:var(--stone);margin-bottom:2px;">Address</div>
+        <input type="text" id="editAddress" value="${escapeHtml(j.address || '')}" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;" />
+        <div style="font-size:12px;color:var(--stone);margin-bottom:2px;">On site / access</div>
+        <input type="text" id="editSite" value="${escapeHtml(j.site || '')}" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;" />
+        <div style="font-size:12px;color:var(--stone);margin-bottom:2px;">Urgency</div>
+        <input type="text" id="editUrgency" value="${escapeHtml(j.urgency || '')}" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;" />
+        <button class="btn btn-black" onclick="saveEditJob('${j.id}')">Save changes</button>
+      </div>`;
+  }
+
+  function saveEditJob(id) {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === id);
+    j.suburb = document.getElementById('editSuburb').value.trim();
+    j.address = document.getElementById('editAddress').value.trim();
+    j.site = document.getElementById('editSite').value.trim();
+    j.urgency = document.getElementById('editUrgency').value.trim();
+    saveJobs(jobs);
+    document.getElementById('editJobWrap').innerHTML = `<div style="font-size:12px;color:var(--good);margin-top:10px;">✓ Saved.</div>`;
   }
 
   checkAdminAuth();
