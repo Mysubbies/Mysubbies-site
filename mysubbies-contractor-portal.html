@@ -332,10 +332,12 @@
         <div class="msgbox">
           <h3>💬 Messages with customer</h3>
           <div class="msglist" id="msgListCustomer"></div>
-          <div class="msginput">
+          ${j.status === 'completed'
+            ? `<div style="font-size:12px;color:var(--stone-light);text-align:center;padding:8px 0;">This job is complete — messaging with the customer is closed. Contact Mysubbies support if you need to follow up on anything.</div>`
+            : `<div class="msginput">
             <input type="text" id="msgInputCustomer" placeholder="Type a message…" onkeydown="if(event.key==='Enter') sendMsg('messages')" />
             <button class="btn btn-black" onclick="sendMsg('messages')">Send</button>
-          </div>
+          </div>`}
         </div>
         <div class="msgbox">
           <h3>🔒 Messages with Mysubbies (private — customer never sees this)</h3>
@@ -428,6 +430,7 @@
     if (!text) return;
     const jobs = getJobs();
     const j = jobs.find(x => x.id === selectedJobId);
+    if (!j || (key === 'messages' && j.status === 'completed')) return;
     j[key] = j[key] || [];
     j[key].push({ id: 'm_' + Date.now(), from: 'contractor', authorName: getContractorName(), text, createdAt: new Date().toISOString() });
     saveJobs(jobs);
