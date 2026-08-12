@@ -84,7 +84,18 @@ module.exports = async (req, res) => {
         .eq('stripe_payment_intent_id', intent.id);
 
       if (newStatus === 'succeeded') {
-        await supabase.from('jobs').update({ status: 'deposit_paid' }).eq('id', jobId);
+        const stage = (intent.metadata && intent.metadata.stage) || 'deposit';
+
+        // Only the deposit ever touches jobs.status — later stages
+        // (materials/frame/completion) are tracked purely in the payments
+        // table plus the client-side paidStages flag the customer's own
+        // browser sets right after stripe.confirmCardPayment() succeeds
+        // (same pattern the deposit already used before this stage-payment
+        // flow existed). This avoids the webhook and the client racing to
+        // write the same jobs.full_record.paidStages field.
+        if (stage === 'deposit') {
+          await supabase.from('jobs').update({ status: 'deposit_paid' }).eq('id', jobId);
+        }
 
         // Best-effort confirmation email — never lets an email failure
         // affect the payment/webhook outcome above.
@@ -92,17 +103,22 @@ module.exports = async (req, res) => {
           const { data: jobRow } = await supabase.from('jobs').select('customer_email, full_record').eq('id', jobId).maybeSingle();
           const record = jobRow && jobRow.full_record;
           if (jobRow && jobRow.customer_email && record) {
+            const isDeposit = stage === 'deposit';
             await sendEmail({
               to: jobRow.customer_email,
-              subject: `Booking confirmed — ${record.category} in ${record.suburb}`,
-              html: wrapEmail(`
+              subject: isDeposit ? `Booking confirmed — ${record.category} in ${record.suburb}` : `Payment received — ${stage} stage, ${record.category}`,
+              html: wrapEmail(isDeposit ? `
                 <h2 style="margin-top:0;">Your job is booked!</h2>
                 <p>Thanks, ${record.customerName || 'there'} — your deposit has been received and <strong>${record.category}</strong> in <strong>${record.suburb}</strong> is now live on the contractor board.</p>
                 <p>We'll email you again once a contractor accepts. You can track everything, message your contractor, and see payment stages any time in <a href="https://mysubbies-site.vercel.app/mysubbies-customer-portal.html">My Jobs</a>.</p>
+              ` : `
+                <h2 style="margin-top:0;">Payment received</h2>
+                <p>Your <strong>${stage}</strong> stage payment for <strong>${record.category}</strong> in <strong>${record.suburb}</strong> has gone through — $${(intent.amount / 100).toLocaleString()}.</p>
+                <p>Track progress any time in <a href="https://mysubbies-site.vercel.app/mysubbies-customer-portal.html">My Jobs</a>.</p>
               `),
             });
           }
-        } catch (emailErr) { console.error('deposit confirmation email failed:', emailErr); }
+        } catch (emailErr) { console.error('payment confirmation email failed:', emailErr); }
       }
     } else if (event.type === 'account.updated') {
       const account = event.data.object;

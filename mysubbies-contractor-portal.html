@@ -278,7 +278,10 @@
         </div>`;
     } else if (nextStage) {
       const amount = Math.round(j.basePrice * (nextStage.pct / 100));
-      actions = `<button class="btn btn-black btn-full" style="margin-top:16px;" onclick="advancePaymentStage('${j.id}','${nextStage.key}')">Confirm: ${nextStage.label} — $${amount.toLocaleString()} (${nextStage.pct}%)</button>`;
+      const requested = j.stageRequested && j.stageRequested[nextStage.key];
+      actions = requested
+        ? `<div class="note" style="margin-top:16px;">⏳ Waiting on the customer to approve and pay <strong>${nextStage.label}</strong> — $${amount.toLocaleString()} (${nextStage.pct}%). They've been notified.</div>`
+        : `<button class="btn btn-black btn-full" style="margin-top:16px;" onclick="requestStageApproval('${j.id}','${nextStage.key}','${escapeHtml(nextStage.label)}')">Request customer approval: ${nextStage.label} — $${amount.toLocaleString()} (${nextStage.pct}%)</button>`;
     } else {
       actions = `<div class="note">✓ Job complete — fully paid.</div>`;
     }
@@ -548,17 +551,20 @@
     saveJobs(jobs);
     render();
   }
-  function advancePaymentStage(id, stageKey) {
+  // Contractor can no longer mark a stage paid directly — they request it,
+  // the customer approves and pays via real Stripe (see
+  // mysubbies-customer-portal.html's approveAndPayStage()), which is what
+  // actually flips paidStages[stageKey] to true. This function only raises
+  // the request and notifies the customer.
+  function requestStageApproval(id, stageKey, stageLabel) {
     const jobs = getJobs();
     const j = jobs.find(x => x.id === id);
-    const schedule = j.paymentSchedule || [
-      { key: 'deposit', pct: 5 }, { key: 'materials', pct: 35 }, { key: 'frame', pct: 50 }, { key: 'completion', pct: 10 },
-    ];
-    j.paidStages = j.paidStages || { deposit: true };
-    j.paidStages[stageKey] = true;
-    const allPaid = schedule.every(s => j.paidStages[s.key]);
-    if (allPaid) { j.status = 'completed'; }
+    j.stageRequested = j.stageRequested || {};
+    j.stageRequested[stageKey] = true;
     saveJobs(jobs);
+    if (j.customerEmail) {
+      fetch('/api/notify-stage-requested', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customerEmail: j.customerEmail, category: j.category, stageLabel }) }).catch(() => {});
+    }
     render();
   }
 

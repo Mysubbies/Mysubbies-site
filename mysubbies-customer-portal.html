@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://js.stripe.com/v3/"></script>
 <style>
   :root {
     --ink: #171717; --black: #000000; --white: #FFFFFF; --paper: #F7F7F5;
@@ -125,6 +126,11 @@
   const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_dxp8_eCHY9nP1xF-LmxfuQ_h427tK3Y';
   const sb = (typeof window.supabase !== 'undefined')
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
+
+  // Same publishable key as mysubbies-booking.html — safe to be
+  // client-visible, unlike the secret key used server-side in /api.
+  const STRIPE_PUBLISHABLE_KEY = 'pk_test_51U2ob6B25lHD6dwFqx6bGEipaEkk6A74k1eU9F12rF6gPNju9U9vnjZ5jj23z7Zi8IckThWii8kf6MF2tBXjXtSA00pOTmdFUJ';
+  const stripe = (typeof Stripe !== 'undefined' && !STRIPE_PUBLISHABLE_KEY.includes('REPLACE_ME')) ? Stripe(STRIPE_PUBLISHABLE_KEY) : null;
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   }
@@ -181,6 +187,7 @@
       { key: 'frame', label: 'Frame stage complete', pct: 50 }, { key: 'completion', label: 'On completion', pct: 10 },
     ];
     const paidStages = j.paidStages || { deposit: true, materials: j.materialsPaid, frame: j.frameComplete, completion: j.completionPaid };
+    const pendingStage = schedule.find(s => !paidStages[s.key] && j.stageRequested && j.stageRequested[s.key]);
 
     app.innerHTML = `
       <button class="backbtn" onclick="selectedJobId=null; render();">← Back to my jobs</button>
@@ -203,6 +210,7 @@
             `).join('')}
           </div>
         ` : ''}
+        ${pendingStage ? `<div id="stageApprovalWrap"></div>` : ''}
         ${j.status === 'completed' ? renderRatingSection(j) : ''}
         ${j.contractor && j.status !== 'completed' ? `<button class="btn btn-outline btn-full" style="margin-top:12px;" onclick="openDisputeForm()">⚠ Report a problem</button>` : ''}
         <div id="disputeFormWrap"></div>
@@ -242,8 +250,74 @@
         </div>`}
       </div>
     `;
+    if (pendingStage) renderStageApproval(j, pendingStage);
     renderMessages(j);
     wireNotifyButton();
+  }
+
+  function renderStageApproval(j, stage) {
+    const wrap = document.getElementById('stageApprovalWrap');
+    if (!wrap) return;
+    const amount = Math.round((j.basePrice || 0) * (stage.pct / 100));
+    if (!stripe) {
+      wrap.innerHTML = `<div class="note" style="margin-top:10px;">Payment is temporarily unavailable — please try again shortly, or contact support.</div>`;
+      return;
+    }
+    wrap.innerHTML = `
+      <div style="background:var(--paper);border-radius:10px;padding:14px;margin-top:12px;">
+        <div style="font-weight:700;font-size:14px;margin-bottom:2px;">Approve & pay: ${escapeHtml(stage.label)}</div>
+        <div style="font-size:12px;color:var(--stone);margin-bottom:10px;">Your contractor has marked this stage ready. Nothing is charged until you pay below.</div>
+        <div class="row"><span class="l">Amount due</span><span class="r" style="font-weight:700;">$${amount.toLocaleString()}</span></div>
+        <div id="stageCardElement" style="padding:13px 14px;border:1.5px solid var(--line);border-radius:10px;background:#fff;margin:10px 0;"></div>
+        <div id="stagePayError" style="color:var(--warn);font-size:13px;margin-bottom:10px;"></div>
+        <button class="btn btn-black btn-full" id="stagePayBtn" onclick="approveAndPayStage('${j.id}','${stage.key}','${escapeHtml(stage.label).replace(/'/g, "\\'")}', ${amount * 100})">Pay $${amount.toLocaleString()} →</button>
+      </div>`;
+    const elements = stripe.elements();
+    window.__mysubbiesStageCardElement = elements.create('card', { hidePostalCode: true });
+    window.__mysubbiesStageCardElement.mount('#stageCardElement');
+  }
+
+  async function approveAndPayStage(jobId, stageKey, stageLabel, amountCents) {
+    const btn = document.getElementById('stagePayBtn');
+    const errBox = document.getElementById('stagePayError');
+    btn.disabled = true;
+    btn.textContent = 'Processing…';
+    errBox.textContent = '';
+
+    try {
+      const res = await fetch('/api/create-stage-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId, stage: stageKey, stageLabel, amountCents }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not start payment.');
+
+      const result = await stripe.confirmCardPayment(data.clientSecret, {
+        payment_method: { card: window.__mysubbiesStageCardElement },
+      });
+      if (result.error) throw new Error(result.error.message);
+
+      // Mirrors how the deposit stage already gets marked locally right
+      // after Stripe confirms success client-side — the webhook is the
+      // authoritative record of the payment itself (payments table), not
+      // of this paidStages flag, so there's no race between the two.
+      const jobs = getJobs();
+      const j = jobs.find(x => x.id === jobId);
+      j.paidStages = j.paidStages || {};
+      j.paidStages[stageKey] = true;
+      if (j.stageRequested) j.stageRequested[stageKey] = false;
+      const schedule = j.paymentSchedule || [
+        { key: 'deposit', pct: 5 }, { key: 'materials', pct: 35 }, { key: 'frame', pct: 50 }, { key: 'completion', pct: 10 },
+      ];
+      if (schedule.every(s => j.paidStages[s.key])) j.status = 'completed';
+      saveJobs(jobs);
+      renderDetail(getCurrentCustomerEmail());
+    } catch (err) {
+      errBox.textContent = err.message || 'Payment failed. Please try again.';
+      btn.disabled = false;
+      btn.textContent = `Pay $${(amountCents / 100).toLocaleString()} →`;
+    }
   }
 
   function copyReferralCode(code) {
