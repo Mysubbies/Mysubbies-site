@@ -551,15 +551,15 @@
 
     // Try the REAL account first, regardless of whether this browser has a
     // local application record — that's what makes this work cross-device.
-    // Known gap: contractor approval status still only lives in the local
-    // application record (admin approval hasn't been migrated to the
-    // `contractors` table yet), so a verified login with no local record
-    // can't determine approved/pending/rejected — handled honestly below
-    // rather than guessing.
     let verified = false;
+    let remoteStatus = null; // real status from the `contractors` table, when available
     if (sb) {
-      const { error } = await sb.auth.signInWithPassword({ email, password });
+      const { data: authData, error } = await sb.auth.signInWithPassword({ email, password });
       verified = !error;
+      if (verified) {
+        const { data: profile } = await sb.from('contractors').select('status').eq('auth_user_id', authData.user.id).maybeSingle();
+        if (profile) remoteStatus = profile.status;
+      }
     }
     if (!verified) {
       if (!application || application.password !== password) { errBox.textContent = 'No account found with those details.'; return; }
@@ -576,7 +576,17 @@
       }
     }
 
-    if (verified && !application) {
+    // The real `contractors.status` (kept in sync by the admin portal's
+    // approve/reject actions — see api/update-contractor-status.js) is
+    // authoritative whenever it's known, so approval decisions made on a
+    // different device than this one still apply correctly. Local
+    // application.status is only the fallback for accounts that have
+    // never synced a real status yet.
+    const effectiveStatus = remoteStatus || (application && application.status);
+    const businessName = (application && application.business) || 'your business';
+    const contactName = (application && application.contact) || 'there';
+
+    if (!effectiveStatus) {
       errBox.textContent = '';
       app.innerHTML = `
         <div class="loginbox">
@@ -587,27 +597,27 @@
       return;
     }
 
-    if (application.status === 'pending') {
+    if (effectiveStatus === 'pending' || effectiveStatus === 'manual_review' || effectiveStatus === 'watchlist') {
       errBox.textContent = '';
       app.innerHTML = `
         <div class="loginbox">
           <h1>Application under review</h1>
-          <p>Thanks for applying, ${application.contact} — we're still reviewing your application for <strong>${application.business}</strong>. You'll be able to log in once it's approved.</p>
+          <p>Thanks for applying, ${contactName} — we're still reviewing your application for <strong>${businessName}</strong>. You'll be able to log in once it's approved.</p>
           <button class="btn btn-outline btn-full" onclick="renderLogin()">Back</button>
         </div>`;
       return;
     }
-    if (application.status === 'rejected') {
+    if (effectiveStatus === 'rejected' || effectiveStatus === 'suspended' || effectiveStatus === 'expired_documents') {
       errBox.textContent = '';
       app.innerHTML = `
         <div class="loginbox">
           <h1>Application not approved</h1>
-          <p>Your application for <strong>${application.business}</strong> wasn't approved at this time. Contact us if you'd like to discuss.</p>
+          <p>Your application for <strong>${businessName}</strong> wasn't approved at this time. Contact us if you'd like to discuss.</p>
           <button class="btn btn-outline btn-full" onclick="renderLogin()">Back</button>
         </div>`;
       return;
     }
-    localStorage.setItem('mysubbies_contractor_name', application.business);
+    localStorage.setItem('mysubbies_contractor_name', businessName);
     localStorage.setItem('mysubbies_contractor_email', email);
     // Same fix as customer-portal.html: the page-load hydrate already ran
     // and no-op'd before this login existed, so it needs to run again now.

@@ -790,11 +790,23 @@
     `;
   }
 
+  // Mirrors the decision into the real `contractors` table (matched by
+  // email) so a contractor logging in on a device that's never touched
+  // this admin browser's localStorage still gets the right answer — see
+  // api/update-contractor-status.js. Fire-and-forget, same pattern as
+  // saveJobs()'s sync-jobs call.
+  function syncContractorStatus(email, status) {
+    fetch('/api/update-contractor-status', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, status }),
+    }).catch(() => {});
+  }
   function approveApplication(id) {
     const apps = getApplications();
     const a = apps.find(x => x.id === id);
     a.status = 'approved';
     saveApplications(apps);
+    syncContractorStatus(a.email, 'approved');
     render();
   }
   function rejectApplication(id) {
@@ -802,6 +814,7 @@
     const a = apps.find(x => x.id === id);
     a.status = 'rejected';
     saveApplications(apps);
+    syncContractorStatus(a.email, 'rejected');
     render();
   }
 
