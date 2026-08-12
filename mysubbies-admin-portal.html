@@ -100,7 +100,7 @@
   const ADMIN_PASSWORD = 'Mysubbies2026!';
 
   function checkAdminAuth() {
-    if (localStorage.getItem('mysubbies_admin_authed') === 'true') { hydrateJobsFromServer().then(render); return; }
+    if (localStorage.getItem('mysubbies_admin_authed') === 'true') { Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer()]).then(render); return; }
     document.getElementById('app').innerHTML = `
       <div style="max-width:360px;margin:80px auto 0;background:#fff;border:1px solid var(--line);border-radius:16px;padding:28px;">
         <h1 style="font-size:22px;font-weight:800;margin-bottom:8px;">Admin login</h1>
@@ -114,7 +114,7 @@
     const val = document.getElementById('adminPasswordInput').value;
     if (val === ADMIN_PASSWORD) {
       localStorage.setItem('mysubbies_admin_authed', 'true');
-      hydrateJobsFromServer().then(render);
+      Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer()]).then(render);
     } else {
       document.getElementById('adminLoginError').textContent = 'Incorrect password.';
     }
@@ -153,7 +153,25 @@
   }
 
   function getApplications() { return JSON.parse(localStorage.getItem('mysubbies_contractor_applications') || '[]'); }
-  function saveApplications(apps) { localStorage.setItem('mysubbies_contractor_applications', JSON.stringify(apps)); }
+  function saveApplications(apps) {
+    localStorage.setItem('mysubbies_contractor_applications', JSON.stringify(apps));
+    fetch('/api/sync-applications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ applications: apps }) }).catch(() => {});
+  }
+  // Pulls every full application from Supabase (mirrors hydrateJobsFromServer)
+  // so admin sees applications submitted from any device, not just this
+  // browser. See api/get-applications.js.
+  async function hydrateApplicationsFromServer() {
+    try {
+      const res = await fetch('/api/get-applications');
+      if (!res.ok) return;
+      const { applications: remoteApps } = await res.json();
+      if (!Array.isArray(remoteApps) || remoteApps.length === 0) return;
+      const localApps = getApplications();
+      const byId = new Map(localApps.map(a => [a.id, a]));
+      remoteApps.forEach(ra => { if (ra && ra.id) byId.set(ra.id, ra); });
+      localStorage.setItem('mysubbies_contractor_applications', JSON.stringify(Array.from(byId.values())));
+    } catch (e) { /* offline or first load — local data still works */ }
+  }
   function getDisputes() { return JSON.parse(localStorage.getItem('mysubbies_disputes') || '[]'); }
   function saveDisputes(d) { localStorage.setItem('mysubbies_disputes', JSON.stringify(d)); }
 

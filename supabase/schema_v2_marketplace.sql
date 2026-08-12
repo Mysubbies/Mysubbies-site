@@ -212,6 +212,18 @@ alter table jobs add column if not exists customer_email text;
 alter table jobs add column if not exists updated_at timestamptz not null default now();
 create index if not exists jobs_customer_email_idx on jobs(customer_email);
 
+-- Same pattern for contractor APPLICATIONS (not just the derived
+-- contractors row) — without this, admin-portal.html's Applications tab
+-- only ever showed applications submitted in that exact browser, since
+-- nothing synced the full application object anywhere. 'rejected' added
+-- to the status vocabulary to match the existing local application
+-- status values exactly (admin approve/reject writes here via
+-- api/update-contractor-status.js).
+alter table contractors drop constraint if exists contractors_status_check;
+alter table contractors add constraint contractors_status_check
+  check (status in ('approved', 'preferred', 'watchlist', 'suspended', 'expired_documents', 'manual_review', 'rejected'));
+alter table contractors add column if not exists full_application jsonb;
+
 -- ============================================================
 -- JOB_OFFERS — contractor dispatch (section 6-7). One job can be offered to
 -- multiple eligible contractors in sequence/parallel per the matching logic;

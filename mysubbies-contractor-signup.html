@@ -103,7 +103,14 @@
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   }
-  function saveApplications(apps) { localStorage.setItem('mysubbies_contractor_applications', JSON.stringify(apps)); }
+  function saveApplications(apps) {
+    localStorage.setItem('mysubbies_contractor_applications', JSON.stringify(apps));
+    // Mirrors the full application (docs, referral code, everything) into
+    // Supabase so mysubbies-admin-portal.html can review it from any
+    // device, not just the browser it was submitted in — see
+    // api/sync-applications.js.
+    fetch('/api/sync-applications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ applications: apps }) }).catch(() => {});
+  }
 
   // Same publishable/safe-to-expose Supabase key used on the customer side
   // (mysubbies-booking.html) — protected by RLS, not secrecy. See
