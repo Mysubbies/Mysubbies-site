@@ -268,7 +268,7 @@
         // (used elsewhere, e.g. the separate My Jobs login) in sync too.
         const { data: profile } = await sb.from('customers').select('*').eq('auth_user_id', data.user.id).maybeSingle();
         const existing = customers[email] || {};
-        const merged = { ...existing, name: profile?.name || existing.name, phone: profile?.phone || existing.phone, email, password };
+        const merged = { ...existing, name: profile?.name || existing.name, phone: profile?.phone || existing.phone, email, password, customerDbId: profile?.id || null };
         customers[email] = merged;
         saveCustomers(customers);
         beginBookingFlow(merged);
@@ -295,15 +295,17 @@
       const referralCode = (name.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'FRND') + Math.floor(1000 + Math.random() * 9000);
       const referredBy = Object.values(customers).some(c => c.referralCode === referralInput) ? referralInput : null;
 
+      let customerDbId = null;
       if (sb) {
         const { data, error } = await sb.auth.signUp({ email, password });
         if (error) { showError(error.message); return; }
         if (data.user) {
-          await sb.from('customers').insert({ auth_user_id: data.user.id, email, name, phone });
+          const { data: inserted } = await sb.from('customers').insert({ auth_user_id: data.user.id, email, name, phone }).select().single();
+          customerDbId = inserted?.id || null;
         }
       }
 
-      const account = { name, phone, email, password, referralCode, referredBy, createdAt: new Date().toISOString() };
+      const account = { name, phone, email, password, referralCode, referredBy, createdAt: new Date().toISOString(), customerDbId };
       customers[email] = account;
       saveCustomers(customers);
       beginBookingFlow({ ...account, address, suburb, jobType, businessName });
@@ -345,25 +347,72 @@
     }
   }
 
-  function renderDepositPayment(customer, catLabel) {
+  const PAYMENT_TERMS_VERSION = 'payment-schedule-2026-08-v1';
+
+  async function renderDepositPayment(customer, catLabel) {
     const items = quote.items || [];
     const catItems = items.filter(i => i.catLabel === catLabel);
     const catBase = catItems.reduce((s, i) => s + i.base, 0);
-    const paymentSchedule = getPaymentScheduleForCategory(catLabel);
-    const depositStage = paymentSchedule.find(s => s.key === 'deposit') || paymentSchedule[0];
-    const depositAmount = Math.round(catBase * (depositStage.pct / 100) * 100) / 100;
+    const priceCents = Math.round(catBase * 100);
     const jobId = 'job_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 
+    app.innerHTML = `<h1 class="pagetitle">Loading your payment schedule…</h1>`;
+
+    let preview;
+    try {
+      const res = await fetch(`/api/job-payment-schedule?category=${encodeURIComponent(catLabel)}&priceCents=${priceCents}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not load payment schedule.');
+      preview = data.preview;
+    } catch (err) {
+      app.innerHTML = `<h1 class="pagetitle">Something went wrong</h1><p class="pagesub">${err.message || 'Could not load your payment schedule. Please go back and try again.'}</p>`;
+      return;
+    }
+
+    const depositMilestone = preview.milestones.find(m => m.milestone_type === 'deposit') || preview.milestones[0];
+    const depositAmount = depositMilestone.amount_cents / 100;
+    const isPendingAdminSchedule = preview.status === 'pending_admin_schedule';
+
+    const scheduleRowsHtml = preview.milestones.map(m => `
+      <div class="row"><span class="l">${m.label} (${m.pct}%)</span><span class="r">$${(m.amount_cents / 100).toLocaleString()}</span></div>
+    `).join('');
+
     app.innerHTML = `
-      <h1 class="pagetitle">Pay your deposit</h1>
-      <p class="pagesub">${depositStage.label || 'Deposit'} (${depositStage.pct}%) for ${catLabel} — the rest follows the staged schedule shown in your job tracker.</p>
+      <h1 class="pagetitle">Review your payment schedule</h1>
+      <p class="pagesub">${catLabel} — $${catBase.toLocaleString()} total, GST inclusive.</p>
+
       <div style="background:var(--paper);border-radius:10px;padding:16px;margin-bottom:16px;">
-        <div class="row"><span class="l">Deposit due now</span><span class="r" style="font-weight:700;">$${depositAmount.toLocaleString()}</span></div>
+        ${scheduleRowsHtml}
       </div>
+
+      ${isPendingAdminSchedule ? `
+        <div style="background:#FFF6E5;border:1px solid #F0DCA6;border-radius:10px;padding:14px;margin-bottom:16px;font-size:12.5px;color:#7A5C1E;line-height:1.6;">
+          <strong>Large or complex project:</strong> only the ${preview.deposit_pct}% booking deposit is collected now. Because this job is a large or structural project, Mysubbies will prepare a project-specific payment plan with you before any further payment is requested. Domestic building insurance, registration, permits, contract requirements and legally compliant progress-payment stages may apply to a project of this size.
+        </div>
+      ` : `
+        <div style="font-size:12.5px;color:var(--stone);line-height:1.6;margin-bottom:16px;">
+          <p style="margin-bottom:8px;"><strong>What releases each payment:</strong> your contractor submits evidence (photos${preview.milestones.some(m => m.requires_evidence_type === 'delivery_docket') ? ', a delivery docket for materials,' : ''}${preview.milestones.some(m => m.requires_evidence_type === 'inspection_certificate') ? ', an inspection certificate,' : ''} and a written update) for each stage. You review it and approve payment, or raise an issue — nothing is charged without your approval or the review period expiring.</p>
+          <p style="margin-bottom:8px;"><strong>Cancellation & refunds:</strong> free if no contractor has accepted yet. Once accepted, cancelling may incur a fee reflecting work or materials already committed.</p>
+          <p style="margin-bottom:8px;"><strong>Variations:</strong> if extra work is needed, your contractor submits a variation with price and time impact — nothing proceeds until you approve it in writing.</p>
+          <p><strong>Disputes:</strong> if you raise an issue on a milestone, that payment is paused and reviewed by Mysubbies before release.</p>
+        </div>
+      `}
+
+      <label class="terms" style="display:flex;gap:8px;align-items:flex-start;margin-bottom:16px;">
+        <input type="checkbox" id="fScheduleAccept" style="margin-top:3px;" />
+        <span style="font-size:12.5px;">I have reviewed and agree to the total price and milestone payment schedule.</span>
+      </label>
+
       <div id="cardElement" style="padding:13px 14px;border:1.5px solid var(--line);border-radius:10px;background:#fff;margin-bottom:10px;"></div>
       <div id="depositError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
-      <button class="btn btn-black" id="payDepositBtn" onclick="confirmDepositPayment('${jobId}', '${catLabel.replace(/'/g,"\\'")}')">Pay $${depositAmount.toLocaleString()} deposit →</button>
+      <button class="btn btn-black" id="payDepositBtn" disabled style="opacity:0.5;" onclick="confirmDepositPayment()">Pay $${depositAmount.toLocaleString()} deposit →</button>
     `;
+
+    document.getElementById('fScheduleAccept').addEventListener('change', (e) => {
+      const btn = document.getElementById('payDepositBtn');
+      btn.disabled = !e.target.checked;
+      btn.style.opacity = e.target.checked ? '1' : '0.5';
+    });
 
     const elements = stripe.elements();
     // hidePostalCode: Stripe's built-in postal code field defaults to
@@ -377,11 +426,13 @@
     window.__mysubbiesPendingBooking = { customer, catLabel, catBase, depositAmount, jobId };
   }
 
-  async function confirmDepositPayment(jobId, catLabel) {
+  async function confirmDepositPayment() {
     const pending = window.__mysubbiesPendingBooking;
     if (!pending) return;
     const btn = document.getElementById('payDepositBtn');
     const errBox = document.getElementById('depositError');
+    const accepted = document.getElementById('fScheduleAccept').checked;
+    if (!accepted) { errBox.textContent = 'Please confirm you agree to the payment schedule first.'; return; }
     btn.disabled = true;
     btn.textContent = 'Processing…';
     errBox.textContent = '';
@@ -396,7 +447,9 @@
           suburb: pending.customer.suburb || quote.suburb || 'Melbourne',
           contractorEmail: null,
           basePriceCents: Math.round(pending.catBase * 100),
-          depositAmountCents: Math.round(pending.depositAmount * 100),
+          accepted: true,
+          customerId: pending.customer.customerDbId || null,
+          termsVersion: PAYMENT_TERMS_VERSION,
         }),
       });
       const data = await res.json();
