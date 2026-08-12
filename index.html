@@ -223,13 +223,26 @@
   .fs-modal-overlay.show { display:flex; }
 
   /* Welcome splash — a brief brand interstitial shown once per browser
-     session before the homepage. No gate, one tap through. */
-  .welcome-splash { position:fixed; inset:0; z-index:500; background:var(--black); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px; transition:opacity .35s ease, visibility .35s ease; }
+     session before the homepage. No gate, one tap through. Background
+     photo (images/welcome-hero.jpg, Unsplash License, free for commercial
+     use) with a dark gradient for text legibility — same pattern works at
+     any viewport width without a separate mobile layout. */
+  .welcome-splash { position:fixed; inset:0; z-index:500; overflow-y:auto; transition:opacity .35s ease, visibility .35s ease; }
   .welcome-splash.hide { opacity:0; visibility:hidden; pointer-events:none; }
-  .welcome-splash .logo-mark { width:64px; height:64px; border-radius:16px; background:#fff; margin-bottom:20px; }
-  .welcome-splash .logo-word { font-weight:800; font-size:30px; color:#fff; letter-spacing:-0.01em; margin-bottom:10px; }
-  .welcome-splash .tagline { color:rgba(255,255,255,0.65); font-size:15px; max-width:340px; line-height:1.5; margin-bottom:32px; }
-  .welcome-splash .btn { padding:14px 34px; font-size:15px; }
+  .welcome-bg { position:absolute; inset:0; background:var(--black) url('images/welcome-hero.jpg') center/cover no-repeat; }
+  .welcome-bg::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.85) 100%); }
+  .welcome-content { position:relative; z-index:1; min-height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:48px 24px; }
+  .welcome-content .logo-mark { width:56px; height:56px; border-radius:14px; background:#fff; margin-bottom:16px; }
+  .welcome-content .logo-word { font-weight:800; font-size:26px; color:#fff; letter-spacing:-0.01em; margin-bottom:12px; }
+  .welcome-content h2 { color:#fff; font-size:clamp(26px,5vw,38px); line-height:1.1; max-width:520px; margin-bottom:12px; }
+  .welcome-content .tagline { color:rgba(255,255,255,0.78); font-size:15px; max-width:420px; line-height:1.55; margin-bottom:28px; }
+  .welcome-steps { display:flex; flex-direction:column; gap:12px; max-width:400px; width:100%; margin-bottom:30px; text-align:left; }
+  .welcome-step { display:flex; align-items:center; gap:12px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.14); border-radius:12px; padding:12px 14px; }
+  .welcome-step .num { flex-shrink:0; width:26px; height:26px; border-radius:50%; background:#fff; color:var(--black); font-size:12.5px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .welcome-step span.txt { color:#fff; font-size:13px; line-height:1.4; }
+  .welcome-content .btn { padding:14px 34px; font-size:15px; }
+  .welcome-skip { color:rgba(255,255,255,0.55); font-size:12.5px; margin-top:16px; background:none; border:none; cursor:pointer; text-decoration:underline; }
+  @media (max-width:480px) { .welcome-content { padding:36px 20px; } }
   .fs-modal { background:#fff; border-radius:20px; padding:28px; max-width:480px; width:100%; max-height:88vh; overflow-y:auto; }
   .fs-modal-close { float:right; background:none; border:none; font-size:20px; cursor:pointer; color:var(--stone); line-height:1; }
   .fs-modal h3 { font-size:20px; margin-bottom:6px; }
@@ -285,10 +298,20 @@
 <body>
 
 <div class="welcome-splash" id="welcomeSplash">
-  <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-  <div class="logo-word">Mysubbies</div>
-  <div class="tagline">Your Personal Tradie. An estimated, upfront price and a vetted contractor — sent straight to your job.</div>
-  <button class="btn btn-white" onclick="dismissWelcomeSplash()">Enter site →</button>
+  <div class="welcome-bg"></div>
+  <div class="welcome-content">
+    <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="logo-word">Mysubbies</div>
+    <h2>Fix everything for the outside and most of the inside.</h2>
+    <div class="tagline">An estimated, upfront price and a vetted contractor — sent straight to your job. No chasing quotes, no bidding wars.</div>
+    <div class="welcome-steps">
+      <div class="welcome-step"><span class="num">1</span><span class="txt">Pick a service and get an instant, estimated price</span></div>
+      <div class="welcome-step"><span class="num">2</span><span class="txt">We match you with one vetted contractor — not open bidding</span></div>
+      <div class="welcome-step"><span class="num">3</span><span class="txt">Approve each stage and pay securely as the work happens</span></div>
+    </div>
+    <button class="btn btn-white" onclick="dismissWelcomeSplash(true)">Get an instant price →</button>
+    <button class="welcome-skip" onclick="dismissWelcomeSplash(false)">Skip, just browse the site</button>
+  </div>
 </div>
 <script>
   // Runs immediately (before the rest of the page renders) so a returning
@@ -297,9 +320,15 @@
   if (sessionStorage.getItem('mysubbies_welcome_seen') === 'true') {
     document.getElementById('welcomeSplash').classList.add('hide');
   }
-  function dismissWelcomeSplash() {
+  function dismissWelcomeSplash(goToEstimator) {
     sessionStorage.setItem('mysubbies_welcome_seen', 'true');
     document.getElementById('welcomeSplash').classList.add('hide');
+    if (goToEstimator) {
+      setTimeout(() => {
+        const el = document.getElementById('estimate');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 350);
+    }
   }
 </script>
 
