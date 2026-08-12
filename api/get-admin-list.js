@@ -38,15 +38,32 @@ module.exports = async (req, res) => {
     }
 
     // Milestones sitting in 'disputed' status — the Admin Resolution Queue.
+    // Pulls in the job/schedule it belongs to and the contractor's submitted
+    // evidence, since an admin needs both to make a resolution decision.
     if (type === 'milestone-claims') {
       const { data, error } = await supabase
         .from('payment_milestones')
-        .select('*, payment_milestone_disputes(*)')
+        .select('*, payment_milestone_disputes(*), milestone_evidence(*), job_payment_schedules(job_id, schedule_type, revised_total_price_cents)')
         .in('status', ['disputed'])
         .order('updated_at', { ascending: true })
         .limit(500);
       if (error) throw error;
       res.status(200).json({ milestones: data || [] });
+      return;
+    }
+
+    // Jobs whose schedule is waiting on an admin-built payment plan — the
+    // $20,000+ structural / manual_review-category case where the deposit
+    // is locked in but the remainder was deliberately never auto-generated.
+    if (type === 'pending-schedule-jobs') {
+      const { data, error } = await supabase
+        .from('job_payment_schedules')
+        .select('id, job_id, schedule_type, original_contract_price_cents, revised_total_price_cents, deposit_amount_cents, created_at')
+        .eq('status', 'pending_admin_schedule')
+        .order('created_at', { ascending: true })
+        .limit(200);
+      if (error) throw error;
+      res.status(200).json({ schedules: data || [] });
       return;
     }
 
@@ -61,7 +78,7 @@ module.exports = async (req, res) => {
       return;
     }
 
-    res.status(400).json({ error: 'type must be applications, customers, milestone-claims, or payment-audit.' });
+    res.status(400).json({ error: 'type must be applications, customers, milestone-claims, pending-schedule-jobs, or payment-audit.' });
   } catch (err) {
     console.error('get-admin-list error:', err);
     res.status(500).json({ error: 'Could not fetch data.' });

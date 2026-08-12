@@ -215,6 +215,9 @@
     const disputes = getDisputes();
     const openDisputeCount = disputes.filter(d => d.status === 'open').length;
 
+    if (tab === 'payments' && !paymentTabData && !paymentTabLoading) loadPaymentScheduleTab();
+    const paymentBadgeCount = paymentTabData ? (paymentTabData.disputedMilestones || []).length + (paymentTabData.pendingScheduleJobs || []).length : 0;
+
     app.innerHTML = `
       <div class="statgrid">
         <div class="statcard"><div class="num">${jobs.length}</div><div class="lab">Total jobs</div></div>
@@ -226,13 +229,14 @@
         <button class="${tab==='overview'?'active':''}" onclick="tab='overview'; render();">All Jobs</button>
         <button class="${tab==='applications'?'active':''}" onclick="tab='applications'; render();">Applications ${pendingCount ? '(' + pendingCount + ')' : ''}</button>
         <button class="${tab==='disputes'?'active':''}" onclick="tab='disputes'; render();">Disputes ${openDisputeCount ? '(' + openDisputeCount + ')' : ''}</button>
+        <button class="${tab==='payments'?'active':''}" onclick="tab='payments'; render();">Payment Schedules ${paymentBadgeCount ? '(' + paymentBadgeCount + ')' : ''}</button>
         <button class="${tab==='ratecard'?'active':''}" onclick="tab='ratecard'; render();">Rate Card</button>
         <button class="${tab==='reports'?'active':''}" onclick="tab='reports'; render();">Reports</button>
       </div>
       ${tab === 'overview' ? `
         <h1 class="pagetitle">Jobs</h1>
         ${jobs.length === 0 ? '<div class="empty">No jobs yet. Submit one from the site to see it here.</div>' : jobsTableHtml(jobs)}
-      ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab()}
+      ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab()}
     `;
     if (tab === 'ratecard') wireRateCardTab();
   }
@@ -466,6 +470,367 @@
     const saved = document.getElementById('minBookingValueSaved');
     saved.style.display = 'inline';
     setTimeout(() => { saved.style.display = 'none'; }, 2000);
+  }
+
+  // ============================================================
+  // PAYMENT SCHEDULES — settings + resolution queue (backend-calculated
+  // milestone system, api/_lib/paymentSchedule.js). Loaded lazily since it
+  // needs several server round-trips this tab's data isn't already
+  // hydrated with at page load, unlike jobs/applications.
+  // ============================================================
+  let paymentTabData = null;
+  let paymentTabLoading = false;
+  let editingTemplateId = null;
+  let editingTemplateDraft = null;
+  let buildingScheduleForJobId = null;
+  let buildDraftMilestones = null;
+
+  async function loadPaymentScheduleTab() {
+    if (paymentTabLoading) return;
+    paymentTabLoading = true;
+    try {
+      const [tRes, rRes, cRes, dRes, pRes] = await Promise.all([
+        fetch('/api/payment-schedule-admin?type=templates'),
+        fetch('/api/payment-schedule-admin?type=category-rules'),
+        fetch('/api/payment-schedule-admin?type=config'),
+        fetch('/api/get-admin-list?type=milestone-claims'),
+        fetch('/api/get-admin-list?type=pending-schedule-jobs'),
+      ]);
+      const [t, r, c, d, p] = await Promise.all([tRes.json(), rRes.json(), cRes.json(), dRes.json(), pRes.json()]);
+      paymentTabData = {
+        templates: t.templates || [], rules: r.rules || [], config: c.config || {},
+        disputedMilestones: d.milestones || [], pendingScheduleJobs: p.schedules || [],
+      };
+    } catch (e) {
+      paymentTabData = { error: true, templates: [], rules: [], config: {}, disputedMilestones: [], pendingScheduleJobs: [] };
+    }
+    paymentTabLoading = false;
+    render();
+  }
+
+  function renderPaymentScheduleTab() {
+    if (!paymentTabData) return `<h1 class="pagetitle">Payment Schedules</h1><div class="empty">Loading…</div>`;
+    const { templates, rules, config, disputedMilestones, pendingScheduleJobs, error } = paymentTabData;
+    const ruleByCategory = {};
+    rules.forEach(r => { ruleByCategory[r.category] = r; });
+    const categories = getRateCard().map(c => c.name);
+
+    return `
+      <h1 class="pagetitle">Payment Schedules</h1>
+      <div style="background:#FDEDEA;border:1.5px solid #F3C5B8;border-radius:12px;padding:16px 18px;margin-bottom:24px;">
+        <div style="font-weight:700;font-size:13.5px;color:var(--warn);margin-bottom:4px;">⚠ Legal review required before production use</div>
+        <div style="font-size:12.5px;color:var(--ink);">These payment schedules, deposit caps, evidence rules and dispute workflow have been built to match the requirements given to Claude, but have not been reviewed by a Victorian construction lawyer. Do not rely on this system for real customer payments until that review is complete.</div>
+      </div>
+      ${error ? '<div class="empty">Could not load payment schedule data — try refreshing.</div>' : `
+      ${pendingScheduleJobs.length ? `
+        <div style="margin-bottom:28px;">
+          <h2 style="font-size:15px;margin-bottom:10px;">Jobs awaiting a project-specific schedule (${pendingScheduleJobs.length})</h2>
+          ${pendingScheduleJobs.map(s => pendingScheduleJobRowHtml(s)).join('')}
+        </div>` : ''}
+      ${disputedMilestones.length ? `
+        <div style="margin-bottom:28px;">
+          <h2 style="font-size:15px;margin-bottom:10px;">Milestone Resolution Queue (${disputedMilestones.length})</h2>
+          ${disputedMilestones.map(m => disputedMilestoneRowHtml(m)).join('')}
+        </div>` : ''}
+      <div style="margin-bottom:28px;">
+        <h2 style="font-size:15px;margin-bottom:10px;">Thresholds</h2>
+        ${thresholdConfigFormHtml(config)}
+      </div>
+      <div style="margin-bottom:28px;">
+        <h2 style="font-size:15px;margin-bottom:10px;">Category → schedule type</h2>
+        ${categoryRulesTableHtml(categories, ruleByCategory)}
+      </div>
+      <div>
+        <h2 style="font-size:15px;margin-bottom:10px;">Templates</h2>
+        ${templates.map(t => templateCardHtml(t)).join('')}
+      </div>
+      `}
+    `;
+  }
+
+  function thresholdConfigFormHtml(config) {
+    return `
+      <div class="detailcard" style="max-width:none;">
+        <div class="row"><span class="l">Deposit cap — under high-value threshold</span><span class="r"><input id="cfgDepositLow" type="number" step="0.01" value="${config.deposit_cap_low_pct}" style="width:70px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;" />%</span></div>
+        <div class="row"><span class="l">Deposit cap — at/above high-value threshold</span><span class="r"><input id="cfgDepositHigh" type="number" step="0.01" value="${config.deposit_cap_high_pct}" style="width:70px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;" />%</span></div>
+        <div class="row"><span class="l">High-value threshold (structural schedules ≥ this need an admin-built plan)</span><span class="r">$<input id="cfgHighValue" type="number" value="${config.high_value_threshold_cents / 100}" style="width:100px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;" /></span></div>
+        <div class="row"><span class="l">Simple Service — tier 1 max</span><span class="r">$<input id="cfgSimpleT1" type="number" value="${config.simple_service_tier1_max_cents / 100}" style="width:100px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;" /></span></div>
+        <div class="row"><span class="l">Simple Service — tier 2 max</span><span class="r">$<input id="cfgSimpleT2" type="number" value="${config.simple_service_tier2_max_cents / 100}" style="width:100px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;" /></span></div>
+        <div class="row"><span class="l">Material-Heavy — tier 1 max</span><span class="r">$<input id="cfgMatT1" type="number" value="${config.material_heavy_tier1_max_cents / 100}" style="width:100px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;" /></span></div>
+        <div class="row"><span class="l">Material-Heavy — tier 2 max</span><span class="r">$<input id="cfgMatT2" type="number" value="${config.material_heavy_tier2_max_cents / 100}" style="width:100px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;" /></span></div>
+        <div class="row"><span class="l">Material-Heavy — tier 3 max</span><span class="r">$<input id="cfgMatT3" type="number" value="${config.material_heavy_tier3_max_cents / 100}" style="width:100px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:4px 6px;" /></span></div>
+      </div>
+      <div id="cfgSaveError" style="color:var(--warn);font-size:12.5px;margin-top:8px;"></div>
+      <button class="btn btn-black" style="margin-top:10px;" onclick="savePaymentConfig()">Save thresholds</button>
+      <span id="cfgSaved" style="display:none;color:var(--good);font-size:12.5px;margin-left:10px;">Saved ✓</span>
+    `;
+  }
+
+  async function savePaymentConfig() {
+    const errBox = document.getElementById('cfgSaveError');
+    errBox.textContent = '';
+    const config = {
+      deposit_cap_low_pct: Number(document.getElementById('cfgDepositLow').value),
+      deposit_cap_high_pct: Number(document.getElementById('cfgDepositHigh').value),
+      high_value_threshold_cents: Math.round(Number(document.getElementById('cfgHighValue').value) * 100),
+      simple_service_tier1_max_cents: Math.round(Number(document.getElementById('cfgSimpleT1').value) * 100),
+      simple_service_tier2_max_cents: Math.round(Number(document.getElementById('cfgSimpleT2').value) * 100),
+      material_heavy_tier1_max_cents: Math.round(Number(document.getElementById('cfgMatT1').value) * 100),
+      material_heavy_tier2_max_cents: Math.round(Number(document.getElementById('cfgMatT2').value) * 100),
+      material_heavy_tier3_max_cents: Math.round(Number(document.getElementById('cfgMatT3').value) * 100),
+    };
+    try {
+      const res = await fetch('/api/payment-schedule-admin', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save-config', config, actorId: 'admin' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not save thresholds.');
+      paymentTabData.config = data.config;
+      const saved = document.getElementById('cfgSaved');
+      saved.style.display = 'inline';
+      setTimeout(() => { saved.style.display = 'none'; }, 2000);
+    } catch (e) { errBox.textContent = e.message || 'Could not save thresholds.'; }
+  }
+
+  function categoryRulesTableHtml(categories, ruleByCategory) {
+    const types = ['simple_service', 'material_heavy', 'structural_inspection', 'custom', 'manual_review'];
+    return `<table><thead><tr><th>Category</th><th>Schedule type</th></tr></thead><tbody>
+      ${categories.map(cat => {
+        const rule = ruleByCategory[cat];
+        const current = rule ? rule.schedule_type : 'manual_review';
+        return `<tr><td>${escapeHtml(cat)}</td><td>
+          <select onchange="saveCategoryRule(${JSON.stringify(cat)}, this.value)" style="font-size:12.5px;border:1px solid var(--line);border-radius:6px;padding:5px 7px;">
+            ${types.map(ty => `<option value="${ty}" ${current === ty ? 'selected' : ''}>${ty}</option>`).join('')}
+          </select>
+        </td></tr>`;
+      }).join('')}
+    </tbody></table>`;
+  }
+
+  async function saveCategoryRule(category, scheduleType) {
+    await fetch('/api/payment-schedule-admin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'save-category-rule', category, scheduleType, allowJobOverride: true, actorId: 'admin' }),
+    });
+    paymentTabData = null;
+    loadPaymentScheduleTab();
+  }
+
+  const MILESTONE_EVIDENCE_TYPES = ['none', 'photos', 'delivery_docket', 'inspection_certificate'];
+  const MILESTONE_TYPES = ['deposit', 'materials_delivered', 'installation', 'foundation', 'frame', 'inspection', 'completion', 'custom'];
+
+  function templateCardHtml(t) {
+    const editing = editingTemplateId === t.id;
+    const statusColor = t.status === 'approved' ? 'var(--good)' : t.status === 'pending_review' ? 'var(--warn)' : 'var(--stone)';
+    const priceRange = t.min_price_cents != null ? `$${(t.min_price_cents / 100).toLocaleString()}${t.max_price_cents ? ' – $' + (t.max_price_cents / 100).toLocaleString() : '+'}` : '';
+    const rows = editing ? editingTemplateDraft : t.milestones;
+    return `
+      <div class="detailcard" style="max-width:none;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-weight:700;font-size:14px;">${escapeHtml(t.name)}</div>
+            <div style="font-size:11.5px;color:var(--stone);">${escapeHtml(t.schedule_type)} · ${priceRange} · deposit ${t.deposit_pct}%</div>
+          </div>
+          <span class="badge" style="background:#F0EFEA;color:${statusColor};">${t.status}${t.is_builtin ? ' · built-in' : ''}</span>
+        </div>
+        ${(rows || []).map((m, idx) => editing ? `
+          <div style="display:flex;gap:5px;align-items:center;padding:5px 0;border-top:1px solid var(--paper);flex-wrap:wrap;">
+            <input id="draftLabel${idx}" value="${escapeHtml(m.label)}" style="flex:1;min-width:100px;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:5px 7px;" />
+            <input id="draftPct${idx}" type="number" step="0.01" value="${m.pct}" style="width:56px;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:5px 7px;" />%
+            <select id="draftEvidence${idx}" style="font-size:11.5px;border:1px solid var(--line);border-radius:6px;padding:5px 3px;">
+              ${MILESTONE_EVIDENCE_TYPES.map(v => `<option value="${v}" ${m.requires_evidence_type === v ? 'selected' : ''}>${v}</option>`).join('')}
+            </select>
+            <select id="draftType${idx}" style="font-size:11.5px;border:1px solid var(--line);border-radius:6px;padding:5px 3px;">
+              ${MILESTONE_TYPES.map(v => `<option value="${v}" ${m.milestone_type === v ? 'selected' : ''}>${v}</option>`).join('')}
+            </select>
+            <input id="draftKey${idx}" value="${escapeHtml(m.key)}" style="display:none;" />
+            <button onclick="moveDraftMilestone(${idx},-1)" class="btn btn-outline" style="padding:4px 8px;">↑</button>
+            <button onclick="moveDraftMilestone(${idx},1)" class="btn btn-outline" style="padding:4px 8px;">↓</button>
+            <button onclick="removeDraftMilestone(${idx})" class="btn btn-outline" style="padding:4px 8px;color:var(--warn);">×</button>
+          </div>
+        ` : `
+          <div class="row"><span class="l">${escapeHtml(m.label)} <span style="color:var(--stone-light);">(${escapeHtml(m.requires_evidence_type)})</span></span><span class="r">${m.pct}%</span></div>
+        `).join('')}
+        ${editing ? `
+          <div id="templateSaveError" style="color:var(--warn);font-size:12px;margin-top:6px;"></div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <button class="btn btn-outline" onclick="addDraftMilestone()">+ Add milestone</button>
+            <button class="btn btn-outline" onclick="cancelEditTemplate()">Cancel</button>
+            <button class="btn btn-black" onclick="saveEditedTemplate(${JSON.stringify(t.id)})">Save</button>
+          </div>
+        ` : `
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="btn btn-outline" onclick="startEditTemplate(${JSON.stringify(t.id)})">Edit</button>
+            ${t.status === 'pending_review' ? `<button class="btn btn-black" onclick="approveTemplate(${JSON.stringify(t.id)})">Approve</button>` : ''}
+          </div>
+        `}
+      </div>
+    `;
+  }
+
+  function startEditTemplate(templateId) {
+    const t = paymentTabData.templates.find(x => x.id === templateId);
+    if (!t) return;
+    editingTemplateId = templateId;
+    editingTemplateDraft = t.milestones.map(m => ({ ...m }));
+    render();
+  }
+  function cancelEditTemplate() { editingTemplateId = null; editingTemplateDraft = null; render(); }
+  function addDraftMilestone() {
+    editingTemplateDraft.push({ key: 'milestone_' + editingTemplateDraft.length, label: 'New milestone', pct: 0, milestone_type: 'custom', requires_evidence_type: 'photos', requires_customer_approval: true });
+    render();
+  }
+  function removeDraftMilestone(idx) { editingTemplateDraft.splice(idx, 1); render(); }
+  function moveDraftMilestone(idx, dir) {
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= editingTemplateDraft.length) return;
+    const tmp = editingTemplateDraft[idx];
+    editingTemplateDraft[idx] = editingTemplateDraft[newIdx];
+    editingTemplateDraft[newIdx] = tmp;
+    render();
+  }
+
+  async function saveEditedTemplate(templateId) {
+    const t = paymentTabData.templates.find(x => x.id === templateId);
+    const milestones = editingTemplateDraft.map((m, idx) => ({
+      key: (document.getElementById('draftKey' + idx).value.trim() || m.key),
+      label: document.getElementById('draftLabel' + idx).value.trim(),
+      pct: Number(document.getElementById('draftPct' + idx).value),
+      milestone_type: document.getElementById('draftType' + idx).value,
+      requires_evidence_type: document.getElementById('draftEvidence' + idx).value,
+      requires_customer_approval: m.requires_customer_approval !== false,
+    }));
+    const errBox = document.getElementById('templateSaveError');
+    try {
+      const res = await fetch('/api/payment-schedule-admin', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save-template', template: { ...t, milestones }, actorId: 'admin' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not save template.');
+      editingTemplateId = null; editingTemplateDraft = null;
+      paymentTabData = null;
+      loadPaymentScheduleTab();
+    } catch (e) { if (errBox) errBox.textContent = e.message || 'Could not save template.'; }
+  }
+
+  async function approveTemplate(templateId) {
+    await fetch('/api/payment-schedule-admin', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve-template', templateId, actorId: 'admin' }),
+    });
+    paymentTabData = null;
+    loadPaymentScheduleTab();
+  }
+
+  function pendingScheduleJobRowHtml(s) {
+    const building = buildingScheduleForJobId === s.job_id;
+    const remainingCents = s.revised_total_price_cents - s.deposit_amount_cents;
+    return `<div class="detailcard" style="max-width:none;margin-bottom:12px;">
+      <div class="row"><span class="l">Job</span><span class="r">${escapeHtml(s.job_id)}</span></div>
+      <div class="row"><span class="l">Total contract value</span><span class="r">$${(s.revised_total_price_cents / 100).toLocaleString()}</span></div>
+      <div class="row"><span class="l">Deposit (paid)</span><span class="r">$${(s.deposit_amount_cents / 100).toLocaleString()}</span></div>
+      <div class="row"><span class="l">Remaining to schedule</span><span class="r" style="font-weight:700;">$${(remainingCents / 100).toLocaleString()}</span></div>
+      ${building ? buildScheduleFormHtml(s.job_id) : `<button class="btn btn-black" style="margin-top:10px;" onclick="startBuildSchedule(${JSON.stringify(s.job_id)})">Build schedule</button>`}
+    </div>`;
+  }
+
+  function startBuildSchedule(jobId) {
+    buildingScheduleForJobId = jobId;
+    buildDraftMilestones = [
+      { key: 'materials', label: 'Materials delivered', pct: 30, milestone_type: 'materials_delivered', requires_evidence_type: 'delivery_docket' },
+      { key: 'completion', label: 'Job completion', pct: 70, milestone_type: 'completion', requires_evidence_type: 'photos' },
+    ];
+    render();
+  }
+  function cancelBuildSchedule() { buildingScheduleForJobId = null; buildDraftMilestones = null; render(); }
+  function addBuildMilestone() {
+    buildDraftMilestones.push({ key: 'milestone_' + buildDraftMilestones.length, label: 'New milestone', pct: 0, milestone_type: 'custom', requires_evidence_type: 'photos' });
+    render();
+  }
+  function removeBuildMilestone(idx) { buildDraftMilestones.splice(idx, 1); render(); }
+
+  function buildScheduleFormHtml(jobId) {
+    return `
+      <div style="margin-top:10px;">
+        ${buildDraftMilestones.map((m, idx) => `
+          <div style="display:flex;gap:5px;align-items:center;padding:5px 0;border-top:1px solid var(--paper);flex-wrap:wrap;">
+            <input id="buildLabel${idx}" value="${escapeHtml(m.label)}" style="flex:1;min-width:100px;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:5px 7px;" />
+            <input id="buildPct${idx}" type="number" step="0.01" value="${m.pct}" style="width:56px;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:5px 7px;" />%
+            <select id="buildEvidence${idx}" style="font-size:11.5px;border:1px solid var(--line);border-radius:6px;padding:5px 3px;">
+              ${MILESTONE_EVIDENCE_TYPES.map(v => `<option value="${v}" ${m.requires_evidence_type === v ? 'selected' : ''}>${v}</option>`).join('')}
+            </select>
+            <button onclick="removeBuildMilestone(${idx})" class="btn btn-outline" style="padding:4px 8px;color:var(--warn);">×</button>
+          </div>
+        `).join('')}
+        <div id="buildScheduleError" style="color:var(--warn);font-size:12px;margin-top:6px;"></div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="addBuildMilestone()">+ Add milestone</button>
+          <button class="btn btn-outline" onclick="cancelBuildSchedule()">Cancel</button>
+          <button class="btn btn-black" onclick="saveBuiltSchedule(${JSON.stringify(jobId)})">Save schedule</button>
+        </div>
+      </div>
+    `;
+  }
+
+  async function saveBuiltSchedule(jobId) {
+    const milestones = buildDraftMilestones.map((m, idx) => ({
+      key: m.key,
+      label: document.getElementById('buildLabel' + idx).value.trim(),
+      pct: Number(document.getElementById('buildPct' + idx).value),
+      milestone_type: m.milestone_type,
+      requires_evidence_type: document.getElementById('buildEvidence' + idx).value,
+      requires_customer_approval: true,
+    }));
+    const errBox = document.getElementById('buildScheduleError');
+    try {
+      const res = await fetch('/api/payment-schedule-admin', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'build-job-schedule', jobId, milestones, actorId: 'admin' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not save schedule.');
+      buildingScheduleForJobId = null; buildDraftMilestones = null;
+      paymentTabData = null;
+      loadPaymentScheduleTab();
+    } catch (e) { if (errBox) errBox.textContent = e.message || 'Could not save schedule.'; }
+  }
+
+  function disputedMilestoneRowHtml(m) {
+    const disputes = m.payment_milestone_disputes || [];
+    const dispute = disputes.find(d => d.status === 'open') || disputes[disputes.length - 1];
+    const evidenceRows = m.milestone_evidence || [];
+    const evidence = evidenceRows[evidenceRows.length - 1];
+    const jobId = m.job_payment_schedules ? m.job_payment_schedules.job_id : '';
+    return `<div class="detailcard" style="max-width:none;margin-bottom:12px;">
+      <div class="row"><span class="l">Job</span><span class="r">${escapeHtml(jobId)}</span></div>
+      <div class="row"><span class="l">Milestone</span><span class="r">${escapeHtml(m.label)} (${m.pct}%, $${(m.amount_cents / 100).toLocaleString()})</span></div>
+      ${dispute ? `<div class="row"><span class="l">Customer's reason</span><span class="r" style="text-align:right;max-width:60%;">${escapeHtml(dispute.reason || '')}</span></div>` : ''}
+      ${evidence ? `
+        <div style="font-size:12px;color:var(--stone);margin:8px 0;">${escapeHtml(evidence.description || '')}</div>
+        ${evidence.photo_urls && evidence.photo_urls.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;margin-bottom:8px;">${evidence.photo_urls.map(src => `<img src="${escapeHtml(src)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;" />`).join('')}</div>` : ''}
+        ${evidence.delivery_docket_url ? `<div style="font-size:12px;margin-bottom:8px;"><a href="${escapeHtml(evidence.delivery_docket_url)}" target="_blank">View delivery docket</a></div>` : ''}
+      ` : ''}
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+        <button class="btn btn-black" onclick="resolveMilestone(${JSON.stringify(m.id)},'approve')">Approve payment</button>
+        <button class="btn btn-outline" onclick="resolveMilestone(${JSON.stringify(m.id)},'reject')">Reject claim</button>
+        <button class="btn btn-outline" onclick="resolveMilestone(${JSON.stringify(m.id)},'request_evidence')">Request more evidence</button>
+        <button class="btn btn-outline" onclick="resolveMilestone(${JSON.stringify(m.id)},'return_to_contractor')">Return to contractor</button>
+      </div>
+    </div>`;
+  }
+
+  async function resolveMilestone(milestoneId, adminAction) {
+    const needsNotes = adminAction !== 'approve';
+    const notes = needsNotes ? prompt('Notes for this decision (shown in the audit log, optional):') : null;
+    if (needsNotes && notes === null) return; // cancelled the prompt
+    await fetch('/api/milestone', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'admin-resolve', milestoneId, adminAction, adminNotes: notes, actorId: 'admin' }),
+    });
+    paymentTabData = null;
+    loadPaymentScheduleTab();
   }
 
   function renderRateCardTab() {

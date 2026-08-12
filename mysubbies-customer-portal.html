@@ -256,6 +256,26 @@
       wrap.innerHTML = '<div class="note">This is a large or complex project — Mysubbies is preparing a project-specific payment plan with you before further milestones open up.</div>';
       return;
     }
+    if (data.schedule.status === 'pending_customer_acceptance') {
+      const remaining = (data.milestones || []).filter(m => m.milestone_type !== 'deposit');
+      wrap.innerHTML = `
+        <div style="background:var(--paper);border-radius:10px;padding:14px;margin-top:12px;">
+          <div style="font-weight:700;font-size:14px;margin-bottom:8px;">Review your payment schedule</div>
+          <div style="font-size:12.5px;color:var(--stone);margin-bottom:10px;">Mysubbies has prepared the payment plan for the rest of this project. Please review each stage and accept before your contractor can begin claiming further payments.</div>
+          <div style="margin:10px 0;">${remaining.map(m => `
+            <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:var(--stone);">
+              <span>${escapeHtml(m.label)} (${m.pct}%)</span>
+              <span>$${(m.amount_cents / 100).toLocaleString()}</span>
+            </div>`).join('')}</div>
+          <label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;margin:10px 0;">
+            <input type="checkbox" id="fScheduleAcceptUpdated" style="margin-top:2px;" />
+            <span>I have reviewed and agree to this updated payment schedule.</span>
+          </label>
+          <div id="scheduleAcceptError" style="color:var(--warn);font-size:12.5px;margin-bottom:8px;"></div>
+          <button class="btn btn-black btn-full" id="scheduleAcceptBtn" onclick="acceptUpdatedSchedule('${jobId}')">Accept schedule</button>
+        </div>`;
+      return;
+    }
 
     const milestones = data.milestones || [];
     const stagebar = `<div class="stagebar">${milestones.map(m => `<div class="stage ${m.status === 'paid' ? 'done' : ''}" style="flex:${m.pct};"></div>`).join('')}</div>`;
@@ -265,7 +285,13 @@
         <span>$${(m.amount_cents / 100).toLocaleString()}</span>
       </div>`).join('')}</div>`;
 
+    // 'approved' (not yet paid) covers two cases: the payment step was
+    // interrupted after the customer's own approval, or Mysubbies resolved
+    // a dispute in the contractor's favour — either way the customer still
+    // needs to complete payment, just without the evidence/dispute panel
+    // since that decision is already made.
     const awaiting = milestones.find(m => m.status === 'awaiting_customer');
+    const approvedUnpaid = !awaiting && milestones.find(m => m.status === 'approved');
     let actionHtml = '';
     if (awaiting) {
       const evidence = (data.evidenceByMilestone || {})[awaiting.id];
@@ -280,8 +306,16 @@
           <div class="row"><span class="l">Amount due</span><span class="r" style="font-weight:700;">$${(awaiting.amount_cents / 100).toLocaleString()}</span></div>
           <div style="display:flex;gap:8px;margin-top:10px;">
             <button class="btn btn-outline" style="flex:1;" onclick="disputeMilestone('${awaiting.id}')">Raise an issue</button>
-            <button class="btn btn-black" style="flex:1;" onclick="openMilestonePayForm('${jobId}','${awaiting.id}', ${awaiting.amount_cents})">Approve & pay →</button>
+            <button class="btn btn-black" style="flex:1;" onclick="openMilestonePayForm('${jobId}','${awaiting.id}', ${awaiting.amount_cents}, false)">Approve & pay →</button>
           </div>
+          <div id="milestonePayFormWrap"></div>
+        </div>`;
+    } else if (approvedUnpaid) {
+      actionHtml = `
+        <div style="background:var(--paper);border-radius:10px;padding:14px;margin-top:12px;">
+          <div style="font-weight:700;font-size:14px;margin-bottom:6px;">Payment due: ${escapeHtml(approvedUnpaid.label)}</div>
+          <div class="row"><span class="l">Amount due</span><span class="r" style="font-weight:700;">$${(approvedUnpaid.amount_cents / 100).toLocaleString()}</span></div>
+          <button class="btn btn-black btn-full" style="margin-top:10px;" onclick="openMilestonePayForm('${jobId}','${approvedUnpaid.id}', ${approvedUnpaid.amount_cents}, true)">Pay $${(approvedUnpaid.amount_cents / 100).toLocaleString()} →</button>
           <div id="milestonePayFormWrap"></div>
         </div>`;
     } else {
@@ -292,12 +326,32 @@
     wrap.innerHTML = stagebar + list + actionHtml;
   }
 
-  function openMilestonePayForm(jobId, milestoneId, amountCents) {
+  async function acceptUpdatedSchedule(jobId) {
+    const checked = document.getElementById('fScheduleAcceptUpdated').checked;
+    const errBox = document.getElementById('scheduleAcceptError');
+    if (!checked) { errBox.textContent = 'Please confirm you have reviewed the schedule.'; return; }
+    const btn = document.getElementById('scheduleAcceptBtn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const res = await fetch('/api/job-payment-schedule', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'accept', jobId, customerId: null, termsVersion: 'payment-schedule-2026-08-v1' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not accept the schedule.');
+      renderMilestoneSection(jobId);
+    } catch (e) {
+      errBox.textContent = e.message || 'Could not accept the schedule — please try again.';
+      btn.disabled = false; btn.textContent = 'Accept schedule';
+    }
+  }
+
+  function openMilestonePayForm(jobId, milestoneId, amountCents, alreadyApproved) {
     if (!stripe) { document.getElementById('milestonePayFormWrap').innerHTML = '<div class="note" style="margin-top:10px;">Payment is temporarily unavailable — please try again shortly, or contact support.</div>'; return; }
     document.getElementById('milestonePayFormWrap').innerHTML = `
       <div id="milestoneCardElement" style="padding:13px 14px;border:1.5px solid var(--line);border-radius:10px;background:#fff;margin:10px 0;"></div>
       <div id="milestonePayError" style="color:var(--warn);font-size:13px;margin-bottom:10px;"></div>
-      <button class="btn btn-black btn-full" id="milestonePayBtn" onclick="approveAndPayMilestone('${jobId}','${milestoneId}', ${amountCents})">Pay $${(amountCents / 100).toLocaleString()} →</button>`;
+      <button class="btn btn-black btn-full" id="milestonePayBtn" onclick="approveAndPayMilestone('${jobId}','${milestoneId}', ${amountCents}, ${!!alreadyApproved})">Pay $${(amountCents / 100).toLocaleString()} →</button>`;
     const elements = stripe.elements();
     window.__mysubbiesMilestoneCardElement = elements.create('card', { hidePostalCode: true });
     window.__mysubbiesMilestoneCardElement.mount('#milestoneCardElement');
@@ -315,7 +369,7 @@
     } catch (e) { alert('Could not submit — please try again.'); }
   }
 
-  async function approveAndPayMilestone(jobId, milestoneId, amountCents) {
+  async function approveAndPayMilestone(jobId, milestoneId, amountCents, alreadyApproved) {
     const btn = document.getElementById('milestonePayBtn');
     const errBox = document.getElementById('milestonePayError');
     btn.disabled = true;
@@ -323,12 +377,18 @@
     errBox.textContent = '';
 
     try {
-      const respondRes = await fetch('/api/milestone', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'respond', milestoneId, customerId: null, response: 'approved' }),
-      });
-      const respondData = await respondRes.json();
-      if (!respondRes.ok) throw new Error(respondData.error || 'Could not approve this milestone.');
+      // Already 'approved' (resumed after an interrupted payment, or an
+      // admin resolved a dispute in the contractor's favour) — the
+      // milestone.js 'respond' action only accepts milestones still
+      // 'awaiting_customer', so calling it again here would 409.
+      if (!alreadyApproved) {
+        const respondRes = await fetch('/api/milestone', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'respond', milestoneId, customerId: null, response: 'approved' }),
+        });
+        const respondData = await respondRes.json();
+        if (!respondRes.ok) throw new Error(respondData.error || 'Could not approve this milestone.');
+      }
 
       const res = await fetch('/api/create-stage-payment-intent', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
