@@ -64,6 +64,73 @@ module.exports = async (req, res) => {
   if (req.method === 'POST') {
     try {
       const { action, jobId, customerId, termsVersion } = req.body || {};
+
+      // Quantity/size edits on a still-unallocated job change its price —
+      // the deposit is real captured Stripe money already, so it stays
+      // fixed; only the REMAINING (unpaid) milestones' dollar amounts get
+      // recalculated, preserving each one's relative share of what's left.
+      // Never touches jobs.full_record — that's client-owned and synced up
+      // via saveJobs()/api/sync-jobs.js, and writing it here would race
+      // whatever the browser pushes right after.
+      if (action === 'recalculate') {
+        const { newBasePriceCents } = req.body || {};
+        if (!jobId || !newBasePriceCents || newBasePriceCents <= 0) { res.status(400).json({ error: 'jobId and a positive newBasePriceCents are required.' }); return; }
+
+        const { data: jobRow, error: jobErr } = await supabase.from('jobs').select('full_record').eq('id', jobId).maybeSingle();
+        if (jobErr) throw jobErr;
+        if (!jobRow) { res.status(404).json({ error: 'Job not found.' }); return; }
+        const record = jobRow.full_record || {};
+        if (record.contractor || record.status !== 'feed') {
+          res.status(409).json({ error: 'This job can only be edited while it is still unallocated.' });
+          return;
+        }
+
+        const { data: schedule, error: schedErr } = await supabase.from('job_payment_schedules').select('*').eq('job_id', jobId).order('version', { ascending: false }).limit(1).maybeSingle();
+        if (schedErr) throw schedErr;
+        if (!schedule) { res.status(404).json({ error: 'No payment schedule found for this job.' }); return; }
+
+        const { data: milestones, error: mErr } = await supabase.from('payment_milestones').select('*').eq('job_payment_schedule_id', schedule.id).order('milestone_index');
+        if (mErr) throw mErr;
+        const depositMilestone = milestones.find(m => m.milestone_type === 'deposit');
+        if (!depositMilestone || depositMilestone.status !== 'paid') { res.status(409).json({ error: 'The deposit must be paid before this job can be edited.' }); return; }
+
+        const remaining = milestones.filter(m => m.id !== depositMilestone.id);
+        const oldRemainingTotal = remaining.reduce((s, m) => s + m.amount_cents, 0);
+        const newRemainingCents = newBasePriceCents - depositMilestone.amount_cents;
+        if (newRemainingCents < 0) { res.status(422).json({ error: 'The new price is lower than the deposit already paid — please contact support to change this job.' }); return; }
+
+        let updatedRemaining;
+        if (oldRemainingTotal === 0 || remaining.length === 0) {
+          updatedRemaining = remaining;
+        } else {
+          const amounts = remaining.map(m => Math.round(newRemainingCents * (m.amount_cents / oldRemainingTotal)));
+          const sum = amounts.reduce((s, a) => s + a, 0);
+          if (amounts.length) amounts[amounts.length - 1] += (newRemainingCents - sum);
+          updatedRemaining = remaining.map((m, i) => ({ ...m, amount_cents: amounts[i] }));
+          for (let i = 0; i < remaining.length; i++) {
+            await supabase.from('payment_milestones').update({ amount_cents: amounts[i], updated_at: new Date().toISOString() }).eq('id', remaining[i].id);
+          }
+        }
+
+        const { data: updatedSchedule, error: updErr } = await supabase.from('job_payment_schedules')
+          .update({ original_contract_price_cents: newBasePriceCents, revised_total_price_cents: newBasePriceCents, updated_at: new Date().toISOString() })
+          .eq('id', schedule.id).select().single();
+        if (updErr) throw updErr;
+
+        await supabase.from('payment_schedule_versions').insert({
+          job_payment_schedule_id: schedule.id, version_number: schedule.version,
+          milestones_snapshot: [depositMilestone, ...updatedRemaining], reason: 'customer_edit', created_by: customerId || 'customer',
+        });
+        await supabase.from('payment_audit_logs').insert({
+          entity_type: 'job_payment_schedule', entity_id: schedule.id, action: 'price_recalculated_by_customer',
+          actor_role: 'customer', actor_id: customerId || null,
+          before_state: { total_cents: schedule.revised_total_price_cents }, after_state: { total_cents: newBasePriceCents },
+        });
+
+        res.status(200).json({ schedule: updatedSchedule, milestones: [depositMilestone, ...updatedRemaining] });
+        return;
+      }
+
       if (action !== 'accept') { res.status(400).json({ error: 'Unknown action.' }); return; }
       if (!jobId) { res.status(400).json({ error: 'jobId is required.' }); return; }
 

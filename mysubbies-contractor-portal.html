@@ -156,7 +156,9 @@
     // this contractor's trades yet (no local application record).
     const myTrades = (getApplications().find(a => a.business === name) || {}).trades;
     const feedJobs = jobs.filter(j => j.status === 'feed' && (!myTrades || !myTrades.length || myTrades.includes(j.category)));
-    const myJobs = jobs.filter(j => j.contractor === name);
+    // A cancelled job has nothing left for the contractor to do — drop it
+    // from the active list rather than leaving it sitting there forever.
+    const myJobs = jobs.filter(j => j.contractor === name && j.status !== 'cancelled');
 
     app.innerHTML = `
       <div class="whoami">Logged in as <strong>${name}</strong> <a onclick="logout()">Log out</a></div>
@@ -250,7 +252,7 @@
         <div class="stagebar">
           ${schedule.map(s => `<div class="stage ${paidStages[s.key] ? 'done' : ''}" style="flex:${s.pct};"></div>`).join('')}
         </div>
-        <div class="jobmeta">${j.status === 'feed' ? 'Awaiting acceptance' : j.status === 'assigned' ? 'Assigned' : j.status}</div>
+        <div class="jobmeta">${j.status === 'feed' ? 'Awaiting acceptance' : j.status === 'assigned' ? 'Assigned' : j.status === 'cancellation_requested' ? 'Cancellation requested' : j.status}</div>
       </button>`;
   }
 
@@ -268,6 +270,11 @@
           <button class="btn btn-outline" style="flex:1;" onclick="declineJob('${j.id}')">✕ Decline</button>
           <button class="btn btn-black" style="flex:2;" onclick="acceptJob('${j.id}')">Accept job →</button>
         </div>`;
+    } else if (j.status === 'cancellation_requested') {
+      // The customer's cancellation is pending admin review — the
+      // contractor is locked out of further claims/movement until that's
+      // resolved, so nothing here can race an admin decision.
+      actions = `<div class="note" style="color:var(--warn);">⚠ The customer has requested to cancel this job. Mysubbies is reviewing it — no further action is needed from you right now.</div>`;
     } else {
       actions = `<div id="milestoneClaimWrap"><div class="note">Loading payment schedule…</div></div>`;
     }
@@ -314,7 +321,7 @@
           <h3 style="font-size:15px;margin-bottom:10px;">Variations</h3>
           <div id="variationList">${variationListHtml(j, 'contractor')}</div>
           <div id="variationFormWrap"></div>
-          <button class="btn btn-outline btn-full" style="margin-top:10px;" onclick="openVariationForm()">+ Request a variation</button>
+          ${j.status !== 'cancellation_requested' ? `<button class="btn btn-outline btn-full" style="margin-top:10px;" onclick="openVariationForm()">+ Request a variation</button>` : ''}
         </div>
       ` : ''}
       ${isMine ? `
@@ -323,6 +330,8 @@
           <div class="msglist" id="msgListCustomer"></div>
           ${j.status === 'completed'
             ? `<div style="font-size:12px;color:var(--stone-light);text-align:center;padding:8px 0;">This job is complete — messaging with the customer is closed. Contact Mysubbies support if you need to follow up on anything.</div>`
+            : j.status === 'cancellation_requested'
+            ? `<div style="font-size:12px;color:var(--stone-light);text-align:center;padding:8px 0;">Cancellation pending review — messaging is paused. Contact Mysubbies support if you need to follow up on anything.</div>`
             : `<div class="msginput">
             <input type="text" id="msgInputCustomer" placeholder="Type a message…" onkeydown="if(event.key==='Enter') sendMsg('messages')" />
             <button class="btn btn-black" onclick="sendMsg('messages')">Send</button>
@@ -569,7 +578,7 @@
     if (!text) return;
     const jobs = getJobs();
     const j = jobs.find(x => x.id === selectedJobId);
-    if (!j || (key === 'messages' && j.status === 'completed')) return;
+    if (!j || (key === 'messages' && ['completed', 'cancellation_requested'].includes(j.status))) return;
     j[key] = j[key] || [];
     j[key].push({ id: 'm_' + Date.now(), from: 'contractor', authorName: getContractorName(), text, createdAt: new Date().toISOString() });
     saveJobs(jobs);

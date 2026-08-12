@@ -193,9 +193,11 @@
         <div class="jobmeta" style="margin-bottom:16px;">📍 ${escapeHtml(j.suburb)}</div>
         <div class="row"><span class="l">Estimated cost</span><span class="r">$${(j.priceLow||j.basePrice||0).toLocaleString()}</span></div>
         <div class="row"><span class="l">Contractor</span><span class="r">${j.contractor ? escapeHtml(j.contractor) : 'Awaiting acceptance'}</span></div>
-        ${j.contractor ? `<div id="milestoneSectionWrap"><div class="note">Loading payment schedule…</div></div>` : ''}
+        ${j.contractor && !['cancellation_requested', 'cancelled'].includes(j.status) ? `<div id="milestoneSectionWrap"><div class="note">Loading payment schedule…</div></div>` : ''}
         ${j.status === 'completed' ? renderRatingSection(j) : ''}
-        ${j.contractor && j.status !== 'completed' ? `<button class="btn btn-outline btn-full" style="margin-top:12px;" onclick="openDisputeForm()">⚠ Report a problem</button>` : ''}
+        ${j.status === 'cancellation_requested' ? `<div class="note" style="color:var(--warn);margin-top:12px;">⚠ Your cancellation request is being reviewed by Mysubbies — we'll be in touch shortly. No further action is needed from you.</div>` : ''}
+        ${j.status === 'cancelled' ? `<div class="note" style="margin-top:12px;">This job has been cancelled.</div>` : ''}
+        ${j.contractor && !['completed', 'cancellation_requested', 'cancelled'].includes(j.status) ? `<button class="btn btn-outline btn-full" style="margin-top:12px;" onclick="openDisputeForm()">⚠ Report a problem</button>` : ''}
         <div id="disputeFormWrap"></div>
         ${!j.contractor && j.status === 'feed' ? `
           <div style="display:flex;gap:8px;margin-top:12px;">
@@ -203,6 +205,9 @@
             <button class="btn btn-outline" style="flex:1;color:var(--warn);" onclick="cancelJob('${j.id}')">Cancel job</button>
           </div>
           <div id="editJobFormWrap"></div>
+        ` : ''}
+        ${j.contractor && !['completed', 'cancellation_requested', 'cancelled'].includes(j.status) ? `
+          <button class="btn btn-outline btn-full" style="margin-top:8px;color:var(--warn);" onclick="requestCancelJob('${j.id}')">Request to cancel</button>
         ` : ''}
       </div>
 
@@ -227,6 +232,8 @@
         <div class="msglist" id="msgList"></div>
         ${j.status === 'completed'
           ? `<div style="font-size:12px;color:var(--stone-light);text-align:center;padding:8px 0;">This job is complete — messaging is closed. Contact <a href="mailto:support@mysubbies.com.au">Mysubbies support</a> if you need anything follow-up related.</div>`
+          : j.status === 'cancellation_requested' || j.status === 'cancelled'
+          ? `<div style="font-size:12px;color:var(--stone-light);text-align:center;padding:8px 0;">Messaging is paused while this cancellation is reviewed. Contact <a href="mailto:support@mysubbies.com.au">Mysubbies support</a> if you need anything.</div>`
           : `<div class="msginput">
           <input type="text" id="msgInput" placeholder="${j.contractor ? 'Type a message…' : 'Available once a contractor accepts'}" ${j.contractor ? '' : 'disabled'} onkeydown="if(event.key==='Enter') sendMsg()" />
           <button class="btn btn-black" onclick="sendMsg()" ${j.contractor ? '' : 'disabled'}>Send</button>
@@ -235,7 +242,7 @@
     `;
     renderMessages(j);
     wireNotifyButton();
-    if (j.contractor) renderMilestoneSection(j.id);
+    if (j.contractor && !['cancellation_requested', 'cancelled'].includes(j.status)) renderMilestoneSection(j.id);
   }
 
   // Fetches the real backend-calculated schedule (api/job-payment-schedule.js)
@@ -549,21 +556,113 @@
     render();
   }
 
+  // Once a contractor has accepted, cancelling isn't a self-service action
+  // any more — the request goes to Mysubbies for review (they're the ones
+  // who have to square it with the contractor's accepted work), and the
+  // contractor is locked out of further movement on the job in the
+  // meantime (see renderDetail in mysubbies-contractor-portal.html).
+  function requestCancelJob(jobId) {
+    const reason = prompt('Why would you like to cancel this job? This will be sent to Mysubbies for review.');
+    if (reason === null) return;
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === jobId);
+    if (!j) return;
+    j.status = 'cancellation_requested';
+    j.cancellationReason = reason;
+    j.cancellationRequestedAt = new Date().toISOString();
+    saveJobs(jobs);
+    render();
+  }
+
+  function getRateCard() {
+    const stored = localStorage.getItem('mysubbies_ratecard');
+    return stored ? JSON.parse(stored) : [];
+  }
+
+  // Looks up an item's CURRENT rate-card price-per-unit by category+task
+  // name (matching how the estimator itself prices things: qty × rate) —
+  // reused so a size/quantity edit here recalculates the same way a fresh
+  // booking would, rather than duplicating a separate pricing model.
+  function findTaskRate(catLabel, taskName) {
+    const cat = getRateCard().find(c => c.label === catLabel);
+    if (!cat) return null;
+    const task = (cat.tasks || []).find(t => t.name === taskName);
+    return task ? task.rate : null;
+  }
+
   function openEditJobForm() {
     const jobs = getJobs();
     const j = jobs.find(x => x.id === selectedJobId);
+    const items = j.items && j.items.length ? j.items : [{ catLabel: j.category, taskName: j.category, qty: j.qty, unit: j.unit, base: j.basePrice }];
     document.getElementById('editJobFormWrap').innerHTML = `
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--paper);">
         <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Edit job details</div>
-        <div style="font-size:12px;color:var(--stone);margin-bottom:10px;">The category and price are locked in from your quote — cancel and rebook if those need to change.</div>
         <div style="font-size:12px;color:var(--stone);margin-bottom:2px;">Address</div>
         <input type="text" id="editAddress" value="${escapeHtml(j.address || '')}" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;" />
         <div style="font-size:12px;color:var(--stone);margin-bottom:2px;">What's currently on the site?</div>
         <input type="text" id="editSite" value="${escapeHtml(j.site || '')}" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;" />
         <div style="font-size:12px;color:var(--stone);margin-bottom:2px;">How urgent is this job?</div>
         <input type="text" id="editUrgency" value="${escapeHtml(j.urgency || '')}" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;" />
-        <button class="btn btn-black btn-full" onclick="saveEditJobForm('${j.id}')">Save changes</button>
+
+        <div style="font-size:13px;font-weight:600;margin:14px 0 6px;">Size / quantity</div>
+        <div style="font-size:12px;color:var(--stone);margin-bottom:8px;">Changing quantity recalculates your estimated price — you'll see the new total and payment schedule before anything is confirmed.</div>
+        ${items.map((it, idx) => `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-size:12.5px;flex:1;">${escapeHtml(it.taskName || it.catLabel)}</span>
+            <input type="number" min="0" step="any" id="editQty${idx}" value="${it.qty}" style="width:80px;font-size:13px;padding:7px 10px;border:1.5px solid var(--line);border-radius:8px;" />
+            <span style="font-size:11.5px;color:var(--stone);width:40px;">${escapeHtml(it.unit || '')}</span>
+          </div>
+        `).join('')}
+        <button class="btn btn-outline btn-full" style="margin-top:6px;margin-bottom:6px;" onclick='previewRecalculatedPrice(${JSON.stringify(j.id)}, ${JSON.stringify(items)})'>Recalculate price</button>
+        <div id="editPricePreview"></div>
+
+        <button class="btn btn-black btn-full" style="margin-top:12px;" onclick="saveEditJobForm('${j.id}')">Save changes</button>
       </div>`;
+  }
+
+  let pendingRecalc = null;
+
+  function previewRecalculatedPrice(jobId, items) {
+    const errBox = document.getElementById('editPricePreview');
+    const newItems = items.map((it, idx) => {
+      const qty = Number(document.getElementById('editQty' + idx).value);
+      const rate = findTaskRate(it.catLabel, it.taskName);
+      const base = rate != null ? Math.round(qty * rate) : Math.round((it.base / (it.qty || 1)) * qty);
+      return { ...it, qty, base };
+    });
+    const newTotal = newItems.reduce((s, it) => s + it.base, 0);
+    if (!newTotal || newItems.some(it => !it.qty || it.qty <= 0)) {
+      errBox.innerHTML = `<div class="note" style="color:var(--warn);">Enter a valid quantity for every item.</div>`;
+      return;
+    }
+    pendingRecalc = { jobId, newItems, newTotal };
+    errBox.innerHTML = `<div class="note" style="margin-top:4px;">Loading updated payment schedule…</div>`;
+
+    fetch('/api/job-payment-schedule', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'recalculate', jobId, newBasePriceCents: Math.round(newTotal * 100), customerId: null }),
+    }).then(async r => {
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Could not recalculate this job\'s price.');
+      pendingRecalc.milestones = data.milestones;
+      pendingRecalc.confirmed = false;
+      errBox.innerHTML = `
+        <div style="background:var(--paper);border-radius:10px;padding:12px;margin-top:8px;">
+          <div style="font-weight:700;font-size:13px;margin-bottom:6px;">New total: $${newTotal.toLocaleString()}</div>
+          ${data.milestones.map(m => `
+            <div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:var(--stone);">
+              <span>${escapeHtml(m.label)}${m.status === 'paid' ? ' (already paid)' : ''}</span>
+              <span>$${(m.amount_cents / 100).toLocaleString()}</span>
+            </div>`).join('')}
+          <label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;margin-top:10px;">
+            <input type="checkbox" id="fRecalcAccept" style="margin-top:2px;" onchange="pendingRecalc.confirmed = this.checked;" />
+            <span>I have reviewed and agree to this updated price and payment schedule.</span>
+          </label>
+        </div>`;
+    }).catch(e => {
+      errBox.innerHTML = `<div class="note" style="color:var(--warn);">${escapeHtml(e.message || 'Could not recalculate this job\'s price.')}</div>`;
+      pendingRecalc = null;
+    });
   }
 
   function saveEditJobForm(jobId) {
@@ -573,6 +672,19 @@
     j.address = document.getElementById('editAddress').value.trim();
     j.site = document.getElementById('editSite').value.trim();
     j.urgency = document.getElementById('editUrgency').value.trim();
+
+    if (pendingRecalc && pendingRecalc.jobId === jobId) {
+      if (!pendingRecalc.confirmed) {
+        document.getElementById('editPricePreview').insertAdjacentHTML('beforeend', `<div class="note" style="color:var(--warn);margin-top:6px;">Please confirm you agree to the updated price and payment schedule.</div>`);
+        return;
+      }
+      j.items = pendingRecalc.newItems;
+      j.basePrice = pendingRecalc.newTotal;
+      j.priceLow = pendingRecalc.newTotal;
+      j.priceHigh = pendingRecalc.newTotal;
+      pendingRecalc = null;
+    }
+
     saveJobs(jobs);
     document.getElementById('editJobFormWrap').innerHTML = `<div class="note" style="margin-top:12px;">✓ Job updated.</div>`;
   }
