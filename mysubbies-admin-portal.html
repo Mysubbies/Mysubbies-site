@@ -786,6 +786,7 @@
           <div class="row"><span class="l">ABN</span><span class="r">${escapeHtml(a.abn)}</span></div>
           ${a.acn ? `<div class="row"><span class="l">ACN</span><span class="r">${escapeHtml(a.acn)}</span></div>` : ''}
           <div class="row"><span class="l">Trades</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml(a.trades.join(', '))}</span></div>
+          ${a.otherTrade ? `<div class="row"><span class="l">Other trade(s)</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml(a.otherTrade)}</span></div>` : ''}
           <div class="row"><span class="l">Service suburbs</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml(a.suburbs.length ? a.suburbs.join(', ') : 'All Melbourne metro')}</span></div>
           ${a.licence ? `<div class="row"><span class="l">Licence</span><span class="r">${escapeHtml(a.licence)}</span></div>` : ''}
           ${a.insurer ? `<div class="row"><span class="l">Insurer</span><span class="r">${escapeHtml(a.insurer)}</span></div>` : ''}

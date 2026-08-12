@@ -180,6 +180,9 @@
 
       <h1 class="pagetitle">${mode === 'register' ? 'A few details to send this off' : 'Welcome back'}</h1>
       <p class="pagesub">${mode === 'register' ? 'This creates your Mysubbies account so you can track the job — separate from contractor logins.' : 'Log in to continue and track this job under your existing account.'}</p>
+      <div class="toggle-mode" style="margin:4px 0 16px;">
+        ${mode === 'register' ? `Already registered? <a href="#" onclick="mode='login'; render(); return false;">Log in</a>` : `New here? <a href="#" onclick="mode='register'; render(); return false;">Create an account</a>`}
+      </div>
 
       <div id="errorBox"></div>
 

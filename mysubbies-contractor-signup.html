@@ -122,6 +122,7 @@
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
 
   let selectedTrades = [];
+  let otherTradeText = '';
   let insuranceDocs = [];
   let certDocs = [];
   let profilePhoto = null;
@@ -225,6 +226,7 @@
       <label>Which categories do you work in? <span class="req">*</span></label>
       <div class="chiprow" id="tradeChips"></div>
       <div class="field-note">Select all that apply — you'll only be sent jobs matching your approved categories.</div>
+      <div class="field" id="otherTradeField" style="display:none;margin-top:10px;"><label>Tell us what other trade(s)</label><input type="text" id="fOtherTrade" placeholder="e.g. Roof plumbing, pool fencing" oninput="otherTradeText = this.value" /></div>
 
       <div class="section-label">Service area</div>
       <div class="field"><label>Suburbs you service <span class="req">*</span></label><input type="text" id="fSuburbs" placeholder="e.g. Brunswick, Coburg, Preston, Northcote" /></div>
@@ -273,7 +275,7 @@
   function renderTradeChips() {
     const row = document.getElementById('tradeChips');
     row.innerHTML = '';
-    TRADES.forEach(trade => {
+    [...TRADES, 'Other'].forEach(trade => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'chip' + (selectedTrades.includes(trade) ? ' selected' : '');
@@ -282,6 +284,7 @@
         if (selectedTrades.includes(trade)) selectedTrades = selectedTrades.filter(t => t !== trade);
         else selectedTrades.push(trade);
         renderTradeChips();
+        document.getElementById('otherTradeField').style.display = selectedTrades.includes('Other') ? 'block' : 'none';
       };
       row.appendChild(btn);
     });
@@ -418,7 +421,7 @@
     const referredBy = apps.some(a => a.referralCode === referralInput) ? referralInput : null;
     const application = {
       id: 'app_' + Date.now(), business, abn, acn, contact, phone, email, password,
-      trades: selectedTrades, suburbs: suburbs ? suburbs.split(',').map(s => s.trim()).filter(Boolean) : [],
+      trades: selectedTrades, otherTrade: otherTradeText.trim() || null, suburbs: suburbs ? suburbs.split(',').map(s => s.trim()).filter(Boolean) : [],
       licence, insurer, insuranceDocs, certDocs, profilePhoto, referralCode, referredBy,
       status: 'pending', appliedAt: new Date().toISOString(),
       agreementVersion: 'contractor-agreement-2026-08-draft', agreementAcceptedAt: new Date().toISOString(),
