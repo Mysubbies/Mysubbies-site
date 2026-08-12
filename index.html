@@ -289,6 +289,124 @@
 
   .reveal { opacity:0; transform: translateY(16px); transition: opacity .6s ease, transform .6s ease; }
   .reveal.in { opacity:1; transform:none; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior:auto; }
+    .reveal { opacity:1; transform:none; transition:none; }
+    .welcome-splash, .catcard, .btn, .fs-cta, .prot-card { transition:none !important; }
+  }
+  a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+    outline: 2.5px solid var(--black); outline-offset: 2px; border-radius: 4px;
+  }
+  .btn-white:focus-visible { outline-color:#fff; }
+
+  /* ============ De-emphasised contractor nav CTA (item 10) ============ */
+  .navctas a.navlink-contractor { font-size:13px; color:rgba(255,255,255,0.55); padding:0; }
+  .navctas a.navlink-contractor:hover { color:#fff; }
+
+  /* ============ Mobile sticky CTA (item 13) ============ */
+  .mobile-sticky-cta { display:none; position:fixed; left:0; right:0; bottom:0; z-index:60; padding:10px 14px; background:rgba(255,255,255,0.96); backdrop-filter:blur(6px); border-top:1px solid var(--line); }
+  @media (max-width:860px) { .mobile-sticky-cta { display:block; } body { padding-bottom:64px; } }
+  .mobile-sticky-cta .btn { width:100%; padding:14px; font-size:14.5px; }
+
+  /* ============ Hero redesign (item 2/3) ============ */
+  .hero-new { padding:44px 0 40px; }
+  @media (max-width:720px) { .hero-new { padding:28px 0 28px; } }
+  .hero-new-grid { display:grid; grid-template-columns:1.05fr 0.95fr; gap:48px; align-items:center; }
+  @media (max-width:980px) { .hero-new-grid { grid-template-columns:1fr; gap:32px; } }
+  .hero-new h1 { font-size:clamp(34px,4.6vw,54px); line-height:1.06; color:var(--black); margin-bottom:16px; }
+  .hero-new .lede { font-size:16.5px; color:var(--stone); max-width:520px; line-height:1.6; margin-bottom:26px; }
+  .booking-starter { background:var(--paper); border:1px solid var(--line); border-radius:20px; padding:22px; }
+  .booking-starter label { display:block; font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:8px; }
+  .booking-starter textarea { width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:15px; color:var(--ink); border:1.5px solid var(--line); border-radius:12px; padding:14px 16px; outline:none; background:#fff; resize:vertical; min-height:64px; line-height:1.5; }
+  .booking-starter textarea:focus { border-color:var(--black); }
+  .bstarter-actions { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+  .bstarter-actions .btn { flex:1; min-width:150px; padding:13px 16px; font-size:13.5px; }
+  .bstarter-actions .btn-secondary-action { background:#fff; color:var(--ink); border:1.5px solid var(--line); }
+  .bstarter-trust { font-size:12px; color:var(--stone); margin-top:14px; display:flex; align-items:center; gap:6px; }
+  .bstarter-trust svg { flex-shrink:0; }
+  .hero-photo-wrap { position:relative; border-radius:24px; overflow:hidden; aspect-ratio:4/3.1; background:var(--paper); }
+  .hero-photo-wrap img { width:100%; height:100%; object-fit:cover; object-position: center 20%; }
+  @media (max-width:980px) { .hero-photo-wrap { order:-1; aspect-ratio:16/10; } }
+  .hero-photo-placeholder { width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:var(--stone-light); font-size:13px; text-align:center; padding:24px; }
+
+  /* ============ Trust strip (item 4) ============ */
+  .trust-strip { padding:28px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+  .trust-strip-row { display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+  .trust-strip-item { display:flex; align-items:center; gap:10px; flex:1; min-width:170px; }
+  .trust-strip-item svg { flex-shrink:0; color:var(--ink); }
+  .trust-strip-item span { font-size:13px; font-weight:600; color:var(--ink); line-height:1.3; }
+
+  /* ============ Social proof band (item 12) ============ */
+  .proof-band { padding:20px 0; background:var(--paper); }
+  .proof-row { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
+  .proof-pill { font-size:12px; font-weight:600; color:var(--stone); background:#fff; border:1px solid var(--line); border-radius:999px; padding:8px 16px; display:flex; align-items:center; gap:7px; }
+  .proof-pill svg { flex-shrink:0; color:var(--good); }
+
+  /* ============ Category redesign (item 5) ============ */
+  .catgrid-popular { display:grid; grid-template-columns:repeat(4, 1fr); gap:14px; }
+  @media (max-width:860px) { .catgrid-popular { grid-template-columns:repeat(2, 1fr); } }
+  .catcard2 { background:#fff; border:1px solid var(--line); border-radius:16px; padding:22px 18px; text-align:left; cursor:pointer; transition:border-color .15s, transform .15s, box-shadow .15s; display:flex; flex-direction:column; gap:12px; }
+  .catcard2:hover { border-color:var(--black); transform:translateY(-3px); box-shadow:0 10px 24px rgba(0,0,0,0.06); }
+  .catcard2 .cc-icon { width:44px; height:44px; border-radius:12px; background:var(--paper); display:flex; align-items:center; justify-content:center; color:var(--ink); }
+  .catcard2 .cc-name { font-size:15px; font-weight:700; color:var(--black); }
+  .catcard2 .cc-sub { font-size:12.5px; color:var(--stone); line-height:1.4; }
+  .catgrid-all-wrap { max-height:0; overflow:hidden; transition:max-height .4s ease; }
+  .catgrid-all-wrap.open { max-height:2000px; }
+  .catgrid-all { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:12px; margin-top:20px; }
+  .catcard { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .catcard .cc-icon-sm { width:34px; height:34px; color:var(--ink); }
+  .explore-all-btn { display:flex; align-items:center; gap:8px; margin:24px auto 0; }
+  .explore-all-btn svg { transition:transform .25s; }
+  .explore-all-btn.open svg { transform:rotate(180deg); }
+
+  /* ============ Fix Something major feature (item 6) ============ */
+  .fs-feature { background:var(--black); border-radius:24px; padding:48px 40px; margin-top:48px; display:grid; grid-template-columns:1.2fr 0.8fr; gap:32px; align-items:center; }
+  @media (max-width:860px) { .fs-feature { grid-template-columns:1fr; padding:36px 26px; } }
+  .fs-feature h2 { color:#fff; font-size:clamp(24px,3.2vw,32px); margin-bottom:12px; line-height:1.15; }
+  .fs-feature p { color:rgba(255,255,255,0.65); font-size:15px; line-height:1.6; max-width:440px; }
+  .fs-feature-actions { display:flex; flex-direction:column; gap:12px; }
+  .fs-feature-actions .btn { width:100%; padding:15px; font-size:14.5px; }
+
+  /* ============ Customer protection section (item 7) ============ */
+  .protgrid { display:grid; grid-template-columns:repeat(3, 1fr); gap:20px; }
+  @media (max-width:860px) { .protgrid { grid-template-columns:1fr; } }
+  .prot-card { background:#fff; border:1px solid var(--line); border-radius:18px; padding:28px 24px; transition:box-shadow .2s, transform .2s; }
+  .prot-card:hover { box-shadow:0 10px 24px rgba(0,0,0,0.06); transform:translateY(-2px); }
+  .prot-card .cc-icon { width:44px; height:44px; border-radius:12px; background:var(--paper); display:flex; align-items:center; justify-content:center; color:var(--ink); margin-bottom:16px; }
+  .prot-card h3 { font-size:17px; margin-bottom:10px; color:var(--black); }
+  .prot-card p { font-size:14px; color:var(--stone); line-height:1.6; }
+
+  /* ============ Results / two-column trust section (item 8) ============ */
+  .results-section { display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:center; }
+  @media (max-width:900px) { .results-section { grid-template-columns:1fr; gap:28px; } }
+  @media (max-width:900px) { .results-section .results-photo { order:-1; } }
+  .results-photo-wrap { border-radius:20px; overflow:hidden; aspect-ratio:4/3.3; background:var(--paper); }
+  .results-photo-wrap img { width:100%; height:100%; object-fit:cover; }
+  .results-points { list-style:none; margin:22px 0 28px; }
+  .results-points li { display:flex; gap:10px; font-size:14px; padding:8px 0; border-top:1px solid var(--line); color:var(--ink); }
+  .results-points li:first-child { border-top:none; }
+  .results-points li .tick { color:var(--good); flex-shrink:0; font-weight:700; }
+
+  /* ============ Multi-step estimator wizard (item 9) ============ */
+  .est-progress { display:flex; align-items:center; gap:6px; margin-bottom:20px; }
+  .est-progress-bar { flex:1; height:4px; border-radius:999px; background:var(--line); overflow:hidden; }
+  .est-progress-bar-fill { height:100%; background:var(--black); border-radius:999px; transition:width .3s ease; }
+  .est-progress-label { font-size:11.5px; font-weight:700; color:var(--stone); white-space:nowrap; text-transform:uppercase; letter-spacing:0.04em; }
+  .est-step { display:none; }
+  .est-step.active { display:block; animation:estStepIn .25s ease; }
+  @media (prefers-reduced-motion: reduce) { .est-step.active { animation:none; } }
+  @keyframes estStepIn { from { opacity:0; transform:translateX(6px); } to { opacity:1; transform:none; } }
+  .est-step-title { font-size:16px; font-weight:800; color:var(--black); margin-bottom:4px; }
+  .est-step-sub { font-size:12.5px; color:var(--stone); margin-bottom:18px; }
+  .est-step-nav { display:flex; gap:10px; margin-top:22px; }
+  .est-step-nav .btn { flex:1; }
+  .est-step-nav .btn-back { background:#fff; border:1.5px solid var(--line); color:var(--ink); }
+  .est-review-row { display:flex; justify-content:space-between; font-size:13.5px; padding:9px 0; border-top:1px solid var(--line); }
+  .est-review-row:first-child { border-top:none; }
+  .est-review-row .l { color:var(--stone); }
+  .est-review-row .r { font-weight:600; color:var(--ink); text-align:right; }
+  .est-field-error { font-size:12px; color:#B4232C; margin-top:6px; display:none; }
+  .est-field-error.show { display:block; }
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
@@ -305,31 +423,33 @@
   <div class="welcome-content">
     <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
     <div class="logo-word">Mysubbies</div>
-    <h2>Fix everything for the outside and most of the inside.</h2>
-    <div class="tagline">An estimated, upfront price and a vetted contractor — sent straight to your job. No chasing quotes, no bidding wars.</div>
-    <div class="welcome-steps">
-      <div class="welcome-step"><span class="num">1</span><span class="txt">Pick a service and get an instant, estimated price</span></div>
-      <div class="welcome-step"><span class="num">2</span><span class="txt">We match you with one vetted contractor — not open bidding</span></div>
-      <div class="welcome-step"><span class="num">3</span><span class="txt">Approve each stage and pay securely as the work happens</span></div>
-    </div>
-    <button class="btn btn-white" onclick="dismissWelcomeSplash(true)">Get an instant price →</button>
-    <button class="welcome-skip" onclick="dismissWelcomeSplash(false)">Skip, just browse the site</button>
+    <h2 style="font-size:clamp(24px,4.4vw,32px);">Welcome to MySubbies</h2>
+    <div class="tagline">One place to price, book and manage trusted home services.</div>
+    <button class="btn btn-white" onclick="dismissWelcomeSplash(true)">Find a service</button>
+    <button class="welcome-skip" onclick="dismissWelcomeSplash(false)">Skip</button>
   </div>
 </div>
 <script>
   // Runs immediately (before the rest of the page renders) so a returning
   // visitor within the same browser session doesn't see the splash flash
   // before disappearing.
+  let welcomeAutoTimer = null;
   if (sessionStorage.getItem('mysubbies_welcome_seen') === 'true') {
     document.getElementById('welcomeSplash').classList.add('hide');
+  } else {
+    // Auto-continues to the homepage after ~2s if the visitor doesn't tap
+    // anything — a brief brand moment, not a gate.
+    welcomeAutoTimer = setTimeout(() => dismissWelcomeSplash(false), 2000);
   }
   function dismissWelcomeSplash(goToEstimator) {
+    if (welcomeAutoTimer) { clearTimeout(welcomeAutoTimer); welcomeAutoTimer = null; }
     sessionStorage.setItem('mysubbies_welcome_seen', 'true');
     document.getElementById('welcomeSplash').classList.add('hide');
     if (goToEstimator) {
       setTimeout(() => {
-        const el = document.getElementById('estimate');
+        const el = document.getElementById('bstarterInput') || document.getElementById('estimate');
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (document.getElementById('bstarterInput')) document.getElementById('bstarterInput').focus();
       }, 350);
     }
   }
@@ -342,27 +462,25 @@
       <div class="logo-word">Mysubbies</div>
     </a>
     <nav class="mainnav">
-      <a class="navlink" href="#categories">Categories</a>
+      <a class="navlink" href="#categories">Services</a>
       <a class="navlink" href="#how">How it works</a>
-      <a class="navlink" href="mysubbies-blog.html">Blog</a>
-      <a class="navlink" href="mysubbies-faq.html">FAQ</a>
+      <a class="navlink" href="#protection">Customer protection</a>
       <a class="navlink" href="mysubbies-customer-portal.html">My Jobs</a>
-      <a class="navlink" href="#contractors">For contractors</a>
+      <a class="navlink" href="#contractors">For professionals</a>
     </nav>
     <div class="navctas">
       <a class="navlink" href="mysubbies-customer-portal.html" style="margin-right:2px;">Log in</a>
-      <a class="btn btn-ghost-onblack" href="mysubbies-contractor-signup.html">Become a contractor</a>
+      <a class="navlink navlink-contractor" href="mysubbies-contractor-signup.html">Become a contractor</a>
       <a class="btn btn-white" href="#estimate">Get an instant price</a>
     </div>
     <button class="mobiletoggle" id="mobileToggleBtn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
   </div>
   <div class="mobilemenu" id="mobileMenu">
-    <a class="navlink" href="#categories" onclick="closeMobileMenu()">Categories</a>
+    <a class="navlink" href="#categories" onclick="closeMobileMenu()">Services</a>
     <a class="navlink" href="#how" onclick="closeMobileMenu()">How it works</a>
-    <a class="navlink" href="mysubbies-blog.html">Blog</a>
-      <a class="navlink" href="mysubbies-faq.html">FAQ</a>
+    <a class="navlink" href="#protection" onclick="closeMobileMenu()">Customer protection</a>
     <a class="navlink" href="mysubbies-customer-portal.html">My Jobs</a>
-    <a class="navlink" href="#contractors" onclick="closeMobileMenu()">For contractors</a>
+    <a class="navlink" href="#contractors" onclick="closeMobileMenu()">For professionals</a>
     <div class="mobilemenu-ctas">
       <a class="btn btn-ghost-onblack" href="mysubbies-customer-portal.html">Log in</a>
       <a class="btn btn-ghost-onblack" href="mysubbies-contractor-signup.html">Become a contractor</a>
@@ -371,62 +489,192 @@
   </div>
 </header>
 
-<section class="hero" id="top">
+<div class="mobile-sticky-cta">
+  <a class="btn btn-black" href="#estimate">Get an instant price</a>
+</div>
 
+<section class="hero hero-new" id="top">
   <div class="wrap">
-    <div class="personal-tradie-tag">Mysubbies: Your Personal Tradie</div>
-    <h1>Fix everything for the outside<br>and most of the inside.</h1>
-    <p class="lede">No chasing quotes. No bidding wars. An estimated, upfront price and a vetted contractor — sent straight to your job, not shopped around a dozen tradies first.</p>
+    <div class="hero-new-grid">
+      <div>
+        <div class="personal-tradie-tag">Mysubbies: Your Personal Tradie</div>
+        <h1>Whatever needs doing, Mysubbies gets it sorted.</h1>
+        <p class="lede">Describe the job or upload a photo. Get an estimated price and a vetted professional — without chasing quotes.</p>
 
+        <div class="booking-starter">
+          <label for="bstarterInput">What do you need help with?</label>
+          <textarea id="bstarterInput" placeholder="Describe the job, e.g. leaking tap, garden cleanup or new decking" rows="2"></textarea>
+          <div class="bstarter-actions">
+            <button class="btn btn-black" onclick="heroSubmitDescribe()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+              Describe your job
+            </button>
+            <button class="btn btn-secondary-action" onclick="heroUploadPhoto()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              Upload a photo
+            </button>
+            <button class="btn btn-secondary-action" onclick="heroBrowseServices()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+              Browse services
+            </button>
+          </div>
+          <div class="bstarter-trust">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5.2 3.4 9.9 8 11 4.6-1.1 8-5.8 8-11V5z"/><path d="m9 12 2 2 4-4"/></svg>
+            No account needed to see an estimated price.
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-photo-wrap" id="heroPhotoWrap">
+        <img src="images/hero-booking.jpg" alt="Homeowner reviewing a MySubbies service booking with a trusted professional" width="1400" height="788" fetchpriority="high" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="trust-strip">
+  <div class="wrap">
+    <div class="trust-strip-row">
+      <div class="trust-strip-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5.2 3.4 9.9 8 11 4.6-1.1 8-5.8 8-11V5z"/><path d="m9 12 2 2 4-4"/></svg><span>Vetted professionals</span></div>
+      <div class="trust-strip-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span>Upfront estimated pricing</span></div>
+      <div class="trust-strip-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>Secure staged payments</span></div>
+      <div class="trust-strip-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v2a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V3"/><path d="m9 13 2 2 4-4"/></svg><span>Approved variations only</span></div>
+      <div class="trust-strip-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.4-7-11a7 7 0 0 1 14 0c0 5.6-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Melbourne-based support</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="proof-band">
+  <div class="wrap">
+    <div class="proof-row">
+      <span class="proof-pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Melbourne-based launch</span>
+      <span class="proof-pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Vetted professional network</span>
+      <span class="proof-pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Transparent estimated pricing</span>
+      <span class="proof-pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>No open bidding</span>
+      <span class="proof-pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Customer-approved variations</span>
+      <span class="proof-pill"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Secure staged-payment process</span>
+    </div>
   </div>
 </section>
 
 <section id="categories">
   <div class="wrap">
-    <div class="catgrid" id="catGrid">
-      <div class="catcard" onclick="goToEstimatorWithCategory('Decking')"><div class="icon">🪵</div><div class="name">Decking</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Pergola')"><div class="icon">🏗️</div><div class="name">Pergola</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Fencing')"><div class="icon">🚧</div><div class="name">Fencing</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Retaining Wall')"><div class="icon">🧱</div><div class="name">Retaining Wall</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Concreting')"><div class="icon">🏗️</div><div class="name">Concreting</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Grass Installation')"><div class="icon">🌱</div><div class="name">Grass Installation</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Gardening &amp; Lawn Mowing')"><div class="icon">🌿</div><div class="name">Gardening &amp; Lawn Mowing</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Tree Pruning &amp; Removal')"><div class="icon">🌳</div><div class="name">Tree Pruning &amp; Removal</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Painting')"><div class="icon">🎨</div><div class="name">Painting</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Rendering')"><div class="icon">🧱</div><div class="name">Rendering</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Cabinetry')"><div class="icon">🗄️</div><div class="name">Cabinetry</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Stonemason')"><div class="icon">🪨</div><div class="name">Stonemason</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Flooring')"><div class="icon">🪵</div><div class="name">Flooring</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Earth Works')"><div class="icon">🚜</div><div class="name">Earth Works</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Demolition')"><div class="icon">🔨</div><div class="name">Demolition</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Skip Bins')"><div class="icon">🗑️</div><div class="name">Skip Bins</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Cleaning')"><div class="icon">🧽</div><div class="name">Cleaning</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Tiling')"><div class="icon">◻️</div><div class="name">Tiling</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Tiled Roof Repair')"><div class="icon">🏠</div><div class="name">Tiled Roof Repair</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Electrical')"><div class="icon">💡</div><div class="name">Electrical</div></div>
-      <div class="catcard" onclick="goToEstimatorWithCategory('Plumbing')"><div class="icon">🔧</div><div class="name">Plumbing</div></div>
-      <div class="catcard" onclick="openFixSomething()"><div class="icon">✏️</div><div class="name">Other</div></div>
+    <div class="cat-head reveal">
+      <h2>Popular services</h2>
+      <p>Pick a service to get an instant, estimated price — or explore the full list of 21 categories.</p>
+    </div>
+    <div class="catgrid-popular">
+      <button class="catcard2" onclick="goToEstimatorWithCategory('Electrical')">
+        <div class="cc-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 11-14h-7z"/></svg></div>
+        <div class="cc-name">Electrical</div>
+        <div class="cc-sub">Power points, lighting, safety switches</div>
+      </button>
+      <button class="catcard2" onclick="goToEstimatorWithCategory('Plumbing')">
+        <div class="cc-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v4a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3V3"/><path d="M10 10v3a5 5 0 0 0 5 5h0"/><circle cx="18" cy="18" r="3"/></svg></div>
+        <div class="cc-name">Plumbing</div>
+        <div class="cc-sub">Taps, blockages, hot water systems</div>
+      </button>
+      <button class="catcard2" onclick="goToEstimatorWithCategory('Handyman')">
+        <div class="cc-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 1 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.7 2.7-2-2z"/></svg></div>
+        <div class="cc-name">Handyman &amp; Repairs</div>
+        <div class="cc-sub">Small fixes and general repairs</div>
+      </button>
+      <button class="catcard2" onclick="goToEstimatorWithCategory('Cleaning')">
+        <div class="cc-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg></div>
+        <div class="cc-name">Cleaning</div>
+        <div class="cc-sub">Bond cleans, regular cleans, windows</div>
+      </button>
+      <button class="catcard2" onclick="goToEstimatorWithCategory('Gardening &amp; Lawn Mowing')">
+        <div class="cc-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3C7 3 3 6 3 11c0 4.4 3.6 8 8 8 5-6.6 4.5-14 1-16z"/><path d="M8 15c2-3 4-5 8-9"/></svg></div>
+        <div class="cc-name">Gardening</div>
+        <div class="cc-sub">Lawn mowing, tidy-ups, hedges</div>
+      </button>
+      <button class="catcard2" onclick="goToEstimatorWithCategory('Painting')">
+        <div class="cc-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="6" rx="1.5"/><path d="M10 10v4a2 2 0 0 0 2 2h2a2 2 0 0 1 2 2v3"/></svg></div>
+        <div class="cc-name">Painting</div>
+        <div class="cc-sub">Interior, exterior, fences</div>
+      </button>
+      <button class="catcard2" onclick="goToEstimatorWithCategory('Fencing')">
+        <div class="cc-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V7l3-3 3 3v14M13 21V7l3-3 3 3v14M2 12h20M2 17h20"/></svg></div>
+        <div class="cc-name">Fencing</div>
+        <div class="cc-sub">Timber, Colorbond, aluminium</div>
+      </button>
+      <button class="catcard2" onclick="goToEstimatorWithCategory('Decking')">
+        <div class="cc-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg></div>
+        <div class="cc-name">Decking &amp; Outdoor Work</div>
+        <div class="cc-sub">New decks, repairs, outdoor builds</div>
+      </button>
     </div>
 
-    <div class="fs-banner" onclick="openFixSomething()">
-      <div class="fs-banner-left">
-        <div class="fs-banner-icon">🔧</div>
-        <div>
-          <h3>Not sure what's wrong? Fix Something.</h3>
-          <p>Upload a photo and tell us what's up — we'll work out the trade and the price.</p>
-        </div>
+    <button class="btn btn-outline explore-all-btn" id="exploreAllBtn" onclick="toggleAllCategories()" aria-expanded="false" aria-controls="catGridAllWrap">
+      Explore all services
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+
+    <div class="catgrid-all-wrap" id="catGridAllWrap">
+      <div class="catgrid catgrid-all" id="catGrid">
+        <div class="catcard" onclick="goToEstimatorWithCategory('Decking')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg></div><div class="name">Decking</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Pergola')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8 12 3l9 5M4 8v13M20 8v13M4 12h16M4 16h16"/></svg></div><div class="name">Pergola</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Fencing')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V7l3-3 3 3v14M13 21V7l3-3 3 3v14M2 12h20M2 17h20"/></svg></div><div class="name">Fencing</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Retaining Wall')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 10h18M3 16h18M9 4v6M15 10v6M9 16v4"/></svg></div><div class="name">Retaining Wall</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Concreting')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="1"/><path d="M7 21v-2M17 21v-2M12 3l3 4H9z"/></svg></div><div class="name">Concreting</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Grass Installation')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V11M8 21V8M12 21v-9M16 21V8M20 21V11"/></svg></div><div class="name">Grass Installation</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Gardening &amp; Lawn Mowing')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3C7 3 3 6 3 11c0 4.4 3.6 8 8 8 5-6.6 4.5-14 1-16z"/><path d="M8 15c2-3 4-5 8-9"/></svg></div><div class="name">Gardening &amp; Lawn Mowing</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Tree Pruning &amp; Removal')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c3 3 5 6 5 9a5 5 0 0 1-10 0c0-3 2-6 5-9z"/><path d="M12 16v6"/></svg></div><div class="name">Tree Pruning &amp; Removal</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Painting')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="6" rx="1.5"/><path d="M10 10v4a2 2 0 0 0 2 2h2a2 2 0 0 1 2 2v3"/></svg></div><div class="name">Painting</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Rendering')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 10h16M4 15h16M9 4v16"/></svg></div><div class="name">Rendering</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Cabinetry')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M4 12h16M9 7h0M9 16h0"/></svg></div><div class="name">Cabinetry</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Stonemason')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15 8 6h8l4 9-3 5H7z"/></svg></div><div class="name">Stonemason</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Flooring')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="8" height="8"/><rect x="13" y="5" width="8" height="8"/><rect x="3" y="15" width="8" height="4"/><rect x="13" y="15" width="8" height="4"/></svg></div><div class="name">Flooring</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Earth Works')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 12 4l8 16z"/><path d="M8 20 12 12l4 8"/></svg></div><div class="name">Earth Works</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Demolition')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 6.5 3 3L7 20H4v-3z"/><path d="m13 5 6 6"/></svg></div><div class="name">Demolition</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Skip Bins')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.5 12h-11z"/><path d="M9 8V5h6v3M4 8h16"/></svg></div><div class="name">Skip Bins</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Cleaning')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg></div><div class="name">Cleaning</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Tiling')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/></svg></div><div class="name">Tiling</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Tiled Roof Repair')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/></svg></div><div class="name">Tiled Roof Repair</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Electrical')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 11-14h-7z"/></svg></div><div class="name">Electrical</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Plumbing')"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v4a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3V3"/><path d="M10 10v3a5 5 0 0 0 5 5h0"/><circle cx="18" cy="18" r="3"/></svg></div><div class="name">Plumbing</div></div>
+        <div class="catcard" onclick="openFixSomething()"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.4 2.3c-.9.4-1.4 1-1.4 1.7v.5"/><path d="M12 17h0"/></svg></div><div class="name">Other</div></div>
       </div>
-      <button class="btn btn-black" onclick="event.stopPropagation(); openFixSomething();">Fix Something →</button>
+    </div>
+  </div>
+</section>
+
+<section id="fix-something">
+  <div class="wrap">
+    <div class="fs-feature">
+      <div>
+        <h2>Not sure who to call? Just show us the problem.</h2>
+        <p>Upload a photo or describe what is happening. MySubbies will help identify the right service and guide you toward an estimated price.</p>
+      </div>
+      <div class="fs-feature-actions">
+        <button class="btn btn-white" onclick="openFixSomething()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Upload a photo
+        </button>
+        <button class="btn btn-ghost-onblack" onclick="openFixSomething()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          Describe the problem
+        </button>
+      </div>
     </div>
   </div>
 </section>
 
 <section id="get-quote">
-  <div class="wrap">
-    <div class="hero-grid">
-      <div>
-        <div class="estimator" id="estimate">
-          <div class="estimator-label">Get an instant price</div>
+  <div class="wrap" style="max-width:700px;">
+    <div class="estimator" id="estimate">
+      <div class="estimator-label">Get an instant price</div>
+
+      <div class="est-progress">
+        <div class="est-progress-bar"><div class="est-progress-bar-fill" id="estProgressFill" style="width:20%;"></div></div>
+        <div class="est-progress-label" id="estProgressLabel">Step 1 of 5</div>
+      </div>
+
+      <!-- STEP 1 — What needs doing? -->
+      <div class="est-step active" data-step="1">
+        <div class="est-step-title">What needs doing?</div>
+        <div class="est-step-sub">Select a service, or describe the job / upload a photo above and we'll match it.</div>
 
           <label class="est-field-label">What do you need done?</label>
           <div class="estimator-search-wrap">
@@ -440,6 +688,15 @@
             <label class="est-field-label">Choose an option</label>
             <div class="chiprow-est" id="estTierChips"></div>
           </div>
+
+        <div class="est-field-error" id="estStep1Error"></div>
+        <div class="est-step-nav"><button class="btn btn-black" onclick="estStep1Continue()">Continue →</button></div>
+      </div>
+
+      <!-- STEP 2 — Tell us about the property -->
+      <div class="est-step" data-step="2">
+        <div class="est-step-title">Tell us about the property</div>
+        <div class="est-step-sub">Suburb, approximate size or quantity, current site conditions and access.</div>
 
           <div class="estimator-row-2col">
             <div>
@@ -474,6 +731,18 @@
           <label class="est-field-label">Site access</label>
           <div class="chiprow-est" id="estAccessChips"></div>
 
+        <div class="est-field-error" id="estStep2Error"></div>
+        <div class="est-step-nav">
+          <button class="btn btn-back" onclick="estGoBack()">← Back</button>
+          <button class="btn btn-black" onclick="estStep2Continue()">Continue →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3 — Timing and photos -->
+      <div class="est-step" data-step="3">
+        <div class="est-step-title">Timing and photos</div>
+        <div class="est-step-sub">Urgency and supporting images (optional).</div>
+
           <label class="est-field-label">How urgent is this job?</label>
           <input type="text" id="estUrgencyText" placeholder="e.g. ASAP, within 2 weeks, no rush" oninput="selectedUrgency = this.value" />
 
@@ -492,22 +761,65 @@
           <div class="est-photo-count" id="estPhotoCount"></div>
           <div class="est-photo-grid" id="estPhotoGrid"></div>
 
-          <button class="btn go-full" onclick="runEstimate()">See total price →</button>
-
-          <div class="estimator-result" id="estResult">
-            <div>
-              <div class="price" id="estPrice">$0</div>
-              <div class="price-sub" id="estPriceSub">GST inclusive · tentative</div>
-            </div>
-            <a class="btn btn-black" href="mysubbies-booking.html">Continue booking →</a>
-          </div>
-          <div class="estimator-note">Real prices are matched instantly against our live Melbourne rate card — this is a preview, no account needed.</div>
+        <div class="est-step-nav">
+          <button class="btn btn-back" onclick="estGoBack()">← Back</button>
+          <button class="btn btn-black" onclick="estStep3Continue()">Continue →</button>
         </div>
       </div>
 
-      <div class="hero-visual">
-        <div class="hero-visual-label">Live on the board right now</div>
-        <div id="liveJobBoard"></div>
+      <!-- STEP 4 — Review your estimate -->
+      <div class="est-step" data-step="4">
+        <div class="est-step-title">Review your estimate</div>
+        <div class="est-step-sub">Scope, assumptions and what's included — check it matches before you continue.</div>
+
+        <div id="estReviewSummary"></div>
+
+        <div class="est-step-nav">
+          <button class="btn btn-back" onclick="estGoBack()">← Back</button>
+          <button class="btn go-full" style="flex:1;" onclick="estStep4Continue()">See my estimated price →</button>
+        </div>
+      </div>
+
+      <!-- STEP 5 — Continue to booking -->
+      <div class="est-step" data-step="5">
+        <div class="est-step-title">Your estimated price</div>
+        <div class="est-step-sub">Confirm your details and continue using the normal booking flow.</div>
+
+        <div class="estimator-result show" id="estResult">
+          <div>
+            <div class="price" id="estPrice">$0</div>
+            <div class="price-sub" id="estPriceSub">GST inclusive · tentative</div>
+          </div>
+          <a class="btn btn-black" href="mysubbies-booking.html">Continue booking →</a>
+        </div>
+        <div class="estimator-note">Real prices are matched instantly against our live Melbourne rate card — this is a preview, no account needed. Final pricing remains subject to scope, assumptions and site conditions.</div>
+
+        <div class="est-step-nav"><button class="btn btn-back" onclick="estGoBack()">← Back</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="protection">
+  <div class="wrap">
+    <div class="cat-head reveal">
+      <h2>Book with clarity and stay in control.</h2>
+    </div>
+    <div class="protgrid reveal">
+      <div class="prot-card">
+        <div class="cc-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5.2 3.4 9.9 8 11 4.6-1.1 8-5.8 8-11V5z"/><path d="m9 12 2 2 4-4"/></svg></div>
+        <h3>Vetted professionals</h3>
+        <p>Relevant business, licence and insurance details are checked before a professional can receive suitable jobs.</p>
+      </div>
+      <div class="prot-card">
+        <div class="cc-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+        <h3>Secure staged payments</h3>
+        <p>Approve payments as agreed stages are completed instead of paying the entire project upfront.</p>
+      </div>
+      <div class="prot-card">
+        <div class="cc-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v2a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V3"/><path d="m9 13 2 2 4-4"/></svg></div>
+        <h3>No surprise variations</h3>
+        <p>Any change to the agreed scope must be presented to you and approved before it is charged.</p>
       </div>
     </div>
   </div>
@@ -543,13 +855,37 @@
 <section id="how">
   <div class="wrap">
     <div class="cat-head reveal">
-      <h2>Choose your job.<br>See the price.<br>Book.</h2>
+      <h2>How Mysubbies works.</h2>
     </div>
     <div class="steps">
-      <div class="step reveal"><div class="idx">01</div><h3>Choose your job</h3><p>Search or pick from 21 categories — decking, fencing, an electrician, whatever you need done.</p></div>
-      <div class="step reveal"><div class="idx">02</div><h3>See your price</h3><p>An instant, estimated price grounded in our real Melbourne rate card — one clear number, not a placeholder, not a range that changes later.</p></div>
-      <div class="step reveal"><div class="idx">03</div><h3>Approve & book</h3><p>Confirm, and your job is sent directly to a matched, vetted contractor in your area.</p></div>
-      <div class="step reveal"><div class="idx">04</div><h3>Track it to done</h3><p>Message your contractor, watch payment stages release as work progresses, confirm when it's finished.</p></div>
+      <div class="step reveal"><div class="idx">01</div><h3>Tell us what you need</h3><p>Choose a service, describe the problem or upload a photo.</p></div>
+      <div class="step reveal"><div class="idx">02</div><h3>See your estimated price</h3><p>Receive a transparent estimate based on the selected service, quantity and site assumptions.</p></div>
+      <div class="step reveal"><div class="idx">03</div><h3>Get matched</h3><p>Your job is offered to a suitable vetted professional — not placed into an open bidding war.</p></div>
+      <div class="step reveal"><div class="idx">04</div><h3>Track it to completion</h3><p>Communicate, approve authorised stages and manage the job through Mysubbies.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="results">
+  <div class="wrap">
+    <div class="results-section">
+      <div class="results-photo">
+        <div class="results-photo-wrap">
+          <img src="images/trust-results.jpg" alt="Customer reviewing a completed outdoor project with a MySubbies professional" width="1200" height="675" loading="lazy" />
+        </div>
+      </div>
+      <div>
+        <div class="split-eyebrow">From booking to completion</div>
+        <h2 style="font-size:28px;margin-bottom:14px;">Know what is happening at every stage.</h2>
+        <p style="color:var(--stone);font-size:15px;line-height:1.65;max-width:440px;margin-bottom:0;">Review the agreed scope, communicate with your professional, approve authorised stages and keep the job moving — all through one clear process.</p>
+        <ul class="results-points">
+          <li><span class="tick">✓</span> Clear job scope</li>
+          <li><span class="tick">✓</span> Direct communication</li>
+          <li><span class="tick">✓</span> Progress visibility</li>
+          <li><span class="tick">✓</span> Customer-approved variations</li>
+        </ul>
+        <a class="btn btn-black" href="#how">See how Mysubbies works →</a>
+      </div>
     </div>
   </div>
 </section>
@@ -618,6 +954,8 @@
         <ul>
           <li><a href="#how">How it works</a></li>
           <li><a href="#contractors">For contractors</a></li>
+          <li><a href="mysubbies-blog.html">Blog</a></li>
+          <li><a href="mysubbies-faq.html">FAQ</a></li>
           <li><a href="#">Contact us</a></li>
         </ul>
       </div>
@@ -1034,26 +1372,131 @@
   let riskAnswers = {};
   let cart = [];
 
-  function renderLiveJobBoard() {
-    const box = document.getElementById('liveJobBoard');
-    if (!box) return;
-    const jobs = JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]');
-    const recent = jobs.slice(0, 4);
-    if (recent.length === 0) {
-      box.innerHTML = `<div style="font-size:13px;color:var(--stone-light);padding:20px 0;text-align:center;">No jobs on the board yet — be the first.</div>`;
+  // The old "live jobs on the board" panel (with its empty-marketplace
+  // message) has been replaced by the Customer Protection section — see
+  // #protection in the HTML. Nothing reads mysubbies_jobs on this page now.
+
+  // ============================================================
+  // Multi-step instant-price wizard (item 9) — pure UI-layer step
+  // visibility control. Every field ID, and every pricing/cart/booking
+  // function (calculateItemPrice, confirmAddToCart, runEstimate, etc.)
+  // is completely unchanged — this only shows/hides which step div is
+  // visible and does light client-side validation before advancing.
+  // ============================================================
+  let currentEstStep = 1;
+  const TOTAL_EST_STEPS = 5;
+  function showEstStep(n) {
+    currentEstStep = n;
+    document.querySelectorAll('#estimate .est-step').forEach(el => el.classList.toggle('active', Number(el.dataset.step) === n));
+    document.getElementById('estProgressLabel').textContent = `Step ${n} of ${TOTAL_EST_STEPS}`;
+    document.getElementById('estProgressFill').style.width = (n / TOTAL_EST_STEPS * 100) + '%';
+    document.getElementById('estimate').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function estGoBack() { if (currentEstStep > 1) showEstStep(currentEstStep - 1); }
+
+  function estStep1Continue() {
+    const err = document.getElementById('estStep1Error');
+    if (!selectedCat || !selectedTier) {
+      err.textContent = 'Please choose a service to continue.';
+      err.classList.add('show');
       return;
     }
-    box.innerHTML = recent.map(j => `
-      <div class="hv-row"><div class="hv-cat">${j.icon || '🔧'} ${escapeHtml(j.category)} — ${escapeHtml(j.suburb)}</div><div class="hv-price">$${(j.basePrice || 0).toLocaleString()}</div></div>
-    `).join('');
+    err.classList.remove('show');
+    showEstStep(2);
   }
-  renderLiveJobBoard();
-  window.addEventListener('storage', (e) => { if (e.key === 'mysubbies_jobs') renderLiveJobBoard(); });
+
+  function estStep2Continue() {
+    const err = document.getElementById('estStep2Error');
+    // Same "did they forget to click Calculate" convenience runEstimate() already had.
+    if (pendingItem) confirmAddToCart();
+    if (cart.length === 0) {
+      err.textContent = 'Please calculate a price and add at least one item to your job.';
+      err.classList.add('show');
+      return;
+    }
+    const suburb = document.getElementById('estSuburb').value.trim();
+    if (!suburb) {
+      err.textContent = 'Please enter your suburb.';
+      err.classList.add('show');
+      document.getElementById('estSuburb').focus();
+      return;
+    }
+    err.classList.remove('show');
+    showEstStep(3);
+  }
+
+  function estStep3Continue() {
+    showEstStep(4);
+    renderReviewStep();
+  }
+
+  // Read-only recap built from the SAME state (cart, selectedSite,
+  // selectedAccess, selectedUrgency, uploadedPhotos) the existing cart/
+  // estimator logic already maintains — no new pricing math.
+  function renderReviewStep() {
+    const wrap = document.getElementById('estReviewSummary');
+    const suburb = document.getElementById('estSuburb').value.trim();
+    const total = cart.reduce((s, i) => s + i.base, 0);
+    let html = `
+      <div class="est-review-row"><span class="l">Suburb</span><span class="r">${escapeHtml(suburb || '—')}</span></div>
+      <div class="est-review-row"><span class="l">Site conditions</span><span class="r">${escapeHtml(selectedSite || '—')}</span></div>
+      <div class="est-review-row"><span class="l">Access</span><span class="r">${escapeHtml(selectedAccess || '—')}</span></div>
+      <div class="est-review-row"><span class="l">Urgency</span><span class="r">${escapeHtml(selectedUrgency || '—')}</span></div>
+      <div class="est-review-row"><span class="l">Photos</span><span class="r">${uploadedPhotos.length ? uploadedPhotos.length + ' added' : 'None'}</span></div>
+    `;
+    html += cart.map(item => `
+      <div class="est-review-row"><span class="l">${escapeHtml(item.taskName)} (${item.qty.toLocaleString()} ${escapeHtml(item.unit)})</span><span class="r">$${item.base.toLocaleString()}</span></div>
+      ${item.notes ? `<div style="font-size:11.5px;color:var(--stone);padding:0 0 8px;">${escapeHtml(item.notes)}</div>` : ''}
+    `).join('');
+    html += `<div class="est-review-row" style="font-weight:800;border-top:1.5px solid var(--ink);"><span class="l">Estimated total</span><span class="r">$${total.toLocaleString()}</span></div>`;
+    html += `<div style="font-size:11px;color:var(--stone-light);margin-top:10px;">Estimated price — final pricing remains subject to the stated scope, assumptions and site conditions.</div>`;
+    wrap.innerHTML = html;
+  }
+
+  function estStep4Continue() {
+    runEstimate();
+    showEstStep(5);
+  }
 
   function goToEstimatorWithCategory(label) {
     const cat = CATEGORIES.find(c => c.label === label);
     document.getElementById('estimate').scrollIntoView({ behavior: 'smooth', block: 'start' });
     if (cat) setTimeout(() => selectCat(cat), 350);
+  }
+
+  // Hero booking-starter (item 3) — all three actions hand off to the
+  // existing instant-pricing/Fix Something logic; nothing new is invented
+  // here. "Describe your job" reuses the same category search+match the
+  // estimator's own search box already does (onCatSearch), just seeded
+  // from what the customer typed in the hero.
+  function heroSubmitDescribe() {
+    const input = document.getElementById('bstarterInput');
+    const val = input.value.trim();
+    if (!val) { input.focus(); return; }
+    document.getElementById('estimate').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => {
+      const catInput = document.getElementById('estCategoryInput');
+      catInput.value = val;
+      onCatSearch();
+      catInput.focus();
+    }, 400);
+  }
+  function heroUploadPhoto() { openFixSomething(); }
+  function heroBrowseServices() {
+    const el = document.getElementById('categories');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // Category simplification (item 5) — the full 21-category grid is still
+  // real static HTML underneath (same crawlable markup, same onclick
+  // handlers), just collapsed by default so "popular" leads.
+  function toggleAllCategories() {
+    const wrap = document.getElementById('catGridAllWrap');
+    const btn = document.getElementById('exploreAllBtn');
+    const isOpen = wrap.classList.toggle('open');
+    btn.classList.toggle('open', isOpen);
+    btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    btn.childNodes[0].textContent = isOpen ? 'Show fewer services ' : 'Explore all services ';
   }
 
   // "Fix Something" — photo/description triage entry point. Calls
