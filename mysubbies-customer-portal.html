@@ -215,6 +215,14 @@
         ` : ''}
       </div>
 
+      ${j.contractor && ((j.beforePhotos && j.beforePhotos.length) || (j.afterPhotos && j.afterPhotos.length)) ? `
+        <div class="detailcard">
+          <h3 style="font-size:15px;margin-bottom:10px;">Before / after photos</h3>
+          ${(j.beforePhotos && j.beforePhotos.length) ? `<div class="jobmeta" style="margin-bottom:6px;">Before</div><div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(72px, 1fr));gap:8px;margin-bottom:12px;">${j.beforePhotos.map(src => `<img src="${src}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--line);" />`).join('')}</div>` : ''}
+          ${(j.afterPhotos && j.afterPhotos.length) ? `<div class="jobmeta" style="margin-bottom:6px;">After</div><div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(72px, 1fr));gap:8px;">${j.afterPhotos.map(src => `<img src="${src}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--line);" />`).join('')}</div>` : ''}
+        </div>
+      ` : ''}
+
       ${j.contractor ? `
         <div class="detailcard">
           <h3 style="font-size:15px;margin-bottom:10px;">Variations</h3>
