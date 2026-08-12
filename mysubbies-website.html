@@ -153,9 +153,11 @@
   .est-bundle-note { font-size:11.5px; color:var(--stone); background:var(--paper); border-radius:8px; padding:9px 12px; margin-top:6px; line-height:1.5; }
   .go-full { width:100%; margin-top:20px; padding:15px; background: var(--black); color:#fff; }
   .est-photo-note { font-size:11px; color: var(--stone-light); margin-bottom:8px; }
+  .est-photo-drop-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .est-photo-drop { border:1.5px dashed var(--line); border-radius:12px; padding:18px; text-align:center; font-size:13px; color: var(--stone); cursor:pointer; background:#fff; transition:border-color .15s; }
   .est-photo-drop:hover { border-color: var(--black); }
   .est-photo-drop img { max-width:100%; max-height:140px; border-radius:8px; margin:0 auto; display:block; }
+  .est-photo-count { font-size:11.5px; color:var(--stone); margin-top:6px; }
   .est-photo-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(72px, 1fr)); gap:8px; margin-top:10px; }
   .est-photo-thumb { position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden; border:1px solid var(--line); }
   .est-photo-thumb img { width:100%; height:100%; object-fit:cover; }
@@ -399,6 +401,7 @@
 
           <label class="est-field-label">Suburb</label>
           <input type="text" id="estSuburb" placeholder="e.g. Brunswick" />
+          <div class="est-hint">Mysubbies currently operates in Melbourne, Victoria only — we'll be launching in other states as we grow.</div>
 
           <div id="estQuestionsWrap"></div>
 
@@ -414,9 +417,16 @@
           <label class="est-field-label">Add photos (optional)</label>
           <p class="est-photo-note">Uploading photos helps us confirm that the selected service and assumptions match your property. Your displayed price remains subject to the stated scope, exclusions and site assumptions. No variation can be charged without your approval.</p>
           <input type="file" id="estPhotoInput" accept="image/*" multiple style="display:none;" onchange="onPhotoSelected(event)" />
-          <div class="est-photo-drop" id="estPhotoDrop" onclick="document.getElementById('estPhotoInput').click()">
-            <span id="estPhotoDropText">📷 Tap to add photos</span>
+          <input type="file" id="estPhotoCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="onPhotoSelected(event)" />
+          <div class="est-photo-drop-row">
+            <div class="est-photo-drop" onclick="document.getElementById('estPhotoCameraInput').click()">
+              <span>📷 Take a photo</span>
+            </div>
+            <div class="est-photo-drop" onclick="document.getElementById('estPhotoInput').click()">
+              <span>🖼️ Choose from gallery</span>
+            </div>
           </div>
+          <div class="est-photo-count" id="estPhotoCount"></div>
           <div class="est-photo-grid" id="estPhotoGrid"></div>
 
           <button class="btn go-full" onclick="runEstimate()">See total price →</button>
@@ -930,9 +940,7 @@
         <button onclick="removePhoto(${idx})" title="Remove">\u2715</button>
       </div>
     `).join('');
-    document.getElementById('estPhotoDropText').textContent = uploadedPhotos.length
-      ? `📷 ${uploadedPhotos.length} photo${uploadedPhotos.length === 1 ? '' : 's'} added \u2014 tap to add more`
-      : '📷 Tap to add photos';
+    document.getElementById('estPhotoCount').textContent = uploadedPhotos.length ? (uploadedPhotos.length + ' photo' + (uploadedPhotos.length === 1 ? '' : 's') + ' added') : '';
   }
 
   function onCatSearch() {
@@ -1010,8 +1018,14 @@
 
       <label class="fs-field-label">Photo (recommended)</label>
       <input type="file" id="fsPhotoInput" accept="image/*" multiple style="display:none;" onchange="onFsPhotoSelected(event)" />
-      <div class="est-photo-drop" onclick="document.getElementById('fsPhotoInput').click()">
-        <span>📷 Tap to add photos (up to 4)</span>
+      <input type="file" id="fsPhotoCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="onFsPhotoSelected(event)" />
+      <div class="est-photo-drop-row">
+        <div class="est-photo-drop" onclick="document.getElementById('fsPhotoCameraInput').click()">
+          <span>📷 Take a photo</span>
+        </div>
+        <div class="est-photo-drop" onclick="document.getElementById('fsPhotoInput').click()">
+          <span>🖼️ Choose from gallery</span>
+        </div>
       </div>
       <div class="fs-photo-grid" id="fsPhotoGrid"></div>
 
@@ -1317,8 +1331,18 @@
       : `Job subtotal (${cart.length} item${cart.length === 1 ? '' : 's'})`;
     totalEl.innerHTML = `<span>${label}</span><span>$${total.toLocaleString()}</span>`;
     const noteEl = document.getElementById('estBundleNote');
+    const notes = [];
     if (catCount > 1) {
-      noteEl.textContent = `These will be booked as ${catCount} separate jobs, one per trade — each with its own contractor and its own payment schedule. This total is just for your convenience.`;
+      notes.push(`These will be booked as ${catCount} separate jobs, one per trade — each with its own contractor and its own payment schedule. This total is just for your convenience.`);
+    }
+    // Victorian building regulations require a registered building
+    // practitioner for domestic building work over $10,000 — flag this so
+    // the customer isn't surprised, without blocking the booking itself.
+    if (total > 10000) {
+      notes.push(`This job is valued over $10,000, which under Victorian regulations requires a registered building practitioner. We'll allocate a suitably registered contractor for you — no extra steps needed on your end.`);
+    }
+    if (notes.length) {
+      noteEl.innerHTML = notes.map((n, i) => `<div${i > 0 ? ' style="margin-top:6px;"' : ''}>${n}</div>`).join('');
       noteEl.style.display = 'block';
     } else {
       noteEl.style.display = 'none';

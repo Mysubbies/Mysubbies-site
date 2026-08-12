@@ -170,6 +170,7 @@
       wrap.innerHTML = `
         <img class="profile-photo-preview" src="${profilePhoto}" />
         <div style="display:flex;gap:8px;">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoCameraInput').click()">Retake</button>
           <button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoInput').click()">Change photo</button>
           <button type="button" class="btn btn-outline" onclick="removeProfilePhoto()">Remove</button>
         </div>`;
@@ -179,7 +180,9 @@
 
   function removeProfilePhoto() {
     profilePhoto = null;
-    document.getElementById('profilePhotoWrap').innerHTML = `<button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoInput').click()">📷 Upload a photo</button>`;
+    document.getElementById('profilePhotoWrap').innerHTML = `
+      <button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoCameraInput').click()">📷 Take a photo</button>
+      <button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoInput').click()">🖼️ Choose from gallery</button>`;
   }
 
   const app = document.getElementById('app');
@@ -250,8 +253,10 @@
       <div style="height:14px;"></div>
       <label>Profile photo <span class="opt">(optional \u2014 shown to customers once approved)</span></label>
       <input type="file" id="fPhotoInput" accept="image/*" style="display:none;" onchange="onProfilePhotoSelected(event)" />
-      <div id="profilePhotoWrap">
-        <button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoInput').click()">📷 Upload a photo</button>
+      <input type="file" id="fPhotoCameraInput" accept="image/*" capture="user" style="display:none;" onchange="onProfilePhotoSelected(event)" />
+      <div id="profilePhotoWrap" style="display:flex;gap:8px;">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoCameraInput').click()">📷 Take a photo</button>
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoInput').click()">🖼️ Choose from gallery</button>
       </div>
 
       <div class="section-label">Referral</div>
