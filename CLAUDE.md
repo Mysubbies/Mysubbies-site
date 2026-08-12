@@ -14,10 +14,32 @@ Stripe (Connect **Standard**, chosen for lower onboarding/support burden
 over Express), and **Supabase (Postgres)** as the source of truth for
 payment/payout state, since that can never live in localStorage.
 
-**Scope is deliberately narrow — v1 is deposit-only:**
-- Only the deposit payment stage is real money via Stripe. Materials/frame/
-  completion stages are still the pre-existing manual tick-off in the
-  contractor portal (localStorage) — not yet wired to Stripe.
+**Scope is deliberately narrow — v1 is deposit-only, contractor payout is manual:**
+- The deposit stage is real Stripe money, and (added Aug 2026) so are the
+  materials/frame/completion stages — but not automatically anymore. The
+  contractor can no longer self-mark a stage paid: they "request" it
+  (`requestStageApproval()` in contractor-portal.html), the customer sees an
+  Approve & Pay card (`renderStageApproval()`/`approveAndPayStage()` in
+  customer-portal.html, same Stripe Elements pattern as the deposit) and
+  pays with a real card before the stage counts as done. See
+  `api/create-stage-payment-intent.js` — same "lock the amount in on first
+  sight" pattern as `create-deposit-intent.js`, keyed by (job_id, stage) in
+  the `payments` table rather than a dedicated jobs column.
+- Money from every stage still only ever lands in the Mysubbies platform
+  Stripe account — there is still no automatic Stripe Connect transfer to
+  contractors for materials/frame/completion. Contractors are paid those
+  stages manually by Mysubbies AP, by explicit founder direction, until this
+  flow has proven stable. Only the deposit's 75% share flows through the
+  automated weekly payout batch described below.
+- `paidStages[stageKey]` is set **client-side**, by the customer's own
+  browser, immediately after `stripe.confirmCardPayment()` succeeds — not
+  by the webhook. This deliberately mirrors how the deposit stage already
+  worked before this feature existed, and avoids a write race: the webhook
+  only ever owns the `payments` table row for the charge itself (and,
+  for the deposit specifically, `jobs.status`), never `jobs.full_record`.
+  If you touch this again, do not make the webhook write
+  `full_record.paidStages` — the next unrelated `saveJobs()` call from any
+  browser would silently overwrite it with a stale local copy.
 - Only single-category bookings go through real Stripe payment
   (`beginBookingFlow()` in booking.html). Multi-category bundles still use
   the old immediate-fictional-deposit path, because one Stripe PaymentIntent
@@ -33,6 +55,20 @@ payment/payout state, since that can never live in localStorage.
   at the top of weekly-payout.js) since payment succeeded, and the
   contractor's Stripe Connect onboarding is complete. A job can only ever be
   paid out once (enforced by a DB unique index, not just application logic).
+
+## Vercel Hobby plan: 12 serverless functions, currently at the cap
+Every file directly under `api/` (not `api/_lib/`) counts as one serverless
+function. As of Aug 2026 there are exactly 12, which is the Hobby plan's
+hard limit — confirmed the hard way: pushing a 13th/14th function didn't
+error the deploy, it just silently 404'd on the newest functions while
+everything else kept working, which looks exactly like a routing bug if you
+don't know to check the count. `api/notify.js` (`{type: 'job-assigned' |
+'stage-requested', ...}`) and `api/get-admin-list.js` (`?type=applications
+|customers`) already exist specifically as multi-purpose endpoints from
+consolidating what used to be four separate files — extend those with a new
+`type`/`?type=` branch before creating a new top-level file. If a genuinely
+new endpoint is unavoidable, either consolidate something else first or the
+founder needs to upgrade off the Hobby plan.
 
 **Known correctness gap, flagged deliberately:** the rate card (21
 categories, ~163 tasks) still lives only in browser localStorage, not in
