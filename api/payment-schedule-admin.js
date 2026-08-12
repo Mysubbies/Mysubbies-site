@@ -8,6 +8,16 @@
 //   { action: 'build-job-schedule', jobId, milestones, actorId }  -- for the
 //       $20,000+ structural / manual_review "pending_admin_schedule" case:
 //       an admin builds the remaining schedule for one specific job.
+//   { action: 'backfill-legacy-schedule', jobId, actorId }  -- one-time
+//       migration for a job created before the milestone system existed
+//       (still carries the old job.paymentSchedule/paidStages/stageRequested
+//       fields, no job_payment_schedules row). Without this, such a job's
+//       payment UI silently renders nothing in both portals — found via a
+//       real stuck job (2026-08-13): a contractor's pre-migration stage
+//       request never reached the customer once the old approval UI was
+//       replaced. Preserves exactly what was already paid/requested rather
+//       than re-deriving a schedule, so nobody has to re-consent or
+//       re-submit evidence for work already in flight.
 //
 // Admin-only by convention, same posture as the rest of this project's
 // admin endpoints — no auth gate beyond admin-portal.html's own client-side
@@ -185,6 +195,102 @@ module.exports = async (req, res) => {
 
       await supabase.from('payment_audit_logs').insert({ entity_type: 'job_payment_schedule', entity_id: schedule.id, action: 'admin_built_job_schedule', actor_role: 'admin', actor_id: actorId || null, after_state: { milestoneCount: newRows.length } });
       res.status(200).json({ schedule: updatedSchedule, milestones: newRows });
+      return;
+    }
+
+    if (action === 'backfill-legacy-schedule') {
+      const { jobId, actorId } = req.body || {};
+      if (!jobId) { res.status(400).json({ error: 'jobId is required.' }); return; }
+
+      const { data: jobRow, error: jobErr } = await supabase.from('jobs').select('*').eq('id', jobId).maybeSingle();
+      if (jobErr) throw jobErr;
+      if (!jobRow) { res.status(404).json({ error: 'Job not found.' }); return; }
+
+      const { data: existing } = await supabase.from('job_payment_schedules').select('id').eq('job_id', jobId).maybeSingle();
+      if (existing) { res.status(409).json({ error: 'This job already has a payment schedule on the current system.' }); return; }
+
+      const record = jobRow.full_record || {};
+      const legacySchedule = record.paymentSchedule;
+      if (!Array.isArray(legacySchedule) || legacySchedule.length === 0) {
+        res.status(400).json({ error: 'No legacy payment schedule found on this job to migrate.' });
+        return;
+      }
+      const basePriceCents = Math.round(Number(record.basePrice || 0) * 100);
+      if (!basePriceCents) { res.status(400).json({ error: 'Could not determine this job\'s price to migrate.' }); return; }
+
+      const paidStages = record.paidStages || {};
+      const stageRequested = record.stageRequested || {};
+
+      // Same rounding rule as everywhere else — remainder onto the last milestone.
+      const amounts = legacySchedule.map(m => Math.round(basePriceCents * (Number(m.pct) / 100)));
+      const amountSum = amounts.reduce((s, a) => s + a, 0);
+      amounts[amounts.length - 1] += (basePriceCents - amountSum);
+
+      const milestoneTypeFor = (key) => key === 'deposit' ? 'deposit' : key === 'materials' ? 'materials_delivered' : key === 'frame' ? 'frame' : key === 'completion' ? 'completion' : 'custom';
+      const evidenceTypeFor = (key) => key === 'deposit' ? 'none' : key === 'materials' ? 'delivery_docket' : 'photos';
+
+      let firstUnpaidAssigned = false;
+      const milestoneRows = legacySchedule.map((m, idx) => {
+        const isPaid = !!paidStages[m.key];
+        const isRequested = !isPaid && !!stageRequested[m.key];
+        let status;
+        if (isPaid) status = 'paid';
+        else if (isRequested) status = 'awaiting_customer';
+        else if (!firstUnpaidAssigned) { status = 'available'; firstUnpaidAssigned = true; }
+        else status = 'locked';
+        return {
+          milestone_index: idx, key: m.key, label: m.label, pct: m.pct, amount_cents: amounts[idx],
+          milestone_type: milestoneTypeFor(m.key),
+          requires_evidence_type: evidenceTypeFor(m.key),
+          requires_customer_approval: m.key !== 'deposit',
+          review_period_hours: 72, auto_capture_enabled: false,
+          status, paid_at: isPaid ? new Date().toISOString() : null,
+          _isRequested: isRequested,
+        };
+      });
+
+      const depositMilestoneDef = legacySchedule.find(m => m.key === 'deposit');
+      const { data: scheduleRow, error: schedErr } = await supabase.from('job_payment_schedules').insert({
+        job_id: jobId, template_id: null, schedule_type: 'custom',
+        original_contract_price_cents: basePriceCents, total_variations_cents: 0, revised_total_price_cents: basePriceCents,
+        deposit_pct: depositMilestoneDef ? depositMilestoneDef.pct : null,
+        deposit_amount_cents: amounts[0],
+        status: 'active',
+        accepted_at: record.createdAt || new Date().toISOString(),
+        terms_version: 'legacy-migrated',
+      }).select().single();
+      if (schedErr) throw schedErr;
+
+      const rowsToInsert = milestoneRows.map(({ _isRequested, ...m }) => ({ ...m, job_payment_schedule_id: scheduleRow.id }));
+      const { data: insertedMilestones, error: mErr } = await supabase.from('payment_milestones').insert(rowsToInsert).select();
+      if (mErr) throw mErr;
+
+      const depositRow = insertedMilestones.find(m => m.key === 'deposit');
+      if (depositRow && record.depositPaymentIntentId) {
+        await supabase.from('payment_milestones').update({ stripe_payment_intent_id: record.depositPaymentIntentId }).eq('id', depositRow.id);
+      }
+
+      // Milestones that were 'requested' under the old system get a note
+      // explaining the missing evidence, so the customer isn't confused by
+      // an approval prompt with no photos attached.
+      const requestedRows = milestoneRows.filter(m => m._isRequested);
+      for (const m of requestedRows) {
+        const inserted = insertedMilestones.find(im => im.key === m.key);
+        if (inserted) {
+          await supabase.from('milestone_evidence').insert({
+            milestone_id: inserted.id, description: 'Requested by the contractor under the previous version of Mysubbies’ payment system, before photo evidence was required.',
+            photo_urls: [], declaration_confirmed: true,
+          });
+        }
+      }
+
+      await supabase.from('payment_audit_logs').insert({
+        entity_type: 'job_payment_schedule', entity_id: scheduleRow.id, action: 'legacy_schedule_migrated',
+        actor_role: 'admin', actor_id: actorId || null,
+        after_state: { milestoneCount: insertedMilestones.length, statuses: insertedMilestones.map(m => ({ key: m.key, status: m.status })) },
+      });
+
+      res.status(200).json({ schedule: scheduleRow, milestones: insertedMilestones });
       return;
     }
 
