@@ -22,16 +22,36 @@ module.exports = async (req, res) => {
     }
 
     const supabase = getSupabase();
+
+    if (contractorEmail) {
+      // Two pieces: jobs already assigned to this contractor (any category —
+      // they took it, they keep seeing it), and the unassigned feed pool,
+      // trade-filtered by this contractor's approved categories so the feed
+      // matches "dispatched to a matched contractor," not an open
+      // marketplace. Falls back to showing the full unfiltered pool when the
+      // contractor has no categories on record yet (legacy/local-only
+      // accounts predating the `contractors.categories` column) so nobody's
+      // feed silently goes empty.
+      const email = String(contractorEmail).toLowerCase();
+      const [{ data: ownJobs, error: ownErr }, { data: contractorRow }] = await Promise.all([
+        supabase.from('jobs').select('full_record').not('full_record', 'is', null).eq('contractor_email', email).limit(500),
+        supabase.from('contractors').select('categories').eq('email', email).maybeSingle(),
+      ]);
+      if (ownErr) throw ownErr;
+
+      const categories = (contractorRow && contractorRow.categories) || [];
+      let feedQuery = supabase.from('jobs').select('full_record').not('full_record', 'is', null).is('contractor_email', null);
+      if (categories.length > 0) feedQuery = feedQuery.in('category', categories);
+      const { data: feedJobs, error: feedErr } = await feedQuery.limit(500);
+      if (feedErr) throw feedErr;
+
+      const combined = [...(ownJobs || []), ...(feedJobs || [])];
+      res.status(200).json({ jobs: combined.map(r => r.full_record).filter(Boolean) });
+      return;
+    }
+
     let query = supabase.from('jobs').select('full_record').not('full_record', 'is', null);
     if (customerEmail) query = query.eq('customer_email', String(customerEmail).toLowerCase());
-    if (contractorEmail) {
-      // Unassigned jobs (so the contractor can see + accept them, matching
-      // the dedicated-panel model — not an open marketplace) PLUS jobs
-      // already assigned to this contractor. Category matching still
-      // happens client-side exactly as it already does today.
-      const email = String(contractorEmail).toLowerCase();
-      query = query.or(`contractor_email.eq.${email},contractor_email.is.null`);
-    }
 
     const { data, error } = await query.limit(500);
     if (error) throw error;

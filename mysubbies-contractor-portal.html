@@ -139,7 +139,15 @@
     if (selectedJobId) { renderDetail(name); return; }
 
     const jobs = getJobs();
-    const feedJobs = jobs.filter(j => j.status === 'feed');
+    // Trade-filtered feed: only show unclaimed jobs in categories this
+    // contractor is approved for, matching the "dispatched to a matched
+    // panel, not an open marketplace" model — same list the server already
+    // uses to decide what to sync down, applied again here so anything
+    // already sitting in localStorage from before this filter existed
+    // doesn't keep showing. Falls back to unfiltered when we don't know
+    // this contractor's trades yet (no local application record).
+    const myTrades = (getApplications().find(a => a.business === name) || {}).trades;
+    const feedJobs = jobs.filter(j => j.status === 'feed' && (!myTrades || !myTrades.length || myTrades.includes(j.category)));
     const myJobs = jobs.filter(j => j.contractor === name);
 
     app.innerHTML = `
