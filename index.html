@@ -221,6 +221,15 @@
 
   .fs-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:200; align-items:center; justify-content:center; padding:20px; }
   .fs-modal-overlay.show { display:flex; }
+
+  /* Welcome splash — a brief brand interstitial shown once per browser
+     session before the homepage. No gate, one tap through. */
+  .welcome-splash { position:fixed; inset:0; z-index:500; background:var(--black); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px; transition:opacity .35s ease, visibility .35s ease; }
+  .welcome-splash.hide { opacity:0; visibility:hidden; pointer-events:none; }
+  .welcome-splash .logo-mark { width:64px; height:64px; border-radius:16px; background:#fff; margin-bottom:20px; }
+  .welcome-splash .logo-word { font-weight:800; font-size:30px; color:#fff; letter-spacing:-0.01em; margin-bottom:10px; }
+  .welcome-splash .tagline { color:rgba(255,255,255,0.65); font-size:15px; max-width:340px; line-height:1.5; margin-bottom:32px; }
+  .welcome-splash .btn { padding:14px 34px; font-size:15px; }
   .fs-modal { background:#fff; border-radius:20px; padding:28px; max-width:480px; width:100%; max-height:88vh; overflow-y:auto; }
   .fs-modal-close { float:right; background:none; border:none; font-size:20px; cursor:pointer; color:var(--stone); line-height:1; }
   .fs-modal h3 { font-size:20px; margin-bottom:6px; }
@@ -274,6 +283,25 @@
 <meta name="apple-mobile-web-app-title" content="Mysubbies">
 </head>
 <body>
+
+<div class="welcome-splash" id="welcomeSplash">
+  <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="logo-word">Mysubbies</div>
+  <div class="tagline">Your Personal Tradie. An estimated, upfront price and a vetted contractor — sent straight to your job.</div>
+  <button class="btn btn-white" onclick="dismissWelcomeSplash()">Enter site →</button>
+</div>
+<script>
+  // Runs immediately (before the rest of the page renders) so a returning
+  // visitor within the same browser session doesn't see the splash flash
+  // before disappearing.
+  if (sessionStorage.getItem('mysubbies_welcome_seen') === 'true') {
+    document.getElementById('welcomeSplash').classList.add('hide');
+  }
+  function dismissWelcomeSplash() {
+    sessionStorage.setItem('mysubbies_welcome_seen', 'true');
+    document.getElementById('welcomeSplash').classList.add('hide');
+  }
+</script>
 
 <header>
   <div class="navwrap">
