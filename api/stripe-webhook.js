@@ -105,9 +105,24 @@ module.exports = async (req, res) => {
               actor_role: 'system', before_state: { status: milestoneRow.status }, after_state: { status: 'paid' },
             });
 
-            const { data: remaining } = await supabase.from('payment_milestones').select('status').eq('job_payment_schedule_id', milestoneRow.job_payment_schedule_id);
+            const { data: remaining } = await supabase.from('payment_milestones').select('*').eq('job_payment_schedule_id', milestoneRow.job_payment_schedule_id);
             if (remaining && remaining.every(m => m.status === 'paid')) {
               await supabase.from('job_payment_schedules').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', milestoneRow.job_payment_schedule_id);
+            } else if (remaining) {
+              // Unlock the next milestone in sequence now that this one is
+              // paid — nothing else flips a milestone from 'locked' to
+              // 'available', so without this the next stage would be
+              // permanently unclaimable by the contractor.
+              const next = remaining
+                .filter(m => m.milestone_index > milestoneRow.milestone_index && m.status === 'locked')
+                .sort((a, b) => a.milestone_index - b.milestone_index)[0];
+              if (next) {
+                await supabase.from('payment_milestones').update({ status: 'available', updated_at: new Date().toISOString() }).eq('id', next.id);
+                await supabase.from('payment_audit_logs').insert({
+                  entity_type: 'payment_milestone', entity_id: next.id, action: 'milestone_unlocked',
+                  actor_role: 'system', before_state: { status: 'locked' }, after_state: { status: 'available' },
+                });
+              }
             }
           }
         }
