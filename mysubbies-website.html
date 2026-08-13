@@ -251,7 +251,8 @@
   .welcome-step .num { flex-shrink:0; width:26px; height:26px; border-radius:50%; background:#fff; color:var(--black); font-size:12.5px; font-weight:800; display:flex; align-items:center; justify-content:center; }
   .welcome-step span.txt { color:#fff; font-size:13px; line-height:1.4; }
   .welcome-content .btn { padding:14px 34px; font-size:15px; }
-  .welcome-skip { color:rgba(255,255,255,0.55); font-size:12.5px; margin-top:16px; background:none; border:none; cursor:pointer; text-decoration:underline; }
+  .welcome-actions { display:flex; flex-direction:column; gap:12px; align-items:center; }
+  @media (min-width:480px) { .welcome-actions { flex-direction:row; } }
   @media (max-width:480px) { .welcome-content { padding:36px 20px; } }
   .fs-modal { background:#fff; border-radius:20px; padding:28px; max-width:480px; width:100%; max-height:88vh; overflow-y:auto; }
   .fs-modal-close { float:right; background:none; border:none; font-size:20px; cursor:pointer; color:var(--stone); line-height:1; }
@@ -450,33 +451,33 @@
     <div class="logo-word">MySubbies</div>
     <h2 style="font-size:clamp(24px,4.4vw,32px);">Welcome to MySubbies</h2>
     <div class="tagline">One place to price, book and manage trusted home services.</div>
-    <button class="btn btn-white" onclick="dismissWelcomeSplash(true)">Find a service</button>
-    <button class="welcome-skip" onclick="dismissWelcomeSplash(false)">Skip</button>
+    <div class="welcome-actions">
+      <button class="btn btn-white" onclick="dismissWelcomeSplash('browse')">Find a service</button>
+      <button class="btn btn-white" onclick="dismissWelcomeSplash('quote')">Get an instant quote</button>
+    </div>
   </div>
 </div>
 <script>
   // Runs immediately (before the rest of the page renders) so a returning
   // visitor within the same browser session doesn't see the splash flash
-  // before disappearing.
-  let welcomeAutoTimer = null;
+  // before disappearing. No auto-continue and no skip — the visitor picks
+  // one of the two real destinations below before the splash goes away.
   if (sessionStorage.getItem('mysubbies_welcome_seen') === 'true') {
     document.getElementById('welcomeSplash').classList.add('hide');
-  } else {
-    // Auto-continues to the homepage after ~2s if the visitor doesn't tap
-    // anything — a brief brand moment, not a gate.
-    welcomeAutoTimer = setTimeout(() => dismissWelcomeSplash(false), 2000);
   }
-  function dismissWelcomeSplash(goToEstimator) {
-    if (welcomeAutoTimer) { clearTimeout(welcomeAutoTimer); welcomeAutoTimer = null; }
+  function dismissWelcomeSplash(destination) {
     sessionStorage.setItem('mysubbies_welcome_seen', 'true');
     document.getElementById('welcomeSplash').classList.add('hide');
-    if (goToEstimator) {
-      setTimeout(() => {
+    setTimeout(() => {
+      if (destination === 'quote') {
         const el = document.getElementById('bstarterInput') || document.getElementById('estimate');
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         if (document.getElementById('bstarterInput')) document.getElementById('bstarterInput').focus();
-      }, 350);
-    }
+      } else if (destination === 'browse') {
+        const el = document.getElementById('categories');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 350);
   }
 </script>
 
