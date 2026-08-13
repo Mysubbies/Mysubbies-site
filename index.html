@@ -134,6 +134,8 @@
   .est-match-line.none { color: var(--warn); }
   .est-match-line.unavailable { color: var(--warn); font-weight:600; }
   .chiprow-est { display:flex; flex-wrap:wrap; gap:7px; }
+  .est-tier-quickmatch { width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:14px; color:var(--ink); border:1.5px solid var(--line); border-radius:10px; padding:11px 14px; outline:none; background:#fff; margin-bottom:12px; }
+  .est-tier-quickmatch:focus { border-color:var(--black); }
   .chip-est { font-size:12.5px; font-weight:500; padding:8px 13px; border-radius:999px; border:1.5px solid var(--line); background:#fff; cursor:pointer; color:var(--ink); }
   .chip-est.selected { border-color: var(--black); background: var(--black); color:#fff; }
   #estCartWrap { margin-bottom: 4px; }
@@ -336,6 +338,7 @@
   .bstarter-suggest-price { font-size:13.5px; color:var(--ink); margin-top:6px; font-weight:600; }
   .bstarter-suggest-trade { font-size:12px; color:var(--stone); margin-top:3px; }
   .bstarter-suggest-work { margin:10px 0 0; padding-left:18px; font-size:12.5px; color:var(--ink); line-height:1.6; }
+  .bstarter-suggest-visit { margin-top:10px; padding:9px 12px; background:#FFF6E5; border:1px solid #F0DBA6; border-radius:8px; font-size:12px; color:#8A6D2E; line-height:1.5; }
   .bstarter-suggest-text { font-size:13.5px; color:var(--ink); line-height:1.5; }
   .bstarter-suggest-q { font-size:13px; font-weight:600; color:var(--ink); margin-top:14px; margin-bottom:10px; }
   .bstarter-suggest-actions { display:flex; gap:10px; }
@@ -690,6 +693,7 @@
 
           <div id="estTierWrap" style="display:none;">
             <label class="est-field-label">Choose an option</label>
+            <input type="text" id="estTierQuickMatch" class="est-tier-quickmatch" placeholder="Or just type what you need, e.g. &quot;replace a power point&quot;" autocomplete="off" oninput="onTierQuickMatch()" />
             <div class="chiprow-est" id="estTierChips"></div>
           </div>
 
@@ -1552,6 +1556,13 @@
       ? `We can definitely help — ${escapeHtml(data.category)} starts from $${startingPrice.rate}${startingPrice.unit ? '/' + escapeHtml(startingPrice.unit) : ''}.`
       : `We can definitely help with that.`;
     const workList = (data.likelyWork || []).slice(0, 3).map(w => `<li>${escapeHtml(w)}</li>`).join('');
+    // Regulated trades / anything the AI flagged a compliance note on still
+    // get a real recommendation + book option rather than being blocked —
+    // just with a tentative-price caveat, since the exact scope needs a
+    // contractor to confirm on site before it's locked in.
+    const siteVisitNote = data.needsSiteVisit
+      ? `<div class="bstarter-suggest-visit">⚠ Tentative price — a contractor will confirm the final price on site.${data.complianceNote ? ' ' + escapeHtml(data.complianceNote) : ''}</div>`
+      : '';
     status.innerHTML = `
       <div class="bstarter-suggest">
         <div class="bstarter-suggest-label">This job needs</div>
@@ -1559,6 +1570,7 @@
         <div class="bstarter-suggest-price">${priceLine}</div>
         <div class="bstarter-suggest-trade">${escapeHtml(data.likelyService || data.category)} · AI match confidence ${Math.round(data.confidence || 0)}%</div>
         ${workList ? `<ul class="bstarter-suggest-work">${workList}</ul>` : ''}
+        ${siteVisitNote}
         <div class="bstarter-suggest-q">Would you like to book the job?</div>
         <div class="bstarter-suggest-actions">
           <button class="btn btn-black" onclick="heroConfirmSuggestion()">Book ${escapeHtml(role)} now →</button>
@@ -1817,6 +1829,7 @@
 
     const tierWrap = document.getElementById('estTierWrap');
     tierWrap.style.display = 'block';
+    document.getElementById('estTierQuickMatch').value = '';
     const chips = document.getElementById('estTierChips');
     chips.innerHTML = '';
     c.tasks.filter(t => !t.disabled).forEach(t => {
@@ -1842,6 +1855,53 @@
 
     renderQuestions(c);
     updateSizeHint();
+  }
+
+  // Sub-category quick-match (hybrid text + chips) — customers can type
+  // what they need instead of scanning every task chip; the chips stay
+  // visible underneath so they can still browse or correct a wrong match.
+  // Pure client-side string matching against the real rate card, same
+  // bidirectional-substring approach already used by continueToEstimatorFromFs,
+  // with a keyword-overlap fallback for phrasing that doesn't substring-match.
+  let estTierQuickMatchTimer = null;
+  function onTierQuickMatch() {
+    if (estTierQuickMatchTimer) clearTimeout(estTierQuickMatchTimer);
+    estTierQuickMatchTimer = setTimeout(() => {
+      if (!selectedCat) return;
+      const query = document.getElementById('estTierQuickMatch').value.trim();
+      if (!query) return; // leave whatever's currently selected as-is
+      const match = estFindBestTaskMatch(selectedCat.tasks, query);
+      if (!match) return;
+      selectedTier = match;
+      const chips = document.getElementById('estTierChips');
+      let matchedBtn = null;
+      chips.querySelectorAll('.chip-est').forEach(b => {
+        const isMatch = b.textContent.trim() === match.name;
+        b.classList.toggle('selected', isMatch);
+        if (isMatch) matchedBtn = b;
+      });
+      if (matchedBtn) matchedBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      updateSizeHint();
+    }, 300);
+  }
+
+  function estFindBestTaskMatch(tasks, query) {
+    const needle = query.toLowerCase().trim();
+    if (!needle) return null;
+    const available = tasks.filter(t => !t.unavailable && !t.disabled);
+    const substringMatch = available.find(t => {
+      const name = t.name.toLowerCase();
+      return needle.includes(name) || name.includes(needle);
+    });
+    if (substringMatch) return substringMatch;
+    const needleWords = needle.split(/\s+/).filter(w => w.length > 2);
+    let best = null, bestScore = 0;
+    available.forEach(t => {
+      const nameWords = t.name.toLowerCase().replace(/[()]/g, '').split(/\s+/);
+      const score = needleWords.filter(w => nameWords.some(nw => nw.includes(w) || w.includes(nw))).length;
+      if (score > bestScore) { bestScore = score; best = t; }
+    });
+    return best;
   }
 
   let pendingItem = null;

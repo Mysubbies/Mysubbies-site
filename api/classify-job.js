@@ -33,9 +33,11 @@ const KNOWN_CATEGORIES = [
   'Handyman', 'Property Maintenance', 'Small Outdoor & Construction Repairs',
 ];
 
-// Work that must never get an automatic instant quote regardless of AI
-// confidence — regulated trades where a wrong guess is a safety issue
-// (section 12). These categories always require a human to confirm scope.
+// Regulated trades where a wrong guess is a safety issue (section 12).
+// Below CONFIDENCE_AUTO_QUOTE, these never get a blind fixed instant
+// quote — the customer still gets a trade recommendation and can book,
+// but it's flagged needsSiteVisit so the price shown is tentative,
+// confirmed by the contractor on site rather than charged automatically.
 const ALWAYS_MANUAL_REVIEW_IF_COMPLEX = ['Electrical', 'Plumbing'];
 
 function getAnthropic() {
@@ -102,7 +104,14 @@ Be conservative with confidence: only score above ${CONFIDENCE_AUTO_QUOTE} if th
     const category = KNOWN_CATEGORIES.includes(parsed.category) ? parsed.category : null;
     const isComplexRegulated = parsed.isRegulatedTrade && ALWAYS_MANUAL_REVIEW_IF_COMPLEX.includes(category) && confidence < CONFIDENCE_AUTO_QUOTE;
 
-    if (!category || confidence < CONFIDENCE_ASK_MORE || isComplexRegulated || parsed.safetyOrComplianceConcerns) {
+    // Hard block only when we genuinely can't identify a usable trade —
+    // no category, or confidence too low to say anything useful. A
+    // regulated trade or a noted compliance concern no longer forces full
+    // manual review by itself: we still name the trade and hand off to
+    // booking, just flagged needsSiteVisit so the price shown is tentative
+    // (same existing "needs a site visit" mechanism the rate card already
+    // uses for individually-flagged tasks) rather than a blind fixed quote.
+    if (!category || confidence < CONFIDENCE_ASK_MORE) {
       res.status(200).json({
         manualReviewRequired: true,
         reason: parsed.safetyOrComplianceConcerns
@@ -121,6 +130,8 @@ Be conservative with confidence: only score above ${CONFIDENCE_AUTO_QUOTE} if th
       likelyWork: Array.isArray(parsed.likelyWork) ? parsed.likelyWork : [],
       suggestedQuestions: Array.isArray(parsed.suggestedQuestions) ? parsed.suggestedQuestions : [],
       askMoreQuestions: confidence < CONFIDENCE_AUTO_QUOTE,
+      needsSiteVisit: !!(isComplexRegulated || parsed.safetyOrComplianceConcerns),
+      complianceNote: parsed.safetyOrComplianceConcerns || null,
       aiClassification: parsed,
     });
   } catch (err) {
