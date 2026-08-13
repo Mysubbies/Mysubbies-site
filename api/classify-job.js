@@ -19,8 +19,9 @@
 const Anthropic = require('@anthropic-ai/sdk');
 
 const MANUAL_REVIEW_REASON_NO_AI = 'AI photo assessment is not yet turned on for this account — a MySubbies team member will review your request and follow up with a price.';
-const CONFIDENCE_AUTO_QUOTE = 95;
-const CONFIDENCE_ASK_MORE = 75;
+const CONFIDENCE_AUTO_QUOTE = 95; // above this: simple/clear enough to skip clarifying questions
+const CONFIDENCE_ASK_MORE = 75;   // prompt guidance only (see prompt text) -- NOT the hard-block bar; a real job (e.g. a custom deck) legitimately scores below this just for having normal follow-up questions, which is not the same as "we can't tell what trade this needs"
+const CONFIDENCE_MIN_USABLE = 45; // hard-block bar: below this the category guess itself isn't trustworthy enough to show at all
 
 // Keep this list in sync with DEFAULT_CATEGORIES labels in
 // mysubbies-website.html — it's passed to the model so it only ever
@@ -108,13 +109,18 @@ Be conservative with confidence: only score above ${CONFIDENCE_AUTO_QUOTE} if th
     const isComplexRegulated = parsed.isRegulatedTrade && ALWAYS_MANUAL_REVIEW_IF_COMPLEX.includes(category) && confidence < CONFIDENCE_AUTO_QUOTE;
 
     // Hard block only when we genuinely can't identify a usable trade —
-    // no category, or confidence too low to say anything useful. A
-    // regulated trade or a noted compliance concern no longer forces full
-    // manual review by itself: we still name the trade and hand off to
-    // booking, just flagged needsSiteVisit so the price shown is tentative
-    // (same existing "needs a site visit" mechanism the rate card already
-    // uses for individually-flagged tasks) rather than a blind fixed quote.
-    if (!category || confidence < CONFIDENCE_ASK_MORE) {
+    // no category, or confidence too low to trust the category guess at
+    // all (CONFIDENCE_MIN_USABLE, deliberately low). A real job with normal
+    // follow-up questions (custom dimensions, permits, site specifics) will
+    // legitimately score well below CONFIDENCE_AUTO_QUOTE per the prompt
+    // above -- that's "ask more questions", not "we have no idea what this
+    // is", so it must not block the recommendation. A regulated trade or a
+    // noted compliance concern also no longer forces full manual review by
+    // itself: we still name the trade and hand off to booking, just flagged
+    // needsSiteVisit so the price shown is tentative (same existing "needs
+    // a site visit" mechanism the rate card already uses for individually-
+    // flagged tasks) rather than a blind fixed quote.
+    if (!category || confidence < CONFIDENCE_MIN_USABLE) {
       res.status(200).json({
         manualReviewRequired: true,
         reason: parsed.safetyOrComplianceConcerns
