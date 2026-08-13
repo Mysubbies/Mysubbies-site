@@ -333,6 +333,7 @@
   .bstarter-suggest { background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:16px 18px; margin-top:14px; }
   .bstarter-suggest-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--stone); margin-bottom:5px; }
   .bstarter-suggest-cat { font-size:16px; font-weight:800; color:var(--black); }
+  .bstarter-suggest-price { font-size:13.5px; color:var(--ink); margin-top:6px; font-weight:600; }
   .bstarter-suggest-trade { font-size:12px; color:var(--stone); margin-top:3px; }
   .bstarter-suggest-work { margin:10px 0 0; padding-left:18px; font-size:12.5px; color:var(--ink); line-height:1.6; }
   .bstarter-suggest-text { font-size:13.5px; color:var(--ink); line-height:1.5; }
@@ -1473,6 +1474,19 @@
     return TRADE_ROLE_NAMES[category] || `${category} Specialist`;
   }
 
+  // Real "starts from $X" teaser sourced from the actual founder-priced rate
+  // card (CATEGORIES, same data the estimator prices against) — never an
+  // AI-invented number. Uses the cheapest available (non-disabled) task in
+  // the matched category as the floor price shown in the hero card.
+  function heroCategoryStartingPrice(categoryLabel) {
+    const cat = CATEGORIES.find(c => c.label === categoryLabel);
+    if (!cat || !cat.tasks || !cat.tasks.length) return null;
+    const available = cat.tasks.filter(t => !t.unavailable && typeof t.rate === 'number');
+    if (!available.length) return null;
+    const cheapest = available.reduce((min, t) => (t.rate < min.rate ? t : min), available[0]);
+    return { rate: cheapest.rate, unit: cheapest.unit || null };
+  }
+
   function heroOnInput() {
     if (heroClassifyTimer) clearTimeout(heroClassifyTimer);
     const val = document.getElementById('bstarterInput').value.trim();
@@ -1533,14 +1547,19 @@
 
     heroLastSuggestion = { category: data.category, likelyService: data.likelyService || '' };
     const role = heroTradeRoleName(data.category);
+    const startingPrice = heroCategoryStartingPrice(data.category);
+    const priceLine = startingPrice
+      ? `We can definitely help — ${escapeHtml(data.category)} starts from $${startingPrice.rate}${startingPrice.unit ? '/' + escapeHtml(startingPrice.unit) : ''}.`
+      : `We can definitely help with that.`;
     const workList = (data.likelyWork || []).slice(0, 3).map(w => `<li>${escapeHtml(w)}</li>`).join('');
     status.innerHTML = `
       <div class="bstarter-suggest">
         <div class="bstarter-suggest-label">This job needs</div>
         <div class="bstarter-suggest-cat">A ${escapeHtml(role)}</div>
+        <div class="bstarter-suggest-price">${priceLine}</div>
         <div class="bstarter-suggest-trade">${escapeHtml(data.likelyService || data.category)} · AI match confidence ${Math.round(data.confidence || 0)}%</div>
         ${workList ? `<ul class="bstarter-suggest-work">${workList}</ul>` : ''}
-        <div class="bstarter-suggest-q">You can book a ${escapeHtml(role.toLowerCase())} now.</div>
+        <div class="bstarter-suggest-q">Would you like to book the job?</div>
         <div class="bstarter-suggest-actions">
           <button class="btn btn-black" onclick="heroConfirmSuggestion()">Book ${escapeHtml(role)} now →</button>
           <button class="btn btn-secondary-action" onclick="heroRejectSuggestion()">Not quite</button>
