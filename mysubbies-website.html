@@ -128,6 +128,9 @@
   .estimator-search-result:hover { background: var(--paper); }
   .estimator-row-2col { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   @media (max-width: 520px) { .estimator-row-2col { grid-template-columns:1fr; } }
+  .est-qty-row { margin-bottom:12px; }
+  .est-qty-row .est-field-label { margin-bottom:4px; }
+  .est-qty-row .est-field-label .unit { font-weight:400; color:var(--stone); }
   .est-hint { font-size:11px; color: var(--stone-light); margin-top:5px; min-height:14px; }
   .est-match-line { font-size:12.5px; margin:6px 0 14px; min-height:16px; }
   .est-match-line.found { color: var(--good, #2F7A50); font-weight:600; }
@@ -704,7 +707,7 @@
           <div id="estRefImage" style="display:none;margin-bottom:14px;"></div>
 
           <div id="estTierWrap" style="display:none;">
-            <label class="est-field-label">Choose an option</label>
+            <label class="est-field-label">Choose one or more options</label>
             <input type="text" id="estTierQuickMatch" class="est-tier-quickmatch" placeholder="Or just type what you need, e.g. &quot;replace a power point&quot;" autocomplete="off" oninput="onTierQuickMatch()" />
             <div class="chiprow-est" id="estTierChips"></div>
           </div>
@@ -718,17 +721,8 @@
         <div class="est-step-title">Tell us about the job</div>
         <div class="est-step-sub">Suburb, size or quantity, site conditions, access, timing and photos.</div>
 
-          <div class="estimator-row-2col">
-            <div>
-              <label class="est-field-label" id="estSizeLabel">Size / quantity</label>
-              <input type="text" id="estQty" placeholder="e.g. 24" oninput="onQtyChanged()" />
-              <div class="est-hint" id="estSizeHint">&nbsp;</div>
-            </div>
-            <div>
-              <label class="est-field-label">&nbsp;</label>
-              <button class="btn btn-outline btn-full" onclick="calculateItemPrice()">Calculate price</button>
-            </div>
-          </div>
+          <div id="estQtyRows"></div>
+          <button class="btn btn-outline btn-full" onclick="calculateSelectedItems()" style="margin-top:4px;">Calculate price</button>
 
           <div id="estItemPreview" style="display:none;"></div>
 
@@ -1451,7 +1445,10 @@
     return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   }
 
-  let selectedTier = null;
+  let selectedTier = null; // kept as "most recently selected" for quick-match/hero handoff compatibility
+  let selectedTierSet = new Map(); // task.name -> task, the real multi-select state
+  let qtyValues = new Map(); // task.name -> typed qty string, preserved across row re-renders
+  let pendingItems = []; // calculated-but-not-yet-added items, replaces the old single pendingItem
   let riskAnswers = {};
   let cart = [];
 
@@ -1460,11 +1457,11 @@
   // #protection in the HTML. Nothing reads mysubbies_jobs on this page now.
 
   // ============================================================
-  // Multi-step instant-price wizard (item 9) — pure UI-layer step
-  // visibility control. Every field ID, and every pricing/cart/booking
-  // function (calculateItemPrice, confirmAddToCart, runEstimate, etc.)
-  // is completely unchanged — this only shows/hides which step div is
-  // visible and does light client-side validation before advancing.
+  // Multi-step instant-price wizard (3 steps). Customers can multi-select
+  // task chips within a category (calculateSelectedItems/confirmAddItemsToCart)
+  // and mix categories across rounds — cart/renderCart/runEstimate below are
+  // unchanged and already group-and-total across however many items land in
+  // the cart, so multi-select needed no changes to pricing or booking logic.
   // ============================================================
   let currentEstStep = 1;
   const TOTAL_EST_STEPS = 3;
@@ -1479,7 +1476,7 @@
 
   function estStep1Continue() {
     const err = document.getElementById('estStep1Error');
-    if (!selectedCat || !selectedTier) {
+    if (!selectedCat || selectedTierSet.size === 0) {
       err.textContent = 'Please choose a service to continue.';
       err.classList.add('show');
       return;
@@ -1491,7 +1488,7 @@
   function estStep2Continue() {
     const err = document.getElementById('estStep2Error');
     // Same "did they forget to click Calculate" convenience runEstimate() already had.
-    if (pendingItem) confirmAddToCart();
+    if (pendingItems.length) confirmAddItemsToCart();
     if (cart.length === 0) {
       err.textContent = 'Please calculate a price and add at least one item to your job.';
       err.classList.add('show');
@@ -1908,6 +1905,8 @@
   function selectCat(c) {
     selectedCat = c;
     selectedTier = null;
+    selectedTierSet.clear();
+    qtyValues.clear();
     riskAnswers = {};
     document.getElementById('estCategoryInput').value = c.label;
     document.getElementById('estCatResults').classList.remove('show');
@@ -1940,18 +1939,30 @@
         btn.textContent = `${t.name} \u2014 not available`;
       } else {
         btn.textContent = t.name;
-        btn.onclick = () => {
-          selectedTier = t;
-          chips.querySelectorAll('.chip-est').forEach(b => b.classList.remove('selected'));
-          btn.classList.add('selected');
-          updateSizeHint();
-        };
+        // Toggle, not radio \u2014 customers can pick several tasks from this
+        // category at once (e.g. Deck stairs + Balustrade), each priced
+        // individually via its own quantity row in estQtyRows.
+        btn.onclick = () => toggleTierSelection(t, btn);
       }
       chips.appendChild(btn);
     });
 
     renderQuestions(c);
-    updateSizeHint();
+    renderQtyRows();
+  }
+
+  function toggleTierSelection(t, btn) {
+    if (selectedTierSet.has(t.name)) {
+      selectedTierSet.delete(t.name);
+      qtyValues.delete(t.name);
+      btn.classList.remove('selected');
+    } else {
+      selectedTierSet.set(t.name, t);
+      btn.classList.add('selected');
+    }
+    const remaining = Array.from(selectedTierSet.values());
+    selectedTier = remaining.length ? remaining[remaining.length - 1] : null;
+    renderQtyRows();
   }
 
   // Sub-category quick-match (hybrid text + chips) — customers can type
@@ -1969,16 +1980,19 @@
       if (!query) return; // leave whatever's currently selected as-is
       const match = estFindBestTaskMatch(selectedCat.tasks, query);
       if (!match) return;
-      selectedTier = match;
+      // Adds to the multi-select set rather than replacing it, so typing a
+      // second query on top of an already-picked chip keeps both selected.
+      if (!selectedTierSet.has(match.name)) {
+        selectedTierSet.set(match.name, match);
+        selectedTier = match;
+        renderQtyRows();
+      }
       const chips = document.getElementById('estTierChips');
       let matchedBtn = null;
       chips.querySelectorAll('.chip-est').forEach(b => {
-        const isMatch = b.textContent.trim() === match.name;
-        b.classList.toggle('selected', isMatch);
-        if (isMatch) matchedBtn = b;
+        if (b.textContent.trim() === match.name) { b.classList.add('selected'); matchedBtn = b; }
       });
       if (matchedBtn) matchedBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      updateSizeHint();
     }, 300);
   }
 
@@ -2001,70 +2015,113 @@
     return best;
   }
 
-  let pendingItem = null;
-
-  function onQtyChanged() {
-    updateSizeHint();
-    // Any change to qty invalidates a previously calculated preview.
-    pendingItem = null;
+  // Renders one quantity row per currently-selected chip, keyed by task
+  // name so a re-render (another chip toggled) doesn't lose what the
+  // customer already typed into rows still selected.
+  function renderQtyRows() {
+    const wrap = document.getElementById('estQtyRows');
+    if (selectedTierSet.size === 0) {
+      wrap.innerHTML = '<div class="est-hint">Choose one or more options above first</div>';
+      return;
+    }
+    wrap.innerHTML = Array.from(selectedTierSet.values()).map(t => {
+      const hint = qtyHintForUnit(t.unit);
+      const val = qtyValues.get(t.name) || '';
+      return `
+        <div class="est-qty-row">
+          <label class="est-field-label">${escapeHtml(t.name)} <span class="unit">(${escapeHtml(hint.label)})</span></label>
+          <input type="text" class="est-qty-row-input" data-task="${escapeHtml(t.name)}" placeholder="${escapeHtml(hint.placeholder)}" value="${escapeHtml(val)}" oninput="qtyValues.set(this.dataset.task, this.value); this.style.borderColor=''" />
+          <div class="est-hint">${escapeHtml(hint.hint)}</div>
+        </div>
+      `;
+    }).join('');
+    // Any change to selection invalidates a previously calculated preview.
+    pendingItems = [];
     document.getElementById('estItemPreview').style.display = 'none';
   }
 
-  function calculateItemPrice() {
-    if (!selectedCat || !selectedTier) {
+  function qtyHintForUnit(unit) {
+    if (unit === 'm²') return { label: 'm²', placeholder: 'e.g. 24', hint: 'Enter dimensions like 6m x 5m, or a total m² directly' };
+    if (unit === 'lm') return { label: 'lm', placeholder: 'e.g. 12', hint: 'Enter the length, e.g. 12m' };
+    if (unit === 'm³') return { label: 'm³', placeholder: 'e.g. 10', hint: 'Enter the volume, e.g. 10' };
+    if (unit === 'job') return { label: 'flat rate', placeholder: '1', hint: 'This is a flat rate for the job — enter 1 unless you need it more than once' };
+    return { label: unit, placeholder: unit === 'hr' ? 'e.g. 2' : 'e.g. 1', hint: `Quantity in ${unit}` };
+  }
+
+  function calculateSelectedItems() {
+    if (!selectedCat || selectedTierSet.size === 0) {
       const chips = document.getElementById('estTierChips');
       chips.style.outline = '2px solid #B4232C';
       chips.scrollIntoView({ behavior: 'smooth', block: 'center' });
       setTimeout(() => { chips.style.outline = 'none'; }, 1600);
       return;
     }
-    const qtyRaw = document.getElementById('estQty').value;
-    if (!qtyRaw) { document.getElementById('estQty').style.borderColor = '#B4232C'; document.getElementById('estQty').focus(); return; }
-    const qty = parseQuantity(qtyRaw, selectedTier.unit);
-    if (!qty) { document.getElementById('estQty').style.borderColor = '#B4232C'; document.getElementById('estQty').focus(); return; }
-    document.getElementById('estQty').style.borderColor = '';
+    const items = [];
+    for (const t of selectedTierSet.values()) {
+      const input = document.querySelector(`.est-qty-row-input[data-task="${cssEscapeAttr(t.name)}"]`);
+      const qtyRaw = qtyValues.get(t.name) || '';
+      const qty = qtyRaw ? parseQuantity(qtyRaw, t.unit) : null;
+      if (!qty) { if (input) { input.style.borderColor = '#B4232C'; input.focus(); } return; }
+      const rawBase = Math.round(qty * t.rate);
+      const minApplied = !!(t.minJobPrice && rawBase < t.minJobPrice);
+      const base = minApplied ? t.minJobPrice : rawBase;
+      items.push({
+        catLabel: selectedCat.label, catIcon: selectedCat.icon,
+        taskName: t.name, unit: t.unit, qty, base,
+        needsSiteVisit: !!t.needsSiteVisit, notes: t.notes || '',
+        minApplied, minJobPrice: t.minJobPrice,
+      });
+    }
+    pendingItems = items;
+    renderItemsPreview();
+  }
 
-    const rawBase = Math.round(qty * selectedTier.rate);
-    const minApplied = !!(selectedTier.minJobPrice && rawBase < selectedTier.minJobPrice);
-    const base = minApplied ? selectedTier.minJobPrice : rawBase;
-    pendingItem = {
-      catLabel: selectedCat.label, catIcon: selectedCat.icon,
-      taskName: selectedTier.name, unit: selectedTier.unit, qty, base,
-      needsSiteVisit: !!selectedTier.needsSiteVisit, notes: selectedTier.notes || '',
-      minApplied,
-    };
+  // querySelector attribute values can't contain unescaped quotes/etc —
+  // task names are plain founder-authored strings, but this keeps the
+  // lookup robust regardless.
+  function cssEscapeAttr(s) {
+    return (window.CSS && CSS.escape) ? CSS.escape(s) : s.replace(/["\\]/g, '\\$&');
+  }
 
+  function renderItemsPreview() {
     const preview = document.getElementById('estItemPreview');
     preview.style.display = 'block';
+    const total = pendingItems.reduce((s, i) => s + i.base, 0);
     preview.innerHTML = `
       <div class="item-preview">
-        <div class="item-preview-row">
-          <div>
-            <div class="item-preview-name">${pendingItem.catIcon} ${pendingItem.taskName}</div>
-            <div class="item-preview-meta">${qty.toLocaleString()} ${pendingItem.unit}</div>
+        ${pendingItems.map(item => `
+          <div class="item-preview-row">
+            <div>
+              <div class="item-preview-name">${item.catIcon} ${escapeHtml(item.taskName)}</div>
+              <div class="item-preview-meta">${item.qty.toLocaleString()} ${escapeHtml(item.unit)}</div>
+            </div>
+            <div class="item-preview-price">$${item.base.toLocaleString()}</div>
           </div>
-          <div class="item-preview-price">$${base.toLocaleString()}</div>
-        </div>
-        ${pendingItem.notes ? `<div class="item-preview-notes">${pendingItem.notes}</div>` : ''}
-        ${minApplied ? `<div class="item-preview-notes">Minimum job price of $${selectedTier.minJobPrice.toLocaleString()} applies for this size.</div>` : ''}
-        ${pendingItem.needsSiteVisit ? `<div class="item-preview-warning">⚠ This item needs a site visit before the price can be confirmed.</div>` : ''}
-        <button class="btn btn-black btn-full" style="margin-top:12px;" onclick="confirmAddToCart()">+ Add to job</button>
+          ${item.notes ? `<div class="item-preview-notes">${escapeHtml(item.notes)}</div>` : ''}
+          ${item.minApplied ? `<div class="item-preview-notes">Minimum job price of $${item.minJobPrice.toLocaleString()} applies for this size.</div>` : ''}
+          ${item.needsSiteVisit ? `<div class="item-preview-warning">⚠ This item needs a site visit before the price can be confirmed.</div>` : ''}
+        `).join('<hr style="border:none;border-top:1px solid var(--line);margin:10px 0;">')}
+        ${pendingItems.length > 1 ? `
+          <div class="item-preview-row" style="font-weight:800;border-top:1.5px solid var(--ink);padding-top:10px;margin-top:4px;">
+            <div>Subtotal (${pendingItems.length} items)</div><div>$${total.toLocaleString()}</div>
+          </div>` : ''}
+        <button class="btn btn-black btn-full" style="margin-top:12px;" onclick="confirmAddItemsToCart()">+ Add to job</button>
       </div>
     `;
   }
 
-  function confirmAddToCart() {
-    if (!pendingItem) return;
-    cart.push(pendingItem);
-    pendingItem = null;
+  function confirmAddItemsToCart() {
+    if (!pendingItems.length) return;
+    cart.push(...pendingItems);
+    pendingItems = [];
 
-    // Reset the task/qty/preview so another item from the same job can be added.
+    // Reset selection/qty rows/preview so another batch can be picked.
     selectedTier = null;
-    document.getElementById('estQty').value = '';
-    document.getElementById('estQty').style.borderColor = '';
+    selectedTierSet.clear();
+    qtyValues.clear();
     document.getElementById('estItemPreview').style.display = 'none';
     document.querySelectorAll('#estTierChips .chip-est').forEach(b => b.classList.remove('selected'));
-    updateSizeHint();
+    renderQtyRows();
     renderCart();
   }
 
@@ -2169,29 +2226,6 @@
     });
   }
 
-  function updateSizeHint() {
-    const hint = document.getElementById('estSizeHint');
-    const label = document.getElementById('estSizeLabel');
-    if (!selectedCat || !selectedTier) { hint.textContent = 'Choose an option above first'; label.textContent = 'Size / quantity'; return; }
-    const unit = selectedTier.unit;
-    if (unit === 'm²') {
-      label.textContent = 'Size (m²)';
-      hint.textContent = 'Enter dimensions like 6m x 5m, or a total m² directly';
-    } else if (unit === 'lm') {
-      label.textContent = 'Length (lm)';
-      hint.textContent = 'Enter the length, e.g. 12m';
-    } else if (unit === 'm³') {
-      label.textContent = 'Volume (m³)';
-      hint.textContent = 'Enter the volume, e.g. 10';
-    } else if (unit === 'job') {
-      label.textContent = 'Quantity';
-      hint.textContent = 'This is a flat rate for the job — enter 1 unless you need it more than once';
-    } else {
-      label.textContent = `Quantity (${unit})`;
-      hint.textContent = `e.g. ${unit === 'hr' ? '2' : '1'}`;
-    }
-  }
-
   function parseQuantity(raw, unit) {
     const text = raw.trim().toLowerCase();
     if (unit === 'm²') {
@@ -2225,11 +2259,11 @@
     const result = document.getElementById('estResult');
 
     // Convenience: if they calculated a price but forgot to click "Add to job", add it now.
-    if (pendingItem) {
-      confirmAddToCart();
-    } else if (selectedCat && selectedTier && document.getElementById('estQty').value.trim()) {
-      calculateItemPrice();
-      if (pendingItem) confirmAddToCart();
+    if (pendingItems.length) {
+      confirmAddItemsToCart();
+    } else if (selectedCat && selectedTierSet.size > 0) {
+      calculateSelectedItems();
+      if (pendingItems.length) confirmAddItemsToCart();
     }
 
     if (cart.length === 0) {
