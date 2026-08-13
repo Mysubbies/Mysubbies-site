@@ -1455,6 +1455,24 @@
   let heroClassifyToken = 0;
   let heroLastSuggestion = null;
 
+  // Rate-card category label -> the tradesperson noun customers actually
+  // think in ("Plumbing" -> "Plumber"), used only for the hero's recommendation
+  // copy. Falls back to "<category> Specialist" for anything not listed here
+  // (e.g. a category the admin adds later via the rate-card research tool).
+  const TRADE_ROLE_NAMES = {
+    'Fencing': 'Fencing Contractor', 'Pergola': 'Pergola Builder', 'Decking': 'Decking Contractor',
+    'Grass Installation': 'Turf Installer', 'Retaining Wall': 'Retaining Wall Contractor',
+    'Concreting': 'Concreter', 'Gardening & Lawn Mowing': 'Gardener', 'Tree Pruning & Removal': 'Arborist',
+    'Painting': 'Painter', 'Rendering': 'Renderer', 'Cabinetry': 'Cabinet Maker', 'Stonemason': 'Stonemason',
+    'Flooring': 'Flooring Contractor', 'Earth Works': 'Earthworks Contractor', 'Demolition': 'Demolition Contractor',
+    'Skip Bins': 'Skip Bin Provider', 'Cleaning': 'Cleaner', 'Tiling': 'Tiler', 'Tiled Roof Repair': 'Roofer',
+    'Electrical': 'Electrician', 'Plumbing': 'Plumber', 'Handyman': 'Handyman',
+    'Property Maintenance': 'Maintenance Technician', 'Small Outdoor & Construction Repairs': 'Repairs Specialist',
+  };
+  function heroTradeRoleName(category) {
+    return TRADE_ROLE_NAMES[category] || `${category} Specialist`;
+  }
+
   function heroOnInput() {
     if (heroClassifyTimer) clearTimeout(heroClassifyTimer);
     const val = document.getElementById('bstarterInput').value.trim();
@@ -1514,16 +1532,17 @@
     }
 
     heroLastSuggestion = { category: data.category, likelyService: data.likelyService || '' };
+    const role = heroTradeRoleName(data.category);
     const workList = (data.likelyWork || []).slice(0, 3).map(w => `<li>${escapeHtml(w)}</li>`).join('');
     status.innerHTML = `
       <div class="bstarter-suggest">
-        <div class="bstarter-suggest-label">This sounds like it needs</div>
-        <div class="bstarter-suggest-cat">${escapeHtml(data.likelyService || data.category)}</div>
-        <div class="bstarter-suggest-trade">Trade: ${escapeHtml(data.category)} · AI match confidence ${Math.round(data.confidence || 0)}%</div>
+        <div class="bstarter-suggest-label">This job needs</div>
+        <div class="bstarter-suggest-cat">A ${escapeHtml(role)}</div>
+        <div class="bstarter-suggest-trade">${escapeHtml(data.likelyService || data.category)} · AI match confidence ${Math.round(data.confidence || 0)}%</div>
         ${workList ? `<ul class="bstarter-suggest-work">${workList}</ul>` : ''}
-        <div class="bstarter-suggest-q">Does that look right?</div>
+        <div class="bstarter-suggest-q">You can book a ${escapeHtml(role.toLowerCase())} now.</div>
         <div class="bstarter-suggest-actions">
-          <button class="btn btn-black" onclick="heroConfirmSuggestion()">Yes, get my price →</button>
+          <button class="btn btn-black" onclick="heroConfirmSuggestion()">Book ${escapeHtml(role)} now →</button>
           <button class="btn btn-secondary-action" onclick="heroRejectSuggestion()">Not quite</button>
         </div>
       </div>`;
