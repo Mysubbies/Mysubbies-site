@@ -2207,6 +2207,9 @@
     } else if (unit === 'm³') {
       label.textContent = 'Volume (m³)';
       hint.textContent = 'Enter the volume, e.g. 10';
+    } else if (unit === 'job') {
+      label.textContent = 'Quantity';
+      hint.textContent = 'This is a flat rate for the job — enter 1 unless you need it more than once';
     } else {
       label.textContent = `Quantity (${unit})`;
       hint.textContent = `e.g. ${unit === 'hr' ? '2' : '1'}`;
