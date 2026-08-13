@@ -212,11 +212,6 @@
       <div class="field"><label>Password</label><input type="password" id="fPassword" placeholder="${mode === 'register' ? 'Choose a password' : 'Your password'}" /></div>
 
       ${mode === 'register' ? `
-        <div style="background:#FFF6E5;border:1px solid #F0DCA6;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:#7A5C1E;line-height:1.5;">
-          <strong>Controlled pilot:</strong> MySubbies is in invitation-only testing.${stripe
-            ? ' Your deposit is charged securely via Stripe when this job is approved. The remaining payment stages (materials, frame, completion) are not yet processed through Stripe — they\'re confirmed manually between you and your contractor as work progresses.'
-            : ' No card is charged and no funds move through the platform at this stage — payment stages shown in your job tracker are confirmed manually between you and your contractor.'}
-        </div>
         <div style="background:var(--paper);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:var(--stone);line-height:1.5;">
           <strong style="color:var(--ink);">Cancellation:</strong> free if no contractor has accepted yet. Once accepted, cancelling may incur a fee reflecting work or materials already committed. <a href="mysubbies-faq.html" target="_blank" style="text-decoration:underline;">Read more</a>
         </div>
