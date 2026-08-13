@@ -31,6 +31,9 @@ const KNOWN_CATEGORIES = [
   'Rendering', 'Cabinetry', 'Stonemason', 'Flooring', 'Earth Works', 'Demolition',
   'Skip Bins', 'Cleaning', 'Tiling', 'Tiled Roof Repair', 'Electrical', 'Plumbing',
   'Handyman', 'Property Maintenance', 'Small Outdoor & Construction Repairs',
+  'Pest Control', 'Locksmith', 'Blinds, Curtains & Shutters',
+  'Garage Door Service & Repair', 'Gutter Guard Installation',
+  'Plastering & Drywall Repair', 'Insulation Installation',
 ];
 
 // Regulated trades where a wrong guess is a safety issue (section 12).
