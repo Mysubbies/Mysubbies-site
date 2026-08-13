@@ -252,7 +252,8 @@
   .welcome-step span.txt { color:#fff; font-size:13px; line-height:1.4; }
   .welcome-content .btn { padding:14px 34px; font-size:15px; }
   .welcome-actions { display:flex; flex-direction:column; gap:12px; align-items:center; }
-  @media (min-width:480px) { .welcome-actions { flex-direction:row; } }
+  .welcome-actions .btn { width:100%; }
+  @media (min-width:480px) { .welcome-actions { flex-direction:row; } .welcome-actions .btn { width:auto; min-width:230px; } }
   @media (max-width:480px) { .welcome-content { padding:36px 20px; } }
   .fs-modal { background:#fff; border-radius:20px; padding:28px; max-width:480px; width:100%; max-height:88vh; overflow-y:auto; }
   .fs-modal-close { float:right; background:none; border:none; font-size:20px; cursor:pointer; color:var(--stone); line-height:1; }
