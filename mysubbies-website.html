@@ -425,6 +425,12 @@
   .est-step-nav { display:flex; gap:10px; margin-top:22px; }
   .est-step-nav .btn { flex:1; }
   .est-step-nav .btn-back { background:#fff; border:1.5px solid var(--line); color:var(--ink); }
+  .est-thinking-panel { display:flex; flex-direction:column; align-items:center; gap:14px; padding:36px 20px; text-align:center; }
+  .est-thinking-panel .spinner { width:30px; height:30px; border-radius:50%; border:3px solid var(--line); border-top-color:var(--ink); animation:estSpin .8s linear infinite; }
+  .est-thinking-panel .label { font-size:13.5px; font-weight:600; color:var(--ink); }
+  .est-thinking-panel .sub { font-size:12px; color:var(--stone); }
+  @keyframes estSpin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .est-thinking-panel .spinner { animation:none; } }
   .est-review-row { display:flex; justify-content:space-between; font-size:13.5px; padding:9px 0; border-top:1px solid var(--line); }
   .est-review-row:first-child { border-top:none; }
   .est-review-row .l { color:var(--stone); }
@@ -795,7 +801,13 @@
 
         <div id="estReviewSummary"></div>
 
-        <div class="est-step-nav">
+        <div class="est-thinking-panel" id="estStep4Thinking" style="display:none;">
+          <div class="spinner"></div>
+          <div class="label">Calculating your estimated price…</div>
+          <div class="sub">Matching your job against the live Melbourne rate card.</div>
+        </div>
+
+        <div class="est-step-nav" id="estStep4Nav">
           <button class="btn btn-back" onclick="estGoBack()">← Back</button>
           <button class="btn go-full" style="flex:1;" onclick="estStep4Continue()">See my estimated price →</button>
         </div>
@@ -1550,9 +1562,21 @@
     wrap.innerHTML = html;
   }
 
+  // A genuinely instant price reads as unconvincing ("did it even check?"),
+  // so this shows a brief calculating state before revealing the number —
+  // matched randomly within 2-3s so it doesn't feel like a fake fixed timer.
   function estStep4Continue() {
-    runEstimate();
-    showEstStep(5);
+    const nav = document.getElementById('estStep4Nav');
+    const thinking = document.getElementById('estStep4Thinking');
+    nav.style.display = 'none';
+    thinking.style.display = 'flex';
+    const delay = 2000 + Math.random() * 1000;
+    setTimeout(() => {
+      runEstimate();
+      showEstStep(5);
+      thinking.style.display = 'none';
+      nav.style.display = '';
+    }, delay);
   }
 
   function goToEstimatorWithCategory(label) {
