@@ -687,7 +687,7 @@
 
       <div class="est-progress">
         <div class="est-progress-bar"><div class="est-progress-bar-fill" id="estProgressFill" style="width:20%;"></div></div>
-        <div class="est-progress-label" id="estProgressLabel">Step 1 of 5</div>
+        <div class="est-progress-label" id="estProgressLabel">Step 1 of 3</div>
       </div>
 
       <!-- STEP 1 — What needs doing? -->
@@ -713,10 +713,10 @@
         <div class="est-step-nav"><button class="btn btn-black" onclick="estStep1Continue()">Continue →</button></div>
       </div>
 
-      <!-- STEP 2 — Tell us about the property -->
+      <!-- STEP 2 — Tell us about the job (merged: property + timing/photos) -->
       <div class="est-step" data-step="2">
-        <div class="est-step-title">Tell us about the property</div>
-        <div class="est-step-sub">Suburb, approximate size or quantity, current site conditions and access.</div>
+        <div class="est-step-title">Tell us about the job</div>
+        <div class="est-step-sub">Suburb, size or quantity, site conditions, access, timing and photos.</div>
 
           <div class="estimator-row-2col">
             <div>
@@ -751,18 +751,6 @@
           <label class="est-field-label">Site access</label>
           <div class="chiprow-est" id="estAccessChips"></div>
 
-        <div class="est-field-error" id="estStep2Error"></div>
-        <div class="est-step-nav">
-          <button class="btn btn-back" onclick="estGoBack()">← Back</button>
-          <button class="btn btn-black" onclick="estStep2Continue()">Continue →</button>
-        </div>
-      </div>
-
-      <!-- STEP 3 — Timing and photos -->
-      <div class="est-step" data-step="3">
-        <div class="est-step-title">Timing and photos</div>
-        <div class="est-step-sub">Urgency and supporting images (optional).</div>
-
           <label class="est-field-label">How urgent is this job?</label>
           <input type="text" id="estUrgencyText" placeholder="e.g. ASAP, within 2 weeks, no rush" oninput="selectedUrgency = this.value" />
 
@@ -781,46 +769,39 @@
           <div class="est-photo-count" id="estPhotoCount"></div>
           <div class="est-photo-grid" id="estPhotoGrid"></div>
 
+        <div class="est-field-error" id="estStep2Error"></div>
         <div class="est-step-nav">
           <button class="btn btn-back" onclick="estGoBack()">← Back</button>
-          <button class="btn btn-black" onclick="estStep3Continue()">Continue →</button>
+          <button class="btn btn-black" onclick="estStep2Continue()">Continue →</button>
         </div>
       </div>
 
-      <!-- STEP 4 — Review your estimate -->
-      <div class="est-step" data-step="4">
-        <div class="est-step-title">Review your estimate</div>
-        <div class="est-step-sub">Scope, assumptions and what's included — check it matches before you continue.</div>
+      <!-- STEP 3 — Review & get your price (merged: review + price reveal) -->
+      <div class="est-step" data-step="3">
+        <div class="est-step-title">Review & get your price</div>
+        <div class="est-step-sub">Scope, assumptions and what's included — check it matches, then reveal your estimated price.</div>
 
         <div id="estReviewSummary"></div>
 
-        <div class="est-thinking-panel" id="estStep4Thinking" style="display:none;">
+        <div class="est-thinking-panel" id="estStep3Thinking" style="display:none;">
           <div class="spinner"></div>
           <div class="label">Calculating your estimated price…</div>
           <div class="sub">Matching your job against the live Melbourne rate card.</div>
         </div>
 
-        <div class="est-step-nav" id="estStep4Nav">
-          <button class="btn btn-back" onclick="estGoBack()">← Back</button>
-          <button class="btn go-full" style="flex:1;" onclick="estStep4Continue()">See my estimated price →</button>
-        </div>
-      </div>
-
-      <!-- STEP 5 — Continue to booking -->
-      <div class="est-step" data-step="5">
-        <div class="est-step-title">Your estimated price</div>
-        <div class="est-step-sub">Confirm your details and continue using the normal booking flow.</div>
-
-        <div class="estimator-result show" id="estResult">
+        <div class="estimator-result" id="estResult">
           <div>
             <div class="price" id="estPrice">$0</div>
             <div class="price-sub" id="estPriceSub">GST inclusive · tentative</div>
           </div>
           <a class="btn btn-black" href="mysubbies-booking.html">Continue booking →</a>
         </div>
-        <div class="estimator-note">Real prices are matched instantly against our live Melbourne rate card — this is a preview, no account needed. Final pricing remains subject to scope, assumptions and site conditions.</div>
+        <div class="estimator-note" id="estResultNote" style="display:none;">Real prices are matched instantly against our live Melbourne rate card — this is a preview, no account needed. Final pricing remains subject to scope, assumptions and site conditions.</div>
 
-        <div class="est-step-nav"><button class="btn btn-back" onclick="estGoBack()">← Back</button></div>
+        <div class="est-step-nav" id="estStep3Nav">
+          <button class="btn btn-back" onclick="estGoBack()">← Back</button>
+          <button class="btn go-full" style="flex:1;" id="estRevealBtn" onclick="estRevealPrice()">See my estimated price →</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1486,7 +1467,7 @@
   // visible and does light client-side validation before advancing.
   // ============================================================
   let currentEstStep = 1;
-  const TOTAL_EST_STEPS = 5;
+  const TOTAL_EST_STEPS = 3;
   function showEstStep(n) {
     currentEstStep = n;
     document.querySelectorAll('#estimate .est-step').forEach(el => el.classList.toggle('active', Number(el.dataset.step) === n));
@@ -1524,11 +1505,12 @@
       return;
     }
     err.classList.remove('show');
+    // Reset step 3's price-reveal UI in case the customer already revealed
+    // a price, went back and changed something — don't show a stale number.
+    document.getElementById('estResult').classList.remove('show');
+    document.getElementById('estResultNote').style.display = 'none';
+    document.getElementById('estRevealBtn').style.display = '';
     showEstStep(3);
-  }
-
-  function estStep3Continue() {
-    showEstStep(4);
     renderReviewStep();
   }
 
@@ -1558,17 +1540,18 @@
   // A genuinely instant price reads as unconvincing ("did it even check?"),
   // so this shows a brief calculating state before revealing the number —
   // matched randomly within 2-3s so it doesn't feel like a fake fixed timer.
-  function estStep4Continue() {
-    const nav = document.getElementById('estStep4Nav');
-    const thinking = document.getElementById('estStep4Thinking');
-    nav.style.display = 'none';
+  // Reveals inline within step 3 (no step transition) — runEstimate() itself
+  // adds the 'show' class to #estResult once the price is populated.
+  function estRevealPrice() {
+    const revealBtn = document.getElementById('estRevealBtn');
+    const thinking = document.getElementById('estStep3Thinking');
+    revealBtn.style.display = 'none';
     thinking.style.display = 'flex';
     const delay = 2000 + Math.random() * 1000;
     setTimeout(() => {
       runEstimate();
-      showEstStep(5);
       thinking.style.display = 'none';
-      nav.style.display = '';
+      document.getElementById('estResultNote').style.display = 'block';
     }, delay);
   }
 
