@@ -254,9 +254,10 @@
   .welcome-step .num { flex-shrink:0; width:26px; height:26px; border-radius:50%; background:#fff; color:var(--black); font-size:12.5px; font-weight:800; display:flex; align-items:center; justify-content:center; }
   .welcome-step span.txt { color:#fff; font-size:13px; line-height:1.4; }
   .welcome-content .btn { padding:14px 34px; font-size:15px; }
-  .welcome-actions { display:flex; flex-direction:column; gap:12px; align-items:center; }
+  .welcome-actions { display:flex; flex-direction:column; gap:12px; align-items:center; flex-wrap:wrap; justify-content:center; }
   .welcome-actions .btn { width:100%; }
   @media (min-width:480px) { .welcome-actions { flex-direction:row; } .welcome-actions .btn { width:auto; min-width:230px; } }
+  .welcome-enter-now { margin-top:14px; padding:10px 26px; font-size:13.5px; }
   @media (max-width:480px) { .welcome-content { padding:36px 20px; } }
   .fs-modal { background:#fff; border-radius:20px; padding:28px; max-width:480px; width:100%; max-height:88vh; overflow-y:auto; }
   .fs-modal-close { float:right; background:none; border:none; font-size:20px; cursor:pointer; color:var(--stone); line-height:1; }
@@ -459,13 +460,15 @@
       <button class="btn btn-white" onclick="dismissWelcomeSplash('browse')">Find a service</button>
       <button class="btn btn-white" onclick="dismissWelcomeSplash('quote')">Get an instant quote</button>
     </div>
+    <button class="btn btn-ghost-onblack welcome-enter-now" onclick="dismissWelcomeSplash(null)">Enter now</button>
   </div>
 </div>
 <script>
   // Runs immediately (before the rest of the page renders) so a returning
   // visitor within the same browser session doesn't see the splash flash
-  // before disappearing. No auto-continue and no skip — the visitor picks
-  // one of the two real destinations below before the splash goes away.
+  // before disappearing. No auto-continue — the visitor picks "Find a
+  // service", "Get an instant quote", or the neutral "Enter now" (no
+  // destination, just closes the splash) before it goes away.
   if (sessionStorage.getItem('mysubbies_welcome_seen') === 'true') {
     document.getElementById('welcomeSplash').classList.add('hide');
   }
