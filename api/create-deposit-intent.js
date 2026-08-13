@@ -125,7 +125,7 @@ module.exports = async (req, res) => {
       amount: depositMilestoneRow.amount_cents,
       currency: 'aud',
       metadata: { jobId: job.id, stage: 'deposit', milestoneId: depositMilestoneRow.id },
-      description: `Mysubbies deposit — ${job.category}${job.suburb ? ' (' + job.suburb + ')' : ''}`,
+      description: `MySubbies deposit — ${job.category}${job.suburb ? ' (' + job.suburb + ')' : ''}`,
     });
 
     await supabase.from('payments').upsert({

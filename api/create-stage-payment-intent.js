@@ -10,8 +10,8 @@
 // client here.
 //
 // Still never transfers anything to the contractor via Stripe Connect —
-// money collected here sits in the Mysubbies platform account; contractor
-// payout for these stages stays manual via Mysubbies AP per the founder's
+// money collected here sits in the MySubbies platform account; contractor
+// payout for these stages stays manual via MySubbies AP per the founder's
 // explicit scope for this pass.
 const { getStripe, getSupabase } = require('./_lib/clients');
 
@@ -52,7 +52,7 @@ module.exports = async (req, res) => {
       amount: milestone.amount_cents,
       currency: 'aud',
       metadata: { jobId: schedule.job_id, stage: milestone.key, milestoneId: milestone.id },
-      description: `Mysubbies ${milestone.label} — ${jobRow ? jobRow.category : ''}${jobRow && jobRow.suburb ? ' (' + jobRow.suburb + ')' : ''}`,
+      description: `MySubbies ${milestone.label} — ${jobRow ? jobRow.category : ''}${jobRow && jobRow.suburb ? ' (' + jobRow.suburb + ')' : ''}`,
     });
 
     await supabase.from('payments').upsert({

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Mysubbies — Contractor Portal</title>
+<title>MySubbies — Contractor Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -86,7 +86,7 @@
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Mysubbies">
+<meta name="apple-mobile-web-app-title" content="MySubbies">
 </head>
 <body>
 
@@ -94,7 +94,7 @@
   <div class="navwrap">
     <a class="logo" href="mysubbies-website.html">
       <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-      <div class="logo-word">Mysubbies</div>
+      <div class="logo-word">MySubbies</div>
     </a>
     <div class="navlinks">
       <a href="mysubbies-website.html">Site</a>
@@ -274,7 +274,7 @@
       // The customer's cancellation is pending admin review — the
       // contractor is locked out of further claims/movement until that's
       // resolved, so nothing here can race an admin decision.
-      actions = `<div class="note" style="color:var(--warn);">⚠ The customer has requested to cancel this job. Mysubbies is reviewing it — no further action is needed from you right now.</div>`;
+      actions = `<div class="note" style="color:var(--warn);">⚠ The customer has requested to cancel this job. MySubbies is reviewing it — no further action is needed from you right now.</div>`;
     } else {
       actions = `<div id="milestoneClaimWrap"><div class="note">Loading payment schedule…</div></div>`;
     }
@@ -313,7 +313,7 @@
       ${isMine ? `
         <div class="detailcard" style="margin-top:14px;">
           <h3 style="font-size:15px;margin-bottom:10px;">Before / after photos</h3>
-          <p style="font-size:11.5px;color:var(--stone);margin-bottom:10px;">Visible to the customer and Mysubbies — good practice for every job, and useful evidence if a dispute comes up.</p>
+          <p style="font-size:11.5px;color:var(--stone);margin-bottom:10px;">Visible to the customer and MySubbies — good practice for every job, and useful evidence if a dispute comes up.</p>
           ${photoSetHtml('before', j.beforePhotos || [])}
           ${photoSetHtml('after', j.afterPhotos || [])}
         </div>
@@ -329,16 +329,16 @@
           <h3>💬 Messages with customer</h3>
           <div class="msglist" id="msgListCustomer"></div>
           ${j.status === 'completed'
-            ? `<div style="font-size:12px;color:var(--stone-light);text-align:center;padding:8px 0;">This job is complete — messaging with the customer is closed. Contact Mysubbies support if you need to follow up on anything.</div>`
+            ? `<div style="font-size:12px;color:var(--stone-light);text-align:center;padding:8px 0;">This job is complete — messaging with the customer is closed. Contact MySubbies support if you need to follow up on anything.</div>`
             : j.status === 'cancellation_requested'
-            ? `<div style="font-size:12px;color:var(--stone-light);text-align:center;padding:8px 0;">Cancellation pending review — messaging is paused. Contact Mysubbies support if you need to follow up on anything.</div>`
+            ? `<div style="font-size:12px;color:var(--stone-light);text-align:center;padding:8px 0;">Cancellation pending review — messaging is paused. Contact MySubbies support if you need to follow up on anything.</div>`
             : `<div class="msginput">
             <input type="text" id="msgInputCustomer" placeholder="Type a message…" onkeydown="if(event.key==='Enter') sendMsg('messages')" />
             <button class="btn btn-black" onclick="sendMsg('messages')">Send</button>
           </div>`}
         </div>
         <div class="msgbox">
-          <h3>🔒 Messages with Mysubbies (private — customer never sees this)</h3>
+          <h3>🔒 Messages with MySubbies (private — customer never sees this)</h3>
           <div class="msglist" id="msgListAdmin"></div>
           <div class="msginput">
             <input type="text" id="msgInputAdmin" placeholder="e.g. requesting a document, asking about payment…" onkeydown="if(event.key==='Enter') sendMsg('internalMessages')" />
@@ -372,7 +372,7 @@
     }
     if (!data.schedule) { wrap.innerHTML = '<div class="note">No payment schedule found for this job yet.</div>'; return; }
     if (data.schedule.status === 'pending_admin_schedule') {
-      wrap.innerHTML = '<div class="note">This is a large or complex project — Mysubbies is preparing a project-specific payment plan with the customer before further milestones open up.</div>';
+      wrap.innerHTML = '<div class="note">This is a large or complex project — MySubbies is preparing a project-specific payment plan with the customer before further milestones open up.</div>';
       return;
     }
 
@@ -396,7 +396,7 @@
     } else if (next.status === 'awaiting_customer') {
       actionHtml = `<div class="note">⏳ Waiting on the customer to review <strong>${escapeHtml(next.label)}</strong>.</div>`;
     } else if (next.status === 'disputed') {
-      actionHtml = `<div class="note" style="color:var(--warn);">⚠ The customer raised an issue with <strong>${escapeHtml(next.label)}</strong> — Mysubbies is reviewing it.</div>`;
+      actionHtml = `<div class="note" style="color:var(--warn);">⚠ The customer raised an issue with <strong>${escapeHtml(next.label)}</strong> — MySubbies is reviewing it.</div>`;
     } else if (next.status === 'payment_processing') {
       actionHtml = `<div class="note">Payment for <strong>${escapeHtml(next.label)}</strong> is processing.</div>`;
     } else {
@@ -596,7 +596,7 @@
     if (btn) btn.onclick = () => Notification.requestPermission().then(() => renderDetail(getContractorName()));
   }
   function notify(text) {
-    if ('Notification' in window && Notification.permission === 'granted') new Notification('Mysubbies', { body: text });
+    if ('Notification' in window && Notification.permission === 'granted') new Notification('MySubbies', { body: text });
   }
   let lastMsgCounts = {};
   function checkForNewMessages() {

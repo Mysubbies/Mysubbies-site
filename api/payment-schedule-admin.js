@@ -278,7 +278,7 @@ module.exports = async (req, res) => {
         const inserted = insertedMilestones.find(im => im.key === m.key);
         if (inserted) {
           await supabase.from('milestone_evidence').insert({
-            milestone_id: inserted.id, description: 'Requested by the contractor under the previous version of Mysubbies’ payment system, before photo evidence was required.',
+            milestone_id: inserted.id, description: 'Requested by the contractor under the previous version of MySubbies’ payment system, before photo evidence was required.',
             photo_urls: [], declaration_confirmed: true,
           });
         }

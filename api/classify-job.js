@@ -18,7 +18,7 @@
 // fallback state, not a placeholder to swap out later.
 const Anthropic = require('@anthropic-ai/sdk');
 
-const MANUAL_REVIEW_REASON_NO_AI = 'AI photo assessment is not yet turned on for this account — a Mysubbies team member will review your request and follow up with a price.';
+const MANUAL_REVIEW_REASON_NO_AI = 'AI photo assessment is not yet turned on for this account — a MySubbies team member will review your request and follow up with a price.';
 const CONFIDENCE_AUTO_QUOTE = 95;
 const CONFIDENCE_ASK_MORE = 75;
 
@@ -75,7 +75,7 @@ module.exports = async (req, res) => {
     });
     content.push({
       type: 'text',
-      text: `You are triaging a home-repair request for an Australian trade marketplace called Mysubbies. Based on the photo(s) and/or description above, respond with ONLY a JSON object (no other text) in this exact shape:
+      text: `You are triaging a home-repair request for an Australian trade marketplace called MySubbies. Based on the photo(s) and/or description above, respond with ONLY a JSON object (no other text) in this exact shape:
 {
   "category": one of ${JSON.stringify(KNOWN_CATEGORIES)},
   "likelyService": "the specific rate-card-style task name, e.g. 'Gate repair' or 'Toilet cistern internals repair'",
@@ -106,7 +106,7 @@ Be conservative with confidence: only score above ${CONFIDENCE_AUTO_QUOTE} if th
       res.status(200).json({
         manualReviewRequired: true,
         reason: parsed.safetyOrComplianceConcerns
-          || 'This needs a quick human check before we can confirm a price — a Mysubbies team member will follow up.',
+          || 'This needs a quick human check before we can confirm a price — a MySubbies team member will follow up.',
         confidence,
         aiClassification: parsed,
       });
@@ -128,7 +128,7 @@ Be conservative with confidence: only score above ${CONFIDENCE_AUTO_QUOTE} if th
     // Fail safe: never invent a price on error, route to manual review instead.
     res.status(200).json({
       manualReviewRequired: true,
-      reason: 'Something went wrong assessing your photo — a Mysubbies team member will review it and follow up.',
+      reason: 'Something went wrong assessing your photo — a MySubbies team member will review it and follow up.',
       confidence: null,
     });
   }

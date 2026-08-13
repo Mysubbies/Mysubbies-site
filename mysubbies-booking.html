@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Mysubbies — Complete your booking</title>
+<title>MySubbies — Complete your booking</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://js.stripe.com/v3/"></script>
@@ -65,7 +65,7 @@
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Mysubbies">
+<meta name="apple-mobile-web-app-title" content="MySubbies">
 </head>
 <body>
 
@@ -73,7 +73,7 @@
   <div class="navwrap">
     <a class="logo" href="mysubbies-website.html">
       <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-      <div class="logo-word">Mysubbies</div>
+      <div class="logo-word">MySubbies</div>
     </a>
     <a class="backlink" href="mysubbies-website.html">← Back to site</a>
   </div>
@@ -181,7 +181,7 @@
       </div>
 
       <h1 class="pagetitle">${mode === 'register' ? 'A few details to send this off' : 'Welcome back'}</h1>
-      <p class="pagesub">${mode === 'register' ? 'This creates your Mysubbies account so you can track the job — separate from contractor logins.' : 'Log in to continue and track this job under your existing account.'}</p>
+      <p class="pagesub">${mode === 'register' ? 'This creates your MySubbies account so you can track the job — separate from contractor logins.' : 'Log in to continue and track this job under your existing account.'}</p>
       <div class="toggle-mode" style="margin:4px 0 16px;">
         ${mode === 'register' ? `Already registered? <a href="#" onclick="mode='login'; render(); return false;">Log in</a>` : `New here? <a href="#" onclick="mode='register'; render(); return false;">Create an account</a>`}
       </div>
@@ -213,14 +213,14 @@
 
       ${mode === 'register' ? `
         <div style="background:#FFF6E5;border:1px solid #F0DCA6;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:#7A5C1E;line-height:1.5;">
-          <strong>Controlled pilot:</strong> Mysubbies is in invitation-only testing.${stripe
+          <strong>Controlled pilot:</strong> MySubbies is in invitation-only testing.${stripe
             ? ' Your deposit is charged securely via Stripe when this job is approved. The remaining payment stages (materials, frame, completion) are not yet processed through Stripe — they\'re confirmed manually between you and your contractor as work progresses.'
             : ' No card is charged and no funds move through the platform at this stage — payment stages shown in your job tracker are confirmed manually between you and your contractor.'}
         </div>
         <div style="background:var(--paper);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:var(--stone);line-height:1.5;">
           <strong style="color:var(--ink);">Cancellation:</strong> free if no contractor has accepted yet. Once accepted, cancelling may incur a fee reflecting work or materials already committed. <a href="mysubbies-faq.html" target="_blank" style="text-decoration:underline;">Read more</a>
         </div>
-        <label class="terms"><input type="checkbox" id="fTerms" /> I have read and accept the Mysubbies <a href="mysubbies-terms.html" target="_blank" style="text-decoration:underline;">Terms &amp; Conditions</a>, including how payment stages are tracked.</label>
+        <label class="terms"><input type="checkbox" id="fTerms" /> I have read and accept the MySubbies <a href="mysubbies-terms.html" target="_blank" style="text-decoration:underline;">Terms &amp; Conditions</a>, including how payment stages are tracked.</label>
       ` : '<div class="divider"></div>'}
 
       <button class="btn btn-black" onclick="submitBooking()">${mode === 'register' ? 'Approve & send to a contractor' : 'Log in & continue'}</button>
@@ -387,14 +387,14 @@
 
       ${isPendingAdminSchedule ? `
         <div style="background:#FFF6E5;border:1px solid #F0DCA6;border-radius:10px;padding:14px;margin-bottom:16px;font-size:12.5px;color:#7A5C1E;line-height:1.6;">
-          <strong>Large or complex project:</strong> only the ${preview.deposit_pct}% booking deposit is collected now. Because this job is a large or structural project, Mysubbies will prepare a project-specific payment plan with you before any further payment is requested. Domestic building insurance, registration, permits, contract requirements and legally compliant progress-payment stages may apply to a project of this size.
+          <strong>Large or complex project:</strong> only the ${preview.deposit_pct}% booking deposit is collected now. Because this job is a large or structural project, MySubbies will prepare a project-specific payment plan with you before any further payment is requested. Domestic building insurance, registration, permits, contract requirements and legally compliant progress-payment stages may apply to a project of this size.
         </div>
       ` : `
         <div style="font-size:12.5px;color:var(--stone);line-height:1.6;margin-bottom:16px;">
           <p style="margin-bottom:8px;"><strong>What releases each payment:</strong> your contractor submits evidence (photos${preview.milestones.some(m => m.requires_evidence_type === 'delivery_docket') ? ', a delivery docket for materials,' : ''}${preview.milestones.some(m => m.requires_evidence_type === 'inspection_certificate') ? ', an inspection certificate,' : ''} and a written update) for each stage. You review it and approve payment, or raise an issue — nothing is charged without your approval or the review period expiring.</p>
           <p style="margin-bottom:8px;"><strong>Cancellation & refunds:</strong> free if no contractor has accepted yet. Once accepted, cancelling may incur a fee reflecting work or materials already committed.</p>
           <p style="margin-bottom:8px;"><strong>Variations:</strong> if extra work is needed, your contractor submits a variation with price and time impact — nothing proceeds until you approve it in writing.</p>
-          <p><strong>Disputes:</strong> if you raise an issue on a milestone, that payment is paused and reviewed by Mysubbies before release.</p>
+          <p><strong>Disputes:</strong> if you raise an issue on a milestone, that payment is paused and reviewed by MySubbies before release.</p>
         </div>
       `}
 

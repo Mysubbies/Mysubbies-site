@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Mysubbies — My Jobs</title>
+<title>MySubbies — My Jobs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -72,7 +72,7 @@
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Mysubbies">
+<meta name="apple-mobile-web-app-title" content="MySubbies">
 </head>
 <body>
 
@@ -80,7 +80,7 @@
   <div class="navwrap">
     <a class="logo" href="mysubbies-website.html">
       <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-      <div class="logo-word">Mysubbies</div>
+      <div class="logo-word">MySubbies</div>
     </a>
     <div class="navlinks">
       <a href="mysubbies-website.html">Site</a>
@@ -195,7 +195,7 @@
         <div class="row"><span class="l">Contractor</span><span class="r">${j.contractor ? escapeHtml(j.contractor) : 'Awaiting acceptance'}</span></div>
         ${j.contractor && !['cancellation_requested', 'cancelled'].includes(j.status) ? `<div id="milestoneSectionWrap"><div class="note">Loading payment schedule…</div></div>` : ''}
         ${j.status === 'completed' ? renderRatingSection(j) : ''}
-        ${j.status === 'cancellation_requested' ? `<div class="note" style="color:var(--warn);margin-top:12px;">⚠ Your cancellation request is being reviewed by Mysubbies — we'll be in touch shortly. No further action is needed from you.</div>` : ''}
+        ${j.status === 'cancellation_requested' ? `<div class="note" style="color:var(--warn);margin-top:12px;">⚠ Your cancellation request is being reviewed by MySubbies — we'll be in touch shortly. No further action is needed from you.</div>` : ''}
         ${j.status === 'cancelled' ? `<div class="note" style="margin-top:12px;">This job has been cancelled.</div>` : ''}
         ${j.contractor && !['completed', 'cancellation_requested', 'cancelled'].includes(j.status) ? `<button class="btn btn-outline btn-full" style="margin-top:12px;" onclick="openDisputeForm()">⚠ Report a problem</button>` : ''}
         <div id="disputeFormWrap"></div>
@@ -231,9 +231,9 @@
         <h3>💬 Messages with your contractor</h3>
         <div class="msglist" id="msgList"></div>
         ${j.status === 'completed'
-          ? `<div style="font-size:12px;color:var(--stone-light);text-align:center;padding:8px 0;">This job is complete — messaging is closed. Contact <a href="mailto:support@mysubbies.com.au">Mysubbies support</a> if you need anything follow-up related.</div>`
+          ? `<div style="font-size:12px;color:var(--stone-light);text-align:center;padding:8px 0;">This job is complete — messaging is closed. Contact <a href="mailto:support@mysubbies.com.au">MySubbies support</a> if you need anything follow-up related.</div>`
           : j.status === 'cancellation_requested' || j.status === 'cancelled'
-          ? `<div style="font-size:12px;color:var(--stone-light);text-align:center;padding:8px 0;">Messaging is paused while this cancellation is reviewed. Contact <a href="mailto:support@mysubbies.com.au">Mysubbies support</a> if you need anything.</div>`
+          ? `<div style="font-size:12px;color:var(--stone-light);text-align:center;padding:8px 0;">Messaging is paused while this cancellation is reviewed. Contact <a href="mailto:support@mysubbies.com.au">MySubbies support</a> if you need anything.</div>`
           : `<div class="msginput">
           <input type="text" id="msgInput" placeholder="${j.contractor ? 'Type a message…' : 'Available once a contractor accepts'}" ${j.contractor ? '' : 'disabled'} onkeydown="if(event.key==='Enter') sendMsg()" />
           <button class="btn btn-black" onclick="sendMsg()" ${j.contractor ? '' : 'disabled'}>Send</button>
@@ -260,7 +260,7 @@
     }
     if (!data.schedule) { wrap.innerHTML = ''; return; }
     if (data.schedule.status === 'pending_admin_schedule') {
-      wrap.innerHTML = '<div class="note">This is a large or complex project — Mysubbies is preparing a project-specific payment plan with you before further milestones open up.</div>';
+      wrap.innerHTML = '<div class="note">This is a large or complex project — MySubbies is preparing a project-specific payment plan with you before further milestones open up.</div>';
       return;
     }
     if (data.schedule.status === 'pending_customer_acceptance') {
@@ -268,7 +268,7 @@
       wrap.innerHTML = `
         <div style="background:var(--paper);border-radius:10px;padding:14px;margin-top:12px;">
           <div style="font-weight:700;font-size:14px;margin-bottom:8px;">Review your payment schedule</div>
-          <div style="font-size:12.5px;color:var(--stone);margin-bottom:10px;">Mysubbies has prepared the payment plan for the rest of this project. Please review each stage and accept before your contractor can begin claiming further payments.</div>
+          <div style="font-size:12.5px;color:var(--stone);margin-bottom:10px;">MySubbies has prepared the payment plan for the rest of this project. Please review each stage and accept before your contractor can begin claiming further payments.</div>
           <div style="margin:10px 0;">${remaining.map(m => `
             <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:var(--stone);">
               <span>${escapeHtml(m.label)} (${m.pct}%)</span>
@@ -293,7 +293,7 @@
       </div>`).join('')}</div>`;
 
     // 'approved' (not yet paid) covers two cases: the payment step was
-    // interrupted after the customer's own approval, or Mysubbies resolved
+    // interrupted after the customer's own approval, or MySubbies resolved
     // a dispute in the contractor's favour — either way the customer still
     // needs to complete payment, just without the evidence/dispute panel
     // since that decision is already made.
@@ -327,7 +327,7 @@
         </div>`;
     } else {
       const disputed = milestones.find(m => m.status === 'disputed');
-      if (disputed) actionHtml = `<div class="note" style="color:var(--warn);">⚠ You raised an issue with <strong>${escapeHtml(disputed.label)}</strong> — Mysubbies is reviewing it.</div>`;
+      if (disputed) actionHtml = `<div class="note" style="color:var(--warn);">⚠ You raised an issue with <strong>${escapeHtml(disputed.label)}</strong> — MySubbies is reviewing it.</div>`;
     }
 
     wrap.innerHTML = stagebar + list + actionHtml;
@@ -365,7 +365,7 @@
   }
 
   async function disputeMilestone(milestoneId) {
-    const reason = prompt('What went wrong? This pauses the payment and Mysubbies will review it.');
+    const reason = prompt('What went wrong? This pauses the payment and MySubbies will review it.');
     if (reason === null) return;
     try {
       await fetch('/api/milestone', {
@@ -557,12 +557,12 @@
   }
 
   // Once a contractor has accepted, cancelling isn't a self-service action
-  // any more — the request goes to Mysubbies for review (they're the ones
+  // any more — the request goes to MySubbies for review (they're the ones
   // who have to square it with the contractor's accepted work), and the
   // contractor is locked out of further movement on the job in the
   // meantime (see renderDetail in mysubbies-contractor-portal.html).
   function requestCancelJob(jobId) {
-    const reason = prompt('Why would you like to cancel this job? This will be sent to Mysubbies for review.');
+    const reason = prompt('Why would you like to cancel this job? This will be sent to MySubbies for review.');
     if (reason === null) return;
     const jobs = getJobs();
     const j = jobs.find(x => x.id === jobId);
@@ -822,7 +822,7 @@
   }
   function notify(text) {
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('Mysubbies', { body: text });
+      new Notification('MySubbies', { body: text });
     }
   }
   let lastMsgCount = {};

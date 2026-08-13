@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Join the Mysubbies Panel | Contractor Application</title>
-<meta name="description" content="Apply to join the Mysubbies contractor panel in Melbourne. No lead fees, no bidding wars — fixed jobs sent directly to you." />
+<title>Join the MySubbies Panel | Contractor Application</title>
+<meta name="description" content="Apply to join the MySubbies contractor panel in Melbourne. No lead fees, no bidding wars — fixed jobs sent directly to you." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -76,7 +76,7 @@
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Mysubbies">
+<meta name="apple-mobile-web-app-title" content="MySubbies">
 </head>
 <body>
 
@@ -84,7 +84,7 @@
   <div class="navwrap">
     <a class="logo" href="mysubbies-website.html">
       <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-      <div class="logo-word">Mysubbies</div>
+      <div class="logo-word">MySubbies</div>
     </a>
     <div class="navlinks"><a href="mysubbies-contractor-portal.html">Already applied? Log in</a></div>
   </div>
@@ -92,7 +92,7 @@
 
 <div class="wrap" id="app"></div>
 
-<footer>© 2026 Mysubbies group. Melbourne, VIC. · <a href="mysubbies-terms.html" style="color:inherit;">Terms</a></footer>
+<footer>© 2026 MySubbies group. Melbourne, VIC. · <a href="mysubbies-terms.html" style="color:inherit;">Terms</a></footer>
 
 <script>
   const TRADES = ['Fencing','Pergola','Decking','Grass Installation','Retaining Wall','Concreting',
@@ -199,7 +199,7 @@
   function render() {
     app.innerHTML = `
       <div class="pitch">
-        <h1>Join the Mysubbies panel</h1>
+        <h1>Join the MySubbies panel</h1>
         <ul>
           <li>✓ No lead fees, ever</li>
           <li>✓ No bidding against other contractors for the same job</li>
@@ -220,7 +220,7 @@
         <div class="field"><label>ACN <span class="req">*</span></label><input type="text" id="fAcn" placeholder="9 digits" /></div>
       </div>
       <div id="abrLookupResult"></div>
-      <p style="font-size:12px;color:var(--stone);margin:-8px 0 14px;">Mysubbies currently only registers contractors operating through a company (Pty Ltd) — your ACN confirms this. Sole trader ABNs can't be accepted at this time.</p>
+      <p style="font-size:12px;color:var(--stone);margin:-8px 0 14px;">MySubbies currently only registers contractors operating through a company (Pty Ltd) — your ACN confirms this. Sole trader ABNs can't be accepted at this time.</p>
       <div class="row2">
         <div class="field"><label>Contact name <span class="req">*</span></label><input type="text" id="fContact" placeholder="Your name" /></div>
       </div>
@@ -274,7 +274,7 @@
       <div class="section-label">Referral</div>
       <div class="field"><label>Referral code <span class="opt">(optional — from another contractor)</span></label><input type="text" id="fContractorReferral" placeholder="e.g. DECK4821" /></div>
 
-      <label class="terms" style="margin-top:24px;"><input type="checkbox" id="fTerms" /> I confirm the above is accurate and I have read and accept the <a href="mysubbies-contractor-agreement.html" target="_blank" style="text-decoration:underline;">Mysubbies Contractor Agreement</a>.</label>
+      <label class="terms" style="margin-top:24px;"><input type="checkbox" id="fTerms" /> I confirm the above is accurate and I have read and accept the <a href="mysubbies-contractor-agreement.html" target="_blank" style="text-decoration:underline;">MySubbies Contractor Agreement</a>.</label>
 
       <button class="btn btn-black" onclick="submitApplication()">Submit application →</button>
       <div class="toggle-mode">Already applied? <a href="mysubbies-contractor-portal.html">Log in</a></div>
@@ -396,7 +396,7 @@
           <div><strong>Registered as:</strong> ${escapeHtml(data.EntityName || '—')}</div>
           <div style="color:${isActive ? 'var(--good, #2F7A50)' : 'var(--warn)'};">${escapeHtml(data.AbnStatus || 'Unknown status')}</div>
           <div style="color:var(--stone);">${escapeHtml(data.EntityTypeName || '')}</div>
-          ${!looksLikeCompany ? `<div style="color:var(--warn);margin-top:4px;">This doesn't look like a company entity type — Mysubbies only registers company-structured contractors.</div>` : ''}
+          ${!looksLikeCompany ? `<div style="color:var(--warn);margin-top:4px;">This doesn't look like a company entity type — MySubbies only registers company-structured contractors.</div>` : ''}
         </div>
       `;
     };
@@ -430,7 +430,7 @@
     }
     if (!isValidAbnFormat(abn)) { showError('That ABN doesn\'t look valid — double-check the 11 digits.'); return; }
     if (!isValidAcnFormat(acn)) { showError('That ACN doesn\'t look valid — double-check the 9 digits.'); return; }
-    if (!abnMatchesAcn(abn, acn)) { showError('That ABN and ACN don\'t match a registered company. Mysubbies only registers company (Pty Ltd) contractors — sole trader ABNs aren\'t eligible.'); return; }
+    if (!abnMatchesAcn(abn, acn)) { showError('That ABN and ACN don\'t match a registered company. MySubbies only registers company (Pty Ltd) contractors — sole trader ABNs aren\'t eligible.'); return; }
     if (selectedTrades.length === 0) { showError('Select at least one trade category.'); document.getElementById('tradeChips').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     if (!terms) { showError('Please accept the Contractor Agreement to continue.'); return; }
 

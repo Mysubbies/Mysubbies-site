@@ -12,7 +12,7 @@
 // (e.g. notifications@mysubbies.com.au) is verified in the Resend
 // dashboard, set RESEND_FROM_EMAIL in Vercel to switch over — no code
 // change needed.
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Mysubbies <onboarding@resend.dev>';
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'MySubbies <onboarding@resend.dev>';
 
 async function sendEmail({ to, subject, html }) {
   if (!process.env.RESEND_API_KEY) {
@@ -40,12 +40,12 @@ function wrapEmail(bodyHtml) {
   return `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#171717;">
       <div style="background:#000;padding:20px;border-radius:12px 12px 0 0;">
-        <span style="color:#fff;font-size:18px;font-weight:800;">Mysubbies</span>
+        <span style="color:#fff;font-size:18px;font-weight:800;">MySubbies</span>
       </div>
       <div style="border:1px solid #E4E4E1;border-top:none;border-radius:0 0 12px 12px;padding:24px;">
         ${bodyHtml}
       </div>
-      <p style="font-size:11px;color:#9C9C97;text-align:center;margin-top:16px;">Mysubbies Group · Melbourne, VIC</p>
+      <p style="font-size:11px;color:#9C9C97;text-align:center;margin-top:16px;">MySubbies Group · Melbourne, VIC</p>
     </div>`;
 }
 
