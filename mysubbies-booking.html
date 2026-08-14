@@ -262,6 +262,10 @@
         // Real account is now the source of truth; keep the local cache
         // (used elsewhere, e.g. the separate My Jobs login) in sync too.
         const { data: profile } = await sb.from('customers').select('*').eq('auth_user_id', data.user.id).maybeSingle();
+        if (profile?.status === 'deactivated') {
+          showError('This account has been deactivated. Contact MySubbies support if you believe this is a mistake.');
+          return;
+        }
         const existing = customers[email] || {};
         const merged = { ...existing, name: profile?.name || existing.name, phone: profile?.phone || existing.phone, email, password, customerDbId: profile?.id || null };
         customers[email] = merged;

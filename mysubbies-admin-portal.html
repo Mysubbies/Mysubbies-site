@@ -28,6 +28,12 @@
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 18px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; border:none; }
   .btn-black { background:var(--black); color:#fff; }
   .btn-outline { background:#fff; color:var(--ink); border:1.5px solid var(--line); }
+  .btn-danger { background:#fff; color:#B4232C; border:1.5px solid #F2C9C6; }
+  .btn-danger:hover { background:#FDF3F2; }
+  .searchbox { width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:14px; color:var(--ink); border:1.5px solid var(--line); border-radius:10px; padding:11px 14px; outline:none; background:#fff; margin-bottom:16px; }
+  .searchbox:focus { border-color:var(--black); }
+  .badge-active { background:#EAF5EE; color:var(--good); }
+  .badge-deactivated { background:#FDEDEA; color:var(--warn); }
   .statgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:28px; }
   @media (max-width:700px) { .statgrid { grid-template-columns:1fr 1fr; } }
   .statcard { background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; }
@@ -216,6 +222,7 @@
     const openDisputeCount = disputes.filter(d => d.status === 'open').length;
 
     if (tab === 'payments' && !paymentTabData && !paymentTabLoading) loadPaymentScheduleTab();
+    if (tab === 'customers' && !customersTabData && !customersTabLoading) loadCustomersTab();
     const paymentBadgeCount = paymentTabData ? (paymentTabData.disputedMilestones || []).length + (paymentTabData.pendingScheduleJobs || []).length : 0;
 
     app.innerHTML = `
@@ -228,6 +235,7 @@
       <div class="tabs">
         <button class="${tab==='overview'?'active':''}" onclick="tab='overview'; render();">All Jobs</button>
         <button class="${tab==='applications'?'active':''}" onclick="tab='applications'; render();">Applications ${pendingCount ? '(' + pendingCount + ')' : ''}</button>
+        <button class="${tab==='customers'?'active':''}" onclick="tab='customers'; render();">Customers</button>
         <button class="${tab==='disputes'?'active':''}" onclick="tab='disputes'; render();">Disputes ${openDisputeCount ? '(' + openDisputeCount + ')' : ''}</button>
         <button class="${tab==='payments'?'active':''}" onclick="tab='payments'; render();">Payment Schedules ${paymentBadgeCount ? '(' + paymentBadgeCount + ')' : ''}</button>
         <button class="${tab==='ratecard'?'active':''}" onclick="tab='ratecard'; render();">Rate Card</button>
@@ -236,7 +244,7 @@
       ${tab === 'overview' ? `
         <h1 class="pagetitle">Jobs</h1>
         ${jobs.length === 0 ? '<div class="empty">No jobs yet. Submit one from the site to see it here.</div>' : jobsTableHtml(jobs)}
-      ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab()}
+      ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab()}
     `;
     if (tab === 'ratecard') wireRateCardTab();
   }
@@ -478,6 +486,93 @@
   // needs several server round-trips this tab's data isn't already
   // hydrated with at page load, unlike jobs/applications.
   // ============================================================
+  let customersTabData = null;
+  let customersTabLoading = false;
+  let customerSearchQuery = '';
+
+  async function loadCustomersTab() {
+    if (customersTabLoading) return;
+    customersTabLoading = true;
+    try {
+      const res = await fetch('/api/get-admin-list?type=customers');
+      const { customers } = await res.json();
+      customersTabData = customers || [];
+    } catch (e) {
+      customersTabData = [];
+    }
+    customersTabLoading = false;
+    render();
+  }
+
+  // Shared caller for /api/admin-account (deactivate/reactivate/delete for
+  // either role). Returns the parsed response on success, or null on
+  // failure/cancel — callers only need to update local state when non-null.
+  async function accountAction(role, email, action, confirmMsg) {
+    if (confirmMsg && !confirm(confirmMsg)) return null;
+    try {
+      const res = await fetch('/api/admin-account', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role, email, action }),
+      });
+      const result = await res.json();
+      if (!res.ok) { alert(result.error || 'Could not update this account.'); return null; }
+      return result;
+    } catch (e) { alert('Could not update this account — try again.'); return null; }
+  }
+
+  function renderCustomersTab() {
+    if (!customersTabData) return '<h1 class="pagetitle">Customers</h1><div class="empty">Loading…</div>';
+    const q = customerSearchQuery.trim().toLowerCase();
+    const rows = q
+      ? customersTabData.filter(c => (c.name || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q))
+      : customersTabData;
+    return `
+      <h1 class="pagetitle">Customers</h1>
+      <p class="pagesub">${customersTabData.length} account${customersTabData.length === 1 ? '' : 's'} total. Deactivating blocks login on this and any other device — it doesn't touch their job history.</p>
+      <input class="searchbox" placeholder="Search by name or email…" value="${escapeHtml(customerSearchQuery)}" oninput="customerSearchQuery=this.value; render();" />
+      ${rows.length === 0 ? '<div class="empty">No customers match.</div>' : rows.map(c => `
+        <div class="detailcard" style="max-width:640px;margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <div style="font-weight:700;font-size:15px;">${escapeHtml(c.name || '(no name)')}</div>
+              <div style="font-size:12px;color:var(--stone);margin-top:2px;">${escapeHtml(c.email)}${c.phone ? ' · ' + escapeHtml(c.phone) : ''}</div>
+            </div>
+            <span class="badge ${c.status === 'deactivated' ? 'badge-deactivated' : 'badge-active'}">${c.status || 'active'}</span>
+          </div>
+          <div class="row"><span class="l">Registered</span><span class="r">${c.created_at ? new Date(c.created_at).toLocaleDateString('en-AU') : '—'}</span></div>
+          <div style="display:flex;gap:8px;margin-top:14px;">
+            ${c.status === 'deactivated'
+              ? `<button class="btn btn-outline" style="flex:1;" onclick="reactivateCustomer('${escapeHtml(c.email)}')">Reactivate</button>`
+              : `<button class="btn btn-outline" style="flex:1;" onclick="deactivateCustomer('${escapeHtml(c.email)}')">Deactivate</button>`}
+            <button class="btn btn-danger" style="flex:1;" onclick="deleteCustomerAccount('${escapeHtml(c.email)}')">Delete permanently</button>
+          </div>
+        </div>
+      `).join('')}
+    `;
+  }
+
+  async function deactivateCustomer(email) {
+    const c = customersTabData.find(x => x.email === email);
+    const result = await accountAction('customer', email, 'deactivate', `Deactivate ${c?.name || email}? They won't be able to log in until reactivated. Existing job history is untouched.`);
+    if (!result) return;
+    c.status = 'deactivated';
+    render();
+  }
+  async function reactivateCustomer(email) {
+    const c = customersTabData.find(x => x.email === email);
+    const result = await accountAction('customer', email, 'reactivate', `Reactivate ${c?.name || email}? They'll be able to log in again.`);
+    if (!result) return;
+    c.status = 'active';
+    render();
+  }
+  async function deleteCustomerAccount(email) {
+    const c = customersTabData.find(x => x.email === email);
+    const result = await accountAction('customer', email, 'delete', `Permanently delete ${c?.name || email}'s account? This can't be undone, and only works if they have no job history — otherwise use Deactivate.`);
+    if (!result) return;
+    customersTabData = customersTabData.filter(x => x.email !== email);
+    render();
+  }
+
   let paymentTabData = null;
   let paymentTabLoading = false;
   let editingTemplateId = null;
@@ -1185,7 +1280,7 @@
 
   function renderApplicationsTab(applications) {
     if (applications.length === 0) return '<div class="empty">No contractor applications yet.</div>';
-    const statusBadge = { pending: 'badge-feed', approved: 'badge-completed', rejected: 'badge-rejected' };
+    const statusBadge = { pending: 'badge-feed', approved: 'badge-completed', preferred: 'badge-completed', watchlist: 'badge-feed', suspended: 'badge-rejected', expired_documents: 'badge-rejected', manual_review: 'badge-feed', rejected: 'badge-rejected' };
     return `
       <h1 class="pagetitle">Contractor applications</h1>
       ${applications.map(a => `
@@ -1221,7 +1316,14 @@
               <button class="btn btn-outline" style="flex:1;" onclick="rejectApplication('${a.id}')">Reject</button>
               <button class="btn btn-black" style="flex:2;" onclick="approveApplication('${a.id}')">Approve \u2192</button>
             </div>
-          ` : ''}
+          ` : `
+            <div style="display:flex;gap:8px;margin-top:14px;">
+              ${a.status === 'suspended'
+                ? `<button class="btn btn-outline" style="flex:1;" onclick="reactivateContractor('${a.id}')">Reactivate</button>`
+                : `<button class="btn btn-outline" style="flex:1;" onclick="deactivateContractor('${a.id}')">Deactivate</button>`}
+              <button class="btn btn-danger" style="flex:1;" onclick="deleteContractorAccount('${a.id}')">Delete permanently</button>
+            </div>
+          `}
         </div>
       `).join('')}
     `;
@@ -1252,6 +1354,37 @@
     a.status = 'rejected';
     saveApplications(apps);
     syncContractorStatus(a.email, 'rejected');
+    render();
+  }
+
+  // Deactivate/reactivate/delete are post-approval account lifecycle
+  // actions (distinct from the approve/reject application-review decision
+  // above) — routed through /api/admin-account so customers and
+  // contractors share one endpoint and one confirm/error-handling pattern.
+  async function deactivateContractor(id) {
+    const apps = getApplications();
+    const a = apps.find(x => x.id === id);
+    const result = await accountAction('contractor', a.email, 'deactivate', `Deactivate ${a.business}? They won't be able to log in or receive new jobs until reactivated.`);
+    if (!result) return;
+    a.status = 'suspended';
+    saveApplications(apps);
+    render();
+  }
+  async function reactivateContractor(id) {
+    const apps = getApplications();
+    const a = apps.find(x => x.id === id);
+    const result = await accountAction('contractor', a.email, 'reactivate', `Reactivate ${a.business}? They'll be able to log in and receive jobs again.`);
+    if (!result) return;
+    a.status = 'approved';
+    saveApplications(apps);
+    render();
+  }
+  async function deleteContractorAccount(id) {
+    const apps = getApplications();
+    const a = apps.find(x => x.id === id);
+    const result = await accountAction('contractor', a.email, 'delete', `Permanently delete ${a.business}'s account? This can't be undone, and only works if they have no job history — otherwise use Deactivate.`);
+    if (!result) return;
+    saveApplications(apps.filter(x => x.id !== id));
     render();
   }
 

@@ -56,19 +56,23 @@ payment/payout state, since that can never live in localStorage.
   contractor's Stripe Connect onboarding is complete. A job can only ever be
   paid out once (enforced by a DB unique index, not just application logic).
 
-## Vercel Hobby plan: 12 serverless functions, currently at the cap
+## Vercel function count
 Every file directly under `api/` (not `api/_lib/`) counts as one serverless
-function. As of Aug 2026 there are exactly 12, which is the Hobby plan's
-hard limit — confirmed the hard way: pushing a 13th/14th function didn't
-error the deploy, it just silently 404'd on the newest functions while
-everything else kept working, which looks exactly like a routing bug if you
-don't know to check the count. `api/notify.js` (`{type: 'job-assigned' |
-'stage-requested', ...}`) and `api/get-admin-list.js` (`?type=applications
-|customers`) already exist specifically as multi-purpose endpoints from
-consolidating what used to be four separate files — extend those with a new
-`type`/`?type=` branch before creating a new top-level file. If a genuinely
-new endpoint is unavoidable, either consolidate something else first or the
-founder needs to upgrade off the Hobby plan.
+function. This repo previously hit the Hobby plan's 12-function hard cap
+(confirmed the hard way: a 13th/14th function didn't error the deploy, it
+just silently 404'd on the newest functions while everything else kept
+working — looks exactly like a routing bug if you don't know to check the
+count). As of Aug 2026 there are 16 functions and all of them respond
+correctly in prod (verified live: each returns a real app-level status —
+400/405 — not Vercel's 404 routing page), so whatever the current plan/limit
+is, it's comfortably above 12 now. Still, prefer extending an existing
+multi-purpose endpoint over adding a new top-level file where it's a
+natural fit — `api/notify.js` (`{type: 'job-assigned' | 'stage-requested',
+...}`), `api/get-admin-list.js` (`?type=applications|customers|
+milestone-claims|pending-schedule-jobs|payment-audit`), and
+`api/admin-account.js` (`{role, email, action}`) all exist specifically as
+multi-purpose endpoints for exactly this reason — it's just no longer a
+hard constraint that blocks new files outright.
 
 **Known correctness gap, flagged deliberately:** the rate card (21
 categories, ~163 tasks) still lives only in browser localStorage, not in
@@ -154,6 +158,46 @@ API is JSONP-only, so the GUID has to be browser-visible for it to work at
 all; this is a fundamentally different risk than the Stripe/Supabase
 secrets elsewhere in this project, which are server-only and must never
 appear in any file. Don't "fix" this by trying to move it server-side.
+
+## Account deactivation & deletion (added Aug 2026)
+Admin can now deactivate or permanently delete a customer or contractor
+account from the admin portal — Applications tab for contractors (buttons
+now appear on approved/suspended/rejected rows, not just pending ones), a
+new Customers tab (searchable list, fetched live via
+`/api/get-admin-list?type=customers`) for customers. Both route through one
+new endpoint, `api/admin-account.js` (`POST {role, email, action}`,
+`action` = `deactivate`/`reactivate`/`delete`).
+
+**Deactivate is a pure status-column check, not a Supabase Auth ban.**
+Contractors already had `contractors.status = 'suspended'` and
+contractor-portal.html's `doLogin()` already refused portal access to
+suspended accounts — deactivation reuses that untouched. Customers didn't
+have any status column at all, so `supabase/schema_v4_account_status.sql`
+adds `customers.status` (`'active'`/`'deactivated'`), checked explicitly in
+both `mysubbies-booking.html`'s login branch and
+`mysubbies-customer-portal.html`'s `doLogin()`, by email, **before** any
+password verification happens. This matters because both contractor-portal
+and customer-portal logins try real Supabase Auth first and silently fall
+back to a local-cache plaintext-password check if that fails (see the
+`localStorage['mysubbies_contractor_applications']` /
+`['mysubbies_customers']` self-heal pattern) — an Auth-level ban alone
+wouldn't close that fallback path, but an app-level status check that runs
+regardless of which path verified the password does.
+
+**Delete is permanent and deliberately restrictive.** None of the FKs in
+this schema pointing at `customers`/`contractors` are `ON DELETE CASCADE`
+(Postgres default `NO ACTION`), so a hard delete would simply fail — with a
+confusing DB error, not a helpful one — the moment that account has any
+job, address, rating, or offer on record. `api/admin-account.js` checks for
+that first (`jobs` by id or email, plus `customer_addresses`/`ratings`) and
+refuses with a clear "use Deactivate instead" message rather than let the
+delete fail unexplained. When there's genuinely no history, it removes both
+the table row and the Supabase Auth user (`supabase.auth.admin.deleteUser`
+— the service-role key in `api/_lib/clients.js` can already do this, it
+was just unused until now). In practice this means Delete only really works
+for an account that signed up/applied and never went any further —
+everything else needs Deactivate, which keeps their job/payment history
+intact for the audit trail while blocking future logins.
 
 ## CRITICAL — read this before touching anything
 

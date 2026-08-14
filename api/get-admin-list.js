@@ -29,7 +29,7 @@ module.exports = async (req, res) => {
     if (type === 'customers') {
       const { data, error } = await supabase
         .from('customers')
-        .select('email, name, phone, created_at')
+        .select('id, email, name, phone, status, created_at')
         .order('created_at', { ascending: false })
         .limit(2000);
       if (error) throw error;

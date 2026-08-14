@@ -764,6 +764,18 @@
     const customers = getCustomers();
     const account = customers[email];
 
+    // Checked by email, before any password verification, so it applies
+    // no matter which path below ends up confirming the password (real
+    // Supabase Auth session, or the local-cache fallback further down) --
+    // same reasoning as contractor-portal.html's suspended/rejected gate.
+    if (sb) {
+      const { data: statusProfile } = await sb.from('customers').select('status').eq('email', email).maybeSingle();
+      if (statusProfile?.status === 'deactivated') {
+        document.getElementById('loginError').textContent = 'This account has been deactivated. Contact MySubbies support if you believe this is a mistake.';
+        return;
+      }
+    }
+
     // Try the REAL account first, regardless of whether this browser has a
     // local cache entry — that's what makes this work cross-device (e.g.
     // logging in from a phone that never touched booking.html on this
