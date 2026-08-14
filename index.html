@@ -237,6 +237,14 @@
      photo (images/welcome-hero.jpg, Unsplash License, free for commercial
      use) with a dark gradient for text legibility — same pattern works at
      any viewport width without a separate mobile layout. */
+  .install-banner { position:fixed; left:0; right:0; bottom:0; z-index:80; background:#111; color:#fff; align-items:center; justify-content:space-between; gap:14px; padding:12px 16px; box-shadow:0 -4px 16px rgba(0,0,0,0.18); }
+  .install-banner-text { font-size:12.5px; line-height:1.4; color:rgba(255,255,255,0.8); }
+  .install-banner-text strong { display:block; font-size:13.5px; color:#fff; margin-bottom:2px; }
+  .install-banner-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .install-banner-actions .btn { padding:9px 18px; font-size:13px; white-space:nowrap; }
+  .install-banner-close { background:none; border:none; color:rgba(255,255,255,0.55); font-size:15px; cursor:pointer; padding:6px; line-height:1; }
+  @media (min-width:860px) { .install-banner { display:none !important; } }
+
   .welcome-splash { position:fixed; inset:0; z-index:500; overflow-y:auto; transition:opacity .35s ease, visibility .35s ease; }
   .welcome-splash.hide { opacity:0; visibility:hidden; pointer-events:none; }
   /* The source photo has empty wall on its left third and the people
@@ -448,6 +456,64 @@
 <meta name="apple-mobile-web-app-title" content="MySubbies">
 </head>
 <body>
+
+<div class="install-banner" id="installBanner" style="display:none;">
+  <div class="install-banner-text">
+    <strong>Install MySubbies</strong>
+    <span id="installBannerSub">Add it to your home screen for quick access next time.</span>
+  </div>
+  <div class="install-banner-actions">
+    <button class="btn btn-white" id="installBannerBtn" onclick="triggerInstall()">Install</button>
+    <button class="install-banner-close" onclick="dismissInstallBanner()" aria-label="Dismiss">✕</button>
+  </div>
+</div>
+<script>
+  // No native install prompt is reliable on its own: Android Chrome only
+  // shows its own mini-infobar after unpredictable engagement heuristics
+  // (never on a first visit), and iOS Safari has NO automatic prompt at
+  // all -- there is no API to trigger it, only manual Share > Add to Home
+  // Screen. This banner covers both: captures Android/Chrome's
+  // beforeinstallprompt to offer a real one-tap install, and shows manual
+  // instructions on iOS instead since that's the only thing possible there.
+  let deferredInstallPrompt = null;
+  const INSTALL_DISMISS_KEY = 'mysubbies_install_dismissed';
+
+  function isStandaloneDisplay() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+  function isIOSDevice() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  }
+  function showInstallBanner() {
+    if (isStandaloneDisplay() || localStorage.getItem(INSTALL_DISMISS_KEY)) return;
+    document.getElementById('installBanner').style.display = 'flex';
+  }
+  function dismissInstallBanner() {
+    localStorage.setItem(INSTALL_DISMISS_KEY, 'true');
+    document.getElementById('installBanner').style.display = 'none';
+  }
+  function triggerInstall() {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.finally(() => {
+      deferredInstallPrompt = null;
+      dismissInstallBanner();
+    });
+  }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    showInstallBanner();
+  });
+  window.addEventListener('appinstalled', dismissInstallBanner);
+
+  if (isIOSDevice() && !isStandaloneDisplay() && !localStorage.getItem(INSTALL_DISMISS_KEY)) {
+    document.getElementById('installBannerSub').textContent = 'Tap the Share icon, then "Add to Home Screen".';
+    document.getElementById('installBannerBtn').style.display = 'none';
+    showInstallBanner();
+  }
+</script>
 
 <div class="welcome-splash" id="welcomeSplash">
   <div class="welcome-bg"></div>
