@@ -495,10 +495,11 @@
     customersTabLoading = true;
     try {
       const res = await fetch('/api/get-admin-list?type=customers');
-      const { customers } = await res.json();
-      customersTabData = customers || [];
+      const body = await res.json();
+      if (!res.ok) { customersTabData = { error: body.error || 'Could not load customers.' }; }
+      else { customersTabData = { rows: body.customers || [] }; }
     } catch (e) {
-      customersTabData = [];
+      customersTabData = { error: 'Could not load customers.' };
     }
     customersTabLoading = false;
     render();
@@ -522,13 +523,19 @@
 
   function renderCustomersTab() {
     if (!customersTabData) return '<h1 class="pagetitle">Customers</h1><div class="empty">Loading…</div>';
+    if (customersTabData.error) {
+      return `
+        <h1 class="pagetitle">Customers</h1>
+        <div class="empty">Couldn't load the customer list: ${escapeHtml(customersTabData.error)}<br><br>If this mentions a missing "status" column, run <code>supabase/schema_v4_account_status.sql</code> in the Supabase SQL editor, then reload this tab.</div>`;
+    }
+    const all = customersTabData.rows;
     const q = customerSearchQuery.trim().toLowerCase();
     const rows = q
-      ? customersTabData.filter(c => (c.name || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q))
-      : customersTabData;
+      ? all.filter(c => (c.name || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q))
+      : all;
     return `
       <h1 class="pagetitle">Customers</h1>
-      <p class="pagesub">${customersTabData.length} account${customersTabData.length === 1 ? '' : 's'} total. Deactivating blocks login on this and any other device — it doesn't touch their job history.</p>
+      <p class="pagesub">${all.length} account${all.length === 1 ? '' : 's'} total. Deactivating blocks login on this and any other device — it doesn't touch their job history.</p>
       <input class="searchbox" placeholder="Search by name or email…" value="${escapeHtml(customerSearchQuery)}" oninput="customerSearchQuery=this.value; render();" />
       ${rows.length === 0 ? '<div class="empty">No customers match.</div>' : rows.map(c => `
         <div class="detailcard" style="max-width:640px;margin-bottom:14px;">
@@ -552,24 +559,24 @@
   }
 
   async function deactivateCustomer(email) {
-    const c = customersTabData.find(x => x.email === email);
+    const c = customersTabData.rows.find(x => x.email === email);
     const result = await accountAction('customer', email, 'deactivate', `Deactivate ${c?.name || email}? They won't be able to log in until reactivated. Existing job history is untouched.`);
     if (!result) return;
     c.status = 'deactivated';
     render();
   }
   async function reactivateCustomer(email) {
-    const c = customersTabData.find(x => x.email === email);
+    const c = customersTabData.rows.find(x => x.email === email);
     const result = await accountAction('customer', email, 'reactivate', `Reactivate ${c?.name || email}? They'll be able to log in again.`);
     if (!result) return;
     c.status = 'active';
     render();
   }
   async function deleteCustomerAccount(email) {
-    const c = customersTabData.find(x => x.email === email);
+    const c = customersTabData.rows.find(x => x.email === email);
     const result = await accountAction('customer', email, 'delete', `Permanently delete ${c?.name || email}'s account? This can't be undone, and only works if they have no job history — otherwise use Deactivate.`);
     if (!result) return;
-    customersTabData = customersTabData.filter(x => x.email !== email);
+    customersTabData.rows = customersTabData.rows.filter(x => x.email !== email);
     render();
   }
 
