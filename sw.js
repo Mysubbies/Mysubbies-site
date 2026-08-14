@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'mysubbies-v1';
+const CACHE_VERSION = 'mysubbies-v2';
 const PRECACHE_URLS = [
   '/',
   '/mysubbies-website.html',
@@ -15,6 +15,7 @@ const PRECACHE_URLS = [
   '/mysubbies-blog-decking-cost.html',
   '/mysubbies-blog-fencing-cost.html',
   '/manifest.json',
+  '/manifest-contractor.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/apple-touch-icon.png',

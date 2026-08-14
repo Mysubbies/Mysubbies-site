@@ -80,15 +80,72 @@
   .msginput { display:flex; gap:8px; }
   .msginput input { margin-bottom:0; flex:1; }
 </style>
-<link rel="manifest" href="manifest.json">
+<!-- Own manifest (not the shared one) so a contractor who "Add to Home
+     Screen"s from THIS page gets an install shortcut whose start_url is
+     the portal itself -- tap the icon, get the login screen (or straight
+     into the portal if already signed in), never the customer homepage. -->
+<link rel="manifest" href="manifest-contractor.json">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="MySubbies">
+<meta name="apple-mobile-web-app-title" content="MySubbies Contractor">
 </head>
 <body>
+
+<div class="install-banner" id="installBanner" style="display:none;">
+  <div class="install-banner-text">
+    <strong>Install the contractor app</strong>
+    <span id="installBannerSub">Add it to your home screen — tap it to jump straight to your jobs.</span>
+  </div>
+  <div class="install-banner-actions">
+    <button class="btn btn-white" id="installBannerBtn" onclick="triggerInstall()">Install</button>
+    <button class="install-banner-close" onclick="dismissInstallBanner()" aria-label="Dismiss">✕</button>
+  </div>
+</div>
+<script>
+  // Same pattern as the homepage's install banner, but this page links its
+  // OWN manifest (manifest-contractor.json, start_url pointing straight at
+  // this portal) — so installing FROM here gives a home-screen icon that
+  // opens directly to login/portal, not the general customer homepage.
+  let deferredInstallPrompt = null;
+  const INSTALL_DISMISS_KEY = 'mysubbies_contractor_install_dismissed';
+
+  function isStandaloneDisplay() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+  function isIOSDevice() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  }
+  function showInstallBanner() {
+    if (isStandaloneDisplay() || localStorage.getItem(INSTALL_DISMISS_KEY)) return;
+    document.getElementById('installBanner').style.display = 'flex';
+  }
+  function dismissInstallBanner() {
+    localStorage.setItem(INSTALL_DISMISS_KEY, 'true');
+    document.getElementById('installBanner').style.display = 'none';
+  }
+  function triggerInstall() {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.finally(() => {
+      deferredInstallPrompt = null;
+      dismissInstallBanner();
+    });
+  }
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    showInstallBanner();
+  });
+  window.addEventListener('appinstalled', dismissInstallBanner);
+  if (isIOSDevice() && !isStandaloneDisplay() && !localStorage.getItem(INSTALL_DISMISS_KEY)) {
+    document.getElementById('installBannerSub').textContent = 'Tap the Share icon, then "Add to Home Screen".';
+    document.getElementById('installBannerBtn').style.display = 'none';
+    showInstallBanner();
+  }
+</script>
 
 <header>
   <div class="navwrap">

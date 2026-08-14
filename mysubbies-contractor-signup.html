@@ -24,10 +24,16 @@
   .logo-word { font-weight:800; font-size:19px; color:#fff; }
   .navlinks a { color:rgba(255,255,255,0.65); font-size:13px; }
   .wrap { max-width:640px; margin:0 auto; padding:48px 24px 80px; }
-  .pitch { background:var(--black); color:#fff; border-radius:16px; padding:24px; margin-bottom:32px; }
-  .pitch h1 { font-size:22px; margin-bottom:10px; }
-  .pitch ul { list-style:none; font-size:13.5px; color:rgba(255,255,255,0.8); }
-  .pitch li { padding:5px 0; display:flex; gap:8px; }
+  .pitch { background:var(--black); color:#fff; border-radius:16px; padding:32px 28px; margin-bottom:32px; }
+  .pitch-eyebrow { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:rgba(255,255,255,0.55); margin-bottom:10px; }
+  .pitch h1 { font-size:26px; margin-bottom:10px; letter-spacing:-0.02em; }
+  .pitch-sub { font-size:14.5px; color:rgba(255,255,255,0.75); line-height:1.6; margin-bottom:24px; max-width:440px; }
+  .pitch-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:22px; }
+  @media (max-width:480px) { .pitch-grid { grid-template-columns:1fr; } }
+  .pitch-item { border-top:1px solid rgba(255,255,255,0.14); padding-top:12px; }
+  .pitch-item strong { display:block; font-size:14px; margin-bottom:3px; }
+  .pitch-item span { font-size:12.5px; color:rgba(255,255,255,0.65); line-height:1.5; }
+  .pitch-note { display:flex; gap:10px; align-items:flex-start; background:rgba(255,255,255,0.07); border-radius:10px; padding:12px 14px; font-size:12.5px; color:rgba(255,255,255,0.75); line-height:1.5; }
   h1.pagetitle { font-size:24px; margin-bottom:6px; }
   p.pagesub { color:var(--stone); font-size:14px; margin-bottom:24px; }
   .field { margin-bottom:16px; }
@@ -199,13 +205,16 @@
   function render() {
     app.innerHTML = `
       <div class="pitch">
-        <h1>Join the MySubbies panel</h1>
-        <ul>
-          <li>✓ No lead fees, ever</li>
-          <li>✓ No bidding against other contractors for the same job</li>
-          <li>✓ Fixed payout shown before you accept</li>
-          <li>✓ Paid in stages as the job progresses</li>
-        </ul>
+        <div class="pitch-eyebrow">MySubbies contractor panel</div>
+        <h1>Work you don't have to chase.</h1>
+        <p class="pitch-sub">Real jobs, priced and offered straight to you — no lead fees, no bidding wars, no chasing quotes.</p>
+        <div class="pitch-grid">
+          <div class="pitch-item"><strong>No lead fees</strong><span>Ever — not per job, not per lead.</span></div>
+          <div class="pitch-item"><strong>No bidding</strong><span>Each job is offered to one contractor at a time.</span></div>
+          <div class="pitch-item"><strong>Fixed payout</strong><span>Shown before you ever accept a job.</span></div>
+          <div class="pitch-item"><strong>Staged payments</strong><span>Paid as the job progresses, not just at the end.</span></div>
+        </div>
+        <div class="pitch-note">📱 Run it all from your phone — accept jobs, message customers and track payments from the contractor portal.</div>
       </div>
 
       <h1 class="pagetitle">Apply to join</h1>
