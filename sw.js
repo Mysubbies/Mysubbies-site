@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'mysubbies-v2';
+const CACHE_VERSION = 'mysubbies-v3';
 const PRECACHE_URLS = [
   '/',
   '/mysubbies-website.html',
@@ -6,6 +6,7 @@ const PRECACHE_URLS = [
   '/mysubbies-customer-portal.html',
   '/mysubbies-contractor-portal.html',
   '/mysubbies-contractor-signup.html',
+  '/mysubbies-contractor-landing.html',
   '/mysubbies-admin-portal.html',
   '/mysubbies-faq.html',
   '/mysubbies-terms.html',

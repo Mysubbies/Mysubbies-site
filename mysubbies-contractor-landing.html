@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Become a MySubbies Contractor | Melbourne Trade Jobs</title>
+<meta name="description" content="Join the MySubbies contractor panel in Melbourne. No lead fees, no bidding wars — real jobs offered straight to you, paid in stages, run entirely from your phone." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #171717; --black: #000000; --white: #FFFFFF; --paper: #F7F7F5;
+    --stone: #6B6B68; --stone-light: #9C9C97; --line: #E4E4E1; --good: #2F7A50;
+  }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  html { scroll-behavior: smooth; }
+  body { font-family:'Plus Jakarta Sans', system-ui, sans-serif; background: var(--white); color: var(--ink); line-height:1.5; -webkit-font-smoothing:antialiased; }
+  h1, h2, h3 { font-weight:800; letter-spacing:-0.02em; }
+  a { color:inherit; text-decoration:none; }
+  .wrap { max-width:1180px; margin:0 auto; padding:0 24px; }
+  section { padding:80px 0; }
+  @media (max-width:720px) { section { padding:52px 0; } }
+
+  header { position:sticky; top:0; z-index:50; background:var(--black); }
+  .navwrap { max-width:1180px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; gap:16px; height:64px; }
+  .logo { display:flex; align-items:center; gap:9px; }
+  .logo-mark { width:28px; height:28px; border-radius:7px; background:#fff; flex-shrink:0; }
+  .logo-word { font-weight:800; font-size:19px; color:#fff; white-space:nowrap; }
+  .navctas { display:flex; align-items:center; gap:10px; }
+  .navctas a.navlink { font-size:13.5px; font-weight:500; color:rgba(255,255,255,0.72); }
+  @media (max-width:560px) { .navctas a.navlink { display:none; } }
+
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:13px 24px; border-radius:999px; font-size:14.5px; font-weight:600; cursor:pointer; border:none; transition:opacity .12s; white-space:nowrap; }
+  .btn:hover { opacity:.85; }
+  .btn-black { background:var(--black); color:#fff; }
+  .btn-white { background:#fff; color:var(--black); }
+  .btn-ghost-onblack { background:transparent; color:#fff; border:1px solid rgba(255,255,255,0.3); }
+  .btn-lg { padding:16px 30px; font-size:15.5px; }
+
+  .hero { background:var(--black); padding:64px 0 60px; }
+  .hero-eyebrow { display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:rgba(255,255,255,0.6); background:rgba(255,255,255,0.08); padding:7px 14px; border-radius:999px; margin-bottom:24px; }
+  .hero h1 { font-size:clamp(34px, 5vw, 56px); line-height:1.06; color:#fff; max-width:680px; }
+  .hero p.lede { font-size:16.5px; color:rgba(255,255,255,0.7); max-width:520px; margin-top:20px; line-height:1.6; }
+  .hero-actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:32px; }
+  .hero-note { font-size:12.5px; color:rgba(255,255,255,0.5); margin-top:18px; }
+
+  .valuegrid { display:grid; grid-template-columns:repeat(3, 1fr); gap:20px; }
+  @media (max-width:860px) { .valuegrid { grid-template-columns:1fr 1fr; } }
+  @media (max-width:560px) { .valuegrid { grid-template-columns:1fr; } }
+  .valuecard { background:#fff; border:1px solid var(--line); border-radius:18px; padding:28px 24px; transition:box-shadow .2s, transform .2s; }
+  .valuecard:hover { box-shadow:0 10px 24px rgba(0,0,0,0.06); transform:translateY(-2px); }
+  .valuecard .vc-icon { width:44px; height:44px; border-radius:12px; background:var(--paper); display:flex; align-items:center; justify-content:center; margin-bottom:16px; font-size:20px; }
+  .valuecard h3 { font-size:17px; margin-bottom:8px; color:var(--black); }
+  .valuecard p { font-size:14px; color:var(--stone); line-height:1.6; }
+
+  .sec-head { margin-bottom:40px; text-align:center; }
+  .sec-head h2 { font-size:clamp(26px,3.4vw,34px); color:var(--black); margin-bottom:12px; }
+  .sec-head p { color:var(--stone); font-size:15px; max-width:520px; margin:0 auto; }
+
+  .steps { display:grid; grid-template-columns:repeat(4, 1fr); gap:28px; }
+  @media (max-width:900px) { .steps { grid-template-columns:1fr 1fr; } }
+  @media (max-width:560px) { .steps { grid-template-columns:1fr; } }
+  .step .idx { font-weight:800; font-size:13px; color:var(--stone-light); margin-bottom:14px; }
+  .step h3 { font-size:17px; margin-bottom:8px; color:var(--black); }
+  .step p { font-size:13.5px; color:var(--stone); line-height:1.6; }
+
+  .trust { background:var(--paper); }
+  .trustgrid { display:grid; grid-template-columns:repeat(3, 1fr); gap:1px; background:var(--line); border-radius:20px; overflow:hidden; border:1px solid var(--line); }
+  @media (max-width:780px) { .trustgrid { grid-template-columns:1fr; } }
+  .trustcard { background:#fff; padding:32px 28px; }
+  .trustcard h3 { font-size:16.5px; margin-bottom:10px; color:var(--black); }
+  .trustcard p { font-size:13.5px; color:var(--stone); line-height:1.6; }
+
+  .ctaband { background:var(--black); text-align:center; padding:76px 24px; }
+  .ctaband h2 { font-size:clamp(26px, 4vw, 38px); color:#fff; margin-bottom:14px; }
+  .ctaband p { color:rgba(255,255,255,0.65); font-size:15.5px; margin-bottom:32px; }
+  .ctaband .btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+
+  footer { background:var(--black); color:rgba(255,255,255,0.5); padding:40px 24px 28px; text-align:center; font-size:13px; border-top:1px solid rgba(255,255,255,0.08); }
+  footer a:hover { color:#fff; }
+  .footlinks { display:flex; gap:18px; justify-content:center; flex-wrap:wrap; margin-top:14px; }
+
+  .reveal { opacity:0; transform:translateY(16px); transition:opacity .6s ease, transform .6s ease; }
+  .reveal.in { opacity:1; transform:none; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } .reveal { opacity:1; transform:none; transition:none; } }
+  a:focus-visible, button:focus-visible { outline:2.5px solid var(--black); outline-offset:2px; border-radius:4px; }
+  .btn-white:focus-visible { outline-color:#fff; }
+</style>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MySubbies">
+</head>
+<body>
+
+<header>
+  <div class="navwrap">
+    <a class="logo" href="mysubbies-website.html">
+      <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="logo-word">MySubbies</div>
+    </a>
+    <div class="navctas">
+      <a class="navlink" href="mysubbies-contractor-portal.html">Already applied? Log in</a>
+      <a class="btn btn-white" href="mysubbies-contractor-signup.html">Apply now →</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-eyebrow"><span>For Melbourne trades &amp; contractors</span></div>
+    <h1>Work you don't have to chase.</h1>
+    <p class="lede">Real jobs, priced and offered straight to you — no lead fees, no bidding wars, no chasing quotes that go nowhere. Run the whole thing from your phone.</p>
+    <div class="hero-actions">
+      <a class="btn btn-white btn-lg" href="mysubbies-contractor-signup.html">Apply to join the panel →</a>
+      <a class="btn btn-ghost-onblack btn-lg" href="mysubbies-contractor-portal.html">Already applied? Log in →</a>
+    </div>
+    <div class="hero-note">Free to join. We review every application before granting portal access.</div>
+  </div>
+</section>
+
+<section id="why">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <h2>Why contractors choose MySubbies</h2>
+      <p>A dedicated panel, not an open marketplace — jobs are matched and offered to you, not bid on.</p>
+    </div>
+    <div class="valuegrid">
+      <div class="valuecard reveal"><div class="vc-icon">💸</div><h3>No lead fees</h3><p>Ever — not per job, not per lead, not a subscription to stay visible.</p></div>
+      <div class="valuecard reveal"><div class="vc-icon">🤝</div><h3>No bidding</h3><p>Each job is offered to one matched contractor at a time — you're not racing anyone to the bottom on price.</p></div>
+      <div class="valuecard reveal"><div class="vc-icon">💰</div><h3>Fixed payout</h3><p>The amount you'll be paid is shown before you ever accept a job — no surprises later.</p></div>
+      <div class="valuecard reveal"><div class="vc-icon">📆</div><h3>Staged payments</h3><p>Paid as the job progresses through agreed stages, not just a lump sum at the very end.</p></div>
+      <div class="valuecard reveal"><div class="vc-icon">🎯</div><h3>Matched to your trade &amp; area</h3><p>You only see jobs in the trades and suburbs you've told us you cover.</p></div>
+      <div class="valuecard reveal"><div class="vc-icon">💬</div><h3>Message customers in-app</h3><p>All communication happens in one thread inside the portal — no missed calls, no lost texts.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="how" style="background:var(--paper);">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <h2>How it works</h2>
+      <p>From application to your first job, in a few simple steps.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal"><div class="idx">01</div><h3>Apply &amp; get verified</h3><p>Tell us your trade, service area, ABN/ACN, licence and insurance. We review every application before granting access.</p></div>
+      <div class="step reveal"><div class="idx">02</div><h3>Get matched to jobs</h3><p>Once approved, real jobs in your trade and area appear in your portal feed — already priced.</p></div>
+      <div class="step reveal"><div class="idx">03</div><h3>Accept — no bidding</h3><p>See the scope and payout upfront, and accept the job. No quoting, no competing on price.</p></div>
+      <div class="step reveal"><div class="idx">04</div><h3>Get paid in stages</h3><p>As you complete each agreed stage of the job, request payment and get paid — not just at the very end.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="trust" id="trust">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <h2>Built around a vetted panel</h2>
+      <p>MySubbies checks contractors on the way in, so customers trust who's turning up.</p>
+    </div>
+    <div class="trustgrid reveal">
+      <div class="trustcard">
+        <h3>Company ABN &amp; ACN checked</h3>
+        <p>We verify your business is genuinely company-structured, with a live lookup against the Australian Business Register.</p>
+      </div>
+      <div class="trustcard">
+        <h3>Licence &amp; insurance on file</h3>
+        <p>Upload your licence and insurance documents as part of your application — reviewed before you're approved.</p>
+      </div>
+      <div class="trustcard">
+        <h3>One job at a time, not a flood</h3>
+        <p>Jobs are matched to your trade and area so your feed stays relevant, not overloaded with work you can't take.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="ctaband">
+  <div class="wrap" style="padding:0;">
+    <h2>Ready to stop chasing leads?</h2>
+    <p>Apply in a few minutes — most applications are reviewed within a few business days.</p>
+    <div class="btns">
+      <a class="btn btn-white btn-lg" href="mysubbies-contractor-signup.html">Apply to join the panel →</a>
+      <a class="btn btn-ghost-onblack btn-lg" href="mysubbies-contractor-portal.html">Already applied? Log in →</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  © 2026 MySubbies group. Melbourne, VIC.
+  <div class="footlinks">
+    <a href="mysubbies-website.html">Home</a>
+    <a href="mysubbies-faq.html">FAQ</a>
+    <a href="mysubbies-contractor-agreement.html">Contractor Agreement</a>
+    <a href="mysubbies-terms.html">Terms</a>
+    <a href="mailto:accounts@mysubbies.com.au">Contact us</a>
+  </div>
+</footer>
+
+<script>
+  const revealEls = document.querySelectorAll('.reveal');
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); revealObserver.unobserve(e.target); } });
+  }, { threshold: 0.12 });
+  revealEls.forEach(el => revealObserver.observe(el));
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
