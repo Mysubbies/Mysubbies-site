@@ -105,7 +105,15 @@ module.exports = async (req, res) => {
               actor_role: 'system', before_state: { status: milestoneRow.status }, after_state: { status: 'paid' },
             });
 
-            const { data: remaining } = await supabase.from('payment_milestones').select('*').eq('job_payment_schedule_id', milestoneRow.job_payment_schedule_id);
+            // Errors here MUST throw, not fall through silently -- this read
+            // decides whether the next milestone gets unlocked. A swallowed
+            // error here (found live: one real job's deposit paid but its
+            // next milestone stayed 'locked' forever, no error logged) would
+            // permanently strand the job with no self-healing path, since
+            // nothing else ever flips 'locked' -> 'available'. Throwing lets
+            // the outer catch return 500, so Stripe retries the delivery.
+            const { data: remaining, error: remainingErr } = await supabase.from('payment_milestones').select('*').eq('job_payment_schedule_id', milestoneRow.job_payment_schedule_id);
+            if (remainingErr) throw remainingErr;
             if (remaining && remaining.every(m => m.status === 'paid')) {
               await supabase.from('job_payment_schedules').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', milestoneRow.job_payment_schedule_id);
             } else if (remaining) {
