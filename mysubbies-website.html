@@ -867,11 +867,13 @@
 
           <div id="estQuestionsWrap"></div>
 
-          <label class="est-field-label">What's currently on the site?</label>
-          <input type="text" id="estSiteText" placeholder="e.g. existing grass, old decking to remove, easy access from the street…" oninput="selectedSite = this.value" />
+          <div id="estSiteFieldsWrap">
+            <label class="est-field-label">What's currently on the site?</label>
+            <input type="text" id="estSiteText" placeholder="e.g. existing grass, old decking to remove, easy access from the street…" oninput="selectedSite = this.value" />
 
-          <label class="est-field-label">Site access</label>
-          <div class="chiprow-est" id="estAccessChips"></div>
+            <label class="est-field-label">Site access</label>
+            <div class="chiprow-est" id="estAccessChips"></div>
+          </div>
 
           <label class="est-field-label">How urgent is this job?</label>
           <input type="text" id="estUrgencyText" placeholder="e.g. ASAP, within 2 weeks, no rush" oninput="selectedUrgency = this.value" />
@@ -1620,8 +1622,10 @@
     const total = cart.reduce((s, i) => s + i.base, 0);
     let html = `
       <div class="est-review-row"><span class="l">Suburb</span><span class="r">${escapeHtml(suburb || '—')}</span></div>
+      ${selectedCat && CATEGORIES_SKIP_SITE_FIELDS.has(selectedCat.label) ? '' : `
       <div class="est-review-row"><span class="l">Site conditions</span><span class="r">${escapeHtml(selectedSite || '—')}</span></div>
       <div class="est-review-row"><span class="l">Access</span><span class="r">${escapeHtml(selectedAccess || '—')}</span></div>
+      `}
       <div class="est-review-row"><span class="l">Urgency</span><span class="r">${escapeHtml(selectedUrgency || '—')}</span></div>
       <div class="est-review-row"><span class="l">Photos</span><span class="r">${uploadedPhotos.length ? uploadedPhotos.length + ' added' : 'None'}</span></div>
     `;
@@ -2023,6 +2027,10 @@
       imgWrap.style.display = 'none';
     }
 
+    const skipSiteFields = CATEGORIES_SKIP_SITE_FIELDS.has(c.label);
+    document.getElementById('estSiteFieldsWrap').style.display = skipSiteFields ? 'none' : 'block';
+    if (skipSiteFields) { selectedSite = null; selectedAccess = null; }
+
     const tierWrap = document.getElementById('estTierWrap');
     tierWrap.style.display = 'block';
     document.getElementById('estTierQuickMatch').value = '';
@@ -2368,6 +2376,18 @@
 
   const ACCESS_OPTIONS = ['Easy access', 'Narrow / restricted access', 'Not sure'];
   let selectedSite = null, selectedAccess = null, selectedUrgency = null;
+
+  // "What's currently on the site?" and "Site access" only matter for jobs
+  // involving trucks, heavy materials, or equipment getting onto the
+  // property -- irrelevant for small indoor jobs like curtains or a
+  // locksmith callout. Kept as a separate lookup, not a DEFAULT_CATEGORIES
+  // field, same reasoning as CATEGORY_ICON_COLORS -- purely presentational
+  // logic, never touched by mergeRateCardUpdates()/applyOneTimePriceRefresh().
+  const CATEGORIES_SKIP_SITE_FIELDS = new Set([
+    'Cabinetry', 'Flooring', 'Cleaning', 'Tiling', 'Electrical', 'Plumbing', 'Handyman',
+    'Property Maintenance', 'Pest Control', 'Locksmith', 'Blinds, Curtains & Shutters',
+    'Garage Door Service & Repair', 'Plastering & Drywall Repair', 'Insulation Installation',
+  ]);
 
   function renderChipRow(containerId, options, onSelect) {
     const row = document.getElementById(containerId);
