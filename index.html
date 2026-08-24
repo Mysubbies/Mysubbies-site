@@ -829,9 +829,15 @@
           <div id="estRefImage" style="display:none;margin-bottom:14px;"></div>
 
           <div id="estTierWrap" style="display:none;">
-            <label class="est-field-label">Choose one or more options</label>
-            <input type="text" id="estTierQuickMatch" class="est-tier-quickmatch" placeholder="Or just type what you need, e.g. &quot;replace a power point&quot;" autocomplete="off" oninput="onTierQuickMatch()" />
-            <div class="chiprow-est" id="estTierChips"></div>
+            <label class="est-field-label">What do you need done?</label>
+            <input type="text" id="estTierQuickMatch" class="est-tier-quickmatch" placeholder="Type what you need, e.g. &quot;replace a power point&quot;" autocomplete="off" oninput="onTierQuickMatch()" />
+            <div class="est-match-line" id="estTierMatchLine"></div>
+            <div class="chiprow-est" id="estSelectedPills"></div>
+            <!-- Full browsable task list -- hidden by request (was reading as
+                 clutter on a category with many tasks). Kept in the DOM, not
+                 deleted, since selection/matching logic (toggleTierSelection,
+                 estFindBestTaskMatch highlighting) still reads/writes to it. -->
+            <div class="chiprow-est" id="estTierChips" style="display:none;"></div>
           </div>
 
         <div class="est-field-error" id="estStep1Error"></div>
@@ -2020,6 +2026,8 @@
     const tierWrap = document.getElementById('estTierWrap');
     tierWrap.style.display = 'block';
     document.getElementById('estTierQuickMatch').value = '';
+    document.getElementById('estTierMatchLine').textContent = '';
+    document.getElementById('estTierMatchLine').className = 'est-match-line';
     const chips = document.getElementById('estTierChips');
     chips.innerHTML = '';
     c.tasks.filter(t => !t.disabled).forEach(t => {
@@ -2043,6 +2051,7 @@
 
     renderQuestions(c);
     renderQtyRows();
+    renderSelectedPills();
   }
 
   function toggleTierSelection(t, btn) {
@@ -2057,6 +2066,27 @@
     const remaining = Array.from(selectedTierSet.values());
     selectedTier = remaining.length ? remaining[remaining.length - 1] : null;
     renderQtyRows();
+    renderSelectedPills();
+  }
+
+  // Small removable-pill summary of what's currently selected, shown instead
+  // of the full browsable task list (hidden by request -- reads as clutter
+  // on categories with many tasks). Customers add tasks by typing into
+  // estTierQuickMatch; this is just the confirm-and-remove surface.
+  function renderSelectedPills() {
+    const wrap = document.getElementById('estSelectedPills');
+    if (!wrap) return;
+    wrap.innerHTML = Array.from(selectedTierSet.values()).map(t => `
+      <button type="button" class="chip-est selected" onclick="removeTierSelection('${t.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">${escapeHtml(t.name)} ✕</button>
+    `).join('');
+  }
+  function removeTierSelection(name) {
+    selectedTierSet.delete(name);
+    qtyValues.delete(name);
+    const chipBtn = Array.from(document.querySelectorAll('#estTierChips .chip-est')).find(b => b.textContent.trim() === name);
+    if (chipBtn) chipBtn.classList.remove('selected');
+    renderQtyRows();
+    renderSelectedPills();
   }
 
   // Sub-category quick-match (hybrid text + chips) — customers can type
@@ -2071,22 +2101,28 @@
     estTierQuickMatchTimer = setTimeout(() => {
       if (!selectedCat) return;
       const query = document.getElementById('estTierQuickMatch').value.trim();
-      if (!query) return; // leave whatever's currently selected as-is
+      const matchLine = document.getElementById('estTierMatchLine');
+      if (!query) { matchLine.textContent = ''; matchLine.className = 'est-match-line'; return; }
       const match = estFindBestTaskMatch(selectedCat.tasks, query);
-      if (!match) return;
+      if (!match) {
+        matchLine.textContent = 'No exact match yet — keep typing, or Continue and we’ll help refine it.';
+        matchLine.className = 'est-match-line none';
+        return;
+      }
       // Adds to the multi-select set rather than replacing it, so typing a
-      // second query on top of an already-picked chip keeps both selected.
+      // second query on top of an already-matched task keeps both selected.
       if (!selectedTierSet.has(match.name)) {
         selectedTierSet.set(match.name, match);
         selectedTier = match;
         renderQtyRows();
+        renderSelectedPills();
       }
+      matchLine.textContent = `✓ Added "${match.name}"`;
+      matchLine.className = 'est-match-line found';
       const chips = document.getElementById('estTierChips');
-      let matchedBtn = null;
       chips.querySelectorAll('.chip-est').forEach(b => {
-        if (b.textContent.trim() === match.name) { b.classList.add('selected'); matchedBtn = b; }
+        if (b.textContent.trim() === match.name) b.classList.add('selected');
       });
-      if (matchedBtn) matchedBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }, 300);
   }
 
