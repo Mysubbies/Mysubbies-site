@@ -441,10 +441,15 @@
     const milestones = data.milestones || [];
     const doneCount = milestones.filter(m => m.status === 'paid').length;
     const stagebar = `<div class="stagebar">${milestones.map(m => `<div class="stage ${m.status === 'paid' ? 'done' : ''}" style="flex:${m.pct};"></div>`).join('')}</div>`;
+    // Percentage only, deliberately no dollar figure -- amount_cents is the
+    // milestone's share of the CUSTOMER's full price, not the contractor's
+    // payout (75%, and for anything past the deposit, paid out manually by
+    // AP rather than by an automated split). Showing that number here would
+    // read as a payout promise the system doesn't actually enforce.
     const list = `<div style="margin:10px 0;">${milestones.map(m => `
       <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:${m.status === 'paid' ? 'var(--good)' : 'var(--stone)'};">
-        <span>${m.status === 'paid' ? '✓' : '○'} ${escapeHtml(m.label)} (${m.pct}%)</span>
-        <span>$${(m.amount_cents / 100).toLocaleString()}</span>
+        <span>${m.status === 'paid' ? '✓' : '○'} ${escapeHtml(m.label)}</span>
+        <span>${m.pct}%</span>
       </div>`).join('')}</div>`;
 
     const next = milestones.find(m => m.status !== 'paid');
@@ -454,7 +459,7 @@
     } else if (next.milestone_type === 'deposit') {
       actionHtml = '<div class="note">Waiting on the deposit payment.</div>';
     } else if (next.status === 'available') {
-      actionHtml = `<button class="btn btn-black btn-full" style="margin-top:10px;" onclick="openMilestoneClaimForm('${jobId}','${next.key}')">Claim: ${escapeHtml(next.label)} — $${(next.amount_cents / 100).toLocaleString()} (${next.pct}%)</button><div id="milestoneClaimFormWrap"></div>`;
+      actionHtml = `<button class="btn btn-black btn-full" style="margin-top:10px;" onclick="openMilestoneClaimForm('${jobId}','${next.key}')">Claim: ${escapeHtml(next.label)} (${next.pct}%)</button><div id="milestoneClaimFormWrap"></div>`;
     } else if (next.status === 'awaiting_customer') {
       actionHtml = `<div class="note">⏳ Waiting on the customer to review <strong>${escapeHtml(next.label)}</strong>.</div>`;
     } else if (next.status === 'disputed') {
