@@ -116,24 +116,6 @@
   @media (max-width: 720px) { .hero { padding: 24px 0 16px; } }
   #categories { padding-top: 24px; padding-bottom: 48px; }
   #get-quote { padding-top: 0; }
-  #popular-jobs { padding-top: 0; padding-bottom: 48px; }
-  /* "Popular jobs near you" (Aug 2026) -- Urban Company-style card list, but
-     with real data: minJobPrice from the actual rate card, not an invented
-     fixed price, and no fabricated ratings/review counts. Get price ->
-     goToEstimatorWithTask() drops the customer into the real estimator with
-     that exact task pre-selected, not an instant "book now". */
-  .jobgrid-popular { display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; }
-  @media (max-width:860px) { .jobgrid-popular { grid-template-columns:1fr 1fr; } }
-  @media (max-width:560px) { .jobgrid-popular { grid-template-columns:1fr; } }
-  .jobcard-popular { background:#fff; border:1px solid var(--line); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; cursor:pointer; transition:border-color .15s, transform .15s, box-shadow .15s; text-align:left; padding:0; font-family:inherit; }
-  .jobcard-popular:hover { border-color:var(--black); transform:translateY(-3px); box-shadow:0 10px 24px rgba(0,0,0,0.06); }
-  .jobcard-popular .jc-photo { width:100%; aspect-ratio:4/3; object-fit:cover; display:block; background:var(--paper); }
-  .jobcard-popular .jc-body { padding:14px 16px 16px; }
-  .jobcard-popular .jc-name { font-size:14px; font-weight:700; color:var(--black); margin-bottom:4px; line-height:1.3; }
-  .jobcard-popular .jc-price { font-size:12px; color:var(--stone); margin-bottom:12px; }
-  .jobcard-popular .jc-price b { color:var(--black); font-size:16px; font-weight:800; }
-  .jobcard-popular .jc-btn { width:100%; background:var(--paper); color:var(--black); border:1.5px solid var(--line); border-radius:999px; padding:9px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit; }
-  .jobcard-popular:hover .jc-btn { border-color:var(--black); }
   .hero-grid { display:grid; grid-template-columns: 1fr 0.9fr; gap:56px; align-items:start; }
   @media (max-width: 980px) { .hero-grid { grid-template-columns:1fr; } }
   .personal-tradie-tag { font-size:15px; font-weight:800; color:var(--black); margin-bottom:10px; letter-spacing:-0.01em; }
@@ -825,65 +807,6 @@
         <div class="catcard" onclick="goToEstimatorWithCategory('Insulation Installation')"><img class="cc-icon-sm cat-insulation-installation" src="images/categories/insulation-installation.jpg" alt="" loading="lazy" /><div class="name">Insulation Installation</div></div>
         <div class="catcard" onclick="openFixSomething()"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.4 2.3c-.9.4-1.4 1-1.4 1.7v.5"/><path d="M12 17h0"/></svg></div><div class="name">Other</div></div>
       </div>
-    </div>
-  </div>
-</section>
-
-<section id="popular-jobs">
-  <div class="wrap">
-    <div class="cat-head reveal">
-      <h2>Popular jobs near you</h2>
-      <p>Real starting prices from our Melbourne rate card — tap one to get your exact price.</p>
-    </div>
-    <div class="jobgrid-popular">
-      <button class="jobcard-popular" onclick="goToEstimatorWithTask('Electrical', 'Power point (GPO) — replace like-for-like')">
-        <img class="jc-photo" src="images/categories/electrical.jpg" alt="Electrician replacing a power point" loading="lazy" />
-        <div class="jc-body">
-          <div class="jc-name">Power Point Replacement</div>
-          <div class="jc-price">From <b>$180</b></div>
-          <div class="jc-btn">Get price →</div>
-        </div>
-      </button>
-      <button class="jobcard-popular" onclick="goToEstimatorWithTask('Plumbing', 'Showerhead replacement')">
-        <img class="jc-photo" src="images/categories/plumbing.jpg" alt="Plumber replacing a showerhead" loading="lazy" />
-        <div class="jc-body">
-          <div class="jc-name">Showerhead Replacement</div>
-          <div class="jc-price">From <b>$230</b></div>
-          <div class="jc-btn">Get price →</div>
-        </div>
-      </button>
-      <button class="jobcard-popular" onclick="goToEstimatorWithTask('Gardening &amp; Lawn Mowing', 'Lawn mowing — small (up to 300 sqm)')">
-        <img class="jc-photo" src="images/categories/gardening-lawn-mowing.jpg" alt="Lawn mowing" loading="lazy" />
-        <div class="jc-body">
-          <div class="jc-name">Lawn Mowing (Small)</div>
-          <div class="jc-price">From <b>$120</b></div>
-          <div class="jc-btn">Get price →</div>
-        </div>
-      </button>
-      <button class="jobcard-popular" onclick="goToEstimatorWithTask('Handyman', 'TV wall mounting')">
-        <img class="jc-photo" src="images/categories/handyman.jpg" alt="Handyman mounting a TV" loading="lazy" />
-        <div class="jc-body">
-          <div class="jc-name">TV Wall Mounting</div>
-          <div class="jc-price">From <b>$180</b></div>
-          <div class="jc-btn">Get price →</div>
-        </div>
-      </button>
-      <button class="jobcard-popular" onclick="goToEstimatorWithTask('Cleaning', 'Window cleaning')">
-        <img class="jc-photo" src="images/categories/cleaning.jpg" alt="Window cleaning" loading="lazy" />
-        <div class="jc-body">
-          <div class="jc-name">Window Cleaning</div>
-          <div class="jc-price">From <b>$150</b></div>
-          <div class="jc-btn">Get price →</div>
-        </div>
-      </button>
-      <button class="jobcard-popular" onclick="goToEstimatorWithTask('Locksmith', 'Deadlock supply &amp; install (external door)')">
-        <img class="jc-photo" src="images/categories/locksmith.jpg" alt="Locksmith installing a deadlock" loading="lazy" />
-        <div class="jc-body">
-          <div class="jc-name">Deadlock Installation</div>
-          <div class="jc-price">From <b>$280</b></div>
-          <div class="jc-btn">Get price →</div>
-        </div>
-      </button>
     </div>
   </div>
 </section>
@@ -1743,25 +1666,6 @@
     const cat = CATEGORIES.find(c => c.label === label);
     document.getElementById('estimate').scrollIntoView({ behavior: 'smooth', block: 'start' });
     if (cat) setTimeout(() => selectCat(cat), 350);
-  }
-
-  // "Popular jobs near you" cards -- same scroll+select as
-  // goToEstimatorWithCategory, plus pre-selecting the specific task so the
-  // customer only has to enter a quantity and suburb, not re-find the task.
-  function goToEstimatorWithTask(label, taskName) {
-    const cat = CATEGORIES.find(c => c.label === label);
-    document.getElementById('estimate').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    if (!cat) return;
-    setTimeout(() => {
-      selectCat(cat);
-      const task = cat.tasks.find(t => t.name === taskName && !t.unavailable && !t.disabled);
-      if (task) {
-        selectedTierSet.set(task.name, task);
-        selectedTier = task;
-        renderQtyRows();
-        renderSelectedPills();
-      }
-    }, 350);
   }
 
   // Hero booking-starter (item 3) — "Describe your job" is AI-reactive: it
