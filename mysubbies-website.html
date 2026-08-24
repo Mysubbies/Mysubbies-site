@@ -416,9 +416,14 @@
   /* ============ Category redesign (item 5) ============ */
   .catgrid-popular { display:grid; grid-template-columns:repeat(4, 1fr); gap:14px; }
   @media (max-width:860px) { .catgrid-popular { grid-template-columns:repeat(2, 1fr); } }
-  .catcard2 { background:#fff; border:1px solid var(--line); border-radius:16px; padding:22px 18px; text-align:left; cursor:pointer; transition:border-color .15s, transform .15s, box-shadow .15s; display:flex; flex-direction:column; gap:12px; }
+  /* Real photo banner (Aug 2026) replaces the flat icon badge on the 8
+     popular cards -- sourced stock photography (Unsplash License), not
+     AI-generated, per this project's standing rule. */
+  .catcard2 { background:#fff; border:1px solid var(--line); border-radius:16px; padding:0; text-align:left; cursor:pointer; transition:border-color .15s, transform .15s, box-shadow .15s; display:flex; flex-direction:column; overflow:hidden; }
   .catcard2:hover { border-color:var(--black); transform:translateY(-3px); box-shadow:0 10px 24px rgba(0,0,0,0.06); }
+  .catcard2 .cc-photo { width:100%; aspect-ratio:4/3; object-fit:cover; display:block; background:var(--paper); }
   .catcard2 .cc-icon { width:44px; height:44px; border-radius:12px; background:var(--paper); display:flex; align-items:center; justify-content:center; color:var(--ink); }
+  .catcard2 .cc-body { padding:16px 18px 20px; display:flex; flex-direction:column; gap:6px; }
   .catcard2 .cc-name { font-size:15px; font-weight:700; color:var(--black); }
   .catcard2 .cc-sub { font-size:12.5px; color:var(--stone); line-height:1.4; }
   .catgrid-all-wrap { max-height:0; overflow:hidden; transition:max-height .4s ease; }
@@ -426,6 +431,7 @@
   .catgrid-all { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:12px; margin-top:20px; }
   .catcard { display:flex; flex-direction:column; align-items:center; gap:10px; }
   .catcard .cc-icon-sm { width:38px; height:38px; box-sizing:border-box; padding:8px; border-radius:50%; background:var(--paper); color:var(--ink); }
+  .catcard img.cc-icon-sm { padding:0; object-fit:cover; display:block; }
   /* Per-category pastel icon-badge colors (navy/gold reskin, Aug 2026) -- purely
      presentational, deliberately kept separate from DEFAULT_CATEGORIES so it's never
      touched by mergeRateCardUpdates()/applyOneTimePriceRefresh(). Icon glyph color
@@ -720,44 +726,44 @@
     </div>
     <div class="catgrid-popular">
       <button class="catcard2" onclick="goToEstimatorWithCategory('Electrical')">
-        <div class="cc-icon cat-electrical"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 11-14h-7z"/></svg></div>
-        <div class="cc-name">Electrical</div>
-        <div class="cc-sub">Power points, lighting, safety switches</div>
+        <img class="cc-photo" src="images/categories/electrical.jpg" alt="Electrician installing wiring" loading="lazy" />
+        <div class="cc-body"><div class="cc-name">Electrical</div>
+        <div class="cc-sub">Power points, lighting, safety switches</div></div>
       </button>
       <button class="catcard2" onclick="goToEstimatorWithCategory('Plumbing')">
-        <div class="cc-icon cat-plumbing"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v4a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3V3"/><path d="M10 10v3a5 5 0 0 0 5 5h0"/><circle cx="18" cy="18" r="3"/></svg></div>
-        <div class="cc-name">Plumbing</div>
-        <div class="cc-sub">Taps, blockages, hot water systems</div>
+        <img class="cc-photo" src="images/categories/plumbing.jpg" alt="Plumber working on pipes" loading="lazy" />
+        <div class="cc-body"><div class="cc-name">Plumbing</div>
+        <div class="cc-sub">Taps, blockages, hot water systems</div></div>
       </button>
       <button class="catcard2" onclick="goToEstimatorWithCategory('Handyman')">
-        <div class="cc-icon cat-handyman"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 1 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.7 2.7-2-2z"/></svg></div>
-        <div class="cc-name">Home Repairs</div>
-        <div class="cc-sub">General repairs, installations and small jobs</div>
+        <img class="cc-photo" src="images/categories/handyman.jpg" alt="Handyman with a tool belt" loading="lazy" />
+        <div class="cc-body"><div class="cc-name">Home Repairs</div>
+        <div class="cc-sub">General repairs, installations and small jobs</div></div>
       </button>
       <button class="catcard2" onclick="goToEstimatorWithCategory('Cleaning')">
-        <div class="cc-icon cat-cleaning"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg></div>
-        <div class="cc-name">Cleaning</div>
-        <div class="cc-sub">Bond cleans, regular cleans, windows</div>
+        <img class="cc-photo" src="images/categories/cleaning.jpg" alt="Cleaner vacuuming a living room" loading="lazy" />
+        <div class="cc-body"><div class="cc-name">Cleaning</div>
+        <div class="cc-sub">Bond cleans, regular cleans, windows</div></div>
       </button>
       <button class="catcard2" onclick="goToEstimatorWithCategory('Gardening &amp; Lawn Mowing')">
-        <div class="cc-icon cat-gardening-lawn-mowing"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3C7 3 3 6 3 11c0 4.4 3.6 8 8 8 5-6.6 4.5-14 1-16z"/><path d="M8 15c2-3 4-5 8-9"/></svg></div>
-        <div class="cc-name">Gardening</div>
-        <div class="cc-sub">Lawn mowing, tidy-ups, hedges</div>
+        <img class="cc-photo" src="images/categories/gardening-lawn-mowing.jpg" alt="Landscaper mowing a lawn" loading="lazy" />
+        <div class="cc-body"><div class="cc-name">Gardening</div>
+        <div class="cc-sub">Lawn mowing, tidy-ups, hedges</div></div>
       </button>
       <button class="catcard2" onclick="goToEstimatorWithCategory('Painting')">
-        <div class="cc-icon cat-painting"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="6" rx="1.5"/><path d="M10 10v4a2 2 0 0 0 2 2h2a2 2 0 0 1 2 2v3"/></svg></div>
-        <div class="cc-name">Painting</div>
-        <div class="cc-sub">Interior, exterior, fences</div>
+        <img class="cc-photo" src="images/categories/painting.jpg" alt="Painter with a roller and paint tray" loading="lazy" />
+        <div class="cc-body"><div class="cc-name">Painting</div>
+        <div class="cc-sub">Interior, exterior, fences</div></div>
       </button>
       <button class="catcard2" onclick="goToEstimatorWithCategory('Fencing')">
-        <div class="cc-icon cat-fencing"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V7l3-3 3 3v14M13 21V7l3-3 3 3v14M2 12h20M2 17h20"/></svg></div>
-        <div class="cc-name">Fencing</div>
-        <div class="cc-sub">Timber, Colorbond, aluminium</div>
+        <img class="cc-photo" src="images/categories/fencing.jpg" alt="Workers building a timber fence" loading="lazy" />
+        <div class="cc-body"><div class="cc-name">Fencing</div>
+        <div class="cc-sub">Timber, Colorbond, aluminium</div></div>
       </button>
       <button class="catcard2" onclick="goToEstimatorWithCategory('Decking')">
-        <div class="cc-icon cat-decking"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg></div>
-        <div class="cc-name">Decking &amp; Outdoor Work</div>
-        <div class="cc-sub">New decks, repairs, outdoor builds</div>
+        <img class="cc-photo" src="images/categories/decking.jpg" alt="Workers building a timber deck" loading="lazy" />
+        <div class="cc-body"><div class="cc-name">Decking &amp; Outdoor Work</div>
+        <div class="cc-sub">New decks, repairs, outdoor builds</div></div>
       </button>
     </div>
 
@@ -768,37 +774,37 @@
 
     <div class="catgrid-all-wrap" id="catGridAllWrap">
       <div class="catgrid catgrid-all" id="catGrid">
-        <div class="catcard" onclick="goToEstimatorWithCategory('Decking')"><div class="cc-icon-sm cat-decking"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg></div><div class="name">Decking</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Pergola')"><div class="cc-icon-sm cat-pergola"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8 12 3l9 5M4 8v13M20 8v13M4 12h16M4 16h16"/></svg></div><div class="name">Pergola</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Fencing')"><div class="cc-icon-sm cat-fencing"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V7l3-3 3 3v14M13 21V7l3-3 3 3v14M2 12h20M2 17h20"/></svg></div><div class="name">Fencing</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Retaining Wall')"><div class="cc-icon-sm cat-retaining-wall"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 10h18M3 16h18M9 4v6M15 10v6M9 16v4"/></svg></div><div class="name">Retaining Wall</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Concreting')"><div class="cc-icon-sm cat-concreting"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="1"/><path d="M7 21v-2M17 21v-2M12 3l3 4H9z"/></svg></div><div class="name">Concreting</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Grass Installation')"><div class="cc-icon-sm cat-grass-installation"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V11M8 21V8M12 21v-9M16 21V8M20 21V11"/></svg></div><div class="name">Grass Installation</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Gardening &amp; Lawn Mowing')"><div class="cc-icon-sm cat-gardening-lawn-mowing"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3C7 3 3 6 3 11c0 4.4 3.6 8 8 8 5-6.6 4.5-14 1-16z"/><path d="M8 15c2-3 4-5 8-9"/></svg></div><div class="name">Gardening &amp; Lawn Mowing</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Tree Pruning &amp; Removal')"><div class="cc-icon-sm cat-tree-pruning-removal"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c3 3 5 6 5 9a5 5 0 0 1-10 0c0-3 2-6 5-9z"/><path d="M12 16v6"/></svg></div><div class="name">Tree Pruning &amp; Removal</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Painting')"><div class="cc-icon-sm cat-painting"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="12" height="6" rx="1.5"/><path d="M10 10v4a2 2 0 0 0 2 2h2a2 2 0 0 1 2 2v3"/></svg></div><div class="name">Painting</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Rendering')"><div class="cc-icon-sm cat-rendering"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 10h16M4 15h16M9 4v16"/></svg></div><div class="name">Rendering</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Cabinetry')"><div class="cc-icon-sm cat-cabinetry"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M4 12h16M9 7h0M9 16h0"/></svg></div><div class="name">Cabinetry</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Stonemason')"><div class="cc-icon-sm cat-stonemason"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15 8 6h8l4 9-3 5H7z"/></svg></div><div class="name">Stonemason</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Flooring')"><div class="cc-icon-sm cat-flooring"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="8" height="8"/><rect x="13" y="5" width="8" height="8"/><rect x="3" y="15" width="8" height="4"/><rect x="13" y="15" width="8" height="4"/></svg></div><div class="name">Flooring</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Earth Works')"><div class="cc-icon-sm cat-earth-works"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 12 4l8 16z"/><path d="M8 20 12 12l4 8"/></svg></div><div class="name">Earth Works</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Demolition')"><div class="cc-icon-sm cat-demolition"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 6.5 3 3L7 20H4v-3z"/><path d="m13 5 6 6"/></svg></div><div class="name">Demolition</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Skip Bins')"><div class="cc-icon-sm cat-skip-bins"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.5 12h-11z"/><path d="M9 8V5h6v3M4 8h16"/></svg></div><div class="name">Skip Bins</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Cleaning')"><div class="cc-icon-sm cat-cleaning"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg></div><div class="name">Cleaning</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Tiling')"><div class="cc-icon-sm cat-tiling"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/></svg></div><div class="name">Tiling</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Tiled Roof Repair')"><div class="cc-icon-sm cat-tiled-roof-repair"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/></svg></div><div class="name">Tiled Roof Repair</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Electrical')"><div class="cc-icon-sm cat-electrical"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 11-14h-7z"/></svg></div><div class="name">Electrical</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Plumbing')"><div class="cc-icon-sm cat-plumbing"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v4a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3V3"/><path d="M10 10v3a5 5 0 0 0 5 5h0"/><circle cx="18" cy="18" r="3"/></svg></div><div class="name">Plumbing</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Handyman')"><div class="cc-icon-sm cat-handyman"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 1 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.7 2.7-2-2z"/></svg></div><div class="name">Handyman</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Property Maintenance')"><div class="cc-icon-sm cat-property-maintenance"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 3V2h6v1"/><path d="m9 12 2 2 4-4"/></svg></div><div class="name">Property Maintenance</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Small Outdoor &amp; Construction Repairs')"><div class="cc-icon-sm cat-small-outdoor-construction-repairs"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21 12 12"/><path d="M12 12 18 3l3 3-9 9"/><circle cx="6" cy="18" r="3"/></svg></div><div class="name">Small Outdoor &amp; Construction Repairs</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Pest Control')"><div class="cc-icon-sm cat-pest-control"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3"/><path d="M12 11v9"/><path d="M8 14H5M8 17H5M16 14h3M16 17h3M9 8 5 5M15 8l4-3"/></svg></div><div class="name">Pest Control</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Locksmith')"><div class="cc-icon-sm cat-locksmith"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="M11 12 20 3"/><path d="m17 6 3 3M14 9l2 2"/></svg></div><div class="name">Locksmith</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Blinds, Curtains &amp; Shutters')"><div class="cc-icon-sm cat-blinds-curtains-shutters"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 8h16M4 12h16M4 16h16"/></svg></div><div class="name">Blinds, Curtains &amp; Shutters</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Garage Door Service &amp; Repair')"><div class="cc-icon-sm cat-garage-door-service-repair"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 9h16z"/><rect x="4" y="9" width="16" height="12" rx="1"/><path d="M4 13h16M4 17h16"/></svg></div><div class="name">Garage Door Service &amp; Repair</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Decking')"><img class="cc-icon-sm cat-decking" src="images/categories/decking.jpg" alt="" loading="lazy" /><div class="name">Decking</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Pergola')"><img class="cc-icon-sm cat-pergola" src="images/categories/pergola.jpg" alt="" loading="lazy" /><div class="name">Pergola</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Fencing')"><img class="cc-icon-sm cat-fencing" src="images/categories/fencing.jpg" alt="" loading="lazy" /><div class="name">Fencing</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Retaining Wall')"><img class="cc-icon-sm cat-retaining-wall" src="images/categories/retaining-wall.jpg" alt="" loading="lazy" /><div class="name">Retaining Wall</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Concreting')"><img class="cc-icon-sm cat-concreting" src="images/categories/concreting.jpg" alt="" loading="lazy" /><div class="name">Concreting</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Grass Installation')"><img class="cc-icon-sm cat-grass-installation" src="images/categories/grass-installation.jpg" alt="" loading="lazy" /><div class="name">Grass Installation</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Gardening &amp; Lawn Mowing')"><img class="cc-icon-sm cat-gardening-lawn-mowing" src="images/categories/gardening-lawn-mowing.jpg" alt="" loading="lazy" /><div class="name">Gardening &amp; Lawn Mowing</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Tree Pruning &amp; Removal')"><img class="cc-icon-sm cat-tree-pruning-removal" src="images/categories/tree-pruning-removal.jpg" alt="" loading="lazy" /><div class="name">Tree Pruning &amp; Removal</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Painting')"><img class="cc-icon-sm cat-painting" src="images/categories/painting.jpg" alt="" loading="lazy" /><div class="name">Painting</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Rendering')"><img class="cc-icon-sm cat-rendering" src="images/categories/rendering.jpg" alt="" loading="lazy" /><div class="name">Rendering</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Cabinetry')"><img class="cc-icon-sm cat-cabinetry" src="images/categories/cabinetry.jpg" alt="" loading="lazy" /><div class="name">Cabinetry</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Stonemason')"><img class="cc-icon-sm cat-stonemason" src="images/categories/stonemason.jpg" alt="" loading="lazy" /><div class="name">Stonemason</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Flooring')"><img class="cc-icon-sm cat-flooring" src="images/categories/flooring.jpg" alt="" loading="lazy" /><div class="name">Flooring</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Earth Works')"><img class="cc-icon-sm cat-earth-works" src="images/categories/earth-works.jpg" alt="" loading="lazy" /><div class="name">Earth Works</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Demolition')"><img class="cc-icon-sm cat-demolition" src="images/categories/demolition.jpg" alt="" loading="lazy" /><div class="name">Demolition</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Skip Bins')"><img class="cc-icon-sm cat-skip-bins" src="images/categories/skip-bins.jpg" alt="" loading="lazy" /><div class="name">Skip Bins</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Cleaning')"><img class="cc-icon-sm cat-cleaning" src="images/categories/cleaning.jpg" alt="" loading="lazy" /><div class="name">Cleaning</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Tiling')"><img class="cc-icon-sm cat-tiling" src="images/categories/tiling.jpg" alt="" loading="lazy" /><div class="name">Tiling</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Tiled Roof Repair')"><img class="cc-icon-sm cat-tiled-roof-repair" src="images/categories/tiled-roof-repair.jpg" alt="" loading="lazy" /><div class="name">Tiled Roof Repair</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Electrical')"><img class="cc-icon-sm cat-electrical" src="images/categories/electrical.jpg" alt="" loading="lazy" /><div class="name">Electrical</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Plumbing')"><img class="cc-icon-sm cat-plumbing" src="images/categories/plumbing.jpg" alt="" loading="lazy" /><div class="name">Plumbing</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Handyman')"><img class="cc-icon-sm cat-handyman" src="images/categories/handyman.jpg" alt="" loading="lazy" /><div class="name">Handyman</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Property Maintenance')"><img class="cc-icon-sm cat-property-maintenance" src="images/categories/property-maintenance.jpg" alt="" loading="lazy" /><div class="name">Property Maintenance</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Small Outdoor &amp; Construction Repairs')"><img class="cc-icon-sm cat-small-outdoor-construction-repairs" src="images/categories/small-outdoor-construction-repairs.jpg" alt="" loading="lazy" /><div class="name">Small Outdoor &amp; Construction Repairs</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Pest Control')"><img class="cc-icon-sm cat-pest-control" src="images/categories/pest-control.jpg" alt="" loading="lazy" /><div class="name">Pest Control</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Locksmith')"><img class="cc-icon-sm cat-locksmith" src="images/categories/locksmith.jpg" alt="" loading="lazy" /><div class="name">Locksmith</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Blinds, Curtains &amp; Shutters')"><img class="cc-icon-sm cat-blinds-curtains-shutters" src="images/categories/blinds-curtains-shutters.jpg" alt="" loading="lazy" /><div class="name">Blinds, Curtains &amp; Shutters</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Garage Door Service &amp; Repair')"><img class="cc-icon-sm cat-garage-door-service-repair" src="images/categories/garage-door-service-repair.jpg" alt="" loading="lazy" /><div class="name">Garage Door Service &amp; Repair</div></div>
         <div class="catcard" onclick="goToEstimatorWithCategory('Gutter Guard Installation')"><div class="cc-icon-sm cat-gutter-guard-installation"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4C10 4 4 10 4 20c8 0 14-6 16-16z"/><path d="M8 16 20 4"/></svg></div><div class="name">Gutter Guard Installation</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Plastering &amp; Drywall Repair')"><div class="cc-icon-sm cat-plastering-drywall-repair"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="m16 4 4 4-8 8-4-4z"/></svg></div><div class="name">Plastering &amp; Drywall Repair</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Insulation Installation')"><div class="cc-icon-sm cat-insulation-installation"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8c3-2 6 2 9 0s6-2 9 0"/><path d="M3 14c3-2 6 2 9 0s6-2 9 0"/><path d="M3 20c3-2 6 2 9 0s6-2 9 0"/></svg></div><div class="name">Insulation Installation</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Plastering &amp; Drywall Repair')"><img class="cc-icon-sm cat-plastering-drywall-repair" src="images/categories/plastering-drywall-repair.jpg" alt="" loading="lazy" /><div class="name">Plastering &amp; Drywall Repair</div></div>
+        <div class="catcard" onclick="goToEstimatorWithCategory('Insulation Installation')"><img class="cc-icon-sm cat-insulation-installation" src="images/categories/insulation-installation.jpg" alt="" loading="lazy" /><div class="name">Insulation Installation</div></div>
         <div class="catcard" onclick="openFixSomething()"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.4 2.3c-.9.4-1.4 1-1.4 1.7v.5"/><path d="M12 17h0"/></svg></div><div class="name">Other</div></div>
       </div>
     </div>
