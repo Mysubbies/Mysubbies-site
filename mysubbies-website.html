@@ -2254,6 +2254,14 @@
       return needle.includes(name) || name.includes(needle);
     });
     if (substringMatch) return substringMatch;
+    // A single coincidental shared word (e.g. "rainwater" vs "water", or
+    // "install" vs "installation") isn't enough to silently commit a
+    // customer to a specific paid task — this used to accept any
+    // best-of-nothing score, which meant a real fuzzy fallback (asking the
+    // AI in onTierQuickMatch) never actually got a chance to run since this
+    // always "found" something. Now requires at least 2 matching words AND
+    // most of the query's meaningful words to be accounted for, so a vague
+    // or unrelated query correctly falls through to the AI match instead.
     const needleWords = needle.split(/\s+/).filter(w => w.length > 2);
     let best = null, bestScore = 0;
     available.forEach(t => {
@@ -2261,7 +2269,8 @@
       const score = needleWords.filter(w => nameWords.some(nw => nw.includes(w) || w.includes(nw))).length;
       if (score > bestScore) { bestScore = score; best = t; }
     });
-    return best;
+    if (best && bestScore >= 2 && bestScore / needleWords.length >= 0.6) return best;
+    return null;
   }
 
   // Renders one quantity row per currently-selected chip, keyed by task
