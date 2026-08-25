@@ -407,10 +407,11 @@
     if (selectedJobId) { renderDetail(); return; }
     const jobs = getJobs();
     // Cancelled jobs never actually earn MySubbies anything -- counting
-    // them here overstated commission with money that was never collected
-    // (founder feedback, Aug 2026).
-    const commission = jobs.filter(j => j.status !== 'cancelled').reduce((s, j) => s + Math.round((j.basePrice || 0) * 0.25), 0);
-    const gmv = jobs.reduce((s, j) => s + (j.basePrice || 0), 0);
+    // them here overstated commission and gross job value with money that
+    // was never collected (founder feedback, Aug 2026).
+    const billableJobs = jobs.filter(j => j.status !== 'cancelled');
+    const commission = billableJobs.reduce((s, j) => s + Math.round((j.basePrice || 0) * 0.25), 0);
+    const gmv = billableJobs.reduce((s, j) => s + (j.basePrice || 0), 0);
     const applications = getApplications();
     const pendingCount = applications.filter(a => a.status === 'pending').length;
     const disputes = getDisputes();
@@ -574,14 +575,12 @@
     const customerList = Object.values(customers);
     const newsletterCount = JSON.parse(localStorage.getItem('mysubbies_newsletter_signups') || '[]').length;
 
-    const gmv = jobs.reduce((s, j) => s + (j.basePrice || 0), 0);
     // Cancelled jobs never actually earn MySubbies (or a contractor)
-    // anything -- commission/payout are computed off billable (non-cancelled)
-    // value only, while gmv above stays "total value of everything ever
-    // submitted" (founder feedback, Aug 2026).
-    const billableGmv = jobs.filter(j => j.status !== 'cancelled').reduce((s, j) => s + (j.basePrice || 0), 0);
-    const commission = Math.round(billableGmv * 0.25);
-    const payout = billableGmv - commission;
+    // anything -- gross job value, commission and payout are all computed
+    // off billable (non-cancelled) jobs only (founder feedback, Aug 2026).
+    const gmv = jobs.filter(j => j.status !== 'cancelled').reduce((s, j) => s + (j.basePrice || 0), 0);
+    const commission = Math.round(gmv * 0.25);
+    const payout = gmv - commission;
     const completedJobs = jobs.filter(j => j.status === 'completed');
     const completedGmv = completedJobs.reduce((s, j) => s + (j.basePrice || 0), 0);
 
