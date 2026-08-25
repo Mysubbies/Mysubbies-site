@@ -2583,6 +2583,20 @@
   }
   initRebookIfRequested();
 
+  // The header's "Log in" button was a static label that never checked
+  // whether a customer session already existed -- so a customer who was
+  // logged in on mysubbies-customer-portal.html, then clicked the logo
+  // back to this page, saw "Log in" and assumed they'd been signed out,
+  // even though mysubbies_customer_email was still sitting in localStorage
+  // the whole time (nothing on this page ever clears it). Swaps the label
+  // to "My Jobs" when a session is already present -- same link target
+  // either way, customer-portal.html itself decides what to show.
+  if (localStorage.getItem('mysubbies_customer_email')) {
+    document.querySelectorAll('a[href="mysubbies-customer-portal.html"]').forEach(a => {
+      if (a.textContent.trim() === 'Log in') a.textContent = 'My Jobs';
+    });
+  }
+
   function runEstimate() {
     const result = document.getElementById('estResult');
 
