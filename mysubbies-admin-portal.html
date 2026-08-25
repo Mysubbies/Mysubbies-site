@@ -480,6 +480,7 @@
       <div class="tabs">
         <button class="${tab==='overview'?'active':''}" onclick="tab='overview'; render();">All Jobs</button>
         <button class="${tab==='applications'?'active':''}" onclick="tab='applications'; render();">Applications ${pendingCount ? '(' + pendingCount + ')' : ''}</button>
+        <button class="${tab==='contractors'?'active':''}" onclick="tab='contractors'; render();">Contractors</button>
         <button class="${tab==='customers'?'active':''}" onclick="tab='customers'; render();">Customers</button>
         <button class="${tab==='disputes'?'active':''}" onclick="tab='disputes'; render();">Disputes ${openDisputeCount ? '(' + openDisputeCount + ')' : ''}</button>
         <button class="${tab==='inquiries'?'active':''}" onclick="tab='inquiries'; render();">Inquiries ${openInquiryCount ? '(' + openInquiryCount + ')' : ''}</button>
@@ -501,7 +502,7 @@
               : jobsTableHtml(filtered);
           })()}
         `}
-      ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab()}
+      ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab()}
     `;
     if (tab === 'ratecard') wireRateCardTab();
   }
@@ -746,6 +747,8 @@
   let customersTabData = null;
   let customersTabLoading = false;
   let customerSearchQuery = '';
+  let contractorSearchQuery = '';
+  let contractorsStatusFilter = 'all';
 
   async function loadCustomersTab() {
     if (customersTabLoading) return;
@@ -811,6 +814,65 @@
               ? `<button class="btn btn-outline" style="flex:1;" onclick="reactivateCustomer('${escapeHtml(c.email)}')">Reactivate</button>`
               : `<button class="btn btn-outline" style="flex:1;" onclick="deactivateCustomer('${escapeHtml(c.email)}')">Deactivate</button>`}
             <button class="btn btn-danger" style="flex:1;" onclick="deleteCustomerAccount('${escapeHtml(c.email)}')">Delete permanently</button>
+          </div>
+        </div>
+      `).join('')}
+    `;
+  }
+
+  // Contractors tab (Aug 2026) -- founder feedback: "Applications" reads as
+  // the vetting queue (approve/reject a new signup), not somewhere to go
+  // for day-to-day account management, and there was no contractor
+  // equivalent of the Customers tab to just look someone up and
+  // deactivate/delete them. Sourced from the same `applications` array
+  // Applications already uses (contractor accounts and their applications
+  // are the same record in this schema) -- excludes 'pending' since those
+  // aren't real usable accounts yet, that's still Applications' job.
+  function contractorsStatusFilterChipsHtml(contractors) {
+    const presentStatuses = Array.from(new Set(contractors.map(a => a.status)));
+    const preferredOrder = ['approved', 'suspended', 'rejected', 'manual_review', 'preferred', 'watchlist', 'expired_documents'];
+    presentStatuses.sort((a, b) => preferredOrder.indexOf(a) - preferredOrder.indexOf(b));
+    const options = [{ key: 'all', label: 'All' }, ...presentStatuses.map(s => ({ key: s, label: s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }))];
+    return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+      ${options.map(f => {
+        const count = f.key === 'all' ? contractors.length : contractors.filter(a => a.status === f.key).length;
+        const active = contractorsStatusFilter === f.key;
+        return `<button onclick="contractorsStatusFilter='${f.key}'; render();" style="padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;border:1.5px solid ${active ? 'var(--ink)' : 'var(--line)'};background:${active ? 'var(--ink)' : '#fff'};color:${active ? '#fff' : 'var(--ink)'};cursor:pointer;">${f.label} (${count})</button>`;
+      }).join('')}
+    </div>`;
+  }
+  function renderContractorsTab(applications) {
+    const all = applications.filter(a => a.status !== 'pending');
+    if (all.length === 0) return '<h1 class="pagetitle">Contractors</h1><div class="empty">No approved contractors yet -- see Applications for pending signups.</div>';
+    const q = contractorSearchQuery.trim().toLowerCase();
+    const searched = q
+      ? all.filter(a => (a.business || '').toLowerCase().includes(q) || (a.contact || '').toLowerCase().includes(q) || (a.email || '').toLowerCase().includes(q))
+      : all;
+    const rows = contractorsStatusFilter === 'all' ? searched : searched.filter(a => a.status === contractorsStatusFilter);
+    return `
+      <h1 class="pagetitle">Contractors</h1>
+      <p class="pagesub">${all.length} account${all.length === 1 ? '' : 's'} total. Deactivating blocks login and new job matches until reactivated.</p>
+      ${contractorsStatusFilterChipsHtml(all)}
+      <input class="searchbox" placeholder="Search by business, contact or email…" value="${escapeHtml(contractorSearchQuery)}" oninput="contractorSearchQuery=this.value; render();" />
+      ${rows.length === 0 ? '<div class="empty">No contractors match.</div>' : rows.map(a => `
+        <div class="detailcard" style="max-width:640px;margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div style="display:flex;gap:12px;align-items:center;">
+              ${a.profilePhoto ? `<img src="${escapeHtml(a.profilePhoto)}" style="width:44px;height:44px;border-radius:999px;object-fit:cover;">` : ''}
+              <div>
+                <div style="font-weight:700;font-size:15px;">${escapeHtml(a.business)}</div>
+                <div style="font-size:12px;color:var(--stone);margin-top:2px;">${escapeHtml(a.contact)} · ${escapeHtml(a.email)}${a.phone ? ' · ' + escapeHtml(a.phone) : ''}</div>
+              </div>
+            </div>
+            <span class="badge ${a.status === 'approved' ? 'badge-completed' : a.status === 'suspended' ? 'badge-rejected' : 'badge-feed'}">${a.status}</span>
+          </div>
+          <div class="row"><span class="l">Trades</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml((a.trades || []).join(', ') || '—')}</span></div>
+          <div class="row"><span class="l">Applied</span><span class="r">${a.appliedAt ? new Date(a.appliedAt).toLocaleDateString('en-AU') : '—'}</span></div>
+          <div style="display:flex;gap:8px;margin-top:14px;">
+            ${a.status === 'suspended'
+              ? `<button class="btn btn-outline" style="flex:1;" onclick="reactivateContractor('${a.id}')">Reactivate</button>`
+              : `<button class="btn btn-outline" style="flex:1;" onclick="deactivateContractor('${a.id}')">Deactivate</button>`}
+            <button class="btn btn-danger" style="flex:1;" onclick="deleteContractorAccount('${a.id}')">Delete permanently</button>
           </div>
         </div>
       `).join('')}
