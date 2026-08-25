@@ -515,6 +515,22 @@
     saveJobs(jobs);
     localStorage.removeItem('mysubbies_pending_quote');
 
+    // Fire-and-forget, one per created job (a bundle notifies each trade's
+    // contractors separately) — never blocks the confirmation screen over
+    // an email hiccup, same posture as every other /api/notify call in
+    // this codebase. Added Aug 2026: until this existed, a contractor had
+    // no way to learn a new job existed except opening the portal and
+    // checking the Job Feed tab themselves.
+    createdJobs.forEach(job => {
+      const taskName = job.items && job.items.length === 1 ? job.items[0].taskName
+        : job.items && job.items.length > 1 ? job.items.length + ' items'
+        : null;
+      fetch('/api/notify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'new-job-available', category: job.category, suburb: job.suburb, taskName }),
+      }).catch(() => {});
+    });
+
     app.innerHTML = `
       <div class="confirm">
         <div class="tick">✓</div>
