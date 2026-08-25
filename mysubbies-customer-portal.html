@@ -161,27 +161,91 @@
 
   // General-purpose "Contact MySubbies" inquiry (Aug 2026) -- not tied to
   // any specific job, unlike Report a problem/Request to cancel. Same
-  // localStorage-log pattern as mysubbies_disputes -- no dedicated admin
-  // review UI existed for this class of thing until this pass added one
-  // (see the Inquiries tab in mysubbies-admin-portal.html). Attachments are
-  // stored the same way job photos already are elsewhere in this codebase
-  // (data URIs in the record itself, not a separate file store).
+  // localStorage-log pattern as mysubbies_disputes. Each inquiry holds a
+  // `messages` thread (not just a single message) so admin can actually
+  // reply and the customer can keep the conversation going -- the original
+  // version only had a "Mark resolved" button on the admin side with no
+  // way to respond, which founder feedback flagged as a real gap.
+  // Attachments are stored the same way job photos already are elsewhere
+  // in this codebase (data URIs in the record itself).
   let inquiryAttachments = [];
+  let showingNewInquiry = false;
+  function getInquiries() { return JSON.parse(localStorage.getItem('mysubbies_inquiries') || '[]'); }
+  function saveInquiries(inq) { localStorage.setItem('mysubbies_inquiries', JSON.stringify(inq)); }
+
   function openInquiryForm() {
+    showingNewInquiry = false;
     inquiryAttachments = [];
+    renderInquiryPanel();
+  }
+  function toggleNewInquiryCompose() {
+    showingNewInquiry = !showingNewInquiry;
+    inquiryAttachments = [];
+    renderInquiryPanel();
+  }
+  function renderInquiryPanel() {
+    const email = getCurrentCustomerEmail();
+    const mine = getInquiries().filter(i => i.email === email);
     document.getElementById('inquiryFormWrap').innerHTML = `
       <div class="box" style="margin-bottom:16px;">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Contact MySubbies</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:13px;font-weight:600;">Contact MySubbies</div>
+          <button class="btn btn-outline" style="width:auto;padding:6px 12px;font-size:12px;" onclick="toggleNewInquiryCompose()">${showingNewInquiry ? 'Cancel' : '+ New inquiry'}</button>
+        </div>
+        <div id="newInquiryComposeWrap"></div>
+        ${mine.length === 0 && !showingNewInquiry ? '<div style="font-size:12px;color:var(--stone);margin-top:8px;">No inquiries yet.</div>' : ''}
+        ${mine.map(i => inquiryThreadHtml(i, 'customer')).join('')}
+      </div>`;
+    if (showingNewInquiry) renderNewInquiryCompose();
+  }
+  function renderNewInquiryCompose() {
+    document.getElementById('newInquiryComposeWrap').innerHTML = `
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--paper);">
         <textarea id="inquiryMessage" placeholder="What can we help with?" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;min-height:80px;font-family:inherit;"></textarea>
         <input type="file" id="inquiryFileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple style="display:none;" onchange="onInquiryFileSelected(event)" />
         <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;margin-bottom:8px;" onclick="document.getElementById('inquiryFileInput').click()">📎 Attach documents</button>
         <div id="inquiryAttachmentList" style="margin-bottom:8px;"></div>
         <div id="inquiryError" style="color:var(--warn);font-size:12.5px;margin-bottom:8px;display:none;"></div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-outline" style="flex:1;" onclick="document.getElementById('inquiryFormWrap').innerHTML=''">Cancel</button>
-          <button class="btn btn-black" style="flex:1;" onclick="submitInquiry()">Submit</button>
-        </div>
+        <button class="btn btn-black btn-full" onclick="submitInquiry()">Submit</button>
       </div>`;
+  }
+  // Shared by all three portals -- myRole is whichever side is viewing
+  // ('customer' | 'contractor' | 'admin'), so the same thread renders with
+  // the viewer's own messages on the right and everyone else's on the left.
+  function inquiryThreadHtml(i, myRole) {
+    const msgs = i.messages || [];
+    return `
+      <div style="border-top:1px solid var(--paper);padding-top:12px;margin-top:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:12px;color:var(--stone);">${new Date(i.createdAt).toLocaleDateString('en-AU')}</span>
+          <span class="badge ${i.status === 'open' ? 'badge-feed' : 'badge-completed'}">${i.status}</span>
+        </div>
+        <div class="msglist" style="max-height:220px;">
+          ${msgs.map(m => `
+            <div class="msgbubble ${m.from === myRole ? 'mine' : 'theirs'}">
+              <div class="msgmeta">${m.from === myRole ? 'You' : (m.from === 'admin' ? 'MySubbies' : escapeHtml(m.authorName || m.from))}</div>
+              ${escapeHtml(m.text)}
+              ${(m.attachments || []).map(a => `<div style="margin-top:4px;"><a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="text-decoration:underline;font-size:11px;color:inherit;">📄 ${escapeHtml(a.name)}</a></div>`).join('')}
+            </div>`).join('')}
+        </div>
+        ${i.status === 'open' ? `
+          <div class="msginput" style="margin-top:8px;">
+            <input type="text" id="inquiryReply_${i.id}" placeholder="Reply…" onkeydown="if(event.key==='Enter') replyToInquiry('${i.id}', '${myRole}')" />
+            <button class="btn btn-black" onclick="replyToInquiry('${i.id}', '${myRole}')">Send</button>
+          </div>` : ''}
+      </div>`;
+  }
+  function replyToInquiry(id, myRole) {
+    const input = document.getElementById('inquiryReply_' + id);
+    const text = input.value.trim();
+    if (!text) return;
+    const inquiries = getInquiries();
+    const i = inquiries.find(x => x.id === id);
+    if (!i) return;
+    i.messages = i.messages || [];
+    i.messages.push({ from: myRole, text, createdAt: new Date().toISOString() });
+    saveInquiries(inquiries);
+    renderInquiryPanel();
   }
   function onInquiryFileSelected(event) {
     const files = Array.from(event.target.files || []).slice(0, 5 - inquiryAttachments.length);
@@ -220,13 +284,14 @@
     const email = getCurrentCustomerEmail();
     const customers = getCustomers();
     const name = (customers[email] && customers[email].name) || email;
-    const inquiries = JSON.parse(localStorage.getItem('mysubbies_inquiries') || '[]');
+    const inquiries = getInquiries();
     inquiries.unshift({
-      id: 'inq_' + Date.now(), role: 'customer', name, email, message,
-      attachments: inquiryAttachments, status: 'open', createdAt: new Date().toISOString(),
+      id: 'inq_' + Date.now(), role: 'customer', name, email, status: 'open', createdAt: new Date().toISOString(),
+      messages: [{ from: 'customer', text: message, attachments: inquiryAttachments, createdAt: new Date().toISOString() }],
     });
-    localStorage.setItem('mysubbies_inquiries', JSON.stringify(inquiries));
-    document.getElementById('inquiryFormWrap').innerHTML = `<div class="note" style="margin-bottom:16px;">✓ Sent — MySubbies will review this and follow up.</div>`;
+    saveInquiries(inquiries);
+    showingNewInquiry = false;
+    renderInquiryPanel();
   }
 
   // Job search (all 3 portals, Aug 2026) -- a plain-text filter over

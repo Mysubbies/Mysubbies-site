@@ -276,6 +276,12 @@
     saveInquiries(inquiries);
     render();
   }
+  // Two-way thread (Aug 2026) -- the original version only showed the
+  // customer/contractor's initial message with a "Mark resolved" button
+  // and no way to actually respond (founder feedback: real gap). Now
+  // reuses the same `messages`-array shape and inquiryThreadHtml()
+  // rendering as the customer/contractor portals, with myRole='admin' so
+  // admin's own replies land on the right and the sender's on the left.
   function renderInquiriesTab(inquiries) {
     if (inquiries.length === 0) return '<div class="empty">No inquiries yet.</div>';
     return `
@@ -285,18 +291,58 @@
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <div>
               <div style="font-weight:700;font-size:15px;">${escapeHtml(i.name || i.email || 'Unknown')}</div>
-              <div style="font-size:12px;color:var(--stone);margin-top:2px;">${i.role === 'contractor' ? 'Contractor' : 'Customer'} · ${escapeHtml(i.email || '')} · ${new Date(i.createdAt).toLocaleDateString('en-AU')}</div>
+              <div style="font-size:12px;color:var(--stone);margin-top:2px;">${i.role === 'contractor' ? 'Contractor' : 'Customer'} · ${escapeHtml(i.email || '')}</div>
             </div>
-            <span class="badge ${i.status === 'open' ? 'badge-feed' : 'badge-completed'}">${i.status}</span>
           </div>
-          <div style="font-size:13px;color:#333;margin-top:10px;white-space:pre-wrap;">${escapeHtml(i.message)}</div>
-          ${i.attachments && i.attachments.length ? `
-            <div style="margin-top:10px;">
-              ${i.attachments.map(a => `<a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="display:inline-block;font-size:12px;text-decoration:underline;margin-right:12px;">📄 ${escapeHtml(a.name)}</a>`).join('')}
-            </div>` : ''}
-          ${i.status === 'open' ? `<button class="btn btn-outline" style="margin-top:12px;" onclick="resolveInquiry('${i.id}')">Mark resolved</button>` : ''}
+          ${inquiryThreadHtml(i, 'admin')}
+          ${i.status === 'open' ? `<button class="btn btn-outline" style="margin-top:12px;" onclick="resolveInquiry('${i.id}')">Mark resolved</button>` : `<button class="btn btn-outline" style="margin-top:12px;" onclick="reopenInquiry('${i.id}')">Reopen</button>`}
         </div>`).join('')}
     `;
+  }
+  // Same shape/rendering as the customer and contractor portals' own copy
+  // of this function -- myRole is whichever side is viewing, so the same
+  // thread renders with the viewer's own messages on the right.
+  function inquiryThreadHtml(i, myRole) {
+    const msgs = i.messages || [];
+    return `
+      <div style="margin-top:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:12px;color:var(--stone);">${new Date(i.createdAt).toLocaleDateString('en-AU')}</span>
+          <span class="badge ${i.status === 'open' ? 'badge-feed' : 'badge-completed'}">${i.status}</span>
+        </div>
+        <div class="msglist" style="max-height:260px;">
+          ${msgs.map(m => `
+            <div class="msgbubble ${m.from === myRole ? 'mine' : 'theirs'}">
+              <div class="msgmeta">${m.from === myRole ? 'You' : (m.from === 'admin' ? 'MySubbies' : escapeHtml(m.authorName || m.from))}</div>
+              ${escapeHtml(m.text)}
+              ${(m.attachments || []).map(a => `<div style="margin-top:4px;"><a href="${a.dataUrl}" download="${escapeHtml(a.name)}" style="text-decoration:underline;font-size:11px;color:inherit;">📄 ${escapeHtml(a.name)}</a></div>`).join('')}
+            </div>`).join('')}
+        </div>
+        ${i.status === 'open' ? `
+          <div class="msginput" style="margin-top:8px;">
+            <input type="text" id="inquiryReply_${i.id}" placeholder="Reply…" onkeydown="if(event.key==='Enter') replyToInquiry('${i.id}', '${myRole}')" />
+            <button class="btn btn-black" onclick="replyToInquiry('${i.id}', '${myRole}')">Send</button>
+          </div>` : ''}
+      </div>`;
+  }
+  function replyToInquiry(id, myRole) {
+    const input = document.getElementById('inquiryReply_' + id);
+    const text = input.value.trim();
+    if (!text) return;
+    const inquiries = getInquiries();
+    const i = inquiries.find(x => x.id === id);
+    if (!i) return;
+    i.messages = i.messages || [];
+    i.messages.push({ from: myRole, text, createdAt: new Date().toISOString() });
+    saveInquiries(inquiries);
+    render();
+  }
+  function reopenInquiry(id) {
+    const inquiries = getInquiries();
+    const i = inquiries.find(x => x.id === id);
+    i.status = 'open';
+    saveInquiries(inquiries);
+    render();
   }
 
   function render() {
