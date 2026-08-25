@@ -825,8 +825,8 @@
       <div class="estimator-label">Get an instant price</div>
 
       <div class="est-progress">
-        <div class="est-progress-bar"><div class="est-progress-bar-fill" id="estProgressFill" style="width:20%;"></div></div>
-        <div class="est-progress-label" id="estProgressLabel">Step 1 of 3</div>
+        <div class="est-progress-bar"><div class="est-progress-bar-fill" id="estProgressFill" style="width:50%;"></div></div>
+        <div class="est-progress-label" id="estProgressLabel">Step 1 of 2</div>
       </div>
 
       <!-- STEP 1 — What needs doing? -->
@@ -858,7 +858,12 @@
         <div class="est-step-nav"><button class="btn btn-black" onclick="estStep1Continue()">Continue →</button></div>
       </div>
 
-      <!-- STEP 2 — Tell us about the job (merged: property + timing/photos) -->
+      <!-- STEP 2 — Tell us about the job, then get your price. Merged Aug 2026 -->
+      <!-- from 3 steps down to 2: the old separate "Review & get your price" step's -->
+      <!-- reveal click just re-showed a total the customer could already see live in -->
+      <!-- the cart above it, after a fake "calculating" delay -- founder feedback was -->
+      <!-- that this read as broken/redundant, not reassuring. The price now appears -->
+      <!-- instantly on this same step once required fields are filled in. -->
       <div class="est-step" data-step="2">
         <div class="est-step-title">Tell us about the job</div>
         <div class="est-step-sub">Suburb, size or quantity, site conditions, access, timing and photos.</div>
@@ -908,24 +913,8 @@
           <div class="est-photo-grid" id="estPhotoGrid"></div>
 
         <div class="est-field-error" id="estStep2Error"></div>
-        <div class="est-step-nav">
-          <button class="btn btn-back" onclick="estGoBack()">← Back</button>
-          <button class="btn btn-black" onclick="estStep2Continue()">Continue →</button>
-        </div>
-      </div>
 
-      <!-- STEP 3 — Review & get your price (merged: review + price reveal) -->
-      <div class="est-step" data-step="3">
-        <div class="est-step-title">Review & get your price</div>
-        <div class="est-step-sub">Scope, assumptions and what's included — check it matches, then reveal your estimated price.</div>
-
-        <div id="estReviewSummary"></div>
-
-        <div class="est-thinking-panel" id="estStep3Thinking" style="display:none;">
-          <div class="spinner"></div>
-          <div class="label">Calculating your estimated price…</div>
-          <div class="sub">Matching your job against the live Melbourne rate card.</div>
-        </div>
+        <div id="estReviewSummary" style="display:none;"></div>
 
         <div class="estimator-result" id="estResult">
           <div>
@@ -936,9 +925,9 @@
         </div>
         <div class="estimator-note" id="estResultNote" style="display:none;">Real prices are matched instantly against our live Melbourne rate card — this is a preview, no account needed. Final pricing remains subject to scope, assumptions and site conditions.</div>
 
-        <div class="est-step-nav" id="estStep3Nav">
+        <div class="est-step-nav">
           <button class="btn btn-back" onclick="estGoBack()">← Back</button>
-          <button class="btn go-full" style="flex:1;" id="estRevealBtn" onclick="estRevealPrice()">See my estimated price →</button>
+          <button class="btn go-full" style="flex:1;" id="estRevealBtn" onclick="estGetPrice()">Get my price →</button>
         </div>
       </div>
     </div>
@@ -1580,7 +1569,7 @@
   // the cart, so multi-select needed no changes to pricing or booking logic.
   // ============================================================
   let currentEstStep = 1;
-  const TOTAL_EST_STEPS = 3;
+  const TOTAL_EST_STEPS = 2;
   function showEstStep(n) {
     currentEstStep = n;
     document.querySelectorAll('#estimate .est-step').forEach(el => el.classList.toggle('active', Number(el.dataset.step) === n));
@@ -1601,7 +1590,13 @@
     showEstStep(2);
   }
 
-  function estStep2Continue() {
+  // Validates the same fields the old estStep2Continue did, then shows the
+  // review summary + price immediately (no step transition, no fake
+  // "calculating" delay) — the total was already visible live in the cart
+  // above as items were added, so a manual reveal-after-a-wait just read as
+  // broken. runEstimate() does the real (instant, client-side) computation
+  // and adds the 'show' class to #estResult itself.
+  function estGetPrice() {
     const err = document.getElementById('estStep2Error');
     // Same "did they forget to click Calculate" convenience runEstimate() already had.
     if (pendingItems.length) confirmAddItemsToCart();
@@ -1618,13 +1613,11 @@
       return;
     }
     err.classList.remove('show');
-    // Reset step 3's price-reveal UI in case the customer already revealed
-    // a price, went back and changed something — don't show a stale number.
-    document.getElementById('estResult').classList.remove('show');
-    document.getElementById('estResultNote').style.display = 'none';
-    document.getElementById('estRevealBtn').style.display = '';
-    showEstStep(3);
     renderReviewStep();
+    document.getElementById('estReviewSummary').style.display = 'block';
+    runEstimate();
+    document.getElementById('estResultNote').style.display = 'block';
+    document.getElementById('estResult').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   // Read-only recap built from the SAME state (cart, selectedSite,
@@ -1652,22 +1645,16 @@
     wrap.innerHTML = html;
   }
 
-  // A genuinely instant price reads as unconvincing ("did it even check?"),
-  // so this shows a brief calculating state before revealing the number —
-  // matched randomly within 2-3s so it doesn't feel like a fake fixed timer.
-  // Reveals inline within step 3 (no step transition) — runEstimate() itself
-  // adds the 'show' class to #estResult once the price is populated.
-  function estRevealPrice() {
-    const revealBtn = document.getElementById('estRevealBtn');
-    const thinking = document.getElementById('estStep3Thinking');
-    revealBtn.style.display = 'none';
-    thinking.style.display = 'flex';
-    const delay = 2000 + Math.random() * 1000;
-    setTimeout(() => {
-      runEstimate();
-      thinking.style.display = 'none';
-      document.getElementById('estResultNote').style.display = 'block';
-    }, delay);
+  // Cart/selection changed after a price was already shown -- hide the
+  // stale review+price so the customer doesn't book against an outdated
+  // number, and let them click "Get my price" again once they're done editing.
+  function estResetPriceReveal() {
+    const result = document.getElementById('estResult');
+    if (result) result.classList.remove('show');
+    const summary = document.getElementById('estReviewSummary');
+    if (summary) summary.style.display = 'none';
+    const note = document.getElementById('estResultNote');
+    if (note) note.style.display = 'none';
   }
 
   function goToEstimatorWithCategory(label) {
@@ -1925,9 +1912,18 @@
       return;
     }
 
-    const btn = document.getElementById('fsSubmitBtn');
-    btn.disabled = true;
-    btn.textContent = 'Having a look…';
+    // A disabled button whose text just changes to "Having a look…" reads as
+    // stuck — nothing on screen moves while the AI call is in flight
+    // (founder feedback, Aug 2026). Replaces the whole form with the same
+    // spinner treatment the estimator's own thinking state uses, so it's
+    // unmistakably "still working."
+    document.getElementById('fsModalBody').innerHTML = `
+      <div class="est-thinking-panel" style="padding:44px 20px;">
+        <div class="spinner"></div>
+        <div class="label">${fsImages.length ? 'Analysing your photo and details…' : 'Analysing your description…'}</div>
+        <div class="sub">Matching this against the real Melbourne rate card.</div>
+      </div>
+    `;
 
     try {
       const res = await fetch('/api/classify-job', {
@@ -1991,14 +1987,25 @@
         if (match) { targetCategory = cat.label; matchedTaskName = match.name; matchedTaskAvailable = !match.unavailable; break; }
       }
     }
-    goToEstimatorWithCategory(targetCategory);
-    if (matchedTaskName && matchedTaskAvailable) {
+    // When we have a confident, available task match, land directly on
+    // "Tell us about the job" (step 2) with it pre-selected instead of
+    // re-showing "What needs doing?" — the customer already answered that
+    // by describing/photographing the job; re-asking it read as the flow
+    // "doubling up" (founder feedback, Aug 2026). Only fall back to the
+    // normal step-1 category landing when the AI couldn't pin down a
+    // specific priced task, since then the customer genuinely still needs
+    // to pick one.
+    const targetCat = CATEGORIES.find(c => c.label === targetCategory);
+    if (matchedTaskName && matchedTaskAvailable && targetCat) {
+      document.getElementById('estimate').scrollIntoView({ behavior: 'smooth', block: 'start' });
       setTimeout(() => {
-        const chips = document.querySelectorAll('#estTierChips .chip-est');
-        chips.forEach(chip => {
-          if (chip.textContent.trim() === matchedTaskName) chip.click();
-        });
-      }, 500);
+        selectCat(targetCat);
+        const task = targetCat.tasks.find(t => t.name === matchedTaskName);
+        if (task) estAddMatchedTask(task);
+        showEstStep(2);
+      }, 350);
+    } else {
+      goToEstimatorWithCategory(targetCategory);
     }
   }
 
@@ -2296,6 +2303,7 @@
     // Any change to selection invalidates a previously calculated preview.
     pendingItems = [];
     document.getElementById('estItemPreview').style.display = 'none';
+    estResetPriceReveal();
   }
 
   function qtyHintForUnit(unit) {
@@ -2388,6 +2396,7 @@
   function removeFromCart(idx) {
     cart.splice(idx, 1);
     renderCart();
+    estResetPriceReveal();
   }
 
   function toggleCartNotes(idx) {
