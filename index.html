@@ -927,7 +927,7 @@
 
         <div class="est-step-nav">
           <button class="btn btn-back" onclick="estGoBack()">← Back</button>
-          <button class="btn go-full" style="flex:1;" id="estRevealBtn" onclick="estGetPrice()">Get my price →</button>
+          <button class="btn btn-black" onclick="estContinueBooking()">Continue booking →</button>
         </div>
       </div>
     </div>
@@ -1590,13 +1590,14 @@
     showEstStep(2);
   }
 
-  // Validates the same fields the old estStep2Continue did, then shows the
-  // review summary + price immediately (no step transition, no fake
-  // "calculating" delay) — the total was already visible live in the cart
-  // above as items were added, so a manual reveal-after-a-wait just read as
-  // broken. runEstimate() does the real (instant, client-side) computation
-  // and adds the 'show' class to #estResult itself.
-  function estGetPrice() {
+  // A separate "Get my price" button that just revealed the same total
+  // already visible in the cart, then left a real "Continue booking" link
+  // sitting right below it, read as a dead second click once a price had
+  // already been shown (founder feedback, Aug 2026) -- clicking it again
+  // recomputed the identical number and went nowhere. This is now the one
+  // action: validate, compute (client-side, instant -- runEstimate() sets
+  // the localStorage quote booking.html reads), and go straight to booking.
+  function estContinueBooking() {
     const err = document.getElementById('estStep2Error');
     // Same "did they forget to click Calculate" convenience runEstimate() already had.
     if (pendingItems.length) confirmAddItemsToCart();
@@ -1614,10 +1615,8 @@
     }
     err.classList.remove('show');
     renderReviewStep();
-    document.getElementById('estReviewSummary').style.display = 'block';
     runEstimate();
-    document.getElementById('estResultNote').style.display = 'block';
-    document.getElementById('estResult').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    window.location.href = 'mysubbies-booking.html';
   }
 
   // Read-only recap built from the SAME state (cart, selectedSite,
