@@ -214,6 +214,9 @@
   let tab = 'feed';
   let selectedJobId = null;
   let jobSearchQuery = '';
+  let selectedEarningsJobId = null;
+  let earningsJobData = null;
+  let earningsJobLoading = false;
   const app = document.getElementById('app');
 
   // General-purpose "Contact MySubbies" inquiry (Aug 2026) -- not tied to
@@ -402,6 +405,7 @@
     if (!name) { renderLogin(); return; }
 
     if (selectedJobId) { renderDetail(name); return; }
+    if (selectedEarningsJobId) { renderEarningsDetail(); return; }
 
     const jobs = getJobs();
     // Trade-filtered feed: only show unclaimed jobs in categories this
@@ -454,12 +458,23 @@
           <div class="box"><div style="font-size:22px;font-weight:800;">${completed.length}</div><div class="jobmeta">Jobs completed</div></div>
         </div>
         ${avgRating ? `<div class="box" style="margin-bottom:20px;"><div style="font-size:18px;font-weight:800;">${'★'.repeat(Math.round(avgRating))}${'☆'.repeat(5-Math.round(avgRating))} ${avgRating}</div><div class="jobmeta">Average rating (${rated.length} review${rated.length===1?'':'s'})</div></div>` : `<p class="note">No ratings yet — they'll show here once customers rate completed jobs.</p>`}
-        ${completed.length === 0 ? '<div class="empty">No completed jobs yet.</div>' : completed.map(j => `
-          <div class="jobcard" style="cursor:default;">
-            <div class="jobtitle">${j.category} — ${j.suburb}</div>
-            <div class="jobmeta" style="justify-content:space-between;"><span>$${Math.round((j.basePrice||0)*0.75).toLocaleString()}</span>${j.customerRating ? `<span>${'★'.repeat(j.customerRating)}${'☆'.repeat(5-j.customerRating)}</span>` : '<span style="color:var(--stone-light);">Not yet rated</span>'}</div>
-          </div>
-        `).join('')}
+        ${completed.length === 0 ? '<div class="empty">No completed jobs yet.</div>' : `
+          <table class="jobstable">
+            <thead><tr><th>Job</th><th>Suburb</th><th>Payout</th><th>Rating</th></tr></thead>
+            <tbody>
+              ${completed.map(j => {
+                const titleDetail = j.items && j.items.length === 1 ? j.items[0].taskName : j.category;
+                return `
+                <tr class="jobrow" onclick="openEarningsDetail('${j.id}')">
+                  <td><strong>${escapeHtml(titleDetail)}</strong></td>
+                  <td>${escapeHtml(j.suburb)}</td>
+                  <td>$${Math.round((j.basePrice||0)*0.75).toLocaleString()}</td>
+                  <td>${j.customerRating ? `${'★'.repeat(j.customerRating)}${'☆'.repeat(5-j.customerRating)}` : '<span style="color:var(--stone-light);">Not yet rated</span>'}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        `}
       `;
       return;
     }
@@ -662,6 +677,73 @@
   // instead of the old client-authored job.paymentSchedule/paidStages — the
   // whole reason this system exists is that the schedule + milestone state
   // now lives server-side, validated, not trusted from the client.
+  // Earnings breakdown (Aug 2026) -- clicking a completed job in Earnings
+  // now shows what was actually earned from it, milestone by milestone.
+  // This deliberately DOES show dollar amounts, unlike
+  // renderMilestoneClaimSection() below (which only ever shows percentages,
+  // on purpose -- see its comment): that view is about a live, in-progress
+  // claim where materials/completion payouts aren't automated yet, so a
+  // dollar figure there would read as a promise the system doesn't
+  // enforce. A completed job is different -- by definition every milestone
+  // is already resolved, so showing the real 75% payout per stage is just
+  // reporting what happened, not promising anything.
+  function openEarningsDetail(jobId) {
+    selectedEarningsJobId = jobId;
+    earningsJobData = null;
+    earningsJobLoading = false;
+    render();
+    loadEarningsDetail(jobId);
+  }
+  function closeEarningsDetail() {
+    selectedEarningsJobId = null;
+    earningsJobData = null;
+    render();
+  }
+  async function loadEarningsDetail(jobId) {
+    if (earningsJobLoading) return;
+    earningsJobLoading = true;
+    try {
+      const res = await fetch('/api/job-payment-schedule?jobId=' + encodeURIComponent(jobId));
+      earningsJobData = await res.json();
+    } catch (e) {
+      earningsJobData = { error: true };
+    }
+    earningsJobLoading = false;
+    render();
+  }
+  function renderEarningsDetail() {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === selectedEarningsJobId);
+    if (!j) { selectedEarningsJobId = null; render(); return; }
+    const titleDetail = j.items && j.items.length === 1 ? j.items[0].taskName : j.category;
+
+    let bodyHtml;
+    if (!earningsJobData) {
+      bodyHtml = '<div class="note">Loading…</div>';
+    } else if (earningsJobData.error || !earningsJobData.schedule) {
+      bodyHtml = `<div class="note">Could not load the payment breakdown for this job.</div>
+        <div class="row big"><span class="l">Total payout</span><span class="r">$${Math.round((j.basePrice || 0) * 0.75).toLocaleString()}</span></div>`;
+    } else {
+      const milestones = earningsJobData.milestones || [];
+      const totalPayout = milestones.reduce((s, m) => s + Math.round((m.amount_cents || 0) / 100 * 0.75), 0);
+      bodyHtml = `
+        ${milestones.map(m => `
+          <div class="row"><span class="l">${escapeHtml(m.label)} (${m.pct}%)</span><span class="r">$${Math.round((m.amount_cents || 0) / 100 * 0.75).toLocaleString()}</span></div>
+        `).join('')}
+        <div class="row big"><span class="l">Total payout</span><span class="r">$${totalPayout.toLocaleString()}</span></div>
+      `;
+    }
+
+    app.innerHTML = `
+      <button class="backbtn" onclick="closeEarningsDetail()">← Back to earnings</button>
+      <div class="detailcard">
+        <span class="pill">${escapeHtml(j.category)}</span>
+        <h1 class="pagetitle" style="margin-top:8px;">${escapeHtml(titleDetail)}</h1>
+        <div class="jobmeta" style="margin-bottom:16px;">📍 ${escapeHtml(j.suburb)}</div>
+        ${bodyHtml}
+      </div>`;
+  }
+
   async function renderMilestoneClaimSection(jobId) {
     const wrap = document.getElementById('milestoneClaimWrap');
     if (!wrap) return;
