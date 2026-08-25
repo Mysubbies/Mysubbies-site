@@ -1718,22 +1718,43 @@
     render();
   }
 
+  // Job creation date wasn't shown anywhere in the table, which made it
+  // impossible to see at a glance how long a job had been sitting awaiting
+  // a contractor (founder ask, Aug 2026: "monitor how old the job is and
+  // how long it's taking to allocate"). Falls back to parsing the
+  // timestamp embedded in the job id (job_<ms>_<rand>) for older records
+  // that predate the createdAt field, rather than showing a blank.
+  function jobSubmittedText(j) {
+    let ts = j.createdAt ? new Date(j.createdAt) : null;
+    if (!ts || isNaN(ts.getTime())) {
+      const m = /^job_(\d+)_/.exec(j.id || '');
+      ts = m ? new Date(Number(m[1])) : null;
+    }
+    if (!ts || isNaN(ts.getTime())) return { date: '—', relative: '' };
+    const days = Math.floor((Date.now() - ts.getTime()) / 86400000);
+    const relative = days <= 0 ? 'Today' : days === 1 ? '1 day ago' : `${days} days ago`;
+    return { date: ts.toLocaleDateString('en-AU'), relative };
+  }
   function jobsTableHtml(jobs) {
     const badgeClass = { feed: 'badge-feed', assigned: 'badge-assigned', completed: 'badge-completed', cancellation_requested: 'badge-rejected', cancelled: 'badge-rejected' };
     const badgeLabel = { feed: 'Awaiting contractor', assigned: 'Assigned', completed: 'Completed', cancellation_requested: 'Cancellation requested', cancelled: 'Cancelled' };
     return `
       <table>
-        <thead><tr><th>Job</th><th>Suburb</th><th>Contractor</th><th>Status</th><th>Value</th></tr></thead>
+        <thead><tr><th>Job</th><th>Suburb</th><th>Contractor</th><th>Status</th><th>Submitted</th><th>Value</th></tr></thead>
         <tbody>
-          ${jobs.map(j => `
+          ${jobs.map(j => {
+            const submitted = jobSubmittedText(j);
+            return `
             <tr class="jobrow" onclick="selectedJobId='${j.id}'; render();">
               <td><strong>${j.icon || ''} ${escapeHtml(j.category)}</strong><br><span style="color:var(--stone);font-size:12px;">${j.items && j.items.length > 1 ? j.items.length + ' items' : (j.qty || '') + ' ' + escapeHtml(j.unit || '')}</span></td>
               <td>${escapeHtml(j.suburb)}</td>
               <td>${escapeHtml(j.contractor || '—')}</td>
               <td><span class="badge ${badgeClass[j.status] || 'badge-feed'}">${badgeLabel[j.status] || j.status}</span></td>
+              <td>${submitted.date}<br><span style="color:var(--stone);font-size:11.5px;">${submitted.relative}</span></td>
               <td>$${(j.basePrice || 0).toLocaleString()}</td>
             </tr>
-          `).join('')}
+          `;
+          }).join('')}
         </tbody>
       </table>`;
   }
