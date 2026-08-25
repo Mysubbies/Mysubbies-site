@@ -430,13 +430,18 @@
   .catcard2 { background:#fff; border:1px solid var(--line); border-radius:16px; padding:0; text-align:left; cursor:pointer; transition:border-color .15s, transform .15s, box-shadow .15s; display:flex; flex-direction:column; overflow:hidden; }
   .catcard2:hover { border-color:var(--black); transform:translateY(-3px); box-shadow:0 10px 24px rgba(0,0,0,0.06); }
   .catcard2 .cc-photo { width:100%; aspect-ratio:4/3; object-fit:cover; display:block; background:var(--paper); }
+  .catcard2 .cc-photo.cc-photo-fallback { display:flex; align-items:center; justify-content:center; color:var(--ink); }
   .catcard2 .cc-icon { width:44px; height:44px; border-radius:12px; background:var(--paper); display:flex; align-items:center; justify-content:center; color:var(--ink); }
   .catcard2 .cc-body { padding:16px 18px 20px; display:flex; flex-direction:column; gap:6px; }
   .catcard2 .cc-name { font-size:15px; font-weight:700; color:var(--black); }
   .catcard2 .cc-sub { font-size:12.5px; color:var(--stone); line-height:1.4; }
   .catgrid-all-wrap { max-height:0; overflow:hidden; transition:max-height .4s ease; }
-  .catgrid-all-wrap.open { max-height:2000px; }
-  .catgrid-all { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:12px; margin-top:20px; }
+  .catgrid-all-wrap.open { max-height:20000px; }
+  /* Full grid now renders the same large photo-card style as Popular
+     services (catcard2) rather than the old small icon-circle cards --
+     auto-fill keeps cards the same visual size as Popular's while fitting
+     as many columns as the viewport allows across the full ~31-category list. */
+  .catgrid-all { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:14px; margin-top:20px; }
   .catcard { display:flex; flex-direction:column; align-items:center; gap:10px; }
   .catcard .cc-icon-sm { width:38px; height:38px; box-sizing:border-box; padding:8px; border-radius:50%; background:var(--paper); color:var(--ink); }
   .catcard img.cc-icon-sm { padding:0; object-fit:cover; display:block; }
@@ -739,42 +744,42 @@
       <p>Pick a service to get an instant, estimated price — or explore the full list of 31 categories.</p>
     </div>
     <div class="catgrid-popular">
-      <button class="catcard2" onclick="goToEstimatorWithCategory('Electrical')">
+      <button class="catcard2" data-category="Electrical" onclick="goToEstimatorWithCategory('Electrical')">
         <img class="cc-photo" src="images/categories/electrical.jpg" alt="Electrician installing wiring" loading="lazy" />
         <div class="cc-body"><div class="cc-name">Electrical</div>
         <div class="cc-sub">Power points, lighting, safety switches</div></div>
       </button>
-      <button class="catcard2" onclick="goToEstimatorWithCategory('Plumbing')">
+      <button class="catcard2" data-category="Plumbing" onclick="goToEstimatorWithCategory('Plumbing')">
         <img class="cc-photo" src="images/categories/plumbing.jpg" alt="Plumber working on pipes" loading="lazy" />
         <div class="cc-body"><div class="cc-name">Plumbing</div>
         <div class="cc-sub">Taps, blockages, hot water systems</div></div>
       </button>
-      <button class="catcard2" onclick="goToEstimatorWithCategory('Handyman')">
+      <button class="catcard2" data-category="Handyman" onclick="goToEstimatorWithCategory('Handyman')">
         <img class="cc-photo" src="images/categories/handyman.jpg" alt="Handyman with a tool belt" loading="lazy" />
         <div class="cc-body"><div class="cc-name">Home Repairs</div>
         <div class="cc-sub">General repairs, installations and small jobs</div></div>
       </button>
-      <button class="catcard2" onclick="goToEstimatorWithCategory('Cleaning')">
+      <button class="catcard2" data-category="Cleaning" onclick="goToEstimatorWithCategory('Cleaning')">
         <img class="cc-photo" src="images/categories/cleaning.jpg" alt="Cleaner vacuuming a living room" loading="lazy" />
         <div class="cc-body"><div class="cc-name">Cleaning</div>
         <div class="cc-sub">Bond cleans, regular cleans, windows</div></div>
       </button>
-      <button class="catcard2" onclick="goToEstimatorWithCategory('Gardening &amp; Lawn Mowing')">
+      <button class="catcard2" data-category="Gardening &amp; Lawn Mowing" onclick="goToEstimatorWithCategory('Gardening &amp; Lawn Mowing')">
         <img class="cc-photo" src="images/categories/gardening-lawn-mowing.jpg" alt="Landscaper mowing a lawn" loading="lazy" />
         <div class="cc-body"><div class="cc-name">Gardening</div>
         <div class="cc-sub">Lawn mowing, tidy-ups, hedges</div></div>
       </button>
-      <button class="catcard2" onclick="goToEstimatorWithCategory('Painting')">
+      <button class="catcard2" data-category="Painting" onclick="goToEstimatorWithCategory('Painting')">
         <img class="cc-photo" src="images/categories/painting.jpg" alt="Painter with a roller and paint tray" loading="lazy" />
         <div class="cc-body"><div class="cc-name">Painting</div>
         <div class="cc-sub">Interior, exterior, fences</div></div>
       </button>
-      <button class="catcard2" onclick="goToEstimatorWithCategory('Fencing')">
+      <button class="catcard2" data-category="Fencing" onclick="goToEstimatorWithCategory('Fencing')">
         <img class="cc-photo" src="images/categories/fencing.jpg" alt="Workers building a timber fence" loading="lazy" />
         <div class="cc-body"><div class="cc-name">Fencing</div>
         <div class="cc-sub">Timber, Colorbond, aluminium</div></div>
       </button>
-      <button class="catcard2" onclick="goToEstimatorWithCategory('Decking')">
+      <button class="catcard2" data-category="Decking" onclick="goToEstimatorWithCategory('Decking')">
         <img class="cc-photo" src="images/categories/decking.jpg" alt="Workers building a timber deck" loading="lazy" />
         <div class="cc-body"><div class="cc-name">Decking &amp; Outdoor Work</div>
         <div class="cc-sub">New decks, repairs, outdoor builds</div></div>
@@ -787,40 +792,12 @@
     </button>
 
     <div class="catgrid-all-wrap" id="catGridAllWrap">
-      <div class="catgrid catgrid-all" id="catGrid">
-        <div class="catcard" onclick="goToEstimatorWithCategory('Decking')"><img class="cc-icon-sm cat-decking" src="images/categories/decking.jpg" alt="" loading="lazy" /><div class="name">Decking</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Pergola')"><img class="cc-icon-sm cat-pergola" src="images/categories/pergola.jpg" alt="" loading="lazy" /><div class="name">Pergola</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Fencing')"><img class="cc-icon-sm cat-fencing" src="images/categories/fencing.jpg" alt="" loading="lazy" /><div class="name">Fencing</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Retaining Wall')"><img class="cc-icon-sm cat-retaining-wall" src="images/categories/retaining-wall.jpg" alt="" loading="lazy" /><div class="name">Retaining Wall</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Concreting')"><img class="cc-icon-sm cat-concreting" src="images/categories/concreting.jpg" alt="" loading="lazy" /><div class="name">Concreting</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Grass Installation')"><img class="cc-icon-sm cat-grass-installation" src="images/categories/grass-installation.jpg" alt="" loading="lazy" /><div class="name">Grass Installation</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Gardening &amp; Lawn Mowing')"><img class="cc-icon-sm cat-gardening-lawn-mowing" src="images/categories/gardening-lawn-mowing.jpg" alt="" loading="lazy" /><div class="name">Gardening &amp; Lawn Mowing</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Tree Pruning &amp; Removal')"><img class="cc-icon-sm cat-tree-pruning-removal" src="images/categories/tree-pruning-removal.jpg" alt="" loading="lazy" /><div class="name">Tree Pruning &amp; Removal</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Painting')"><img class="cc-icon-sm cat-painting" src="images/categories/painting.jpg" alt="" loading="lazy" /><div class="name">Painting</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Rendering')"><img class="cc-icon-sm cat-rendering" src="images/categories/rendering.jpg" alt="" loading="lazy" /><div class="name">Rendering</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Cabinetry')"><img class="cc-icon-sm cat-cabinetry" src="images/categories/cabinetry.jpg" alt="" loading="lazy" /><div class="name">Cabinetry</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Stonemason')"><img class="cc-icon-sm cat-stonemason" src="images/categories/stonemason.jpg" alt="" loading="lazy" /><div class="name">Stonemason</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Flooring')"><img class="cc-icon-sm cat-flooring" src="images/categories/flooring.jpg" alt="" loading="lazy" /><div class="name">Flooring</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Earth Works')"><img class="cc-icon-sm cat-earth-works" src="images/categories/earth-works.jpg" alt="" loading="lazy" /><div class="name">Earth Works</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Demolition')"><img class="cc-icon-sm cat-demolition" src="images/categories/demolition.jpg" alt="" loading="lazy" /><div class="name">Demolition</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Skip Bins')"><img class="cc-icon-sm cat-skip-bins" src="images/categories/skip-bins.jpg" alt="" loading="lazy" /><div class="name">Skip Bins</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Cleaning')"><img class="cc-icon-sm cat-cleaning" src="images/categories/cleaning.jpg" alt="" loading="lazy" /><div class="name">Cleaning</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Tiling')"><img class="cc-icon-sm cat-tiling" src="images/categories/tiling.jpg" alt="" loading="lazy" /><div class="name">Tiling</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Tiled Roof Repair')"><img class="cc-icon-sm cat-tiled-roof-repair" src="images/categories/tiled-roof-repair.jpg" alt="" loading="lazy" /><div class="name">Tiled Roof Repair</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Electrical')"><img class="cc-icon-sm cat-electrical" src="images/categories/electrical.jpg" alt="" loading="lazy" /><div class="name">Electrical</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Plumbing')"><img class="cc-icon-sm cat-plumbing" src="images/categories/plumbing.jpg" alt="" loading="lazy" /><div class="name">Plumbing</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Handyman')"><img class="cc-icon-sm cat-handyman" src="images/categories/handyman.jpg" alt="" loading="lazy" /><div class="name">Handyman</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Property Maintenance')"><img class="cc-icon-sm cat-property-maintenance" src="images/categories/property-maintenance.jpg" alt="" loading="lazy" /><div class="name">Property Maintenance</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Small Outdoor &amp; Construction Repairs')"><img class="cc-icon-sm cat-small-outdoor-construction-repairs" src="images/categories/small-outdoor-construction-repairs.jpg" alt="" loading="lazy" /><div class="name">Small Outdoor &amp; Construction Repairs</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Pest Control')"><img class="cc-icon-sm cat-pest-control" src="images/categories/pest-control.jpg" alt="" loading="lazy" /><div class="name">Pest Control</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Locksmith')"><img class="cc-icon-sm cat-locksmith" src="images/categories/locksmith.jpg" alt="" loading="lazy" /><div class="name">Locksmith</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Blinds, Curtains &amp; Shutters')"><img class="cc-icon-sm cat-blinds-curtains-shutters" src="images/categories/blinds-curtains-shutters.jpg" alt="" loading="lazy" /><div class="name">Blinds, Curtains &amp; Shutters</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Garage Door Service &amp; Repair')"><img class="cc-icon-sm cat-garage-door-service-repair" src="images/categories/garage-door-service-repair.jpg" alt="" loading="lazy" /><div class="name">Garage Door Service &amp; Repair</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Gutter Guard Installation')"><div class="cc-icon-sm cat-gutter-guard-installation"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4C10 4 4 10 4 20c8 0 14-6 16-16z"/><path d="M8 16 20 4"/></svg></div><div class="name">Gutter Guard Installation</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Plastering &amp; Drywall Repair')"><img class="cc-icon-sm cat-plastering-drywall-repair" src="images/categories/plastering-drywall-repair.jpg" alt="" loading="lazy" /><div class="name">Plastering &amp; Drywall Repair</div></div>
-        <div class="catcard" onclick="goToEstimatorWithCategory('Insulation Installation')"><img class="cc-icon-sm cat-insulation-installation" src="images/categories/insulation-installation.jpg" alt="" loading="lazy" /><div class="name">Insulation Installation</div></div>
-        <div class="catcard" onclick="openFixSomething()"><div class="cc-icon-sm"><svg width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.4 2.3c-.9.4-1.4 1-1.4 1.7v.5"/><path d="M12 17h0"/></svg></div><div class="name">Other</div></div>
-      </div>
+      <!-- Populated by renderFullCategoryGrid() from live CATEGORIES data (see
+           main <script> below) instead of hardcoded markup, so a category an
+           admin fully disables in the Rate Card tab disappears here and
+           reappears the moment it's re-enabled -- and any brand-new category
+           an admin adds shows up automatically too, without an HTML edit. -->
+      <div class="catgrid catgrid-all" id="catGrid"></div>
     </div>
   </div>
 </section>
@@ -1465,6 +1442,63 @@
     return DEFAULT_CATEGORIES;
   }
   const CATEGORIES = getRateCard();
+
+  // Category-slug -> image filename, matches the naming used everywhere
+  // under images/categories/ ("Gardening & Lawn Mowing" -> "gardening-lawn-mowing.jpg").
+  function categorySlug(label) {
+    return label.toLowerCase().replace(/[&,]/g, '').replace(/\s+/g, '-');
+  }
+
+  // Only category with no photo asset today (see images/categories/) --
+  // rendered as an icon tile instead of a broken <img>.
+  const CATEGORY_FALLBACK_ICON = {
+    'gutter-guard-installation': '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4C10 4 4 10 4 20c8 0 14-6 16-16z"/><path d="M8 16 20 4"/></svg>',
+  };
+
+  // Renders the "Explore all services" grid from live CATEGORIES data --
+  // same large photo-card style as Popular services (item asked for this
+  // explicitly) -- and, since it reads real-time disabled state, a category
+  // an admin fully disables in the Rate Card tab disappears here and
+  // reappears the moment any task in it is re-enabled, instead of the old
+  // hardcoded HTML always showing all 31 regardless of admin changes.
+  function renderFullCategoryGrid() {
+    const grid = document.getElementById('catGrid');
+    if (!grid) return;
+    const visible = CATEGORIES.filter(c => (c.tasks || []).some(t => !t.disabled));
+    const cards = visible.map(c => {
+      const slug = categorySlug(c.label);
+      const enabledTasks = (c.tasks || []).filter(t => !t.disabled);
+      // Subtitle is pulled straight from real task names on the rate card --
+      // never invented copy, and it updates automatically as tasks change.
+      const subtitle = enabledTasks.slice(0, 3).map(t => t.name).join(', ');
+      const photoHtml = CATEGORY_FALLBACK_ICON[slug]
+        ? `<div class="cc-photo cc-photo-fallback cc-icon-sm cat-${slug}" style="aspect-ratio:4/3;width:100%;">${CATEGORY_FALLBACK_ICON[slug]}</div>`
+        : `<img class="cc-photo" src="images/categories/${slug}.jpg" alt="${escapeHtml(c.label)}" loading="lazy" />`;
+      return `<button class="catcard2" onclick="goToEstimatorWithCategory('${c.label.replace(/'/g, "\\'")}')">
+        ${photoHtml}
+        <div class="cc-body"><div class="cc-name">${escapeHtml(c.label)}</div>
+        <div class="cc-sub">${escapeHtml(subtitle)}</div></div>
+      </button>`;
+    }).join('');
+    const otherCard = `<button class="catcard2" onclick="openFixSomething()">
+        <div class="cc-photo cc-photo-fallback" style="aspect-ratio:4/3;width:100%;background:var(--paper);"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.4 2.3c-.9.4-1.4 1-1.4 1.7v.5"/><path d="M12 17h0"/></svg></div>
+        <div class="cc-body"><div class="cc-name">Other</div>
+        <div class="cc-sub">Not sure which category? Describe it or upload a photo.</div></div>
+      </button>`;
+    grid.innerHTML = cards + otherCard;
+  }
+
+  // Hides a Popular services card if that category has been fully disabled
+  // in the admin Rate Card tab (mirrors the fix applied to the full grid above).
+  function updatePopularCategoryVisibility() {
+    const enabledLabels = new Set(CATEGORIES.filter(c => (c.tasks || []).some(t => !t.disabled)).map(c => c.label));
+    document.querySelectorAll('.catgrid-popular .catcard2[data-category]').forEach(btn => {
+      btn.style.display = enabledLabels.has(btn.dataset.category) ? '' : 'none';
+    });
+  }
+
+  renderFullCategoryGrid();
+  updatePopularCategoryVisibility();
 
   const TARGETED_QUESTIONS = {
     'Decking': [
