@@ -343,7 +343,7 @@
         ${j.contractor && !['cancellation_requested', 'cancelled'].includes(j.status) ? `<div id="milestoneSectionWrap"><div class="note">Loading payment schedule…</div></div>` : ''}
         ${j.status === 'completed' ? renderRatingSection(j) : ''}
         ${j.status === 'completed' ? `<button class="btn btn-black btn-full" style="margin-top:12px;" onclick="bookAgain('${j.id}')">Book again →</button>` : ''}
-        ${j.status === 'cancellation_requested' ? `<div class="note" style="color:var(--warn);margin-top:12px;">⚠ Your cancellation request is being reviewed by MySubbies — we'll be in touch shortly. No further action is needed from you.</div>` : ''}
+        ${j.status === 'cancellation_requested' ? `<div class="note" style="color:var(--warn);margin-top:12px;">⚠ ${j.cancellationRequestedBy === 'contractor' ? 'Your contractor has requested to cancel this job' : 'Your cancellation request is being reviewed by MySubbies'} — we'll be in touch shortly. No further action is needed from you.</div>` : ''}
         ${j.status === 'cancelled' ? `<div class="note" style="margin-top:12px;">This job has been cancelled.</div>` : ''}
         ${j.contractor && !['completed', 'cancellation_requested', 'cancelled'].includes(j.status) ? `<button class="btn btn-outline btn-full" style="margin-top:12px;" onclick="openDisputeForm()">⚠ Report a problem</button>` : ''}
         <div id="disputeFormWrap"></div>
@@ -775,6 +775,7 @@
     j.status = 'cancellation_requested';
     j.cancellationReason = reason;
     j.cancellationRequestedAt = new Date().toISOString();
+    j.cancellationRequestedBy = 'customer';
     saveJobs(jobs);
     render();
   }

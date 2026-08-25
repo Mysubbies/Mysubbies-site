@@ -1496,7 +1496,7 @@
 
         ${j.status === 'cancellation_requested' ? `
         <div style="background:#FFF6E5;border:1.5px solid #F0D89B;border-radius:12px;padding:14px;margin-top:14px;">
-          <div style="font-weight:700;font-size:13.5px;color:#8A6D2E;margin-bottom:4px;">⚠ Customer requested to cancel this job</div>
+          <div style="font-weight:700;font-size:13.5px;color:#8A6D2E;margin-bottom:4px;">⚠ ${j.cancellationRequestedBy === 'contractor' ? 'Contractor' : 'Customer'} requested to cancel this job</div>
           ${j.cancellationReason ? `<div style="font-size:12.5px;color:var(--ink);margin-bottom:10px;">"${escapeHtml(j.cancellationReason)}"</div>` : ''}
           <div style="display:flex;gap:8px;">
             <button class="btn btn-black" style="flex:1;" onclick="approveCancellation('${j.id}')">Approve cancellation</button>

@@ -386,12 +386,21 @@
           <button class="btn btn-black" style="flex:2;" onclick="acceptJob('${j.id}')">Accept job →</button>
         </div>`;
     } else if (j.status === 'cancellation_requested') {
-      // The customer's cancellation is pending admin review — the
+      // Either side's cancellation is pending admin review — the
       // contractor is locked out of further claims/movement until that's
       // resolved, so nothing here can race an admin decision.
-      actions = `<div class="note" style="color:var(--warn);">⚠ The customer has requested to cancel this job. MySubbies is reviewing it — no further action is needed from you right now.</div>`;
-    } else {
+      actions = `<div class="note" style="color:var(--warn);">⚠ ${j.cancellationRequestedBy === 'contractor' ? 'Your cancellation request is being reviewed by MySubbies' : 'The customer has requested to cancel this job. MySubbies is reviewing it'} — no further action is needed from you right now.</div>`;
+    } else if (j.status === 'completed') {
       actions = `<div id="milestoneClaimWrap"><div class="note">Loading payment schedule…</div></div>`;
+    } else {
+      // Once accepted, cancelling isn't self-service any more — same as the
+      // customer side, this needs a real conversation (materials may
+      // already be sourced, time already scheduled), so it goes to
+      // MySubbies for review rather than cancelling instantly.
+      actions = `
+        <div id="milestoneClaimWrap"><div class="note">Loading payment schedule…</div></div>
+        <button class="btn btn-outline btn-full" style="margin-top:8px;color:var(--warn);" onclick="openContractorRequestCancelForm('${j.id}')">Request to cancel</button>
+        <div id="contractorCancelFormWrap"></div>`;
     }
 
     app.innerHTML = `
@@ -755,6 +764,42 @@
     render();
   }
   function declineJob(id) { selectedJobId = null; render(); }
+
+  // Mirrors requestCancelJob() in mysubbies-customer-portal.html -- once a
+  // job is accepted, cancelling isn't self-service for the contractor
+  // either, for the same reason: MySubbies has to square it with the
+  // customer (who may already have paid a deposit) before it's final.
+  // In-page form, not window.prompt() -- prompt() is a silent no-op on a
+  // site installed as a standalone PWA (see the customer-portal fix, Aug 2026).
+  function openContractorRequestCancelForm(jobId) {
+    document.getElementById('contractorCancelFormWrap').innerHTML = `
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--paper);">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Why would you like to cancel?</div>
+        <textarea id="contractorCancelReason" placeholder="Tell us why, so MySubbies can review this" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;min-height:70px;font-family:inherit;"></textarea>
+        <div id="contractorCancelError" style="color:var(--warn);font-size:12.5px;margin-bottom:8px;display:none;"></div>
+        <button class="btn btn-black btn-full" onclick="submitContractorRequestCancel('${jobId}')">Submit cancellation request</button>
+      </div>`;
+  }
+  function submitContractorRequestCancel(jobId) {
+    const input = document.getElementById('contractorCancelReason');
+    const reason = input.value.trim();
+    const errBox = document.getElementById('contractorCancelError');
+    if (!reason) {
+      errBox.textContent = 'Please tell us why, so MySubbies can review this.';
+      errBox.style.display = 'block';
+      input.focus();
+      return;
+    }
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === jobId);
+    if (!j) return;
+    j.status = 'cancellation_requested';
+    j.cancellationReason = reason;
+    j.cancellationRequestedAt = new Date().toISOString();
+    j.cancellationRequestedBy = 'contractor';
+    saveJobs(jobs);
+    render();
+  }
 
   function photoSetHtml(kind, photos) {
     const label = kind === 'before' ? 'Before' : 'After';
