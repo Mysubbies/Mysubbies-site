@@ -198,13 +198,31 @@
 
   let tab = 'feed';
   let selectedJobId = null;
-  let showCompletedJobs = false;
-  let showCancelledJobs = false;
   let jobSearchQuery = '';
   const app = document.getElementById('app');
 
-  function toggleCompletedJobs() { showCompletedJobs = !showCompletedJobs; render(); }
-  function toggleCancelledJobs() { showCancelledJobs = !showCancelledJobs; render(); }
+  // Status filter chips (Aug 2026, same pattern as the admin portal's All
+  // Jobs and the customer portal's My jobs) -- replaces the separate
+  // "Show completed" / "Show cancelled" toggles with chips per status. No
+  // "Awaiting contractor" chip here -- a job only ever lands in "My Jobs"
+  // once this contractor has accepted it, so that status can't appear.
+  const MYJOBS_STATUS_FILTERS = [
+    { key: 'all', label: 'All' },
+    { key: 'assigned', label: 'Assigned' },
+    { key: 'cancellation_requested', label: 'Cancellation requested' },
+    { key: 'completed', label: 'Completed' },
+    { key: 'cancelled', label: 'Cancelled' },
+  ];
+  let myJobsStatusFilter = 'all';
+  function myJobsStatusFilterChipsHtml(jobs) {
+    return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+      ${MYJOBS_STATUS_FILTERS.map(f => {
+        const count = f.key === 'all' ? jobs.length : jobs.filter(j => j.status === f.key).length;
+        const active = myJobsStatusFilter === f.key;
+        return `<button onclick="myJobsStatusFilter='${f.key}'; render();" style="padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;border:1.5px solid ${active ? 'var(--ink)' : 'var(--line)'};background:${active ? 'var(--ink)' : '#fff'};color:${active ? '#fff' : 'var(--ink)'};cursor:pointer;">${f.label} (${count})</button>`;
+      }).join('')}
+    </div>`;
+  }
 
   // Job search (all 3 portals, Aug 2026) -- a plain-text filter over
   // category/suburb/id/task names, so anyone can find a specific job
@@ -247,15 +265,12 @@
     // this contractor's trades yet (no local application record).
     const myTrades = (getApplications().find(a => a.business === name) || {}).trades;
     const feedJobs = jobs.filter(j => j.status === 'feed' && (!myTrades || !myTrades.length || myTrades.includes(j.category)));
-    // Completed AND cancelled jobs used to either sit mixed in with active
-    // ones or (for cancelled) just vanish with no way to see them again --
-    // both now split out into their own collapsed "Show completed" /
-    // "Show cancelled" sections, same archive pattern as the customer
-    // portal's cancelled-jobs section and this portal's Job Feed.
     const myJobsAll = jobs.filter(j => j.contractor === name);
+    // Tab badge / earnings still care about "active" and "completed" as
+    // simple counts; the My Jobs tab body itself now uses the status filter
+    // chips below instead of a mixed list.
     const myJobs = myJobsAll.filter(j => !['completed', 'cancelled'].includes(j.status));
     const myJobsCompleted = myJobsAll.filter(j => j.status === 'completed');
-    const myJobsCancelled = myJobsAll.filter(j => j.status === 'cancelled');
 
     app.innerHTML = `
       <div class="whoami">Logged in as <strong>${name}</strong> <a onclick="logout()">Log out</a></div>
@@ -312,34 +327,20 @@
         feedJobsFiltered.forEach(j => app.innerHTML += jobCardHtml(j));
       }
     } else {
-      app.innerHTML += `<h1 class="pagetitle">My jobs</h1><p class="pagesub">${myJobs.length} active</p>`;
-      app.innerHTML += jobSearchBoxHtml();
-      const myJobsFiltered = myJobs.filter(j => jobMatchesSearch(j, jobSearchQuery));
-      if (myJobs.length === 0) {
+      app.innerHTML += `<h1 class="pagetitle">My jobs</h1><p class="pagesub">${myJobsAll.length} total, ${myJobs.length} active</p>`;
+      if (myJobsAll.length === 0) {
         app.innerHTML += `<div class="empty">No accepted jobs yet.</div>`;
-      } else if (myJobsFiltered.length === 0) {
-        app.innerHTML += `<div class="empty">No jobs match "${escapeHtml(jobSearchQuery)}".</div>`;
       } else {
-        myJobsFiltered.forEach(j => app.innerHTML += myJobCardHtml(j));
-      }
-      if (myJobsCompleted.length > 0) {
-        app.innerHTML += `
-          <div style="margin-top:20px;">
-            <a onclick="toggleCompletedJobs()" style="font-size:13px;color:var(--stone);text-decoration:underline;cursor:pointer;">${showCompletedJobs ? 'Hide' : 'Show'} completed (${myJobsCompleted.length})</a>
-          </div>`;
-        if (showCompletedJobs) {
-          const completedFiltered = myJobsCompleted.filter(j => jobMatchesSearch(j, jobSearchQuery));
-          completedFiltered.forEach(j => app.innerHTML += myJobCardHtml(j));
-        }
-      }
-      if (myJobsCancelled.length > 0) {
-        app.innerHTML += `
-          <div style="margin-top:${myJobsCompleted.length > 0 ? '8px' : '20px'};">
-            <a onclick="toggleCancelledJobs()" style="font-size:13px;color:var(--stone);text-decoration:underline;cursor:pointer;">${showCancelledJobs ? 'Hide' : 'Show'} cancelled (${myJobsCancelled.length})</a>
-          </div>`;
-        if (showCancelledJobs) {
-          const cancelledFiltered = myJobsCancelled.filter(j => jobMatchesSearch(j, jobSearchQuery));
-          cancelledFiltered.forEach(j => app.innerHTML += myJobCardHtml(j));
+        app.innerHTML += myJobsStatusFilterChipsHtml(myJobsAll);
+        app.innerHTML += jobSearchBoxHtml();
+        const statusFiltered = myJobsStatusFilter === 'all' ? myJobsAll : myJobsAll.filter(j => j.status === myJobsStatusFilter);
+        const filtered = statusFiltered.filter(j => jobMatchesSearch(j, jobSearchQuery));
+        if (statusFiltered.length === 0) {
+          app.innerHTML += `<div class="empty">No jobs in this status.</div>`;
+        } else if (filtered.length === 0) {
+          app.innerHTML += `<div class="empty">No jobs match "${escapeHtml(jobSearchQuery)}".</div>`;
+        } else {
+          filtered.forEach(j => app.innerHTML += myJobCardHtml(j));
         }
       }
     }

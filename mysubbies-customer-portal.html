@@ -234,8 +234,28 @@
     return j.contractor ? j.contractor : 'Awaiting contractor';
   }
 
-  let showArchived = false;
-  function toggleArchived() { showArchived = !showArchived; render(); }
+  // Status filter chips (Aug 2026, same pattern as the admin portal's All
+  // Jobs) -- replaces the single mixed list + separate cancelled-archive
+  // toggle with chips per status, so a customer with several jobs can
+  // focus on one bucket instead of scrolling past everything.
+  const JOB_STATUS_FILTERS = [
+    { key: 'all', label: 'All' },
+    { key: 'feed', label: 'Awaiting contractor' },
+    { key: 'assigned', label: 'Assigned' },
+    { key: 'cancellation_requested', label: 'Cancellation requested' },
+    { key: 'completed', label: 'Completed' },
+    { key: 'cancelled', label: 'Cancelled' },
+  ];
+  let jobStatusFilter = 'all';
+  function jobStatusFilterChipsHtml(jobs) {
+    return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+      ${JOB_STATUS_FILTERS.map(f => {
+        const count = f.key === 'all' ? jobs.length : jobs.filter(j => j.status === f.key).length;
+        const active = jobStatusFilter === f.key;
+        return `<button onclick="jobStatusFilter='${f.key}'; render();" style="padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;border:1.5px solid ${active ? 'var(--ink)' : 'var(--line)'};background:${active ? 'var(--ink)' : '#fff'};color:${active ? '#fff' : 'var(--ink)'};cursor:pointer;">${f.label} (${count})</button>`;
+      }).join('')}
+    </div>`;
+  }
 
   // "Book again" on a completed job -- hands the job's real items (category,
   // task name, quantity) to the estimator via a one-time localStorage key,
@@ -260,8 +280,6 @@
     if (showingPaymentHistory) { renderPaymentHistory(email); return; }
 
     const allJobs = getJobs().filter(j => j.customerEmail === email);
-    const jobs = allJobs.filter(j => j.status !== 'cancelled');
-    const archivedJobs = allJobs.filter(j => j.status === 'cancelled');
     const customers = getCustomers();
     const name = customers[email] ? customers[email].name : email;
     const myAccount = customers[email] || {};
@@ -281,7 +299,7 @@
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <div>
           <h1 class="pagetitle">My jobs</h1>
-          <p class="pagesub">${jobs.length} job${jobs.length === 1 ? '' : 's'}</p>
+          <p class="pagesub">${allJobs.length} job${allJobs.length === 1 ? '' : 's'}</p>
         </div>
         <div style="display:flex;gap:8px;flex-shrink:0;">
           <button class="btn btn-outline" style="width:auto;" onclick="openPaymentHistory()">Payment history</button>
@@ -289,12 +307,16 @@
         </div>
       </div>
     `;
-    if (jobs.length === 0) {
+    if (allJobs.length === 0) {
       app.innerHTML += `<div class="empty">No jobs yet. <a href="mysubbies-website.html#estimate" style="text-decoration:underline;">Get an instant price</a> to submit one.</div>`;
     } else {
+      app.innerHTML += jobStatusFilterChipsHtml(allJobs);
       app.innerHTML += jobSearchBoxHtml();
-      const jobsFiltered = jobs.filter(j => jobMatchesSearch(j, jobSearchQuery));
-      if (jobsFiltered.length === 0) {
+      const statusFiltered = jobStatusFilter === 'all' ? allJobs : allJobs.filter(j => j.status === jobStatusFilter);
+      const jobsFiltered = statusFiltered.filter(j => jobMatchesSearch(j, jobSearchQuery));
+      if (statusFiltered.length === 0) {
+        app.innerHTML += `<div class="empty">No jobs in this status.</div>`;
+      } else if (jobsFiltered.length === 0) {
         app.innerHTML += `<div class="empty">No jobs match "${escapeHtml(jobSearchQuery)}".</div>`;
       }
       jobsFiltered.forEach(j => {
@@ -305,22 +327,6 @@
             <div class="jobmeta">📍 ${escapeHtml(j.suburb)} · ${escapeHtml(jobStatusLabel(j))}</div>
           </button>`;
       });
-    }
-    if (archivedJobs.length > 0) {
-      app.innerHTML += `
-        <div style="margin-top:20px;">
-          <a onclick="toggleArchived()" style="font-size:13px;color:var(--stone);text-decoration:underline;cursor:pointer;">${showArchived ? 'Hide' : 'Show'} archived (${archivedJobs.length} cancelled)</a>
-        </div>`;
-      if (showArchived) {
-        archivedJobs.forEach(j => {
-          app.innerHTML += `
-            <button class="jobcard" style="opacity:0.6;" onclick="selectedJobId='${j.id}'; render();">
-              <span class="pill">${escapeHtml(j.category)}</span>
-              <div class="jobtitle">${escapeHtml(j.category)}</div>
-              <div class="jobmeta">📍 ${escapeHtml(j.suburb)} · Cancelled</div>
-            </button>`;
-        });
-      }
     }
     wireNotifyButton();
   }
