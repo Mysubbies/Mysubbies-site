@@ -1740,7 +1740,7 @@
     const badgeLabel = { feed: 'Awaiting contractor', assigned: 'Assigned', completed: 'Completed', cancellation_requested: 'Cancellation requested', cancelled: 'Cancelled' };
     return `
       <table>
-        <thead><tr><th>Job</th><th>Suburb</th><th>Contractor</th><th>Status</th><th>Submitted</th><th>Value</th></tr></thead>
+        <thead><tr><th>Job</th><th>Suburb</th><th>Contractor</th><th>Status</th><th>Submitted</th><th>Value</th><th></th></tr></thead>
         <tbody>
           ${jobs.map(j => {
             const submitted = jobSubmittedText(j);
@@ -1752,6 +1752,7 @@
               <td><span class="badge ${badgeClass[j.status] || 'badge-feed'}">${badgeLabel[j.status] || j.status}</span></td>
               <td>${submitted.date}<br><span style="color:var(--stone);font-size:11.5px;">${submitted.relative}</span></td>
               <td>$${(j.basePrice || 0).toLocaleString()}</td>
+              <td>${!['cancelled', 'completed'].includes(j.status) ? `<button class="btn btn-danger" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="adminCancelJob('${j.id}', event)">Cancel</button>` : ''}</td>
             </tr>
           `;
           }).join('')}
@@ -1970,6 +1971,24 @@
     const j = jobs.find(x => x.id === id);
     j.status = 'assigned';
     j.cancellationRequestRejectedAt = new Date().toISOString();
+    saveJobs(jobs);
+    render();
+  }
+
+  // Direct admin cancel (Aug 2026) -- approveCancellation() above only
+  // fires once a customer or contractor has already requested one; this is
+  // for admin proactively cancelling a job on their own initiative (e.g.
+  // a job that's clearly gone stale), callable straight from the listing
+  // row rather than needing to open the job first. event.stopPropagation()
+  // keeps this from also triggering the row's own onclick (open job detail).
+  function adminCancelJob(id, event) {
+    if (event) event.stopPropagation();
+    if (!confirm('Cancel this job? This can\'t be undone.')) return;
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === id);
+    if (!j) return;
+    j.status = 'cancelled';
+    j.cancelledByAdminAt = new Date().toISOString();
     saveJobs(jobs);
     render();
   }
