@@ -201,10 +201,12 @@
   let tab = 'feed';
   let selectedJobId = null;
   let showCompletedJobs = false;
+  let showCancelledJobs = false;
   let jobSearchQuery = '';
   const app = document.getElementById('app');
 
   function toggleCompletedJobs() { showCompletedJobs = !showCompletedJobs; render(); }
+  function toggleCancelledJobs() { showCancelledJobs = !showCancelledJobs; render(); }
 
   // Job search (all 3 portals, Aug 2026) -- a plain-text filter over
   // category/suburb/id/task names, so anyone can find a specific job
@@ -247,15 +249,15 @@
     // this contractor's trades yet (no local application record).
     const myTrades = (getApplications().find(a => a.business === name) || {}).trades;
     const feedJobs = jobs.filter(j => j.status === 'feed' && (!myTrades || !myTrades.length || myTrades.includes(j.category)));
-    // A cancelled job has nothing left for the contractor to do — drop it
-    // from the active list rather than leaving it sitting there forever.
-    // Completed jobs used to sit mixed in with active ones in "My Jobs"
-    // forever too -- now split out into a collapsed "Show completed"
-    // section below, same archive pattern as the customer portal's
-    // cancelled-jobs section.
-    const myJobsAll = jobs.filter(j => j.contractor === name && j.status !== 'cancelled');
-    const myJobs = myJobsAll.filter(j => j.status !== 'completed');
+    // Completed AND cancelled jobs used to either sit mixed in with active
+    // ones or (for cancelled) just vanish with no way to see them again --
+    // both now split out into their own collapsed "Show completed" /
+    // "Show cancelled" sections, same archive pattern as the customer
+    // portal's cancelled-jobs section and this portal's Job Feed.
+    const myJobsAll = jobs.filter(j => j.contractor === name);
+    const myJobs = myJobsAll.filter(j => !['completed', 'cancelled'].includes(j.status));
     const myJobsCompleted = myJobsAll.filter(j => j.status === 'completed');
+    const myJobsCancelled = myJobsAll.filter(j => j.status === 'cancelled');
 
     app.innerHTML = `
       <div class="whoami">Logged in as <strong>${name}</strong> <a onclick="logout()">Log out</a></div>
@@ -332,6 +334,16 @@
           completedFiltered.forEach(j => app.innerHTML += myJobCardHtml(j));
         }
       }
+      if (myJobsCancelled.length > 0) {
+        app.innerHTML += `
+          <div style="margin-top:${myJobsCompleted.length > 0 ? '8px' : '20px'};">
+            <a onclick="toggleCancelledJobs()" style="font-size:13px;color:var(--stone);text-decoration:underline;cursor:pointer;">${showCancelledJobs ? 'Hide' : 'Show'} cancelled (${myJobsCancelled.length})</a>
+          </div>`;
+        if (showCancelledJobs) {
+          const cancelledFiltered = myJobsCancelled.filter(j => jobMatchesSearch(j, jobSearchQuery));
+          cancelledFiltered.forEach(j => app.innerHTML += myJobCardHtml(j));
+        }
+      }
     }
   }
 
@@ -367,7 +379,7 @@
         <div class="stagebar">
           ${schedule.map(s => `<div class="stage ${paidStages[s.key] ? 'done' : ''}" style="flex:${s.pct};"></div>`).join('')}
         </div>
-        <div class="jobmeta">${j.status === 'feed' ? 'Awaiting acceptance' : j.status === 'assigned' ? 'Assigned' : j.status === 'cancellation_requested' ? 'Cancellation requested' : j.status}</div>
+        <div class="jobmeta">${j.status === 'feed' ? 'Awaiting acceptance' : j.status === 'assigned' ? 'Assigned' : j.status === 'cancellation_requested' ? 'Cancellation requested' : j.status === 'cancelled' ? 'Cancelled' : j.status === 'completed' ? 'Completed' : j.status}</div>
       </button>`;
   }
 
