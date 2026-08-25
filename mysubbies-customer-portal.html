@@ -320,12 +320,14 @@
         ${!j.contractor && j.status === 'feed' ? `
           <div style="display:flex;gap:8px;margin-top:12px;">
             <button class="btn btn-outline" style="flex:1;" onclick="openEditJobForm()">Edit job</button>
-            <button class="btn btn-outline" style="flex:1;color:var(--warn);" onclick="cancelJob('${j.id}')">Cancel job</button>
+            <button class="btn btn-outline" style="flex:1;color:var(--warn);" onclick="openCancelJobConfirm('${j.id}')">Cancel job</button>
           </div>
           <div id="editJobFormWrap"></div>
+          <div id="cancelJobFormWrap"></div>
         ` : ''}
         ${j.contractor && !['completed', 'cancellation_requested', 'cancelled'].includes(j.status) ? `
-          <button class="btn btn-outline btn-full" style="margin-top:8px;color:var(--warn);" onclick="requestCancelJob('${j.id}')">Request to cancel</button>
+          <button class="btn btn-outline btn-full" style="margin-top:8px;color:var(--warn);" onclick="openRequestCancelForm('${j.id}')">Request to cancel</button>
+          <div id="requestCancelFormWrap"></div>
         ` : ''}
       </div>
 
@@ -430,7 +432,7 @@
           ` : ''}
           <div class="row"><span class="l">Amount due</span><span class="r" style="font-weight:700;">$${(awaiting.amount_cents / 100).toLocaleString()}</span></div>
           <div style="display:flex;gap:8px;margin-top:10px;">
-            <button class="btn btn-outline" style="flex:1;" onclick="disputeMilestone('${awaiting.id}')">Raise an issue</button>
+            <button class="btn btn-outline" style="flex:1;" onclick="openDisputeMilestoneForm('${awaiting.id}')">Raise an issue</button>
             <button class="btn btn-black" style="flex:1;" onclick="openMilestonePayForm('${jobId}','${awaiting.id}', ${awaiting.amount_cents}, false)">Approve & pay →</button>
           </div>
           <div id="milestonePayFormWrap"></div>
@@ -482,16 +484,38 @@
     window.__mysubbiesMilestoneCardElement.mount('#milestoneCardElement');
   }
 
-  async function disputeMilestone(milestoneId) {
-    const reason = prompt('What went wrong? This pauses the payment and MySubbies will review it.');
-    if (reason === null) return;
+  // Same window.prompt()/alert() issue as cancelJob/requestCancelJob above
+  // -- silently no-ops in a standalone-installed PWA. Reuses the same
+  // milestonePayFormWrap slot the "Pay" form renders into (mutually
+  // exclusive states, so sharing it is fine).
+  function openDisputeMilestoneForm(milestoneId) {
+    document.getElementById('milestonePayFormWrap').innerHTML = `
+      <div style="margin-top:10px;">
+        <textarea id="milestoneDisputeReason" placeholder="What went wrong? This pauses the payment and MySubbies will review it." style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;min-height:70px;font-family:inherit;"></textarea>
+        <div id="milestoneDisputeError" style="color:var(--warn);font-size:12.5px;margin-bottom:8px;display:none;"></div>
+        <button class="btn btn-black btn-full" onclick="submitDisputeMilestone('${milestoneId}')">Submit</button>
+      </div>`;
+  }
+  async function submitDisputeMilestone(milestoneId) {
+    const input = document.getElementById('milestoneDisputeReason');
+    const reason = input.value.trim();
+    const errBox = document.getElementById('milestoneDisputeError');
+    if (!reason) {
+      errBox.textContent = 'Please tell us what went wrong.';
+      errBox.style.display = 'block';
+      input.focus();
+      return;
+    }
     try {
       await fetch('/api/milestone', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'respond', milestoneId, customerId: null, response: 'disputed', notes: reason }),
       });
       renderDetail(getCurrentCustomerEmail());
-    } catch (e) { alert('Could not submit — please try again.'); }
+    } catch (e) {
+      errBox.textContent = 'Could not submit — please try again.';
+      errBox.style.display = 'block';
+    }
   }
 
   async function approveAndPayMilestone(jobId, milestoneId, amountCents, alreadyApproved) {
@@ -664,8 +688,25 @@
   // Cancel/edit are only offered while a job is still unallocated (status
   // 'feed', no contractor) — once a contractor has accepted, changing scope
   // or cancelling needs a real conversation, not a self-service button.
+  //
+  // Both this and requestCancelJob() below used to gate on window.confirm()/
+  // prompt() — native dialogs that iOS (and some Android WebViews) silently
+  // no-op for a site installed as a standalone PWA (no browser chrome to
+  // show them in), which is exactly this site's install flow. That made the
+  // button look broken with zero error or feedback (founder report, Aug
+  // 2026). Replaced with the same in-page-form pattern openDisputeForm()
+  // already uses, which works identically everywhere.
+  function openCancelJobConfirm(jobId) {
+    document.getElementById('cancelJobFormWrap').innerHTML = `
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--paper);">
+        <div style="font-size:13px;margin-bottom:10px;">Cancel this job? This can't be undone — you'll need to submit a new job if you change your mind.</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" style="flex:1;" onclick="document.getElementById('cancelJobFormWrap').innerHTML=''">Never mind</button>
+          <button class="btn btn-black" style="flex:1;background:var(--warn);" onclick="cancelJob('${jobId}')">Yes, cancel job</button>
+        </div>
+      </div>`;
+  }
   function cancelJob(jobId) {
-    if (!confirm('Cancel this job? This can\'t be undone — you\'ll need to submit a new job if you change your mind.')) return;
     const jobs = getJobs();
     const j = jobs.find(x => x.id === jobId);
     if (!j) return;
@@ -679,9 +720,25 @@
   // who have to square it with the contractor's accepted work), and the
   // contractor is locked out of further movement on the job in the
   // meantime (see renderDetail in mysubbies-contractor-portal.html).
-  function requestCancelJob(jobId) {
-    const reason = prompt('Why would you like to cancel this job? This will be sent to MySubbies for review.');
-    if (reason === null) return;
+  function openRequestCancelForm(jobId) {
+    document.getElementById('requestCancelFormWrap').innerHTML = `
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--paper);">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Why would you like to cancel?</div>
+        <textarea id="cancelReasonInput" placeholder="Tell us why, so MySubbies can review this" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;min-height:70px;font-family:inherit;"></textarea>
+        <div id="cancelReasonError" style="color:var(--warn);font-size:12.5px;margin-bottom:8px;display:none;"></div>
+        <button class="btn btn-black btn-full" onclick="submitRequestCancel('${jobId}')">Submit cancellation request</button>
+      </div>`;
+  }
+  function submitRequestCancel(jobId) {
+    const input = document.getElementById('cancelReasonInput');
+    const reason = input.value.trim();
+    const errBox = document.getElementById('cancelReasonError');
+    if (!reason) {
+      errBox.textContent = 'Please tell us why, so MySubbies can review this.';
+      errBox.style.display = 'block';
+      input.focus();
+      return;
+    }
     const jobs = getJobs();
     const j = jobs.find(x => x.id === jobId);
     if (!j) return;
