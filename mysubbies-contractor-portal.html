@@ -358,8 +358,9 @@
             ${j.items.map(i => `
               <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;">
                 <span>${i.catIcon || ''} ${escapeHtml(i.taskName)} <span style="color:var(--stone);">(${i.qty} ${escapeHtml(i.unit)})</span></span>
-                <span style="font-weight:600;">$${Math.round(i.base * 0.75).toLocaleString()}</span>
+                <span style="font-weight:600;">${i.aiEstimated ? '~' : ''}$${Math.round(i.base * 0.75).toLocaleString()}</span>
               </div>
+              ${i.aiEstimated ? `<div style="font-size:11.5px;font-weight:700;color:#D98E14;background:#FDF0D9;border-radius:6px;padding:4px 8px;margin-bottom:4px;">🤖 AI-estimated price — MySubbies will confirm the final price before this is dispatched</div>` : ''}
               ${i.notes ? `<div style="font-size:11.5px;color:var(--stone);margin-bottom:4px;">${escapeHtml(i.notes)}</div>` : ''}
             `).join('')}
           </div>

@@ -148,6 +148,14 @@
   .est-match-line.found { color: var(--good, #2F7A50); font-weight:600; }
   .est-match-line.none { color: var(--warn); }
   .est-match-line.unavailable { color: var(--warn); font-weight:600; }
+  .est-match-line.checking { color: var(--stone); }
+  .est-match-line.ai-estimate { margin:6px 0 14px; }
+  .est-ai-estimate-card { background:var(--accent-pale); border:1px solid var(--accent-dark); border-radius:10px; padding:12px 14px; }
+  .est-ai-estimate-badge { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; color:var(--accent-dark); }
+  .est-ai-estimate-range { font-size:18px; font-weight:800; color:var(--ink); margin-top:4px; }
+  .est-ai-estimate-reason { font-size:12.5px; color:var(--stone); margin-top:4px; line-height:1.5; }
+  .est-ai-estimate-caveat { font-size:11.5px; color:var(--stone); margin-top:8px; line-height:1.5; }
+  .ai-estimate-tag { display:inline-block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.02em; color:var(--accent-dark); background:var(--accent-pale); border-radius:6px; padding:2px 6px; margin-left:4px; vertical-align:middle; }
   .chiprow-est { display:flex; flex-wrap:wrap; gap:7px; }
   .est-tier-quickmatch { width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:14px; color:var(--ink); border:1.5px solid var(--line); border-radius:10px; padding:11px 14px; outline:none; background:#fff; margin-bottom:12px; }
   .est-tier-quickmatch:focus { border-color:var(--black); }
@@ -2091,7 +2099,7 @@
     const wrap = document.getElementById('estSelectedPills');
     if (!wrap) return;
     wrap.innerHTML = Array.from(selectedTierSet.values()).map(t => `
-      <button type="button" class="chip-est selected" onclick="removeTierSelection('${t.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">${escapeHtml(t.name)} ✕</button>
+      <button type="button" class="chip-est selected" onclick="removeTierSelection('${escapeHtml(t.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'"))}')">${escapeHtml(t.name)} ✕</button>
     `).join('');
   }
   function removeTierSelection(name) {
@@ -2109,9 +2117,22 @@
   // Pure client-side string matching against the real rate card, same
   // bidirectional-substring approach already used by continueToEstimatorFromFs,
   // with a keyword-overlap fallback for phrasing that doesn't substring-match.
+  //
+  // When even that fails, falls through to /api/classify-job's task-match
+  // mode (added Aug 2026): a real Claude call that either (a) finds a real
+  // rate-card task the local matcher missed — still priced off the rate
+  // card exactly as normal — or (b) if genuinely nothing fits, offers an
+  // AI-estimated market price, clearly labelled and never auto-added
+  // without the customer explicitly accepting it. This was the founder's
+  // explicit call after "service not found" was dead-ending real bookings —
+  // see the comment above handleTaskMatch in api/classify-job.js for the
+  // full reasoning and the safeguards (aiEstimated flag, forced
+  // needsSiteVisit) that keep this from being treated as a firm price.
   let estTierQuickMatchTimer = null;
+  let estAiTaskMatchToken = 0;
   function onTierQuickMatch() {
     if (estTierQuickMatchTimer) clearTimeout(estTierQuickMatchTimer);
+    estAiTaskMatchToken++; // invalidate any in-flight AI lookup from a prior keystroke
     estTierQuickMatchTimer = setTimeout(() => {
       if (!selectedCat) return;
       const query = document.getElementById('estTierQuickMatch').value.trim();
@@ -2119,25 +2140,109 @@
       if (!query) { matchLine.textContent = ''; matchLine.className = 'est-match-line'; return; }
       const match = estFindBestTaskMatch(selectedCat.tasks, query);
       if (!match) {
-        matchLine.textContent = 'No exact match yet — keep typing, or Continue and we’ll help refine it.';
-        matchLine.className = 'est-match-line none';
+        if (query.length >= 4) {
+          estRequestAiTaskMatch(query);
+        } else {
+          matchLine.textContent = 'No exact match yet — keep typing, or Continue and we’ll help refine it.';
+          matchLine.className = 'est-match-line none';
+        }
         return;
       }
-      // Adds to the multi-select set rather than replacing it, so typing a
-      // second query on top of an already-matched task keeps both selected.
-      if (!selectedTierSet.has(match.name)) {
-        selectedTierSet.set(match.name, match);
-        selectedTier = match;
-        renderQtyRows();
-        renderSelectedPills();
-      }
-      matchLine.textContent = `✓ Added "${match.name}"`;
-      matchLine.className = 'est-match-line found';
-      const chips = document.getElementById('estTierChips');
-      chips.querySelectorAll('.chip-est').forEach(b => {
-        if (b.textContent.trim() === match.name) b.classList.add('selected');
-      });
+      estAddMatchedTask(match);
     }, 300);
+  }
+
+  // Adds to the multi-select set rather than replacing it, so typing a
+  // second query on top of an already-matched task keeps both selected.
+  function estAddMatchedTask(match) {
+    const matchLine = document.getElementById('estTierMatchLine');
+    if (!selectedTierSet.has(match.name)) {
+      selectedTierSet.set(match.name, match);
+      selectedTier = match;
+      renderQtyRows();
+      renderSelectedPills();
+    }
+    matchLine.textContent = `✓ Added "${match.name}"`;
+    matchLine.className = 'est-match-line found';
+    const chips = document.getElementById('estTierChips');
+    chips.querySelectorAll('.chip-est').forEach(b => {
+      if (b.textContent.trim() === match.name) b.classList.add('selected');
+    });
+  }
+
+  async function estRequestAiTaskMatch(query) {
+    const myToken = ++estAiTaskMatchToken;
+    const matchLine = document.getElementById('estTierMatchLine');
+    matchLine.innerHTML = 'Checking…';
+    matchLine.className = 'est-match-line checking';
+    try {
+      const res = await fetch('/api/classify-job', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taskMatch: true,
+          category: selectedCat.label,
+          taskNames: selectedCat.tasks.filter(t => !t.unavailable && !t.disabled).map(t => t.name),
+          query,
+        }),
+      });
+      const data = await res.json();
+      if (myToken !== estAiTaskMatchToken) return; // superseded by a newer keystroke
+
+      if (data.matched && data.taskName) {
+        const task = selectedCat.tasks.find(t => t.name === data.taskName);
+        if (task) { estAddMatchedTask(task); return; }
+      }
+
+      if (data.aiEstimate) {
+        renderAiEstimateOffer(query, data.aiEstimate);
+        return;
+      }
+
+      matchLine.textContent = 'No exact match yet — keep typing, or Continue and we’ll help refine it.';
+      matchLine.className = 'est-match-line none';
+    } catch (err) {
+      if (myToken !== estAiTaskMatchToken) return;
+      matchLine.textContent = 'No exact match yet — keep typing, or Continue and we’ll help refine it.';
+      matchLine.className = 'est-match-line none';
+    }
+  }
+
+  // Stashed rather than round-tripped through the onclick attribute below —
+  // query/reasoning are raw customer-typed text, and embedding that inside
+  // an HTML attribute (even via JSON.stringify) is both fragile the moment
+  // it contains a double-quote and a real injection risk otherwise.
+  let estPendingAiEstimate = null;
+  function renderAiEstimateOffer(query, estimate) {
+    estPendingAiEstimate = { query, low: estimate.low, high: estimate.high, reasoning: estimate.reasoning || '' };
+    const matchLine = document.getElementById('estTierMatchLine');
+    matchLine.className = 'est-match-line ai-estimate';
+    matchLine.innerHTML = `
+      <div class="est-ai-estimate-card">
+        <div class="est-ai-estimate-badge">🤖 AI-estimated price</div>
+        <div class="est-ai-estimate-range">$${estimate.low.toLocaleString()}–$${estimate.high.toLocaleString()}</div>
+        ${estimate.reasoning ? `<div class="est-ai-estimate-reason">${escapeHtml(estimate.reasoning)}</div>` : ''}
+        <div class="est-ai-estimate-caveat">Not from our standard rate card — this is a market estimate only. MySubbies will confirm the final price before work begins.</div>
+        <button class="btn btn-outline" style="margin-top:8px;padding:8px 16px;font-size:13px;" onclick="estAcceptAiEstimate()">Add this estimate →</button>
+      </div>
+    `;
+  }
+
+  function estAcceptAiEstimate() {
+    if (!estPendingAiEstimate) return;
+    const { query, low, high, reasoning } = estPendingAiEstimate;
+    const mid = Math.round((low + high) / 2);
+    const task = {
+      name: query,
+      unit: 'job',
+      rate: mid,
+      needsSiteVisit: true,
+      aiEstimated: true,
+      typicalRange: `$${low.toLocaleString()}–$${high.toLocaleString()}`,
+      notes: reasoning || '',
+    };
+    estPendingAiEstimate = null;
+    estAddMatchedTask(task);
   }
 
   function estFindBestTaskMatch(tasks, query) {
@@ -2214,6 +2319,7 @@
         taskName: t.name, unit: t.unit, qty, base,
         needsSiteVisit: !!t.needsSiteVisit, notes: t.notes || '',
         minApplied, minJobPrice: t.minJobPrice,
+        aiEstimated: !!t.aiEstimated, typicalRange: t.typicalRange || null,
       });
     }
     pendingItems = items;
@@ -2236,11 +2342,12 @@
         ${pendingItems.map(item => `
           <div class="item-preview-row">
             <div>
-              <div class="item-preview-name">${item.catIcon} ${escapeHtml(item.taskName)}</div>
+              <div class="item-preview-name">${item.catIcon} ${escapeHtml(item.taskName)} ${item.aiEstimated ? '<span class="ai-estimate-tag">🤖 AI estimate</span>' : ''}</div>
               <div class="item-preview-meta">${item.qty.toLocaleString()} ${escapeHtml(item.unit)}</div>
             </div>
-            <div class="item-preview-price">$${item.base.toLocaleString()}</div>
+            <div class="item-preview-price">${item.aiEstimated ? '~$' + item.base.toLocaleString() : '$' + item.base.toLocaleString()}</div>
           </div>
+          ${item.aiEstimated ? `<div class="item-preview-notes">Estimated range: ${escapeHtml(item.typicalRange || '')}. Not from our standard rate card.</div>` : ''}
           ${item.notes ? `<div class="item-preview-notes">${escapeHtml(item.notes)}</div>` : ''}
           ${item.minApplied ? `<div class="item-preview-notes">Minimum job price of $${item.minJobPrice.toLocaleString()} applies for this size.</div>` : ''}
           ${item.needsSiteVisit ? `<div class="item-preview-warning">⚠ This item needs a site visit before the price can be confirmed.</div>` : ''}
@@ -2303,11 +2410,11 @@
             <div class="cart-item">
               <div class="cart-item-top">
                 <div>
-                  <div class="cart-item-name">${groups.length > 1 ? '' : item.catIcon + ' '}${item.taskName}</div>
+                  <div class="cart-item-name">${groups.length > 1 ? '' : item.catIcon + ' '}${escapeHtml(item.taskName)} ${item.aiEstimated ? '<span class="ai-estimate-tag">\ud83e\udd16 AI estimate</span>' : ''}</div>
                   <div class="cart-item-meta">${item.qty.toLocaleString()} ${item.unit}${item.needsSiteVisit ? ' \u00b7 needs site visit' : ''}</div>
                 </div>
                 <div style="display:flex;align-items:center;">
-                  <div class="cart-item-price">$${item.base.toLocaleString()}</div>
+                  <div class="cart-item-price">${item.aiEstimated ? '~$' + item.base.toLocaleString() : '$' + item.base.toLocaleString()}</div>
                   <button class="cart-item-remove" onclick="removeFromCart(${item.idx})" title="Remove">\u2715</button>
                 </div>
               </div>
