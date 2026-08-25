@@ -163,8 +163,13 @@
           <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="copyReferralCode('${myAccount.referralCode || ''}')">Copy</button>
         </div>
       </div>
-      <h1 class="pagetitle">My jobs</h1>
-      <p class="pagesub">${jobs.length} job${jobs.length === 1 ? '' : 's'}</p>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div>
+          <h1 class="pagetitle">My jobs</h1>
+          <p class="pagesub">${jobs.length} job${jobs.length === 1 ? '' : 's'}</p>
+        </div>
+        <a class="btn btn-black" style="width:auto;flex-shrink:0;" href="mysubbies-website.html#estimate">+ Book another job</a>
+      </div>
     `;
     if (jobs.length === 0) {
       app.innerHTML += `<div class="empty">No jobs yet. <a href="mysubbies-website.html#estimate" style="text-decoration:underline;">Get an instant price</a> to submit one.</div>`;
