@@ -140,10 +140,35 @@
 
   let selectedJobId = null;
   let showingPaymentHistory = false;
+  let jobSearchQuery = '';
   const app = document.getElementById('app');
 
   function openPaymentHistory() { showingPaymentHistory = true; render(); }
   function closePaymentHistory() { showingPaymentHistory = false; render(); }
+
+  // Job search (all 3 portals, Aug 2026) -- a plain-text filter over
+  // category/suburb/id/task names, so a customer with several jobs can find
+  // one without scrolling. render() rebuilds the list via innerHTML on
+  // every keystroke, same as everywhere else in this codebase, which would
+  // normally drop focus/cursor out from under the input -- restored
+  // manually here instead.
+  function onJobSearchInput(el) {
+    const cursorPos = el.selectionStart;
+    jobSearchQuery = el.value;
+    render();
+    const newEl = document.getElementById('jobSearchInput');
+    if (newEl) { newEl.focus(); newEl.setSelectionRange(cursorPos, cursorPos); }
+  }
+  function jobMatchesSearch(j, rawQuery) {
+    const q = rawQuery.trim().toLowerCase();
+    if (!q) return true;
+    const haystack = [j.id, j.category, j.suburb, j.contractor, ...(j.items || []).map(i => i.taskName)]
+      .filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(q);
+  }
+  function jobSearchBoxHtml() {
+    return `<input type="text" id="jobSearchInput" value="${escapeHtml(jobSearchQuery)}" oninput="onJobSearchInput(this)" placeholder="Search by suburb, category or job details…" style="width:100%;font-size:14px;padding:11px 14px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:14px;font-family:inherit;" />`;
+  }
 
   // Aggregates real payment data across every job that has a contractor
   // (only those ever get a milestone schedule) by calling the same
@@ -267,7 +292,12 @@
     if (jobs.length === 0) {
       app.innerHTML += `<div class="empty">No jobs yet. <a href="mysubbies-website.html#estimate" style="text-decoration:underline;">Get an instant price</a> to submit one.</div>`;
     } else {
-      jobs.forEach(j => {
+      app.innerHTML += jobSearchBoxHtml();
+      const jobsFiltered = jobs.filter(j => jobMatchesSearch(j, jobSearchQuery));
+      if (jobsFiltered.length === 0) {
+        app.innerHTML += `<div class="empty">No jobs match "${escapeHtml(jobSearchQuery)}".</div>`;
+      }
+      jobsFiltered.forEach(j => {
         app.innerHTML += `
           <button class="jobcard" onclick="selectedJobId='${j.id}'; render();">
             <span class="pill">${escapeHtml(j.category)}</span>

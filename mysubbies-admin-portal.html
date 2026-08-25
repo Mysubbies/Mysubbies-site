@@ -159,9 +159,34 @@
 
   let tab = 'overview';
   let selectedJobId = null;
+  let jobSearchQuery = '';
   const app = document.getElementById('app');
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  }
+
+  // Job search (all 3 portals, Aug 2026) -- a plain-text filter over
+  // category/suburb/id/contractor/customer/task names, so admin can find a
+  // specific job across the whole platform without scrolling. render()
+  // rebuilds the table via innerHTML on every keystroke, same as everywhere
+  // else in this codebase, which would normally drop focus/cursor out from
+  // under the input -- restored manually here instead.
+  function onJobSearchInput(el) {
+    const cursorPos = el.selectionStart;
+    jobSearchQuery = el.value;
+    render();
+    const newEl = document.getElementById('jobSearchInput');
+    if (newEl) { newEl.focus(); newEl.setSelectionRange(cursorPos, cursorPos); }
+  }
+  function jobMatchesSearch(j, rawQuery) {
+    const q = rawQuery.trim().toLowerCase();
+    if (!q) return true;
+    const haystack = [j.id, j.category, j.suburb, j.contractor, j.customerName, j.customerEmail, ...(j.items || []).map(i => i.taskName)]
+      .filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(q);
+  }
+  function jobSearchBoxHtml() {
+    return `<input type="text" id="jobSearchInput" value="${escapeHtml(jobSearchQuery)}" oninput="onJobSearchInput(this)" placeholder="Search by suburb, category, contractor, customer or job details…" style="width:100%;font-size:14px;padding:11px 14px;border:1.5px solid var(--line);border-radius:10px;margin:12px 0;font-family:inherit;" />`;
   }
 
   function getApplications() { return JSON.parse(localStorage.getItem('mysubbies_contractor_applications') || '[]'); }
@@ -248,7 +273,15 @@
       </div>
       ${tab === 'overview' ? `
         <h1 class="pagetitle">Jobs</h1>
-        ${jobs.length === 0 ? '<div class="empty">No jobs yet. Submit one from the site to see it here.</div>' : jobsTableHtml(jobs)}
+        ${jobs.length === 0 ? '<div class="empty">No jobs yet. Submit one from the site to see it here.</div>' : `
+          ${jobSearchBoxHtml()}
+          ${(() => {
+            const filtered = jobs.filter(j => jobMatchesSearch(j, jobSearchQuery));
+            return filtered.length === 0
+              ? `<div class="empty">No jobs match "${escapeHtml(jobSearchQuery)}".</div>`
+              : jobsTableHtml(filtered);
+          })()}
+        `}
       ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab()}
     `;
     if (tab === 'ratecard') wireRateCardTab();

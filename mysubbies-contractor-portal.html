@@ -200,7 +200,36 @@
 
   let tab = 'feed';
   let selectedJobId = null;
+  let showCompletedJobs = false;
+  let jobSearchQuery = '';
   const app = document.getElementById('app');
+
+  function toggleCompletedJobs() { showCompletedJobs = !showCompletedJobs; render(); }
+
+  // Job search (all 3 portals, Aug 2026) -- a plain-text filter over
+  // category/suburb/id/task names, so anyone can find a specific job
+  // without scrolling. Contractor's own job lists only, not the open feed.
+  // render() rebuilds the whole list via innerHTML on every keystroke (same
+  // pattern as everywhere else in this codebase), which would normally drop
+  // focus/cursor position out from under the input -- restored manually
+  // here rather than switching this one input to a different render model.
+  function onJobSearchInput(el) {
+    const cursorPos = el.selectionStart;
+    jobSearchQuery = el.value;
+    render();
+    const newEl = document.getElementById('jobSearchInput');
+    if (newEl) { newEl.focus(); newEl.setSelectionRange(cursorPos, cursorPos); }
+  }
+  function jobMatchesSearch(j, rawQuery) {
+    const q = rawQuery.trim().toLowerCase();
+    if (!q) return true;
+    const haystack = [j.id, j.category, j.suburb, j.customerName, ...(j.items || []).map(i => i.taskName)]
+      .filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(q);
+  }
+  function jobSearchBoxHtml() {
+    return `<input type="text" id="jobSearchInput" value="${escapeHtml(jobSearchQuery)}" oninput="onJobSearchInput(this)" placeholder="Search by suburb, category or job details…" style="width:100%;font-size:14px;padding:11px 14px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:14px;font-family:inherit;" />`;
+  }
 
   function render() {
     const name = getContractorName();
@@ -220,7 +249,13 @@
     const feedJobs = jobs.filter(j => j.status === 'feed' && (!myTrades || !myTrades.length || myTrades.includes(j.category)));
     // A cancelled job has nothing left for the contractor to do — drop it
     // from the active list rather than leaving it sitting there forever.
-    const myJobs = jobs.filter(j => j.contractor === name && j.status !== 'cancelled');
+    // Completed jobs used to sit mixed in with active ones in "My Jobs"
+    // forever too -- now split out into a collapsed "Show completed"
+    // section below, same archive pattern as the customer portal's
+    // cancelled-jobs section.
+    const myJobsAll = jobs.filter(j => j.contractor === name && j.status !== 'cancelled');
+    const myJobs = myJobsAll.filter(j => j.status !== 'completed');
+    const myJobsCompleted = myJobsAll.filter(j => j.status === 'completed');
 
     app.innerHTML = `
       <div class="whoami">Logged in as <strong>${name}</strong> <a onclick="logout()">Log out</a></div>
@@ -244,7 +279,7 @@
     `;
 
     if (tab === 'earnings') {
-      const completed = myJobs.filter(j => j.status === 'completed');
+      const completed = myJobsCompleted;
       const totalEarned = completed.reduce((s, j) => s + Math.round((j.basePrice || 0) * 0.75), 0);
       const rated = completed.filter(j => j.customerRating);
       const avgRating = rated.length ? (rated.reduce((s, j) => s + j.customerRating, 0) / rated.length).toFixed(1) : null;
@@ -267,17 +302,35 @@
 
     if (tab === 'feed') {
       app.innerHTML += `<h1 class="pagetitle">New jobs near you</h1><p class="pagesub">No lead fees. No bidding against other contractors for the same job.</p>`;
+      app.innerHTML += jobSearchBoxHtml();
+      const feedJobsFiltered = feedJobs.filter(j => jobMatchesSearch(j, jobSearchQuery));
       if (feedJobs.length === 0) {
         app.innerHTML += `<div class="empty">No open jobs right now.<br>Go submit one from the site to see it appear here.</div>`;
+      } else if (feedJobsFiltered.length === 0) {
+        app.innerHTML += `<div class="empty">No jobs match "${escapeHtml(jobSearchQuery)}".</div>`;
       } else {
-        feedJobs.forEach(j => app.innerHTML += jobCardHtml(j));
+        feedJobsFiltered.forEach(j => app.innerHTML += jobCardHtml(j));
       }
     } else {
       app.innerHTML += `<h1 class="pagetitle">My jobs</h1><p class="pagesub">${myJobs.length} active</p>`;
+      app.innerHTML += jobSearchBoxHtml();
+      const myJobsFiltered = myJobs.filter(j => jobMatchesSearch(j, jobSearchQuery));
       if (myJobs.length === 0) {
         app.innerHTML += `<div class="empty">No accepted jobs yet.</div>`;
+      } else if (myJobsFiltered.length === 0) {
+        app.innerHTML += `<div class="empty">No jobs match "${escapeHtml(jobSearchQuery)}".</div>`;
       } else {
-        myJobs.forEach(j => app.innerHTML += myJobCardHtml(j));
+        myJobsFiltered.forEach(j => app.innerHTML += myJobCardHtml(j));
+      }
+      if (myJobsCompleted.length > 0) {
+        app.innerHTML += `
+          <div style="margin-top:20px;">
+            <a onclick="toggleCompletedJobs()" style="font-size:13px;color:var(--stone);text-decoration:underline;cursor:pointer;">${showCompletedJobs ? 'Hide' : 'Show'} completed (${myJobsCompleted.length})</a>
+          </div>`;
+        if (showCompletedJobs) {
+          const completedFiltered = myJobsCompleted.filter(j => jobMatchesSearch(j, jobSearchQuery));
+          completedFiltered.forEach(j => app.innerHTML += myJobCardHtml(j));
+        }
       }
     }
   }
