@@ -187,6 +187,60 @@
     </div>`;
   }
 
+  // Same status-filter-chip treatment applied to Applications, Customers,
+  // Disputes and Inquiries (Aug 2026) -- Applications' status set varies
+  // (pending/approved/suspended/rejected are the common ones, but a few
+  // legacy values exist too), so its chips are generated dynamically from
+  // whatever statuses actually appear in the data rather than a fixed
+  // list. Customers/Disputes/Inquiries are simple two-state sets, so they
+  // share one small helper instead of three near-identical ones.
+  let applicationsStatusFilter = 'all';
+  function applicationsStatusFilterChipsHtml(applications) {
+    const presentStatuses = Array.from(new Set(applications.map(a => a.status)));
+    const preferredOrder = ['pending', 'approved', 'suspended', 'rejected', 'manual_review', 'preferred', 'watchlist', 'expired_documents'];
+    presentStatuses.sort((a, b) => preferredOrder.indexOf(a) - preferredOrder.indexOf(b));
+    const options = [{ key: 'all', label: 'All' }, ...presentStatuses.map(s => ({ key: s, label: s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }))];
+    return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+      ${options.map(f => {
+        const count = f.key === 'all' ? applications.length : applications.filter(a => a.status === f.key).length;
+        const active = applicationsStatusFilter === f.key;
+        return `<button onclick="applicationsStatusFilter='${f.key}'; render();" style="padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;border:1.5px solid ${active ? 'var(--ink)' : 'var(--line)'};background:${active ? 'var(--ink)' : '#fff'};color:${active ? '#fff' : 'var(--ink)'};cursor:pointer;">${f.label} (${count})</button>`;
+      }).join('')}
+    </div>`;
+  }
+
+  let customersStatusFilter = 'all';
+  function customersStatusFilterChipsHtml(customers) {
+    const statusOf = c => c.status === 'deactivated' ? 'deactivated' : 'active';
+    const options = [{ key: 'all', label: 'All' }, { key: 'active', label: 'Active' }, { key: 'deactivated', label: 'Deactivated' }];
+    return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+      ${options.map(f => {
+        const count = f.key === 'all' ? customers.length : customers.filter(c => statusOf(c) === f.key).length;
+        const active = customersStatusFilter === f.key;
+        return `<button onclick="customersStatusFilter='${f.key}'; render();" style="padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;border:1.5px solid ${active ? 'var(--ink)' : 'var(--line)'};background:${active ? 'var(--ink)' : '#fff'};color:${active ? '#fff' : 'var(--ink)'};cursor:pointer;">${f.label} (${count})</button>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Shared by Disputes and Inquiries -- both are a simple open/resolved
+  // status set. setterFnName is the global function to call on click
+  // ('setDisputesStatusFilter' or 'setInquiriesStatusFilter'), so this one
+  // helper can drive either tab's own filter variable.
+  function openResolvedFilterChipsHtml(items, currentFilter, setterFnName) {
+    const options = [{ key: 'all', label: 'All' }, { key: 'open', label: 'Open' }, { key: 'resolved', label: 'Resolved' }];
+    return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+      ${options.map(f => {
+        const count = f.key === 'all' ? items.length : items.filter(x => x.status === f.key).length;
+        const active = currentFilter === f.key;
+        return `<button onclick="${setterFnName}('${f.key}')" style="padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;border:1.5px solid ${active ? 'var(--ink)' : 'var(--line)'};background:${active ? 'var(--ink)' : '#fff'};color:${active ? '#fff' : 'var(--ink)'};cursor:pointer;">${f.label} (${count})</button>`;
+      }).join('')}
+    </div>`;
+  }
+  let disputesStatusFilter = 'all';
+  function setDisputesStatusFilter(key) { disputesStatusFilter = key; render(); }
+  let inquiriesStatusFilter = 'all';
+  function setInquiriesStatusFilter(key) { inquiriesStatusFilter = key; render(); }
+
   // Job search (all 3 portals, Aug 2026) -- a plain-text filter over
   // category/suburb/id/contractor/customer/task names, so admin can find a
   // specific job across the whole platform without scrolling. render()
@@ -236,9 +290,11 @@
 
   function renderDisputesTab(disputes, jobs) {
     if (disputes.length === 0) return '<div class="empty">No disputes reported.</div>';
+    const filtered = disputesStatusFilter === 'all' ? disputes : disputes.filter(d => d.status === disputesStatusFilter);
     return `
       <h1 class="pagetitle">Disputes</h1>
-      ${disputes.map(d => {
+      ${openResolvedFilterChipsHtml(disputes, disputesStatusFilter, 'setDisputesStatusFilter')}
+      ${filtered.length === 0 ? '<div class="empty">No disputes in this status.</div>' : filtered.map(d => {
         const job = jobs.find(j => j.id === d.jobId);
         return `
           <div class="detailcard" style="max-width:640px;margin-bottom:14px;">
@@ -284,9 +340,11 @@
   // admin's own replies land on the right and the sender's on the left.
   function renderInquiriesTab(inquiries) {
     if (inquiries.length === 0) return '<div class="empty">No inquiries yet.</div>';
+    const filtered = inquiriesStatusFilter === 'all' ? inquiries : inquiries.filter(i => i.status === inquiriesStatusFilter);
     return `
       <h1 class="pagetitle">Inquiries</h1>
-      ${inquiries.map(i => `
+      ${openResolvedFilterChipsHtml(inquiries, inquiriesStatusFilter, 'setInquiriesStatusFilter')}
+      ${filtered.length === 0 ? '<div class="empty">No inquiries in this status.</div>' : filtered.map(i => `
         <div class="detailcard" style="max-width:640px;margin-bottom:14px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <div>
@@ -729,12 +787,14 @@
     }
     const all = customersTabData.rows;
     const q = customerSearchQuery.trim().toLowerCase();
-    const rows = q
+    const searched = q
       ? all.filter(c => (c.name || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q))
       : all;
+    const rows = customersStatusFilter === 'all' ? searched : searched.filter(c => (c.status === 'deactivated' ? 'deactivated' : 'active') === customersStatusFilter);
     return `
       <h1 class="pagetitle">Customers</h1>
       <p class="pagesub">${all.length} account${all.length === 1 ? '' : 's'} total. Deactivating blocks login on this and any other device — it doesn't touch their job history.</p>
+      ${customersStatusFilterChipsHtml(all)}
       <input class="searchbox" placeholder="Search by name or email…" value="${escapeHtml(customerSearchQuery)}" oninput="customerSearchQuery=this.value; render();" />
       ${rows.length === 0 ? '<div class="empty">No customers match.</div>' : rows.map(c => `
         <div class="detailcard" style="max-width:640px;margin-bottom:14px;">
@@ -1487,9 +1547,11 @@
   function renderApplicationsTab(applications) {
     if (applications.length === 0) return '<div class="empty">No contractor applications yet.</div>';
     const statusBadge = { pending: 'badge-feed', approved: 'badge-completed', preferred: 'badge-completed', watchlist: 'badge-feed', suspended: 'badge-rejected', expired_documents: 'badge-rejected', manual_review: 'badge-feed', rejected: 'badge-rejected' };
+    const filtered = applicationsStatusFilter === 'all' ? applications : applications.filter(a => a.status === applicationsStatusFilter);
     return `
       <h1 class="pagetitle">Contractor applications</h1>
-      ${applications.map(a => `
+      ${applicationsStatusFilterChipsHtml(applications)}
+      ${filtered.length === 0 ? '<div class="empty">No applications in this status.</div>' : filtered.map(a => `
         <div class="detailcard" style="max-width:640px;margin-bottom:14px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <div style="display:flex;gap:12px;align-items:center;">
