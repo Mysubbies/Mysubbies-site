@@ -157,12 +157,35 @@
   let tab = 'overview';
   let selectedJobId = null;
   let jobSearchQuery = '';
-  let showArchivedJobs = false;
   const app = document.getElementById('app');
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   }
-  function toggleArchivedJobs() { showArchivedJobs = !showArchivedJobs; render(); }
+
+  // "All Jobs" used to be one long mixed list (everything from awaiting-
+  // contractor through cancelled, in creation order) with a single archive
+  // toggle just for cancelled -- founder feedback (Aug 2026) was that this
+  // gets hard to manage as job count grows. Replaced with status filter
+  // chips, defaulting to the most actionable bucket (jobs still waiting to
+  // be matched) rather than the full mixed list.
+  const JOB_STATUS_FILTERS = [
+    { key: 'all', label: 'All' },
+    { key: 'feed', label: 'Awaiting contractor' },
+    { key: 'assigned', label: 'Assigned' },
+    { key: 'cancellation_requested', label: 'Cancellation requested' },
+    { key: 'completed', label: 'Completed' },
+    { key: 'cancelled', label: 'Cancelled' },
+  ];
+  let jobStatusFilter = 'feed';
+  function jobStatusFilterChipsHtml(jobs) {
+    return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+      ${JOB_STATUS_FILTERS.map(f => {
+        const count = f.key === 'all' ? jobs.length : jobs.filter(j => j.status === f.key).length;
+        const active = jobStatusFilter === f.key;
+        return `<button onclick="jobStatusFilter='${f.key}'; render();" style="padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;border:1.5px solid ${active ? 'var(--ink)' : 'var(--line)'};background:${active ? 'var(--ink)' : '#fff'};color:${active ? '#fff' : 'var(--ink)'};cursor:pointer;">${f.label} (${count})</button>`;
+      }).join('')}
+    </div>`;
+  }
 
   // Job search (all 3 portals, Aug 2026) -- a plain-text filter over
   // category/suburb/id/contractor/customer/task names, so admin can find a
@@ -319,22 +342,15 @@
       ${tab === 'overview' ? `
         <h1 class="pagetitle">Jobs</h1>
         ${jobs.length === 0 ? '<div class="empty">No jobs yet. Submit one from the site to see it here.</div>' : `
+          ${jobStatusFilterChipsHtml(jobs)}
           ${jobSearchBoxHtml()}
           ${(() => {
-            const activeJobs = jobs.filter(j => j.status !== 'cancelled');
-            const cancelledJobs = jobs.filter(j => j.status === 'cancelled');
-            const filtered = activeJobs.filter(j => jobMatchesSearch(j, jobSearchQuery));
-            let html = filtered.length === 0
+            const statusFiltered = jobStatusFilter === 'all' ? jobs : jobs.filter(j => j.status === jobStatusFilter);
+            const filtered = statusFiltered.filter(j => jobMatchesSearch(j, jobSearchQuery));
+            if (statusFiltered.length === 0) return '<div class="empty">No jobs in this status.</div>';
+            return filtered.length === 0
               ? `<div class="empty">No jobs match "${escapeHtml(jobSearchQuery)}".</div>`
               : jobsTableHtml(filtered);
-            if (cancelledJobs.length > 0) {
-              html += `<div style="margin-top:14px;"><a onclick="toggleArchivedJobs()" style="font-size:13px;color:var(--stone);text-decoration:underline;cursor:pointer;">${showArchivedJobs ? 'Hide' : 'Show'} archived (${cancelledJobs.length} cancelled)</a></div>`;
-              if (showArchivedJobs) {
-                const cancelledFiltered = cancelledJobs.filter(j => jobMatchesSearch(j, jobSearchQuery));
-                html += cancelledFiltered.length ? jobsTableHtml(cancelledFiltered) : '';
-              }
-            }
-            return html;
           })()}
         `}
       ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab()}
