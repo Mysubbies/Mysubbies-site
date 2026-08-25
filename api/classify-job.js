@@ -213,9 +213,9 @@ async function handleTaskMatch(req, res) {
 Here is the FULL list of real, founder-priced task names available in this category:
 ${JSON.stringify(taskNames)}
 
-Step 1: Does the customer's description clearly match ONE of the exact task names above (allowing for different phrasing, synonyms, typos)? If so, that is the correct answer — do not estimate a price.
+Step 1: Does the customer's description describe the SAME physical job as one of the exact task names above — just worded differently (synonyms, typos, more/less detail)? Match ONLY if a tradie reading both would agree they're quoting the exact same scope of work. Being in the same category, needing the same trade, or sharing a keyword is NOT enough — e.g. "install a rainwater tank pump" must NOT match "Water filter installation" even though both are Plumbing and both involve water fittings, because they are different jobs. If you are choosing the closest of several unrelated options rather than a genuine match, that is not a match. When genuinely unsure, prefer null over a wrong guess.
 
-Step 2: Only if nothing in the list is a reasonable match, but this is still a plausible, well-defined ${category} job an Australian licensed tradie would quote for: estimate a typical Melbourne market price range for it (AUD, GST inclusive), based on general knowledge of Australian trade pricing. Be conservative — a wide, honest range beats a falsely precise number.
+Step 2: Only if nothing in the list is a genuine match, but this is still a plausible, well-defined ${category} job an Australian licensed tradie would quote for: estimate a typical Melbourne market price range for it (AUD, GST inclusive), based on general knowledge of Australian trade pricing. Be conservative — a wide, honest range beats a falsely precise number.
 
 Respond with ONLY a JSON object (no other text) in this exact shape:
 {
