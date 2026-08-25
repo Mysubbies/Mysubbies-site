@@ -63,6 +63,21 @@
   .jobmeta { font-size:12px; color:var(--stone); margin-top:3px; }
   .jobprice { font-size:14px; font-weight:800; margin-top:4px; }
   .empty { text-align:center; padding:60px 20px; color:var(--stone); font-size:14px; }
+  /* Job listing table (Aug 2026) -- matches mysubbies-admin-portal.html's
+     All Jobs table exactly (same classes/values), so the job list looks
+     and reads the same across all three portals. Used for "My Jobs" only --
+     Job Feed keeps its own card layout (thumbnail + payout teaser, a
+     browse-to-accept view rather than a tracking list). */
+  table.jobstable { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+  table.jobstable th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:var(--stone); padding:12px 16px; background:var(--paper); }
+  table.jobstable td { padding:14px 16px; font-size:13px; border-top:1px solid var(--paper); }
+  tr.jobrow { cursor:pointer; }
+  tr.jobrow:hover { background:var(--paper); }
+  .badge { font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; display:inline-block; }
+  .badge-feed { background:#FFF6E5; color:#8A6D2E; }
+  .badge-assigned { background:#E9F1F9; color:#2E5E8A; }
+  .badge-completed { background:#EAF5EE; color:var(--good); }
+  .badge-rejected { background:#FDEDEA; color:var(--warn); }
   .backbtn { font-size:13px; color:var(--stone); background:none; border:none; cursor:pointer; margin-bottom:16px; display:flex; align-items:center; gap:4px; }
   .detailcard { background:#fff; border:1px solid var(--line); border-radius:16px; padding:22px; }
   .row { display:flex; justify-content:space-between; font-size:14px; padding:9px 0; border-top:1px solid var(--paper); }
@@ -340,7 +355,7 @@
         } else if (filtered.length === 0) {
           app.innerHTML += `<div class="empty">No jobs match "${escapeHtml(jobSearchQuery)}".</div>`;
         } else {
-          filtered.forEach(j => app.innerHTML += myJobCardHtml(j));
+          app.innerHTML += myJobsTableHtml(filtered);
         }
       }
     }
@@ -363,23 +378,31 @@
       </button>`;
   }
 
-  function myJobCardHtml(j) {
-    const schedule = j.paymentSchedule || [
-      { key: 'deposit', pct: 5 }, { key: 'materials', pct: 35 }, { key: 'frame', pct: 50 }, { key: 'completion', pct: 10 },
-    ];
-    const paidStages = j.paidStages || { deposit: true, materials: j.materialsPaid, frame: j.frameComplete, completion: j.completionPaid };
-    const titleDetail = j.items && j.items.length === 1 ? j.items[0].taskName : j.category;
+  // Job list table (Aug 2026) -- same markup, classes, badge colours and
+  // status labels as jobsTableHtml() in mysubbies-admin-portal.html, so the
+  // job list reads identically across all three portals. "Contractor"
+  // becomes "Customer" and "Value" becomes "Payout" here since this is the
+  // contractor's own view of their jobs.
+  const JOB_BADGE_CLASS = { feed: 'badge-feed', assigned: 'badge-assigned', completed: 'badge-completed', cancellation_requested: 'badge-rejected', cancelled: 'badge-rejected' };
+  const JOB_BADGE_LABEL = { feed: 'Awaiting contractor', assigned: 'Assigned', completed: 'Completed', cancellation_requested: 'Cancellation requested', cancelled: 'Cancelled' };
+  function myJobsTableHtml(jobs) {
     return `
-      <button class="jobcard" onclick="selectedJobId='${j.id}'; render();" style="display:block;">
-        <div style="display:flex;justify-content:space-between;">
-          <div class="jobtitle">${escapeHtml(titleDetail)} — ${escapeHtml(j.suburb)}</div>
-          <div class="jobprice">$${Math.round(j.basePrice*0.75).toLocaleString()}</div>
-        </div>
-        <div class="stagebar">
-          ${schedule.map(s => `<div class="stage ${paidStages[s.key] ? 'done' : ''}" style="flex:${s.pct};"></div>`).join('')}
-        </div>
-        <div class="jobmeta">${j.status === 'feed' ? 'Awaiting acceptance' : j.status === 'assigned' ? 'Assigned' : j.status === 'cancellation_requested' ? 'Cancellation requested' : j.status === 'cancelled' ? 'Cancelled' : j.status === 'completed' ? 'Completed' : j.status}</div>
-      </button>`;
+      <table class="jobstable">
+        <thead><tr><th>Job</th><th>Suburb</th><th>Customer</th><th>Status</th><th>Payout</th></tr></thead>
+        <tbody>
+          ${jobs.map(j => {
+            const titleDetail = j.items && j.items.length === 1 ? j.items[0].taskName : j.category;
+            return `
+              <tr class="jobrow" onclick="selectedJobId='${j.id}'; render();">
+                <td><strong>${escapeHtml(titleDetail)}</strong>${j.items && j.items.length > 1 ? `<br><span style="color:var(--stone);font-size:12px;">${j.items.length} items</span>` : ''}</td>
+                <td>${escapeHtml(j.suburb)}</td>
+                <td>${j.customerName ? escapeHtml(j.customerName) : '—'}</td>
+                <td><span class="badge ${JOB_BADGE_CLASS[j.status] || 'badge-feed'}">${JOB_BADGE_LABEL[j.status] || j.status}</span></td>
+                <td>$${Math.round((j.basePrice || 0) * 0.75).toLocaleString()}</td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
   }
 
   function renderDetail(name) {
