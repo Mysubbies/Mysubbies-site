@@ -159,6 +159,76 @@
   function openPaymentHistory() { showingPaymentHistory = true; render(); }
   function closePaymentHistory() { showingPaymentHistory = false; render(); }
 
+  // General-purpose "Contact MySubbies" inquiry (Aug 2026) -- not tied to
+  // any specific job, unlike Report a problem/Request to cancel. Same
+  // localStorage-log pattern as mysubbies_disputes -- no dedicated admin
+  // review UI existed for this class of thing until this pass added one
+  // (see the Inquiries tab in mysubbies-admin-portal.html). Attachments are
+  // stored the same way job photos already are elsewhere in this codebase
+  // (data URIs in the record itself, not a separate file store).
+  let inquiryAttachments = [];
+  function openInquiryForm() {
+    inquiryAttachments = [];
+    document.getElementById('inquiryFormWrap').innerHTML = `
+      <div class="box" style="margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Contact MySubbies</div>
+        <textarea id="inquiryMessage" placeholder="What can we help with?" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;min-height:80px;font-family:inherit;"></textarea>
+        <input type="file" id="inquiryFileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple style="display:none;" onchange="onInquiryFileSelected(event)" />
+        <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;margin-bottom:8px;" onclick="document.getElementById('inquiryFileInput').click()">📎 Attach documents</button>
+        <div id="inquiryAttachmentList" style="margin-bottom:8px;"></div>
+        <div id="inquiryError" style="color:var(--warn);font-size:12.5px;margin-bottom:8px;display:none;"></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" style="flex:1;" onclick="document.getElementById('inquiryFormWrap').innerHTML=''">Cancel</button>
+          <button class="btn btn-black" style="flex:1;" onclick="submitInquiry()">Submit</button>
+        </div>
+      </div>`;
+  }
+  function onInquiryFileSelected(event) {
+    const files = Array.from(event.target.files || []).slice(0, 5 - inquiryAttachments.length);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        inquiryAttachments.push({ name: file.name, dataUrl: reader.result });
+        renderInquiryAttachmentList();
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  function renderInquiryAttachmentList() {
+    const wrap = document.getElementById('inquiryAttachmentList');
+    if (!wrap) return;
+    wrap.innerHTML = inquiryAttachments.map((a, idx) => `
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;">
+        <span>📄 ${escapeHtml(a.name)}</span>
+        <button onclick="removeInquiryAttachment(${idx})" style="background:none;border:none;color:var(--warn);cursor:pointer;font-size:12px;">Remove</button>
+      </div>`).join('');
+  }
+  function removeInquiryAttachment(idx) {
+    inquiryAttachments.splice(idx, 1);
+    renderInquiryAttachmentList();
+  }
+  function submitInquiry() {
+    const input = document.getElementById('inquiryMessage');
+    const message = input.value.trim();
+    const errBox = document.getElementById('inquiryError');
+    if (!message) {
+      errBox.textContent = 'Please describe what you need help with.';
+      errBox.style.display = 'block';
+      input.focus();
+      return;
+    }
+    const email = getCurrentCustomerEmail();
+    const customers = getCustomers();
+    const name = (customers[email] && customers[email].name) || email;
+    const inquiries = JSON.parse(localStorage.getItem('mysubbies_inquiries') || '[]');
+    inquiries.unshift({
+      id: 'inq_' + Date.now(), role: 'customer', name, email, message,
+      attachments: inquiryAttachments, status: 'open', createdAt: new Date().toISOString(),
+    });
+    localStorage.setItem('mysubbies_inquiries', JSON.stringify(inquiries));
+    document.getElementById('inquiryFormWrap').innerHTML = `<div class="note" style="margin-bottom:16px;">✓ Sent — MySubbies will review this and follow up.</div>`;
+  }
+
   // Job search (all 3 portals, Aug 2026) -- a plain-text filter over
   // category/suburb/id/task names, so a customer with several jobs can find
   // one without scrolling. render() rebuilds the list via innerHTML on
@@ -313,7 +383,8 @@
     const referredCount = Object.values(customers).filter(c => c.referredBy === myAccount.referralCode).length;
 
     app.innerHTML = `
-      <div class="whoami">Logged in as <strong>${name}</strong> <a onclick="logout()">Log out</a></div>
+      <div class="whoami">Logged in as <strong>${name}</strong> <a onclick="logout()">Log out</a> · <a onclick="openInquiryForm()">Contact MySubbies</a></div>
+      <div id="inquiryFormWrap"></div>
       ${notifyBannerHtml()}
       <div class="box" style="margin-bottom:16px;">
         <div style="font-size:13px;font-weight:600;margin-bottom:4px;">Refer a friend</div>
