@@ -98,8 +98,6 @@
     </a>
     <div class="navlinks">
       <a href="mysubbies-website.html" class="hide-mobile">Site</a>
-      <a href="mysubbies-customer-portal.html" class="hide-mobile">My Jobs</a>
-      <a href="mysubbies-contractor-portal.html" class="hide-mobile">Contractor Portal</a>
       <a class="current" href="mysubbies-admin-portal.html">Admin</a>
       <a onclick="adminLogout()" style="cursor:pointer;">Log out</a>
     </div>
@@ -250,12 +248,58 @@
     const pendingCount = applications.filter(a => a.status === 'pending').length;
     const disputes = getDisputes();
     const openDisputeCount = disputes.filter(d => d.status === 'open').length;
+    const cancellationRequests = jobs.filter(j => j.status === 'cancellation_requested');
 
-    if (tab === 'payments' && !paymentTabData && !paymentTabLoading) loadPaymentScheduleTab();
+    // Loaded unconditionally (not just when the Payments tab is opened) so
+    // the Action required panel below has real disputed-milestone /
+    // pending-schedule counts the moment admin logs in, not just after
+    // they happen to click into that tab.
+    if (!paymentTabData && !paymentTabLoading) loadPaymentScheduleTab();
     if (tab === 'customers' && !customersTabData && !customersTabLoading) loadCustomersTab();
     const paymentBadgeCount = paymentTabData ? (paymentTabData.disputedMilestones || []).length + (paymentTabData.pendingScheduleJobs || []).length : 0;
 
+    // Action required (Aug 2026) -- a single always-visible checklist of
+    // everything actually waiting on admin, so nothing (like a cancellation
+    // request) gets missed sitting quietly inside a tab nobody happened to
+    // open. Cancellation requests link straight to the job; everything
+    // else links to the tab that already has the full review UI for it.
+    const disputedMilestoneCount = paymentTabData ? (paymentTabData.disputedMilestones || []).length : 0;
+    const pendingScheduleCount = paymentTabData ? (paymentTabData.pendingScheduleJobs || []).length : 0;
+    const totalActionCount = cancellationRequests.length + openDisputeCount + pendingCount + disputedMilestoneCount + pendingScheduleCount;
+    const actionRequiredHtml = `
+      <div class="detailcard" style="margin-bottom:16px;border:1.5px solid #F0D89B;background:#FFFBF2;">
+        <h2 style="font-size:16px;margin-bottom:2px;">⚡ Action required</h2>
+        ${totalActionCount === 0 ? `<div style="font-size:13px;color:var(--stone);padding:8px 0 2px;">✓ Nothing needs your attention right now.</div>` : `
+          ${cancellationRequests.map(j => `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #F0D89B;">
+              <span style="font-size:13px;">⚠ Cancellation requested — ${escapeHtml(j.category)}, ${escapeHtml(j.suburb)}${j.cancellationRequestedBy ? ' (by ' + escapeHtml(j.cancellationRequestedBy) + ')' : ''}</span>
+              <button class="btn btn-outline" style="width:auto;flex-shrink:0;padding:6px 12px;font-size:12px;" onclick="selectedJobId='${j.id}'; render();">Review</button>
+            </div>`).join('')}
+          ${openDisputeCount ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #F0D89B;">
+              <span style="font-size:13px;">⚠ ${openDisputeCount} open dispute${openDisputeCount === 1 ? '' : 's'}</span>
+              <button class="btn btn-outline" style="width:auto;flex-shrink:0;padding:6px 12px;font-size:12px;" onclick="tab='disputes'; render();">View</button>
+            </div>` : ''}
+          ${pendingCount ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #F0D89B;">
+              <span style="font-size:13px;">⚠ ${pendingCount} pending contractor application${pendingCount === 1 ? '' : 's'}</span>
+              <button class="btn btn-outline" style="width:auto;flex-shrink:0;padding:6px 12px;font-size:12px;" onclick="tab='applications'; render();">View</button>
+            </div>` : ''}
+          ${disputedMilestoneCount ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #F0D89B;">
+              <span style="font-size:13px;">⚠ ${disputedMilestoneCount} disputed milestone${disputedMilestoneCount === 1 ? '' : 's'}</span>
+              <button class="btn btn-outline" style="width:auto;flex-shrink:0;padding:6px 12px;font-size:12px;" onclick="tab='payments'; render();">View</button>
+            </div>` : ''}
+          ${pendingScheduleCount ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #F0D89B;">
+              <span style="font-size:13px;">⚠ ${pendingScheduleCount} job${pendingScheduleCount === 1 ? '' : 's'} awaiting a payment schedule</span>
+              <button class="btn btn-outline" style="width:auto;flex-shrink:0;padding:6px 12px;font-size:12px;" onclick="tab='payments'; render();">View</button>
+            </div>` : ''}
+        `}
+      </div>`;
+
     app.innerHTML = `
+      ${actionRequiredHtml}
       <div class="statgrid">
         <div class="statcard"><div class="num">${jobs.length}</div><div class="lab">Total jobs</div></div>
         <div class="statcard"><div class="num">${jobs.filter(j=>j.status==='feed').length}</div><div class="lab">Awaiting contractor</div></div>
