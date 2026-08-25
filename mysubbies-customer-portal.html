@@ -139,14 +139,104 @@
   }
 
   let selectedJobId = null;
+  let showingPaymentHistory = false;
   const app = document.getElementById('app');
+
+  function openPaymentHistory() { showingPaymentHistory = true; render(); }
+  function closePaymentHistory() { showingPaymentHistory = false; render(); }
+
+  // Aggregates real payment data across every job that has a contractor
+  // (only those ever get a milestone schedule) by calling the same
+  // api/job-payment-schedule.js endpoint the per-job detail view already
+  // uses, once per job. No new backend endpoint -- this is the one that
+  // already returns the real, backend-calculated milestone amounts/status.
+  async function renderPaymentHistory(email) {
+    const jobs = getJobs().filter(j => j.customerEmail === email && j.contractor);
+    app.innerHTML = `
+      <button class="backbtn" onclick="closePaymentHistory()">← Back to my jobs</button>
+      <h1 class="pagetitle">Payment history</h1>
+      <p class="pagesub">Every payment made across your jobs.</p>
+      <div id="paymentHistoryList"><div class="note">Loading…</div></div>
+    `;
+    const wrap = document.getElementById('paymentHistoryList');
+    if (jobs.length === 0) { wrap.innerHTML = '<div class="empty">No payments yet.</div>'; return; }
+
+    const results = await Promise.all(jobs.map(async j => {
+      try {
+        const res = await fetch('/api/job-payment-schedule?jobId=' + encodeURIComponent(j.id));
+        const data = await res.json();
+        return { job: j, milestones: (data && data.milestones) || [] };
+      } catch (e) { return { job: j, milestones: [] }; }
+    }));
+
+    let grandTotalPaidCents = 0;
+    let html = '';
+    results.forEach(({ job, milestones }) => {
+      if (!milestones.length) return;
+      const paidCents = milestones.filter(m => m.status === 'paid').reduce((s, m) => s + m.amount_cents, 0);
+      grandTotalPaidCents += paidCents;
+      html += `
+        <button class="jobcard" style="text-align:left;" onclick="selectedJobId='${job.id}'; showingPaymentHistory=false; render();">
+          <div class="jobtitle">${escapeHtml(job.category)}</div>
+          <div class="jobmeta" style="margin-bottom:8px;">📍 ${escapeHtml(job.suburb)}</div>
+          ${milestones.map(m => `
+            <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;color:${m.status === 'paid' ? 'var(--good)' : 'var(--stone)'};">
+              <span>${m.status === 'paid' ? '✓' : '○'} ${escapeHtml(m.label)}</span>
+              <span>$${(m.amount_cents / 100).toLocaleString()}${m.status === 'paid' ? '' : ' (pending)'}</span>
+            </div>`).join('')}
+        </button>`;
+    });
+
+    if (!html) { wrap.innerHTML = '<div class="empty">No payments yet.</div>'; return; }
+
+    wrap.innerHTML = `
+      <div class="box" style="margin-bottom:16px;background:var(--paper);">
+        <div style="font-size:12px;color:var(--stone);">Total paid to date</div>
+        <div style="font-size:22px;font-weight:800;">$${(grandTotalPaidCents / 100).toLocaleString()}</div>
+      </div>
+      ${html}
+    `;
+  }
+
+  // Cancelled jobs used to render like any live job -- "Awaiting contractor"
+  // -- because that line only ever checked whether a contractor was
+  // assigned, never the job's actual status. Founder feedback: a cancelled
+  // job should read as cancelled, and shouldn't clutter the active list.
+  function jobStatusLabel(j) {
+    if (j.status === 'cancelled') return 'Cancelled';
+    if (j.status === 'cancellation_requested') return 'Cancellation pending';
+    if (j.status === 'completed') return 'Completed';
+    return j.contractor ? j.contractor : 'Awaiting contractor';
+  }
+
+  let showArchived = false;
+  function toggleArchived() { showArchived = !showArchived; render(); }
+
+  // "Book again" on a completed job -- hands the job's real items (category,
+  // task name, quantity) to the estimator via a one-time localStorage key,
+  // the same handoff pattern continueToEstimatorFromFs already uses for the
+  // AI-classified path. Prices are NOT copied from the old job -- the
+  // estimator re-prices every item against the CURRENT rate card (rates may
+  // have moved since), matching the site-wide "estimated, not fixed" rule.
+  function bookAgain(jobId) {
+    const j = getJobs().find(x => x.id === jobId);
+    if (!j || !j.items || !j.items.length) return;
+    localStorage.setItem('mysubbies_rebook_request', JSON.stringify({
+      items: j.items.map(i => ({ catLabel: i.catLabel, taskName: i.taskName, qty: i.qty })),
+      suburb: j.suburb || '',
+    }));
+    window.location.href = 'mysubbies-website.html#estimate';
+  }
 
   function render() {
     const email = getCurrentCustomerEmail();
     if (!email) { renderLogin(); return; }
     if (selectedJobId) { renderDetail(email); return; }
+    if (showingPaymentHistory) { renderPaymentHistory(email); return; }
 
-    const jobs = getJobs().filter(j => j.customerEmail === email);
+    const allJobs = getJobs().filter(j => j.customerEmail === email);
+    const jobs = allJobs.filter(j => j.status !== 'cancelled');
+    const archivedJobs = allJobs.filter(j => j.status === 'cancelled');
     const customers = getCustomers();
     const name = customers[email] ? customers[email].name : email;
     const myAccount = customers[email] || {};
@@ -168,7 +258,10 @@
           <h1 class="pagetitle">My jobs</h1>
           <p class="pagesub">${jobs.length} job${jobs.length === 1 ? '' : 's'}</p>
         </div>
-        <a class="btn btn-black" style="width:auto;flex-shrink:0;" href="mysubbies-website.html#estimate">+ Book another job</a>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <button class="btn btn-outline" style="width:auto;" onclick="openPaymentHistory()">Payment history</button>
+          <a class="btn btn-black" style="width:auto;" href="mysubbies-website.html#estimate">+ Book another job</a>
+        </div>
       </div>
     `;
     if (jobs.length === 0) {
@@ -179,9 +272,25 @@
           <button class="jobcard" onclick="selectedJobId='${j.id}'; render();">
             <span class="pill">${escapeHtml(j.category)}</span>
             <div class="jobtitle">${escapeHtml(j.category)}</div>
-            <div class="jobmeta">📍 ${escapeHtml(j.suburb)} · ${j.contractor ? escapeHtml(j.contractor) : 'Awaiting contractor'}</div>
+            <div class="jobmeta">📍 ${escapeHtml(j.suburb)} · ${escapeHtml(jobStatusLabel(j))}</div>
           </button>`;
       });
+    }
+    if (archivedJobs.length > 0) {
+      app.innerHTML += `
+        <div style="margin-top:20px;">
+          <a onclick="toggleArchived()" style="font-size:13px;color:var(--stone);text-decoration:underline;cursor:pointer;">${showArchived ? 'Hide' : 'Show'} archived (${archivedJobs.length} cancelled)</a>
+        </div>`;
+      if (showArchived) {
+        archivedJobs.forEach(j => {
+          app.innerHTML += `
+            <button class="jobcard" style="opacity:0.6;" onclick="selectedJobId='${j.id}'; render();">
+              <span class="pill">${escapeHtml(j.category)}</span>
+              <div class="jobtitle">${escapeHtml(j.category)}</div>
+              <div class="jobmeta">📍 ${escapeHtml(j.suburb)} · Cancelled</div>
+            </button>`;
+        });
+      }
     }
     wireNotifyButton();
   }
@@ -203,6 +312,7 @@
         <div class="row"><span class="l">Contractor</span><span class="r">${j.contractor ? escapeHtml(j.contractor) : 'Awaiting acceptance'}</span></div>
         ${j.contractor && !['cancellation_requested', 'cancelled'].includes(j.status) ? `<div id="milestoneSectionWrap"><div class="note">Loading payment schedule…</div></div>` : ''}
         ${j.status === 'completed' ? renderRatingSection(j) : ''}
+        ${j.status === 'completed' ? `<button class="btn btn-black btn-full" style="margin-top:12px;" onclick="bookAgain('${j.id}')">Book again →</button>` : ''}
         ${j.status === 'cancellation_requested' ? `<div class="note" style="color:var(--warn);margin-top:12px;">⚠ Your cancellation request is being reviewed by MySubbies — we'll be in touch shortly. No further action is needed from you.</div>` : ''}
         ${j.status === 'cancelled' ? `<div class="note" style="margin-top:12px;">This job has been cancelled.</div>` : ''}
         ${j.contractor && !['completed', 'cancellation_requested', 'cancelled'].includes(j.status) ? `<button class="btn btn-outline btn-full" style="margin-top:12px;" onclick="openDisputeForm()">⚠ Report a problem</button>` : ''}

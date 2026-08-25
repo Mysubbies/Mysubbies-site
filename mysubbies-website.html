@@ -2535,6 +2535,54 @@
   }
   renderChipRow('estAccessChips', ACCESS_OPTIONS, (v) => selectedAccess = v);
 
+  // "Book again" handoff from mysubbies-customer-portal.html (Aug 2026) --
+  // a one-time localStorage key naming the category/task/qty from a
+  // completed job. Deliberately does NOT reuse the old job's dollar amount:
+  // rates may have moved since, so every item is re-priced here against the
+  // CURRENT rate card, same as any fresh selection. If a task was renamed
+  // or removed from the rate card since that job, it's silently skipped
+  // rather than erroring -- if nothing matches at all, the customer just
+  // lands on the normal step 1, same as any other visit.
+  function initRebookIfRequested() {
+    const raw = localStorage.getItem('mysubbies_rebook_request');
+    if (!raw) return;
+    localStorage.removeItem('mysubbies_rebook_request');
+    let req;
+    try { req = JSON.parse(raw); } catch (e) { return; }
+    if (!req || !Array.isArray(req.items) || !req.items.length) return;
+
+    const rebuiltCart = [];
+    let matchedCat = null;
+    req.items.forEach(reqItem => {
+      const cat = CATEGORIES.find(c => c.label === reqItem.catLabel);
+      if (!cat) return;
+      const task = cat.tasks.find(t => t.name === reqItem.taskName && !t.unavailable && !t.disabled);
+      if (!task) return;
+      const qty = reqItem.qty || 1;
+      const rawBase = Math.round(qty * task.rate);
+      const minApplied = !!(task.minJobPrice && rawBase < task.minJobPrice);
+      const base = minApplied ? task.minJobPrice : rawBase;
+      rebuiltCart.push({
+        catLabel: cat.label, catIcon: cat.icon,
+        taskName: task.name, unit: task.unit, qty, base,
+        needsSiteVisit: !!task.needsSiteVisit, notes: task.notes || '',
+        minApplied, minJobPrice: task.minJobPrice,
+        aiEstimated: false, typicalRange: null,
+      });
+      matchedCat = cat;
+    });
+    if (!matchedCat) return;
+
+    selectCat(matchedCat);
+    cart.push(...rebuiltCart);
+    renderCart();
+    document.getElementById('estimate').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showEstStep(2);
+    const suburbInput = document.getElementById('estSuburb');
+    if (suburbInput && req.suburb) suburbInput.value = req.suburb;
+  }
+  initRebookIfRequested();
+
   function runEstimate() {
     const result = document.getElementById('estResult');
 
