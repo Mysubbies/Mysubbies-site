@@ -417,7 +417,8 @@
     // this contractor's trades yet (no local application record).
     const myTrades = (getApplications().find(a => a.business === name) || {}).trades;
     const feedJobs = jobs.filter(j => j.status === 'feed' && (!myTrades || !myTrades.length || myTrades.includes(j.category)));
-    const myJobsAll = jobs.filter(j => j.contractor === name);
+    const hiddenJobIds = getHiddenJobIds(name);
+    const myJobsAll = jobs.filter(j => j.contractor === name && !hiddenJobIds.has(j.id));
     // Tab badge / earnings still care about "active" and "completed" as
     // simple counts; the My Jobs tab body itself now uses the status filter
     // chips below instead of a mixed list.
@@ -547,7 +548,7 @@
   function myJobsTableHtml(jobs) {
     return `
       <table class="jobstable">
-        <thead><tr><th>Job</th><th>Suburb</th><th>Customer</th><th>Status</th><th>Payout</th></tr></thead>
+        <thead><tr><th>Job</th><th>Suburb</th><th>Customer</th><th>Status</th><th>Payout</th><th></th></tr></thead>
         <tbody>
           ${jobs.map(j => {
             const titleDetail = j.items && j.items.length === 1 ? j.items[0].taskName : j.category;
@@ -558,10 +559,35 @@
                 <td>${j.customerName ? escapeHtml(j.customerName) : '—'}</td>
                 <td><span class="badge ${JOB_BADGE_CLASS[j.status] || 'badge-feed'}">${JOB_BADGE_LABEL[j.status] || j.status}</span></td>
                 <td>$${Math.round((j.basePrice || 0) * 0.75).toLocaleString()}</td>
+                <td>${j.status === 'cancelled' ? `<button class="btn btn-outline" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="hideCancelledJob('${j.id}', event)">Remove</button>` : ''}</td>
               </tr>`;
           }).join('')}
         </tbody>
       </table>`;
+  }
+
+  // Removing a cancelled job (Aug 2026) -- same per-account "hidden" list
+  // pattern as mysubbies-customer-portal.html's hideCancelledJob(). Only
+  // hides the job from THIS contractor's own My Jobs view (own localStorage
+  // key) -- never deletes from the shared mysubbies_jobs array via
+  // saveJobs(), since the customer's and admin's views still need it.
+  function getHiddenJobIds(contractorName) {
+    try {
+      const all = JSON.parse(localStorage.getItem('mysubbies_contractor_hidden_jobs') || '{}');
+      return new Set(all[contractorName] || []);
+    } catch (e) { return new Set(); }
+  }
+  function hideCancelledJob(jobId, event) {
+    if (event) event.stopPropagation();
+    const name = getContractorName();
+    if (!name) return;
+    try {
+      const all = JSON.parse(localStorage.getItem('mysubbies_contractor_hidden_jobs') || '{}');
+      if (!all[name]) all[name] = [];
+      if (!all[name].includes(jobId)) all[name].push(jobId);
+      localStorage.setItem('mysubbies_contractor_hidden_jobs', JSON.stringify(all));
+    } catch (e) { /* non-critical -- worst case the job just stays visible */ }
+    render();
   }
 
   function renderDetail(name) {

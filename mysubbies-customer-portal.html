@@ -696,7 +696,7 @@
   function customerJobsTableHtml(jobs) {
     return `
       <table class="jobstable">
-        <thead><tr><th>Job</th><th>Suburb</th><th>Contractor</th><th>Status</th><th>Value</th></tr></thead>
+        <thead><tr><th>Job</th><th>Suburb</th><th>Contractor</th><th>Status</th><th>Value</th><th></th></tr></thead>
         <tbody>
           ${jobs.map(j => `
             <tr class="jobrow" onclick="selectedJobId='${j.id}'; render();">
@@ -705,10 +705,36 @@
               <td>${j.contractor ? escapeHtml(j.contractor) : '—'}</td>
               <td><span class="badge ${JOB_BADGE_CLASS[j.status] || 'badge-feed'}">${JOB_BADGE_LABEL[j.status] || j.status}</span></td>
               <td>$${(j.priceLow || j.basePrice || 0).toLocaleString()}</td>
+              <td>${j.status === 'cancelled' ? `<button class="btn btn-outline" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="hideCancelledJob('${j.id}', event)">Remove</button>` : ''}</td>
             </tr>
           `).join('')}
         </tbody>
       </table>`;
+  }
+
+  // Removing a cancelled job (Aug 2026) -- cancelled jobs were piling up and
+  // crowding the job list with nothing left to action. This only hides the
+  // job from THIS customer's own view (a per-account list of dismissed job
+  // ids in localStorage) -- it must never touch the shared mysubbies_jobs
+  // array via saveJobs(), since that same record is still needed by the
+  // contractor's and admin's own views and by the Property Profile history.
+  function getHiddenJobIds(email) {
+    try {
+      const all = JSON.parse(localStorage.getItem('mysubbies_customer_hidden_jobs') || '{}');
+      return new Set(all[email] || []);
+    } catch (e) { return new Set(); }
+  }
+  function hideCancelledJob(jobId, event) {
+    if (event) event.stopPropagation();
+    const email = getCurrentCustomerEmail();
+    if (!email) return;
+    try {
+      const all = JSON.parse(localStorage.getItem('mysubbies_customer_hidden_jobs') || '{}');
+      if (!all[email]) all[email] = [];
+      if (!all[email].includes(jobId)) all[email].push(jobId);
+      localStorage.setItem('mysubbies_customer_hidden_jobs', JSON.stringify(all));
+    } catch (e) { /* non-critical -- worst case the job just stays visible */ }
+    render();
   }
 
   // Status filter chips (Aug 2026, same pattern as the admin portal's All
@@ -757,7 +783,8 @@
     if (showingPaymentHistory) { renderPaymentHistory(email); return; }
     if (showingPropertyProfile) { renderPropertyProfile(email); return; }
 
-    const allJobs = getJobs().filter(j => j.customerEmail === email);
+    const hiddenJobIds = getHiddenJobIds(email);
+    const allJobs = getJobs().filter(j => j.customerEmail === email && !hiddenJobIds.has(j.id));
     const customers = getCustomers();
     const name = customers[email] ? customers[email].name : email;
     const myAccount = customers[email] || {};
