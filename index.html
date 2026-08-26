@@ -2667,6 +2667,18 @@
   }
   initRebookIfRequested();
 
+  // Cross-page trigger for the Fix Something modal (added Aug 2026, Property
+  // Profile Phase 2) -- openFixSomething() only exists in this page's script,
+  // so mysubbies-customer-portal.html's "Something need fixing?" CTA can't
+  // call it directly. Same localStorage-flag handoff pattern as
+  // mysubbies_rebook_request above, just for a modal open instead of a cart.
+  function initFixSomethingIfRequested() {
+    if (!localStorage.getItem('mysubbies_open_fix_something')) return;
+    localStorage.removeItem('mysubbies_open_fix_something');
+    openFixSomething();
+  }
+  initFixSomethingIfRequested();
+
   // The header's "Log in" button was a static label that never checked
   // whether a customer session already existed -- so a customer who was
   // logged in on mysubbies-customer-portal.html, then clicked the logo

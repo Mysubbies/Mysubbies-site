@@ -14,7 +14,7 @@
     --ink: #151A26; --black: #14213D; --white: #FFFFFF; --paper: #F7F7F5;
     --stone: #6B7280; --stone-light: #9CA3AF; --line: #E7E7E4; --good: #2F7A50; --warn: #B0592E;
     --accent: #F5A623; --accent-dark: #D98E14; --accent-pale: #FDF0D9;
-    --primary-light: #1F335A; --primary-pale: #E7EAF1;
+    --primary-light: #1F335A; --primary-pale: #E7EAF1; --danger: #C0392B;
   }
   * { box-sizing: border-box; margin:0; padding:0; }
   body { font-family:'Plus Jakarta Sans', system-ui, sans-serif; background: var(--paper); color: var(--ink); line-height:1.5; -webkit-font-smoothing:antialiased; }
@@ -81,6 +81,48 @@
   .msginput input { margin-bottom:0; flex:1; }
   .notify-banner { font-size:12px; color:var(--stone); background:var(--paper); border-radius:10px; padding:10px 14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; }
   .notify-banner button { font-size:12px; font-weight:600; background:none; border:none; text-decoration:underline; cursor:pointer; }
+
+  /* Property Profile Phase 2 (added Aug 2026) -- visual language matches the
+     approved mockup: navy hero, floating health card, dark Fix Something CTA,
+     pastel-circle category grid (own copy of mysubbies-website.html's
+     .cc-icon pattern -- self-contained convention, no shared CSS file). */
+  .prop-hero { position:relative; border-radius:20px; overflow:hidden; min-height:170px; background:linear-gradient(135deg, var(--black), var(--primary-light)) center/cover; padding:20px; display:flex; flex-direction:column; justify-content:flex-end; color:#fff; }
+  .prop-hero::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(20,33,61,0.1), rgba(20,33,61,0.8)); pointer-events:none; }
+  .prop-hero-content { position:relative; z-index:2; }
+  .prop-hero-address { font-size:19px; font-weight:800; }
+  .prop-hero-suburb { font-size:12.5px; opacity:0.8; margin-top:2px; }
+  .prop-hero-photo-btn { position:absolute; top:14px; right:14px; z-index:3; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.35); color:#fff; font-size:11px; padding:6px 12px; border-radius:999px; cursor:pointer; }
+  .prop-health-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px 18px; margin:-26px 10px 20px; position:relative; z-index:4; box-shadow:0 8px 24px rgba(20,33,61,0.1); display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+  .prop-health-score { font-size:30px; font-weight:800; line-height:1; }
+  .prop-health-label { font-size:11.5px; font-weight:700; margin-top:2px; }
+  .prop-health-meta { font-size:12px; color:var(--stone); line-height:1.7; text-align:right; }
+  .prop-health-disclaimer { font-size:10.5px; color:var(--stone-light); margin-top:16px; line-height:1.4; }
+  .prop-fix-cta { background:var(--black); border-radius:16px; padding:16px 18px; display:flex; align-items:center; gap:14px; color:#fff; cursor:pointer; margin-bottom:8px; border:none; width:100%; text-align:left; }
+  .prop-fix-cta-icon { width:42px; height:42px; border-radius:50%; background:rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px; }
+  .prop-fix-cta-title { font-weight:700; font-size:14.5px; }
+  .prop-fix-cta-sub { font-size:12px; color:rgba(255,255,255,0.65); margin-top:2px; }
+  .prop-fix-cta-arrow { margin-left:auto; font-size:18px; }
+  .section-head { font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--stone); margin:24px 0 12px; }
+  .home-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .home-cat-card { background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:13px; cursor:pointer; text-align:left; }
+  .home-cat-card.active { border-color:var(--black); }
+  .home-cat-icon { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; margin-bottom:8px; color:var(--ink); }
+  .home-cat-icon.cat-plumbing { background:#DCEAF3; }
+  .home-cat-icon.cat-electrical { background:#FCEFC7; }
+  .home-cat-icon.cat-gardening-lawn-mowing { background:#D9E8D3; }
+  .home-cat-icon.cat-fencing { background:#F5E6C8; }
+  .home-cat-name { font-size:13px; font-weight:700; }
+  .home-cat-status { font-size:11px; margin-top:2px; }
+  .status-good { color:var(--good); }
+  .status-warn { color:var(--warn); }
+  .status-neutral { color:var(--stone); }
+  .maint-card { background:var(--accent-pale); border:1px solid #F0D9A8; border-radius:14px; padding:14px 16px; margin-bottom:10px; display:flex; align-items:center; gap:12px; }
+  .maint-card-icon { font-size:19px; }
+  .maint-card-title { font-weight:700; font-size:13.5px; }
+  .maint-card-sub { font-size:11.5px; color:var(--stone); margin-top:2px; }
+  .maint-card-price { font-weight:800; font-size:14px; margin-left:auto; text-align:right; white-space:nowrap; }
+  .maint-setup-card { background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:10px; }
+  .maint-setup-card select { border:1.5px solid var(--line); border-radius:8px; padding:7px 9px; font-family:inherit; font-size:12.5px; margin:6px 4px; }
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
@@ -376,18 +418,254 @@
 
   // Property Profile (Phase 1, added Aug 2026) -- a permanent, address-keyed
   // timeline of completed work, auto-built server-side by api/sync-jobs.js
-  // on every job sync (see supabase/schema_v5_property_profiles.sql). This
-  // is read-only display: nothing here writes to the property tables, and
-  // it never invents entries for jobs that aren't actually complete yet
-  // (completion = every paymentSchedule stage ticked in paidStages, same
+  // on every job sync (see supabase/schema_v5_property_profiles.sql).
+  // Completion = every paymentSchedule stage ticked in paidStages, same
   // definition used server-side -- jobs.status/'completed' is never
-  // actually reached in this codebase, so it can't be used here either).
+  // actually reached in this codebase, so it can't be used here either.
+  //
+  // Phase 2 (added Aug 2026) redesigns this to match the founder's approved
+  // mockup -- hero, Property Health card, "Your Home" category grid, and
+  // Upcoming Maintenance. Scoped to Plumbing/Electrical/Gardening & Lawn
+  // Mowing/Fencing per the founder's explicit call. Maintenance reminders are
+  // CUSTOMER-SET (mow frequency the customer picks), never a MySubbies-
+  // invented interval -- only Gardening & Lawn Mowing has a real recurring
+  // priced task on the rate card today (unit:'visit'); Plumbing/Electrical/
+  // Fencing show real install history + Report a problem/Book again instead
+  // of a fabricated "due" card. See CLAUDE.md and the plan file for the full
+  // reasoning.
+  const HOME_GRID_CATEGORIES = [
+    { label: 'Plumbing', displayName: 'Plumbing', icon: '🔧', slug: 'plumbing' },
+    { label: 'Electrical', displayName: 'Electrical', icon: '💡', slug: 'electrical' },
+    { label: 'Gardening & Lawn Mowing', displayName: 'Garden', icon: '🌿', slug: 'gardening-lawn-mowing' },
+    { label: 'Fencing', displayName: 'Fencing', icon: '🚧', slug: 'fencing' },
+  ];
+  let propertyCategoryFilter = null;
+  let lastPropertyProfiles = [];
+
+  function normalizeAddressLocal(addr) {
+    return String(addr || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+
+  // Reads the real rate card straight from the same localStorage key
+  // mysubbies-website.html seeds -- shared across pages, same pattern every
+  // page in this app already relies on for jobs/customers. Never hardcodes a
+  // price: if the rate card isn't in localStorage yet (e.g. a customer who's
+  // never opened the estimator in this browser), pricing is simply omitted
+  // rather than guessed.
+  function getLocalRateCard() {
+    try { return JSON.parse(localStorage.getItem('mysubbies_ratecard') || '[]'); } catch (e) { return []; }
+  }
+  function findTaskRate(categoryLabel, taskName) {
+    const cat = getLocalRateCard().find(c => c.label === categoryLabel);
+    if (!cat) return null;
+    const task = (cat.tasks || []).find(t => t.name === taskName && !t.disabled && !t.unavailable);
+    return task ? task.rate : null;
+  }
+  // Only real recurring "visit" mowing tasks, pulled live from the rate card
+  // -- if the founder renames/adds/removes a mowing tier, this list follows
+  // automatically instead of drifting out of sync with a hardcoded list.
+  function getMowingTaskOptions() {
+    const cat = getLocalRateCard().find(c => c.label === 'Gardening & Lawn Mowing');
+    if (!cat) return [];
+    return (cat.tasks || []).filter(t => t.unit === 'visit' && !t.disabled && !t.unavailable && /mowing/i.test(t.name));
+  }
+
+  function getUpcomingMaintenanceCards(p) {
+    const cards = [];
+    const mow = p.maintenancePreferences && p.maintenancePreferences['Gardening & Lawn Mowing'];
+    if (mow) {
+      const lastMow = p.history.filter(h => h.category === 'Gardening & Lawn Mowing')[0];
+      const sinceDate = lastMow ? new Date(lastMow.completedAt) : new Date(mow.setAt);
+      const dueDate = new Date(sinceDate.getTime() + mow.intervalWeeks * 7 * 24 * 60 * 60 * 1000);
+      if (new Date() >= dueDate) {
+        cards.push({
+          title: 'Lawn mowing recommended',
+          sub: (lastMow ? 'Last completed ' + new Date(lastMow.completedAt).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' }) : 'Reminder set') + ' · Every ' + mow.intervalWeeks + ' weeks',
+          price: findTaskRate('Gardening & Lawn Mowing', mow.taskName),
+          taskName: mow.taskName, catLabel: 'Gardening & Lawn Mowing', suburb: p.suburb || '',
+        });
+      }
+    }
+    return cards;
+  }
+
+  // Health score (spec section 12): starts at 100, deducts only for real
+  // signals (an unresolved dispute on a job at this property; an overdue
+  // customer-set mowing reminder) -- never penalised for data simply not
+  // existing yet.
+  function computePropertyHealth(p, email) {
+    let score = 100;
+    const disputes = JSON.parse(localStorage.getItem('mysubbies_disputes') || '[]');
+    const jobIdsAtProperty = new Set(getJobs().filter(j => j.customerEmail === email && normalizeAddressLocal(j.address) === normalizeAddressLocal(p.address)).map(j => j.id));
+    const openDisputeCount = disputes.filter(d => d.status === 'open' && jobIdsAtProperty.has(d.jobId)).length;
+    score -= Math.min(openDisputeCount * 15, 30);
+    if (getUpcomingMaintenanceCards(p).length > 0) score -= 10;
+    score = Math.max(0, Math.min(100, score));
+    let label, color;
+    if (score >= 90) { label = 'Excellent'; color = 'var(--good)'; }
+    else if (score >= 75) { label = 'Good'; color = 'var(--good)'; }
+    else if (score >= 60) { label = 'Needs Attention'; color = 'var(--warn)'; }
+    else { label = 'Action Recommended'; color = 'var(--danger)'; }
+    return { score, label, color };
+  }
+
+  function triggerFixSomething() {
+    localStorage.setItem('mysubbies_open_fix_something', '1');
+    window.location.href = 'mysubbies-website.html#categories';
+  }
+
+  // Reuses bookAgain()'s exact existing cross-page handoff mechanism (below)
+  // instead of inventing new plumbing -- mysubbies-website.html's
+  // initRebookIfRequested() already rebuilds a fully-priced cart from the
+  // live rate card and jumps straight to step 2.
+  function bookMaintenanceTask(catLabel, taskName, suburb) {
+    localStorage.setItem('mysubbies_rebook_request', JSON.stringify({ items: [{ catLabel, taskName, qty: 1 }], suburb: suburb || '' }));
+    window.location.href = 'mysubbies-website.html#estimate';
+  }
+
+  function uploadPropertyPhoto(propertyId, inputEl) {
+    const file = inputEl.files && inputEl.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        await fetch('/api/property-profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId, photoDataUrl: ev.target.result }) });
+      } catch (e) { /* non-critical, photo just won't have saved this time */ }
+      const email = getCurrentCustomerEmail();
+      if (email) renderPropertyProfile(email);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function saveMowingReminder(propertyId) {
+    const taskSelect = document.getElementById('mowTaskSelect_' + propertyId);
+    const intervalSelect = document.getElementById('mowIntervalSelect_' + propertyId);
+    if (!taskSelect || !intervalSelect) return;
+    const property = lastPropertyProfiles.find(p => p.propertyId === propertyId);
+    const maintenancePreferences = Object.assign({}, property ? property.maintenancePreferences : {}, {
+      'Gardening & Lawn Mowing': { taskName: taskSelect.value, intervalWeeks: parseInt(intervalSelect.value, 10), setAt: new Date().toISOString() },
+    });
+    try {
+      await fetch('/api/property-profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId, maintenancePreferences }) });
+    } catch (e) { /* non-critical, reminder just won't have saved this time */ }
+    const email = getCurrentCustomerEmail();
+    if (email) renderPropertyProfile(email);
+  }
+
+  function setPropertyCategoryFilter(label) {
+    propertyCategoryFilter = (propertyCategoryFilter === label) ? null : label;
+    const wrap = document.getElementById('propertyProfileList');
+    const email = getCurrentCustomerEmail();
+    if (wrap && lastPropertyProfiles.length && email) {
+      wrap.innerHTML = lastPropertyProfiles.map(p => renderOnePropertyProfile(p, email)).join('<div style="height:32px;"></div>');
+    }
+  }
+
+  function renderHomeCatCard(c, p) {
+    const entries = p.history.filter(h => h.category === c.label);
+    let statusText, statusClass;
+    if (entries.length === 0) { statusText = 'No jobs yet'; statusClass = 'status-neutral'; }
+    else { statusText = 'Last job ' + new Date(entries[0].completedAt).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' }); statusClass = 'status-good'; }
+    const active = propertyCategoryFilter === c.label;
+    return `
+      <button class="home-cat-card${active ? ' active' : ''}" onclick="setPropertyCategoryFilter('${c.label.replace(/'/g, "\\'")}')">
+        <div class="home-cat-icon cat-${c.slug}">${c.icon}</div>
+        <div class="home-cat-name">${escapeHtml(c.displayName)}</div>
+        <div class="home-cat-status ${statusClass}">${entries.length} item${entries.length === 1 ? '' : 's'} · ${statusText}</div>
+      </button>`;
+  }
+
+  function renderUpcomingMaintenanceSection(p) {
+    const cards = getUpcomingMaintenanceCards(p);
+    const mow = p.maintenancePreferences && p.maintenancePreferences['Gardening & Lawn Mowing'];
+    let inner = cards.map(c => `
+      <div class="maint-card">
+        <div class="maint-card-icon">🌿</div>
+        <div><div class="maint-card-title">${escapeHtml(c.title)}</div><div class="maint-card-sub">${escapeHtml(c.sub)}</div></div>
+        <div class="maint-card-price">
+          ${c.price != null ? '$' + c.price.toLocaleString() : ''}<br>
+          <button class="btn btn-black" style="width:auto;padding:7px 14px;font-size:11.5px;margin-top:6px;" onclick="bookMaintenanceTask('${c.catLabel.replace(/'/g, "\\'")}','${c.taskName.replace(/'/g, "\\'")}','${(c.suburb || '').replace(/'/g, "\\'")}')">Book now</button>
+        </div>
+      </div>`).join('');
+    if (!mow) {
+      const options = getMowingTaskOptions();
+      if (options.length) {
+        inner += `
+          <div class="maint-setup-card">
+            <div style="font-weight:700;font-size:13px;margin-bottom:4px;">Want a mowing reminder?</div>
+            <div style="font-size:12px;color:var(--stone);margin-bottom:4px;">We'll remind you to book again based on how often you tell us to — nothing invented, just what you set.</div>
+            <div>
+              <select id="mowTaskSelect_${p.propertyId}">${options.map(o => `<option value="${escapeHtml(o.name)}">${escapeHtml(o.name.replace(/ — supply & install/i, ''))} — $${o.rate}</option>`).join('')}</select>
+              every
+              <select id="mowIntervalSelect_${p.propertyId}"><option value="2">2 weeks</option><option value="3" selected>3 weeks</option><option value="4">4 weeks</option></select>
+            </div>
+            <button class="btn btn-outline" style="width:auto;padding:7px 14px;font-size:11.5px;margin-top:8px;" onclick="saveMowingReminder('${p.propertyId}')">Save reminder</button>
+          </div>`;
+      }
+    }
+    if (!inner) return '';
+    return `<div class="section-head">Upcoming Maintenance</div>${inner}`;
+  }
+
+  function renderPropertyHistoryList(p) {
+    const entries = propertyCategoryFilter ? p.history.filter(h => h.category === propertyCategoryFilter) : p.history;
+    if (entries.length === 0) return `<div class="empty">No completed jobs recorded${propertyCategoryFilter ? ' for ' + escapeHtml(propertyCategoryFilter) : ''} yet.</div>`;
+    const seenContractors = new Set();
+    return entries.map(h => {
+      const repeatContractor = h.contractorEmail && seenContractors.has(h.contractorEmail);
+      if (h.contractorEmail) seenContractors.add(h.contractorEmail);
+      const dateStr = h.completedAt ? new Date(h.completedAt).toLocaleDateString('en-AU', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+      return `
+        <button class="jobcard" style="text-align:left;" onclick="selectedJobId='${h.jobId}'; showingPropertyProfile=false; render();">
+          <div class="jobtitle">${escapeHtml(h.category)}</div>
+          ${h.taskSummary ? `<div class="jobmeta" style="margin-bottom:6px;">${escapeHtml(h.taskSummary)}</div>` : ''}
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--stone);">
+            <span>${h.contractorName ? escapeHtml(h.contractorName) : 'Contractor'}${repeatContractor ? ' · <span style="color:var(--good);">worked here before</span>' : ''}${dateStr ? ' · ' + dateStr : ''}</span>
+            ${h.amountPaidCents != null ? `<span style="font-weight:700;color:var(--ink);">$${(h.amountPaidCents / 100).toLocaleString()}</span>` : ''}
+          </div>
+        </button>`;
+    }).join('');
+  }
+
+  function renderOnePropertyProfile(p, email) {
+    const health = computePropertyHealth(p, email);
+    const upcomingCount = getUpcomingMaintenanceCards(p).length;
+    return `
+      <div class="prop-hero" style="${p.photoDataUrl ? `background-image:url('${p.photoDataUrl}');background-size:cover;background-position:center;` : ''}">
+        <button class="prop-hero-photo-btn" onclick="document.getElementById('propPhotoInput_${p.propertyId}').click()">📷 ${p.photoDataUrl ? 'Change photo' : 'Add photo'}</button>
+        <input type="file" accept="image/*" id="propPhotoInput_${p.propertyId}" style="display:none;" onchange="uploadPropertyPhoto('${p.propertyId}', this)" />
+        <div class="prop-hero-content">
+          <div class="prop-hero-address">📍 ${escapeHtml(p.address)}</div>
+          ${p.suburb ? `<div class="prop-hero-suburb">${escapeHtml(p.suburb)}</div>` : ''}
+        </div>
+      </div>
+      <div class="prop-health-card">
+        <div>
+          <div class="prop-health-score" style="color:${health.color};">${health.score}%</div>
+          <div class="prop-health-label" style="color:${health.color};">${health.label}</div>
+        </div>
+        <div class="prop-health-meta">
+          ${p.history.length} job${p.history.length === 1 ? '' : 's'} recorded<br>
+          ${upcomingCount} upcoming reminder${upcomingCount === 1 ? '' : 's'}
+        </div>
+      </div>
+      <button class="prop-fix-cta" onclick="triggerFixSomething()">
+        <div class="prop-fix-cta-icon">📷</div>
+        <div><div class="prop-fix-cta-title">Something need fixing?</div><div class="prop-fix-cta-sub">Upload a photo and we'll tell you what's wrong and the price.</div></div>
+        <div class="prop-fix-cta-arrow">→</div>
+      </button>
+      <div class="section-head">Your Home</div>
+      <div class="home-grid">${HOME_GRID_CATEGORIES.map(c => renderHomeCatCard(c, p)).join('')}</div>
+      ${renderUpcomingMaintenanceSection(p)}
+      <div class="section-head">History${propertyCategoryFilter ? ' · ' + escapeHtml(propertyCategoryFilter) + ' <a onclick="setPropertyCategoryFilter(null)" style="text-decoration:underline;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;">(clear)</a>' : ''}</div>
+      ${renderPropertyHistoryList(p)}
+      <div class="prop-health-disclaimer">Property Health is based on your MySubbies service and maintenance records and is not a building inspection.</div>`;
+  }
+
   async function renderPropertyProfile(email) {
     app.innerHTML = `
       <button class="backbtn" onclick="closePropertyProfile()">← Back to my jobs</button>
-      <h1 class="pagetitle">My Property</h1>
-      <p class="pagesub">A running record of every completed job at your address — builds automatically as work finishes.</p>
-      <div id="propertyProfileList"><div class="note">Loading…</div></div>
+      <div id="propertyProfileList"><div class="empty">Loading…</div></div>
     `;
     const wrap = document.getElementById('propertyProfileList');
 
@@ -398,40 +676,14 @@
       properties = (data && data.properties) || [];
     } catch (e) { /* fall through to empty state below */ }
 
+    lastPropertyProfiles = properties;
+
     if (properties.length === 0) {
-      wrap.innerHTML = `<div class="empty">No property history yet. This builds up automatically each time a job is completed and paid at your address.</div>`;
+      wrap.innerHTML = `<h1 class="pagetitle" style="margin-bottom:10px;">My Property</h1><div class="empty">No property history yet. This builds up automatically each time a job is completed and paid at your address.</div>`;
       return;
     }
 
-    wrap.innerHTML = properties.map(p => {
-      if (p.history.length === 0) {
-        return `
-          <div class="box" style="margin-bottom:16px;">
-            <div style="font-weight:700;margin-bottom:4px;">📍 ${escapeHtml(p.address)}</div>
-            <div class="empty" style="margin:0;">No completed jobs recorded here yet.</div>
-          </div>`;
-      }
-      const seenContractors = new Set();
-      const entries = p.history.map(h => {
-        const repeatContractor = h.contractorEmail && seenContractors.has(h.contractorEmail);
-        if (h.contractorEmail) seenContractors.add(h.contractorEmail);
-        const dateStr = h.completedAt ? new Date(h.completedAt).toLocaleDateString('en-AU', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
-        return `
-          <button class="jobcard" style="text-align:left;" onclick="selectedJobId='${h.jobId}'; showingPropertyProfile=false; render();">
-            <div class="jobtitle">${escapeHtml(h.category)}</div>
-            ${h.taskSummary ? `<div class="jobmeta" style="margin-bottom:6px;">${escapeHtml(h.taskSummary)}</div>` : ''}
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--stone);">
-              <span>${h.contractorName ? escapeHtml(h.contractorName) : 'Contractor'}${repeatContractor ? ' · <span style="color:var(--good);">worked here before</span>' : ''}${dateStr ? ' · ' + dateStr : ''}</span>
-              ${h.amountPaidCents != null ? `<span style="font-weight:700;color:var(--ink);">$${(h.amountPaidCents / 100).toLocaleString()}</span>` : ''}
-            </div>
-          </button>`;
-      }).join('');
-      return `
-        <div style="margin-bottom:20px;">
-          <div style="font-weight:700;font-size:15px;margin-bottom:10px;">📍 ${escapeHtml(p.address)}</div>
-          ${entries}
-        </div>`;
-    }).join('');
+    wrap.innerHTML = properties.map(p => renderOnePropertyProfile(p, email)).join('<div style="height:32px;"></div>');
   }
 
   // Job list table (Aug 2026) -- same markup, classes, badge colours and
