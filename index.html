@@ -2067,6 +2067,47 @@
     } catch (e) { /* non-critical logging, ignore failures */ }
   }
 
+  // Category-specific examples for the quick-match field (added Aug 2026) --
+  // previously every category showed the same generic "replace a power
+  // point" placeholder regardless of what was selected. Examples below are
+  // real task names/materials already on the rate card, not invented, so
+  // they stay accurate if a category's task list changes. Any category not
+  // listed here (including one an admin adds later) falls back to the
+  // original generic placeholder in selectCat().
+  const CATEGORY_QUICKMATCH_HINTS = {
+    'Fencing': 'e.g. "timber paling", "Colorbond", "aluminium picket"',
+    'Pergola': 'e.g. "timber or Colorbond open pergola", "insulated panel roof", "louvre roof"',
+    'Decking': 'e.g. "treated pine", "merbau/hardwood", "composite decking"',
+    'Grass Installation': 'e.g. "natural turf", "artificial grass — standard", "artificial grass — pet-friendly"',
+    'Retaining Wall': 'e.g. "timber sleeper wall", "concrete sleeper wall", "masonry block wall"',
+    'Concreting': 'e.g. "plain concrete slab", "exposed aggregate", "stamped concrete", "driveway"',
+    'Gardening & Lawn Mowing': 'e.g. "lawn mowing", "hedge trimming", "garden bed weeding", "green waste removal"',
+    'Tree Pruning & Removal': 'e.g. "tree pruning", "tree removal", "stump grinding"',
+    'Painting': 'e.g. "interior walls", "exterior walls", "ceiling", "fence painting"',
+    'Rendering': 'e.g. "cement render", "acrylic/texture-coat render", "render repair"',
+    'Cabinetry': 'e.g. "kitchen cabinetry — standard", "kitchen cabinetry — premium", "built-in wardrobe", "vanity"',
+    'Stonemason': 'e.g. "natural stone benchtop", "stone paving/cladding", "stone repair"',
+    'Flooring': 'e.g. "carpet", "vinyl/hybrid flooring", "engineered timber", "floor sanding & polishing"',
+    'Earth Works': 'e.g. "machine excavation", "site clearing", "soil removal", "crushed rock base"',
+    'Demolition': 'e.g. "structure demolition", "internal wall removal", "waste removal"',
+    'Skip Bins': 'e.g. "2m³ bin", "6m³ bin", "10m³ bin"',
+    'Cleaning': 'e.g. "end of lease clean", "general house clean", "window cleaning", "gutter cleaning"',
+    'Tiling': 'e.g. "floor tiling", "bathroom wall tiling", "external paving", "waterproofing"',
+    'Tiled Roof Repair': 'e.g. "roof tile replacement", "re-bedding & re-pointing", "gutter replacement"',
+    'Electrical': 'e.g. "power point", "light switch", "downlight", "ceiling fan", "safety switch"',
+    'Plumbing': 'e.g. "tap replacement", "toilet suite", "drain unblocking", "hot water system"',
+    'Handyman': 'e.g. "flat-pack assembly", "shelving", "TV wall mounting", "picture hanging"',
+    'Property Maintenance': 'e.g. "wall patching", "silicone resealing", "flyscreen repair", "paint one room"',
+    'Small Outdoor & Construction Repairs': 'e.g. "concrete repair", "fence panel replacement", "decking repair"',
+    'Pest Control': 'e.g. "general pest treatment", "termite inspection", "rodent treatment"',
+    'Locksmith': 'e.g. "emergency lock-out", "deadlock install", "re-key", "smart lock"',
+    'Blinds, Curtains & Shutters': 'e.g. "roller blind", "venetian blind", "plantation shutters", "curtains"',
+    'Garage Door Service & Repair': 'e.g. "door service/tune-up", "spring replacement", "motor/opener", "full replacement"',
+    'Gutter Guard Installation': 'e.g. "standard mesh guard", "bushfire-zone ember-resistant guard"',
+    'Plastering & Drywall Repair': 'e.g. "small patch repair", "sheet replacement", "ceiling crack repair", "cornice"',
+    'Insulation Installation': 'e.g. "ceiling batt insulation", "wall batt insulation", "underfloor insulation"',
+  };
+
   function selectCat(c) {
     selectedCat = c;
     selectedTier = null;
@@ -2094,7 +2135,9 @@
 
     const tierWrap = document.getElementById('estTierWrap');
     tierWrap.style.display = 'block';
-    document.getElementById('estTierQuickMatch').value = '';
+    const quickMatchInput = document.getElementById('estTierQuickMatch');
+    quickMatchInput.value = '';
+    quickMatchInput.placeholder = 'Type what you need, ' + (CATEGORY_QUICKMATCH_HINTS[c.label] || 'e.g. "replace a power point"');
     document.getElementById('estTierMatchLine').textContent = '';
     document.getElementById('estTierMatchLine').className = 'est-match-line';
     const chips = document.getElementById('estTierChips');
