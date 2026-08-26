@@ -1488,27 +1488,24 @@
       { name:'Old/damaged insulation removal', unit:'m²', rate:12, notes:'Excludes asbestos-contaminated material — specialist removal required.', minJobPrice:350, typicalRange:'$8–$18', estTime:'~75–85 sqm/day', itemId:'INS-004', searchTags:['insulation installation','damaged','insulation','removal'] },
       { name:'Downlight-safe insulation fitting (IC-rated covers)', unit:'light', rate:35, notes:'IC-rated insulation guard.', minJobPrice:350, typicalRange:'$25–$55', estTime:'~15 min', itemId:'INS-005', searchTags:['insulation installation','downlight','safe','insulation','fitting','rated','covers','guard'] },
     ]},
-    // Heating & Cooling and Appliances (added Aug 2026) -- new categories,
-    // pricing not yet set. Same "pending founder review" pattern already
-    // used for Property Maintenance/Small Outdoor & Construction Repairs
-    // above: rate:null + unavailable:true so nothing here is ever bookable
-    // or shown with an invented price -- the estimator already renders
-    // these tasks disabled with a "— not available" label. These also
-    // resolve the two House Health "Your Home" grid tiles
-    // (mysubbies-customer-portal.html's HOME_GRID_CATEGORIES) that
-    // previously referenced categories that didn't exist anywhere in this
-    // rate card -- labels here match those tiles exactly. Once real rates
-    // are set, also flip each task's `unavailable` to false (the admin
-    // Rate Card tab can edit `rate` but not this flag).
+    // Heating & Cooling (added Aug 2026) -- new category, pricing not yet
+    // set. Same "pending founder review" pattern already used for Property
+    // Maintenance/Small Outdoor & Construction Repairs above: rate:null +
+    // unavailable:true so nothing here is ever bookable or shown with an
+    // invented price -- the estimator already renders these tasks disabled
+    // with a "— not available" label. Also resolves the House Health "Your
+    // Home" grid's Heating/Cooling tile (mysubbies-customer-portal.html's
+    // HOME_GRID_CATEGORIES), which previously referenced a category that
+    // didn't exist anywhere in this rate card -- label here matches that
+    // tile exactly. Once real rates are set, also flip each task's
+    // `unavailable` to false (the admin Rate Card tab can edit `rate` but
+    // not this flag). An "Appliances" category was added alongside this
+    // same day and removed same day at the founder's request -- see the
+    // one-off cleanup in mergeRateCardUpdates() above.
     { label:'Heating & Cooling', icon:'❄️', tasks:[
       { name:'Split system air conditioner — supply & install', unit:'unit', rate:null, unavailable:true, unavailReason:'Pricing pending founder review — coming soon.', notes:'Supply and install a single split system air conditioner, indoor and outdoor unit.' },
       { name:'Split system air conditioner — service / regas', unit:'unit', rate:null, unavailable:true, unavailReason:'Pricing pending founder review — coming soon.', notes:'Routine service, clean and refrigerant top-up for an existing split system.' },
       { name:'Ducted heating or cooling — service', unit:'job', rate:null, unavailable:true, unavailReason:'Pricing pending founder review — coming soon.', notes:'Routine service and safety check of an existing ducted heating or cooling system.' },
-    ]},
-    { label:'Appliances', icon:'🔌', tasks:[
-      { name:'Oven or cooktop — supply & install', unit:'appliance', rate:null, unavailable:true, unavailReason:'Pricing pending founder review — coming soon.', notes:'Supply and install a new oven or cooktop onto an existing suitable connection point.' },
-      { name:'Appliance repair / diagnosis', unit:'hour', rate:null, unavailable:true, unavailReason:'Pricing pending founder review — coming soon.', notes:'Diagnose and, where parts are available, repair a faulty household appliance.' },
-      { name:'Old appliance removal & disposal', unit:'appliance', rate:null, unavailable:true, unavailReason:'Pricing pending founder review — coming soon.', notes:'Remove an old appliance and dispose of it at a lawful facility.' },
     ]},
   ];
 
@@ -1529,6 +1526,13 @@
       if (c.image !== undefined) { delete c.image; changed = true; }
       if (c.imageCredit !== undefined) { delete c.imageCredit; changed = true; }
     });
+    // One-off cleanup: "Appliances" was added then removed same-day (Aug
+    // 2026) -- Heating & Cooling stays. Strips it from any browser that
+    // already merged it in during the brief window it was live.
+    {
+      const idx = stored.findIndex(c => c.label === 'Appliances');
+      if (idx !== -1) { stored.splice(idx, 1); changed = true; }
+    }
     DEFAULT_CATEGORIES.forEach(defCat => {
       let storedCat = stored.find(c => c.label === defCat.label);
       if (!storedCat) {
