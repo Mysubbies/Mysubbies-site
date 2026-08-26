@@ -1637,11 +1637,9 @@
     return label.toLowerCase().replace(/[&,]/g, '').replace(/\s+/g, '-');
   }
 
-  // Only category with no photo asset today (see images/categories/) --
+  // Categories with no photo asset today (see images/categories/) --
   // rendered as an icon tile instead of a broken <img>.
-  const CATEGORY_FALLBACK_ICON = {
-    'gutter-guard-installation': '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4C10 4 4 10 4 20c8 0 14-6 16-16z"/><path d="M8 16 20 4"/></svg>',
-  };
+  const CATEGORY_FALLBACK_ICON = {};
 
   // Renders the "Explore all services" grid from live CATEGORIES data --
   // same large photo-card style as Popular services (item asked for this
