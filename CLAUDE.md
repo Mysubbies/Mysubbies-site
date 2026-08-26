@@ -1,5 +1,21 @@
 # Mysubbies Group — Project Context
 
+## Customer app shell + House Health (added Aug 26, 2026)
+The public homepage (`index.html` and its mirrored `mysubbies-website.html`)
+now uses the founder-approved mobile app hierarchy: Melbourne location,
+"What do you need done?", photo-first job identification, natural-language
+service search, five customer-protection signals, horizontally scrollable
+popular services, and a five-item mobile tab bar.
+
+"Property Health" is now customer-facing as **House Health**. Public-page
+House Health links set `mysubbies_open_house_health` and open
+`mysubbies-customer-portal.html#house-health`; the portal then renders the
+existing address-keyed property history, real signal-based score, and
+customer-set maintenance reminders. Keep the disclaimer that House Health
+is based on MySubbies service/maintenance records and is not a building
+inspection. Never show a fabricated health score or invented maintenance
+interval on the public homepage.
+
 ## What this is
 A Melbourne renovation/construction marketplace. Uber-style model: customer picks
 a service, gets an instant price, approves it, job is dispatched to one matched

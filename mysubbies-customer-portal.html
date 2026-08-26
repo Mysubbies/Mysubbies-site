@@ -86,16 +86,19 @@
      approved mockup: navy hero, floating health card, dark Fix Something CTA,
      pastel-circle category grid (own copy of mysubbies-website.html's
      .cc-icon pattern -- self-contained convention, no shared CSS file). */
-  .prop-hero { position:relative; border-radius:20px; overflow:hidden; min-height:170px; background:linear-gradient(135deg, var(--black), var(--primary-light)) center/cover; padding:20px; display:flex; flex-direction:column; justify-content:flex-end; color:#fff; }
+  .prop-hero { position:relative; border-radius:0; overflow:hidden; min-height:330px; background:linear-gradient(135deg, var(--black), var(--primary-light)) center/cover; padding:28px; display:flex; flex-direction:column; justify-content:flex-end; color:#fff; }
   .prop-hero::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(20,33,61,0.1), rgba(20,33,61,0.8)); pointer-events:none; }
   .prop-hero-content { position:relative; z-index:2; }
-  .prop-hero-address { font-size:19px; font-weight:800; }
-  .prop-hero-suburb { font-size:12.5px; opacity:0.8; margin-top:2px; }
+  .prop-hero-address { font-size:30px; font-weight:800; }
+  .prop-hero-suburb { font-size:15px; opacity:0.9; margin-top:2px; }
   .prop-hero-photo-btn { position:absolute; top:14px; right:14px; z-index:3; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.35); color:#fff; font-size:11px; padding:6px 12px; border-radius:999px; cursor:pointer; }
-  .prop-health-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px 18px; margin:-26px 10px 20px; position:relative; z-index:4; box-shadow:0 8px 24px rgba(20,33,61,0.1); display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
-  .prop-health-score { font-size:30px; font-weight:800; line-height:1; }
+  .prop-health-card { background:#fff; border:1px solid var(--line); border-radius:20px; padding:20px 24px; margin:-30px 26px 20px; position:relative; z-index:4; box-shadow:0 10px 28px rgba(20,33,61,0.12); display:grid; grid-template-columns:1fr auto 1.25fr; align-items:center; gap:20px; }
+  .prop-health-score { font-size:43px; font-weight:800; line-height:1; }
   .prop-health-label { font-size:11.5px; font-weight:700; margin-top:2px; }
-  .prop-health-meta { font-size:12px; color:var(--stone); line-height:1.7; text-align:right; }
+  .prop-health-meta { font-size:13px; color:var(--stone); line-height:2; text-align:left; border-left:1px solid var(--line); padding-left:20px; }
+  .prop-health-ring { width:88px; height:88px; border-radius:50%; display:grid; place-items:center; position:relative; background:conic-gradient(var(--good) 0 var(--score),#dceee2 var(--score) 100%); }
+  .prop-health-ring::after { content:''; position:absolute; inset:10px; border-radius:50%; background:#fff; }
+  .prop-health-ring svg { position:relative; z-index:1; color:var(--good); }
   .prop-health-disclaimer { font-size:10.5px; color:var(--stone-light); margin-top:16px; line-height:1.4; }
   .prop-fix-cta { background:var(--black); border-radius:16px; padding:16px 18px; display:flex; align-items:center; gap:14px; color:#fff; cursor:pointer; margin-bottom:8px; border:none; width:100%; text-align:left; }
   .prop-fix-cta-icon { width:42px; height:42px; border-radius:50%; background:rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px; }
@@ -103,7 +106,7 @@
   .prop-fix-cta-sub { font-size:12px; color:rgba(255,255,255,0.65); margin-top:2px; }
   .prop-fix-cta-arrow { margin-left:auto; font-size:18px; }
   .section-head { font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--stone); margin:24px 0 12px; }
-  .home-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .home-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
   .home-cat-card { background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:13px; cursor:pointer; text-align:left; }
   .home-cat-card.active { border-color:var(--black); }
   .home-cat-icon { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; margin-bottom:8px; color:var(--ink); }
@@ -111,6 +114,11 @@
   .home-cat-icon.cat-electrical { background:#FCEFC7; }
   .home-cat-icon.cat-gardening-lawn-mowing { background:#D9E8D3; }
   .home-cat-icon.cat-fencing { background:#F5E6C8; }
+  .home-cat-icon.cat-decking { background:#F4E5D7; }
+  .home-cat-icon.cat-tiled-roof-repair { background:#E5ECF6; }
+  .home-cat-icon.cat-heating-cooling { background:#E3F3FA; }
+  .home-cat-icon.cat-doors-security { background:#FDE5E7; }
+  .home-cat-icon.cat-appliances { background:#DFF4EF; }
   .home-cat-name { font-size:13px; font-weight:700; }
   .home-cat-status { font-size:11px; margin-top:2px; }
   .status-good { color:var(--good); }
@@ -123,6 +131,14 @@
   .maint-card-price { font-weight:800; font-size:14px; margin-left:auto; text-align:right; white-space:nowrap; }
   .maint-setup-card { background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:10px; }
   .maint-setup-card select { border:1.5px solid var(--line); border-radius:8px; padding:7px 9px; font-family:inherit; font-size:12.5px; margin:6px 4px; }
+  @media (max-width:620px) {
+    .prop-hero { min-height:260px; margin:0 -20px; padding:22px; }
+    .prop-hero-address { font-size:24px; }
+    .prop-health-card { margin:-24px -4px 18px; padding:18px; grid-template-columns:1fr auto; }
+    .prop-health-meta { grid-column:1/-1; border-left:0; border-top:1px solid var(--line); padding:12px 0 0; display:flex; justify-content:space-between; line-height:1.5; }
+    .prop-health-ring { width:72px; height:72px; }
+    .home-grid { grid-template-columns:repeat(2,1fr); }
+  }
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
@@ -201,7 +217,7 @@
 
   function openPaymentHistory() { showingPaymentHistory = true; render(); }
   function closePaymentHistory() { showingPaymentHistory = false; render(); }
-  function openPropertyProfile() { showingPropertyProfile = true; render(); }
+  function openPropertyProfile() { showingPropertyProfile = true; window.location.hash = 'house-health'; render(); }
   function closePropertyProfile() { showingPropertyProfile = false; render(); }
 
   // General-purpose "Contact MySubbies" inquiry (Aug 2026) -- not tied to
@@ -437,7 +453,12 @@
     { label: 'Plumbing', displayName: 'Plumbing', icon: '🔧', slug: 'plumbing' },
     { label: 'Electrical', displayName: 'Electrical', icon: '💡', slug: 'electrical' },
     { label: 'Gardening & Lawn Mowing', displayName: 'Garden', icon: '🌿', slug: 'gardening-lawn-mowing' },
+    { label: 'Decking', displayName: 'Deck', icon: '🪵', slug: 'decking' },
     { label: 'Fencing', displayName: 'Fencing', icon: '🚧', slug: 'fencing' },
+    { label: 'Tiled Roof Repair', displayName: 'Roof & Gutters', icon: '⌂', slug: 'tiled-roof-repair' },
+    { label: 'Heating & Cooling', displayName: 'Heating/Cooling', icon: '❄', slug: 'heating-cooling' },
+    { label: 'Locksmith', displayName: 'Doors & Security', icon: '🔒', slug: 'doors-security' },
+    { label: 'Appliances', displayName: 'Appliances', icon: '▣', slug: 'appliances' },
   ];
   let propertyCategoryFilter = null;
   let lastPropertyProfiles = [];
@@ -641,12 +662,15 @@
       </div>
       <div class="prop-health-card">
         <div>
+          <div style="font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--stone);margin-bottom:8px;">House Health</div>
           <div class="prop-health-score" style="color:${health.color};">${health.score}%</div>
           <div class="prop-health-label" style="color:${health.color};">${health.label}</div>
         </div>
+        <div class="prop-health-ring" style="--score:${health.score}%;"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="m9 15 2 2 4-5"/></svg></div>
         <div class="prop-health-meta">
-          ${p.history.length} job${p.history.length === 1 ? '' : 's'} recorded<br>
-          ${upcomingCount} upcoming reminder${upcomingCount === 1 ? '' : 's'}
+          <span>▤ &nbsp;${p.history.length} service${p.history.length === 1 ? '' : 's'} recorded</span><br>
+          <span>▣ &nbsp;${upcomingCount} upcoming reminder${upcomingCount === 1 ? '' : 's'}</span><br>
+          <span>◷ &nbsp;Updated from your MySubbies records</span>
         </div>
       </div>
       <button class="prop-fix-cta" onclick="triggerFixSomething()">
@@ -659,7 +683,7 @@
       ${renderUpcomingMaintenanceSection(p)}
       <div class="section-head">History${propertyCategoryFilter ? ' · ' + escapeHtml(propertyCategoryFilter) + ' <a onclick="setPropertyCategoryFilter(null)" style="text-decoration:underline;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;">(clear)</a>' : ''}</div>
       ${renderPropertyHistoryList(p)}
-      <div class="prop-health-disclaimer">Property Health is based on your MySubbies service and maintenance records and is not a building inspection.</div>`;
+      <div class="prop-health-disclaimer">House Health is based on your MySubbies service and maintenance records and is not a building inspection.</div>`;
   }
 
   async function renderPropertyProfile(email) {
@@ -679,7 +703,7 @@
     lastPropertyProfiles = properties;
 
     if (properties.length === 0) {
-      wrap.innerHTML = `<h1 class="pagetitle" style="margin-bottom:10px;">My Property</h1><div class="empty">No property history yet. This builds up automatically each time a job is completed and paid at your address.</div>`;
+      wrap.innerHTML = `<h1 class="pagetitle" style="margin-bottom:10px;">House Health</h1><div class="empty">Your House Health record will build automatically as MySubbies jobs are completed and paid at your address.</div>`;
       return;
     }
 
@@ -808,7 +832,7 @@
           <p class="pagesub">${allJobs.length} job${allJobs.length === 1 ? '' : 's'}</p>
         </div>
         <div style="display:flex;gap:8px;flex-shrink:0;">
-          <button class="btn btn-outline" style="width:auto;" onclick="openPropertyProfile()">My Property</button>
+          <button class="btn btn-outline" style="width:auto;" onclick="openPropertyProfile()">House Health</button>
           <button class="btn btn-outline" style="width:auto;" onclick="openPaymentHistory()">Payment history</button>
           <a class="btn btn-black" style="width:auto;" href="mysubbies-website.html#estimate">+ Book another job</a>
         </div>
@@ -1566,6 +1590,10 @@
   window.addEventListener('storage', (e) => { if (e.key === 'mysubbies_jobs') { checkForNewMessages(); render(); } });
   setInterval(checkForNewMessages, 3000);
 
+  if (window.location.hash === '#house-health' || localStorage.getItem('mysubbies_open_house_health') === '1') {
+    showingPropertyProfile = true;
+    localStorage.removeItem('mysubbies_open_house_health');
+  }
   hydrateJobsFromServer().then(render);
 </script>
 <script>

@@ -83,15 +83,16 @@
 
   header {
     position: sticky; top: 0; z-index: 50;
-    background: var(--black);
+    background: #fff; border-bottom:1px solid var(--line);
   }
   .navwrap { max-width: 1180px; margin:0 auto; padding: 0 24px; display:flex; align-items:center; justify-content:space-between; gap:24px; height:64px; }
   .logo { display:flex; align-items:center; gap:9px; flex-shrink:0; }
   .logo-mark { width:28px; height:28px; border-radius:7px; background:#fff; flex-shrink:0; }
-  .logo-word { font-weight:800; font-size:19px; color:#fff; white-space:nowrap; }
+  .logo-word { font-weight:800; font-size:19px; color:var(--black); white-space:nowrap; }
+  .logo-word .gold { color:var(--accent); }
   nav.mainnav { display:flex; align-items:center; gap:32px; }
-  nav.mainnav a.navlink, .navctas a.navlink { font-size:14px; font-weight:500; color:rgba(255,255,255,0.72); transition:color .15s; }
-  nav.mainnav a.navlink:hover, .navctas a.navlink:hover { color:#fff; }
+  nav.mainnav a.navlink, .navctas a.navlink { font-size:14px; font-weight:600; color:var(--black); transition:color .15s; }
+  nav.mainnav a.navlink:hover, .navctas a.navlink:hover { color:var(--accent-dark); }
   .navctas { display:flex; align-items:center; gap:10px; }
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:11px 22px; border-radius:999px; font-size:14px; font-weight:600; cursor:pointer; border:none; transition: opacity .12s; white-space:nowrap; }
   .btn:hover { opacity:.85; }
@@ -100,10 +101,15 @@
   .btn-ghost-onblack { background: transparent; color:#fff; border:1px solid rgba(255,255,255,0.3); }
   .btn-outline { background: transparent; color: var(--ink); border:1.5px solid var(--line); }
   .btn-lg { padding:15px 30px; font-size:15px; }
-  .mobiletoggle { display:none; background:none; border:none; color:#fff; font-size:22px; cursor:pointer; line-height:1; padding:4px; }
-  .mobilemenu { display:none; background: var(--black); border-top:1px solid rgba(255,255,255,0.12); padding: 8px 24px 20px; }
+  .navctas .btn-white { background:var(--black); color:#fff; }
+  .mobiletoggle { display:none; background:none; border:none; color:var(--black); font-size:22px; cursor:pointer; line-height:1; padding:4px; }
+  .app-bell { display:none; border:0; background:transparent; color:var(--black); position:relative; padding:6px; }
+  .app-bell-dot { position:absolute; right:0; top:0; min-width:17px; height:17px; border-radius:999px; display:grid; place-items:center; background:var(--accent); color:var(--black); font-size:9px; font-weight:800; }
+  .mobilemenu { display:none; background:#fff; border-top:1px solid var(--line); padding: 8px 24px 20px; box-shadow:0 12px 20px rgba(20,33,61,.08); }
   .mobilemenu.open { display:block; }
-  .mobilemenu a.navlink { display:block; padding:13px 0; font-size:15px; font-weight:500; color:rgba(255,255,255,0.85); border-bottom:1px solid rgba(255,255,255,0.08); }
+  .mobilemenu a.navlink { display:block; padding:13px 0; font-size:15px; font-weight:600; color:var(--black); border-bottom:1px solid var(--line); }
+  .mobilemenu .btn-ghost-onblack { color:var(--black); border-color:var(--line); }
+  .mobilemenu .btn-white { background:var(--black); color:#fff; }
   .mobilemenu .mobilemenu-ctas { display:flex; flex-direction:column; gap:10px; margin-top:16px; }
   @media (max-width: 860px) {
     nav.mainnav { display:none; }
@@ -366,6 +372,111 @@
   }
   .btn-white:focus-visible { outline-color:#fff; }
 
+  /* Customer app shell (Aug 2026) — mirrors the approved mobile reference
+     while keeping the existing estimator and booking logic intact. */
+  .app-hero { padding:0; background:#fff; overflow:hidden; }
+  .app-hero-shell { max-width:1180px; margin:0 auto; padding:42px 34px 34px; background-image:linear-gradient(90deg,#fff 0%,rgba(255,255,255,.96) 37%,rgba(255,255,255,.18) 67%,rgba(255,255,255,0) 100%),url('images/hero-tradie-v2.png'); background-size:cover; background-position:center; border-radius:0 0 26px 26px; }
+  .app-location { display:flex; align-items:center; gap:8px; color:var(--black); font-size:14px; font-weight:600; margin-bottom:28px; }
+  .app-location svg { color:var(--black); }
+  .app-hero-grid { display:grid; grid-template-columns:minmax(0,620px) 1fr; gap:38px; align-items:stretch; }
+  .app-hero-copy { padding:18px 0 0; }
+  .app-hero-copy h1 { font-size:clamp(42px,5vw,66px); line-height:1.01; max-width:650px; color:var(--black); }
+  .app-hero-copy .lede { margin:18px 0 24px; color:var(--stone); font-size:17px; max-width:520px; }
+  .app-upload-card { width:100%; display:flex; align-items:center; gap:18px; padding:22px 24px; border:0; border-radius:20px; color:#fff; background:linear-gradient(130deg,#0d2345,#14213d); text-align:left; cursor:pointer; box-shadow:0 16px 34px rgba(20,33,61,.16); }
+  .app-upload-icon { width:52px; height:52px; display:grid; place-items:center; flex:0 0 auto; }
+  .app-upload-copy { flex:1; }
+  .app-upload-copy strong { display:block; font-size:17px; margin-bottom:2px; }
+  .app-upload-copy span { display:block; font-size:13px; color:rgba(255,255,255,.76); }
+  .app-round-arrow { width:46px; height:46px; border-radius:50%; display:grid; place-items:center; flex:0 0 auto; background:#fff; color:var(--black); font-size:25px; }
+  .app-search-card { margin-top:14px; min-height:84px; display:flex; align-items:center; gap:16px; padding:18px 20px; background:#fff; border:1px solid var(--line); border-radius:18px; box-shadow:0 13px 34px rgba(20,33,61,.09); }
+  .app-search-card svg { flex:0 0 auto; color:var(--black); }
+  .app-search-input { flex:1; min-width:0; border:0; outline:0; resize:none; font:600 15px/1.4 'Plus Jakarta Sans',sans-serif; color:var(--ink); background:transparent; }
+  .app-search-input::placeholder { color:#777f8e; font-weight:500; }
+  .app-search-go { width:44px; height:44px; border-radius:50%; border:1px solid var(--line); background:#fff; color:var(--black); font-size:23px; cursor:pointer; }
+  .app-search-status { min-height:18px; margin:8px 4px 0; font-size:12px; color:var(--stone); }
+  .app-hero-photo { min-height:485px; border-radius:28px; overflow:hidden; position:relative; background:#edf0ea; visibility:hidden; }
+  .app-hero-photo img { width:100%; height:100%; object-fit:cover; object-position:center; }
+  .app-trust-row { display:grid; grid-template-columns:repeat(5,1fr); margin-top:28px; border:1px solid var(--line); border-radius:18px; background:rgba(248,249,251,.96); overflow:hidden; }
+  .app-trust-item { padding:16px 10px; text-align:center; font-size:11.5px; font-weight:600; color:var(--black); border-left:1px solid var(--line); }
+  .app-trust-item:first-child { border-left:0; }
+  .app-trust-item svg { display:block; margin:0 auto 7px; }
+  .house-health-band { padding:34px 0; background:#f6f8f5; }
+  .house-health-card { display:grid; grid-template-columns:auto 1fr auto; gap:18px; align-items:center; padding:24px 26px; background:#fff; border:1px solid #dfe7de; border-radius:22px; box-shadow:0 12px 30px rgba(28,63,44,.07); }
+  .house-health-gauge { width:70px; height:70px; border-radius:50%; display:grid; place-items:center; background:conic-gradient(#2f7a50 0 88%,#e5ece6 88%); position:relative; }
+  .house-health-gauge::after { content:''; position:absolute; inset:7px; border-radius:50%; background:#fff; }
+  .house-health-gauge svg { position:relative; z-index:1; color:#2f7a50; }
+  .house-health-copy h2 { font-size:20px; color:var(--black); margin-bottom:4px; }
+  .house-health-copy p { color:var(--stone); font-size:13.5px; line-height:1.55; max-width:650px; }
+  .house-health-copy .health-kicker { color:#2f7a50; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; margin-bottom:5px; }
+  .house-health-btn { background:#eef6ef; color:#1e633e; border:1px solid #cfe2d4; }
+  .popular-jobs-section { padding:50px 0; background:linear-gradient(180deg,#fffaf4,#fff); }
+  .section-title-row { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-bottom:20px; }
+  .section-title-row h2 { font-size:25px; color:var(--black); }
+  .section-title-row a { font-size:13px; font-weight:700; color:var(--black); }
+  .popular-job-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:14px; }
+  .popular-job-card { display:flex; flex-direction:column; min-width:0; background:#fff; border:1px solid var(--line); border-radius:16px; overflow:hidden; box-shadow:0 8px 22px rgba(20,33,61,.05); }
+  .popular-job-card img { width:100%; aspect-ratio:1.35; object-fit:cover; }
+  .popular-job-body { padding:14px; display:flex; flex-direction:column; flex:1; }
+  .popular-job-body h3 { font-size:14px; line-height:1.3; min-height:37px; }
+  .popular-job-meta { color:var(--stone); font-size:11px; margin-top:5px; }
+  .popular-job-price { font-size:11px; color:var(--stone); margin-top:12px; }
+  .popular-job-price strong { display:block; font-size:24px; color:var(--ink); line-height:1.15; }
+  .popular-job-card .btn { margin-top:auto; border-radius:8px; padding:10px 8px; background:var(--accent); color:var(--black); font-size:12px; }
+  .today-card { display:flex; align-items:center; justify-content:space-between; gap:22px; margin-top:22px; padding:18px 22px; background:var(--accent-pale); border-radius:17px; }
+  .today-card-copy { display:flex; align-items:center; gap:14px; }
+  .today-card-icon { width:46px; height:46px; display:grid; place-items:center; border-radius:13px; background:#fff; color:var(--black); }
+  .today-card-copy strong { display:block; color:var(--black); }
+  .today-card-copy span { color:var(--stone); font-size:12px; }
+  .mobile-tabbar { grid-template-columns:repeat(5,1fr) !important; }
+  .tab-item.active { color:var(--accent-dark); }
+
+  @media (max-width:980px) {
+    .app-hero-grid { grid-template-columns:1fr .8fr; gap:22px; }
+    .app-hero-photo { min-height:430px; }
+  }
+  @media (max-width:720px) {
+    body { padding-bottom:76px; }
+    header { background:#fff; box-shadow:0 1px 0 var(--line); }
+    .navwrap { height:72px; padding:0 20px; }
+    .logo-word { color:var(--black); font-size:20px; }
+    .logo-mark { background:var(--primary-pale); }
+    .mobiletoggle { color:var(--black); order:-1; }
+    .app-bell { display:block; }
+    .app-hero-shell { padding:20px 18px 22px; background-image:linear-gradient(90deg,#fff 0%,rgba(255,255,255,.98) 38%,rgba(255,255,255,.2) 72%),linear-gradient(0deg,#fff 0%,transparent 35%),url('images/hero-tradie-v2.png'); background-size:auto 410px; background-repeat:no-repeat; background-position:right top; border-radius:0; }
+    .app-location { margin:0 0 20px 46px; font-size:13px; }
+    .app-hero-grid { display:block; position:relative; }
+    .app-hero-copy { padding:0; position:relative; z-index:2; }
+    .app-hero-copy h1 { font-size:clamp(36px,11vw,48px); max-width:66%; text-shadow:0 1px 0 #fff; }
+    .app-hero-copy .lede { font-size:14.5px; max-width:62%; margin:13px 0 24px; color:var(--black); }
+    .app-hero-photo { display:none; }
+    .app-upload-card,.app-search-card { position:relative; z-index:3; width:100%; }
+    .app-upload-card { margin-top:18px; padding:18px; border-radius:18px; }
+    .app-search-card { min-height:78px; }
+    .app-trust-row { margin-top:22px; overflow-x:auto; grid-template-columns:repeat(5,minmax(92px,1fr)); scrollbar-width:none; }
+    .app-trust-item { padding:14px 7px; font-size:10.5px; }
+    .house-health-band { padding:18px 0 26px; }
+    .house-health-card { grid-template-columns:auto 1fr; padding:18px; gap:14px; border-radius:18px; }
+    .house-health-gauge { width:60px; height:60px; }
+    .house-health-btn { grid-column:1/-1; width:100%; }
+    #categories { padding-top:30px; }
+    .cat-head { margin-bottom:20px; }
+    .cat-head h2 { font-size:21px; }
+    .cat-head p { display:none; }
+    .catgrid-popular { display:flex; overflow-x:auto; gap:12px; padding-bottom:8px; scroll-snap-type:x mandatory; scrollbar-width:none; }
+    .catgrid-popular .catcard2 { min-width:132px; max-width:132px; scroll-snap-align:start; border:0; background:transparent; overflow:visible; }
+    .catcard2 .cc-photo { border-radius:18px; aspect-ratio:1; }
+    .catcard2 .cc-body { padding:9px 2px 0; }
+    .catcard2 .cc-name { font-size:12px; text-align:center; }
+    .catcard2 .cc-sub { display:none; }
+    .popular-jobs-section { padding:30px 0; }
+    .section-title-row h2 { font-size:20px; }
+    .popular-job-grid { display:flex; overflow-x:auto; gap:12px; padding-bottom:8px; scroll-snap-type:x mandatory; scrollbar-width:none; }
+    .popular-job-card { min-width:210px; scroll-snap-align:start; }
+    .popular-job-body h3 { min-height:0; }
+    .today-card { align-items:flex-start; flex-direction:column; }
+    .today-card .btn { width:100%; }
+  }
+
   /* ============ De-emphasised contractor nav CTA (item 10) ============ */
 
   /* ============ Hero redesign (item 2/3) ============ */
@@ -422,7 +533,7 @@
   .proof-pill svg { flex-shrink:0; color:var(--good); }
 
   /* ============ Category redesign (item 5) ============ */
-  .catgrid-popular { display:grid; grid-template-columns:repeat(4, 1fr); gap:14px; }
+  .catgrid-popular { display:grid; grid-template-columns:repeat(6, 1fr); gap:14px; }
   @media (max-width:860px) { .catgrid-popular { grid-template-columns:repeat(2, 1fr); } }
   /* Real photo banner (Aug 2026) replaces the flat icon badge on the 8
      popular cards -- sourced stock photography (Unsplash License), not
@@ -652,7 +763,7 @@
   <div class="navwrap">
     <a class="logo" href="#top">
       <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-      <div class="logo-word">MySubbies</div>
+      <div class="logo-word">My<span class="gold">Subbies</span></div>
     </a>
     <nav class="mainnav">
       <a class="navlink" href="#categories">Services</a>
@@ -666,6 +777,7 @@
       <a class="btn btn-white" href="#estimate">Get an instant price</a>
     </div>
     <button class="mobiletoggle" id="mobileToggleBtn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
+    <a class="app-bell" href="mysubbies-customer-portal.html" aria-label="Notifications"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg></a>
   </div>
   <div class="mobilemenu" id="mobileMenu">
     <a class="navlink" href="#categories" onclick="closeMobileMenu()">Services</a>
@@ -680,60 +792,54 @@
   </div>
 </header>
 
-<section class="hero hero-new" id="top">
-  <div class="wrap">
-    <div class="personal-tradie-tag">MySubbies: Your Personal Tradie</div>
-    <h1>Whatever needs doing, MySubbies gets it done.</h1>
-    <p class="lede">Describe the job or upload a photo. Get an estimated price and a vetted professional — without chasing quotes.</p>
+<section class="app-hero" id="top">
+  <div class="app-hero-shell">
+    <div class="app-location">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+      Melbourne, VIC <span aria-hidden="true">⌄</span>
+    </div>
+    <div class="app-hero-grid">
+      <div class="app-hero-copy">
+        <h1>What do you need done?</h1>
+        <p class="lede">Upfront estimated pricing. Verified tradies. Book in minutes.</p>
 
-    <div class="hero-new-grid">
-        <div class="booking-starter">
-          <label for="bstarterInput">What do you need help with?</label>
-          <textarea id="bstarterInput" placeholder="Describe the job, e.g. leaking tap, garden cleanup or new decking" rows="2"></textarea>
-          <div id="bstarterStatus"></div>
-          <div class="bstarter-actions">
-            <button class="btn btn-secondary-action bstarter-photo-btn" onclick="heroUploadPhoto()">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              Upload a photo
-            </button>
-            <div class="bstarter-actions-row2">
-              <button class="btn btn-black" onclick="heroSubmitDescribe()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-                Submit
-              </button>
-              <button class="btn btn-secondary-action" onclick="heroBrowseServices()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-                Browse services
-              </button>
-            </div>
-          </div>
-          <div class="bstarter-trust">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5.2 3.4 9.9 8 11 4.6-1.1 8-5.8 8-11V5z"/><path d="m9 12 2 2 4-4"/></svg>
-            No account needed to see an estimated price.
-          </div>
+        <button class="app-upload-card" onclick="heroUploadPhoto()">
+          <span class="app-upload-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7h3l1.5-2h7L17 7h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"/></svg></span>
+          <span class="app-upload-copy"><strong>Upload a photo</strong><span>We’ll identify the job and find the right price</span></span>
+          <span class="app-round-arrow" aria-hidden="true">→</span>
+        </button>
+
+        <div class="app-search-card">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+          <textarea class="app-search-input" id="bstarterInput" rows="2" placeholder="Search a service — e.g. leaking tap, fence repair, painting"></textarea>
+          <button class="app-search-go" onclick="heroSubmitDescribe()" aria-label="Search">→</button>
         </div>
-
-      <!-- AI-generated composite (founder-supplied, Aug 2026) -- a deliberate,
-           explicit exception to this project's usual "no AI-generated
-           visuals" rule (see CLAUDE.md), approved directly by the founder
-           for this specific marketing image after an earlier version with
-           fabricated review counts/prices baked into the phone mockup was
-           rejected and replaced. This version has no fabricated stats. -->
-      <div class="hero-photo-wrap" id="heroPhotoWrap">
-        <img src="images/hero-booking.jpg" alt="A confident tradie with a tool belt standing in front of a work van, with a phone showing the MySubbies app" width="1400" height="933" fetchpriority="high" />
+        <div class="app-search-status" id="bstarterStatus"></div>
       </div>
+    </div>
+
+    <div class="app-trust-row" aria-label="MySubbies protections">
+      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 9.8 8 11 4.6-1.2 8-6 8-11V5Z"/><path d="m9 12 2 2 4-4"/></svg>Verified<br>Tradies</div>
+      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 9.8 8 11 4.6-1.2 8-6 8-11V5Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>Insured<br>&amp; Checked</div>
+      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m3 12 9-9 9 9-9 9Z"/><path d="M12 7v10M15 9.5c0-1.3-1.3-2-3-2s-3 .7-3 2 1.3 2 3 2 3 .7 3 2-1.3 2-3 2-3-.7-3-2"/></svg>Upfront<br>Pricing</div>
+      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="9" width="16" height="12" rx="2"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15" r="1"/></svg>Secure<br>Payments</div>
+      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 13a8 8 0 0 1 16 0"/><path d="M4 13v4h3v-5H4M20 13v4h-3v-5h3M17 19c-1 2-3 2-5 2"/></svg>Australian<br>Support</div>
     </div>
   </div>
 </section>
 
-<section class="trust-strip" id="protection">
+<section class="house-health-band" id="protection">
   <div class="wrap">
-    <div class="trust-strip-row">
-      <div class="trust-strip-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5.2 3.4 9.9 8 11 4.6-1.1 8-5.8 8-11V5z"/><path d="m9 12 2 2 4-4"/></svg><span>Vetted professionals</span></div>
-      <div class="trust-strip-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span>Upfront estimated pricing</span></div>
-      <div class="trust-strip-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>Secure staged payments</span></div>
-      <div class="trust-strip-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v2a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V3"/><path d="m9 13 2 2 4-4"/></svg><span>Approved variations only</span></div>
-      <div class="trust-strip-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.4-7-11a7 7 0 0 1 14 0c0 5.6-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Melbourne-based support</span></div>
+    <div class="house-health-card">
+      <div class="house-health-gauge" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="m9 15 2 2 4-5"/></svg>
+      </div>
+      <div class="house-health-copy">
+        <div class="health-kicker">New · House Health</div>
+        <h2>Know what has been done—and what needs attention next.</h2>
+        <p>Your home builds a secure service history as jobs are completed. Track work, set your own maintenance reminders and book the right help from one place.</p>
+      </div>
+      <button class="btn house-health-btn" onclick="openHouseHealth()">View my House Health →</button>
     </div>
   </div>
 </section>
@@ -741,49 +847,36 @@
 <section id="categories">
   <div class="wrap">
     <div class="cat-head reveal">
-      <h2>Popular services</h2>
+      <h2>Popular categories</h2>
       <p>Pick a service to get an instant, estimated price — or explore the full list of 31 categories.</p>
     </div>
     <div class="catgrid-popular">
-      <button class="catcard2" data-category="Electrical" onclick="goToEstimatorWithCategory('Electrical')">
-        <img class="cc-photo" src="images/categories/electrical.jpg" alt="Electrician installing wiring" loading="lazy" />
-        <div class="cc-body"><div class="cc-name">Electrical</div>
-        <div class="cc-sub">Power points, lighting, safety switches</div></div>
+      <button class="catcard2" data-category="Handyman" onclick="goToEstimatorWithCategory('Handyman')">
+        <img class="cc-photo" src="images/categories/handyman.jpg" alt="Handyman with a tool belt" loading="lazy" />
+        <div class="cc-body"><div class="cc-name">Repairs &amp; Handyman</div>
+        <div class="cc-sub">General repairs, installations and small jobs</div></div>
       </button>
       <button class="catcard2" data-category="Plumbing" onclick="goToEstimatorWithCategory('Plumbing')">
         <img class="cc-photo" src="images/categories/plumbing.jpg" alt="Plumber working on pipes" loading="lazy" />
-        <div class="cc-body"><div class="cc-name">Plumbing</div>
-        <div class="cc-sub">Taps, blockages, hot water systems</div></div>
+        <div class="cc-body"><div class="cc-name">Plumbing</div><div class="cc-sub">Taps, blockages, hot water systems</div></div>
       </button>
-      <button class="catcard2" data-category="Handyman" onclick="goToEstimatorWithCategory('Handyman')">
-        <img class="cc-photo" src="images/categories/handyman.jpg" alt="Handyman with a tool belt" loading="lazy" />
-        <div class="cc-body"><div class="cc-name">Home Repairs</div>
-        <div class="cc-sub">General repairs, installations and small jobs</div></div>
-      </button>
-      <button class="catcard2" data-category="Cleaning" onclick="goToEstimatorWithCategory('Cleaning')">
-        <img class="cc-photo" src="images/categories/cleaning.jpg" alt="Cleaner vacuuming a living room" loading="lazy" />
-        <div class="cc-body"><div class="cc-name">Cleaning</div>
-        <div class="cc-sub">Bond cleans, regular cleans, windows</div></div>
+      <button class="catcard2" data-category="Electrical" onclick="goToEstimatorWithCategory('Electrical')">
+        <img class="cc-photo" src="images/categories/electrical.jpg" alt="Electrician installing wiring" loading="lazy" />
+        <div class="cc-body"><div class="cc-name">Electrical</div><div class="cc-sub">Power points, lighting, safety switches</div></div>
       </button>
       <button class="catcard2" data-category="Gardening &amp; Lawn Mowing" onclick="goToEstimatorWithCategory('Gardening &amp; Lawn Mowing')">
         <img class="cc-photo" src="images/categories/gardening-lawn-mowing.jpg" alt="Landscaper mowing a lawn" loading="lazy" />
-        <div class="cc-body"><div class="cc-name">Gardening</div>
+        <div class="cc-body"><div class="cc-name">Outdoor &amp; Landscaping</div>
         <div class="cc-sub">Lawn mowing, tidy-ups, hedges</div></div>
-      </button>
-      <button class="catcard2" data-category="Painting" onclick="goToEstimatorWithCategory('Painting')">
-        <img class="cc-photo" src="images/categories/painting.jpg" alt="Painter with a roller and paint tray" loading="lazy" />
-        <div class="cc-body"><div class="cc-name">Painting</div>
-        <div class="cc-sub">Interior, exterior, fences</div></div>
       </button>
       <button class="catcard2" data-category="Fencing" onclick="goToEstimatorWithCategory('Fencing')">
         <img class="cc-photo" src="images/categories/fencing.jpg" alt="Workers building a timber fence" loading="lazy" />
-        <div class="cc-body"><div class="cc-name">Fencing</div>
+        <div class="cc-body"><div class="cc-name">Fencing &amp; Gates</div>
         <div class="cc-sub">Timber, Colorbond, aluminium</div></div>
       </button>
-      <button class="catcard2" data-category="Decking" onclick="goToEstimatorWithCategory('Decking')">
-        <img class="cc-photo" src="images/categories/decking.jpg" alt="Workers building a timber deck" loading="lazy" />
-        <div class="cc-body"><div class="cc-name">Decking &amp; Outdoor Work</div>
-        <div class="cc-sub">New decks, repairs, outdoor builds</div></div>
+      <button class="catcard2" data-category="Cleaning" onclick="goToEstimatorWithCategory('Cleaning')">
+        <img class="cc-photo" src="images/categories/cleaning.jpg" alt="Cleaner vacuuming a living room" loading="lazy" />
+        <div class="cc-body"><div class="cc-name">Cleaning &amp; Maintenance</div><div class="cc-sub">Bond cleans, regular cleans, windows</div></div>
       </button>
     </div>
 
@@ -799,6 +892,45 @@
            reappears the moment it's re-enabled -- and any brand-new category
            an admin adds shows up automatically too, without an HTML edit. -->
       <div class="catgrid catgrid-all" id="catGrid"></div>
+    </div>
+  </div>
+</section>
+
+<section class="popular-jobs-section" id="popular-jobs">
+  <div class="wrap">
+    <div class="section-title-row">
+      <h2>Popular small jobs near you</h2>
+      <a href="#estimate">View all services&nbsp; →</a>
+    </div>
+    <div class="popular-job-grid">
+      <article class="popular-job-card">
+        <img src="images/categories/fencing.jpg" alt="Timber fence repair" loading="lazy">
+        <div class="popular-job-body"><h3>Fence Repair</h3><div class="popular-job-meta">Repair damaged fencing</div><div class="popular-job-price"><strong>Get price</strong></div><button class="btn" onclick="goToEstimatorWithCategory('Fencing')">Get price</button></div>
+      </article>
+      <article class="popular-job-card">
+        <img src="images/categories/plumbing.jpg" alt="Tap replacement" loading="lazy">
+        <div class="popular-job-body"><h3>Tap Replacement</h3><div class="popular-job-meta">Licensed plumbing service</div><div class="popular-job-price">From<strong>$290</strong></div><button class="btn" onclick="goToEstimatorWithCategory('Plumbing')">Book now</button></div>
+      </article>
+      <article class="popular-job-card">
+        <img src="images/categories/electrical.jpg" alt="Power point replacement" loading="lazy">
+        <div class="popular-job-body"><h3>Power Point Replacement</h3><div class="popular-job-meta">Licensed electrical service</div><div class="popular-job-price">From<strong>$180</strong></div><button class="btn" onclick="goToEstimatorWithCategory('Electrical')">Book now</button></div>
+      </article>
+      <article class="popular-job-card">
+        <img src="images/categories/electrical.jpg" alt="Ceiling fan installation" loading="lazy">
+        <div class="popular-job-body"><h3>Ceiling Fan Installation</h3><div class="popular-job-meta">Using existing wiring</div><div class="popular-job-price">From<strong>$320</strong></div><button class="btn" onclick="goToEstimatorWithCategory('Electrical')">Book now</button></div>
+      </article>
+      <article class="popular-job-card">
+        <img src="images/categories/gardening-lawn-mowing.jpg" alt="Garden and lawn service" loading="lazy">
+        <div class="popular-job-body"><h3>Lawn Mowing</h3><div class="popular-job-meta">Small lawn, up to 300 m²</div><div class="popular-job-price">From<strong>$120</strong></div><button class="btn" onclick="goToEstimatorWithCategory('Gardening &amp; Lawn Mowing')">Book now</button></div>
+      </article>
+      <article class="popular-job-card">
+        <img src="images/categories/concreting.jpg" alt="Small concrete job" loading="lazy">
+        <div class="popular-job-body"><h3>Small Concrete Job</h3><div class="popular-job-meta">Tell us what needs doing</div><div class="popular-job-price"><strong>Get price</strong></div><button class="btn" onclick="goToEstimatorWithCategory('Concreting')">Get price</button></div>
+      </article>
+    </div>
+    <div class="today-card">
+      <div class="today-card-copy"><div class="today-card-icon"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></div><div><strong>Need it done today?</strong><span>Check availability for your area and preferred time.</span></div></div>
+      <a class="btn btn-outline" href="#estimate">Find tradies near me →</a>
     </div>
   </div>
 </section>
@@ -1030,25 +1162,34 @@
 </div>
 
 <nav class="mobile-tabbar" aria-label="Primary">
-  <a class="tab-item" href="#top">
+  <a class="tab-item active" href="#top">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
     Home
   </a>
-  <a class="tab-item" href="#categories">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-    Services
+  <a class="tab-item" href="mysubbies-customer-portal.html">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+    Bookings
   </a>
   <button class="tab-item tab-fab" onclick="openFixSomething()">
     <span class="fab-circle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>
     New Job
   </button>
+  <button class="tab-item" onclick="openHouseHealth()">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="m9 15 2 2 4-5"/></svg>
+    House Health
+  </button>
   <a class="tab-item" href="mysubbies-customer-portal.html">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 7 5 4h14l2 3"/></svg>
-    My Jobs
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+    Account
   </a>
 </nav>
 
 <script>
+  function openHouseHealth() {
+    localStorage.setItem('mysubbies_open_house_health', '1');
+    window.location.href = 'mysubbies-customer-portal.html#house-health';
+  }
+
   // Real MySubbies master rate card (Melbourne 2026) — 41 rows grouped into
   // 24 customer-facing categories. 8 have real material/size tiers; the rest
   // are single flat rates. Threshold + dayRate drive the small-job floor price.
