@@ -153,11 +153,14 @@
 
   let selectedJobId = null;
   let showingPaymentHistory = false;
+  let showingPropertyProfile = false;
   let jobSearchQuery = '';
   const app = document.getElementById('app');
 
   function openPaymentHistory() { showingPaymentHistory = true; render(); }
   function closePaymentHistory() { showingPaymentHistory = false; render(); }
+  function openPropertyProfile() { showingPropertyProfile = true; render(); }
+  function closePropertyProfile() { showingPropertyProfile = false; render(); }
 
   // General-purpose "Contact MySubbies" inquiry (Aug 2026) -- not tied to
   // any specific job, unlike Report a problem/Request to cancel. Same
@@ -371,6 +374,66 @@
     `;
   }
 
+  // Property Profile (Phase 1, added Aug 2026) -- a permanent, address-keyed
+  // timeline of completed work, auto-built server-side by api/sync-jobs.js
+  // on every job sync (see supabase/schema_v5_property_profiles.sql). This
+  // is read-only display: nothing here writes to the property tables, and
+  // it never invents entries for jobs that aren't actually complete yet
+  // (completion = every paymentSchedule stage ticked in paidStages, same
+  // definition used server-side -- jobs.status/'completed' is never
+  // actually reached in this codebase, so it can't be used here either).
+  async function renderPropertyProfile(email) {
+    app.innerHTML = `
+      <button class="backbtn" onclick="closePropertyProfile()">← Back to my jobs</button>
+      <h1 class="pagetitle">My Property</h1>
+      <p class="pagesub">A running record of every completed job at your address — builds automatically as work finishes.</p>
+      <div id="propertyProfileList"><div class="note">Loading…</div></div>
+    `;
+    const wrap = document.getElementById('propertyProfileList');
+
+    let properties = [];
+    try {
+      const res = await fetch('/api/property-profile?customerEmail=' + encodeURIComponent(email));
+      const data = await res.json();
+      properties = (data && data.properties) || [];
+    } catch (e) { /* fall through to empty state below */ }
+
+    if (properties.length === 0) {
+      wrap.innerHTML = `<div class="empty">No property history yet. This builds up automatically each time a job is completed and paid at your address.</div>`;
+      return;
+    }
+
+    wrap.innerHTML = properties.map(p => {
+      if (p.history.length === 0) {
+        return `
+          <div class="box" style="margin-bottom:16px;">
+            <div style="font-weight:700;margin-bottom:4px;">📍 ${escapeHtml(p.address)}</div>
+            <div class="empty" style="margin:0;">No completed jobs recorded here yet.</div>
+          </div>`;
+      }
+      const seenContractors = new Set();
+      const entries = p.history.map(h => {
+        const repeatContractor = h.contractorEmail && seenContractors.has(h.contractorEmail);
+        if (h.contractorEmail) seenContractors.add(h.contractorEmail);
+        const dateStr = h.completedAt ? new Date(h.completedAt).toLocaleDateString('en-AU', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+        return `
+          <button class="jobcard" style="text-align:left;" onclick="selectedJobId='${h.jobId}'; showingPropertyProfile=false; render();">
+            <div class="jobtitle">${escapeHtml(h.category)}</div>
+            ${h.taskSummary ? `<div class="jobmeta" style="margin-bottom:6px;">${escapeHtml(h.taskSummary)}</div>` : ''}
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--stone);">
+              <span>${h.contractorName ? escapeHtml(h.contractorName) : 'Contractor'}${repeatContractor ? ' · <span style="color:var(--good);">worked here before</span>' : ''}${dateStr ? ' · ' + dateStr : ''}</span>
+              ${h.amountPaidCents != null ? `<span style="font-weight:700;color:var(--ink);">$${(h.amountPaidCents / 100).toLocaleString()}</span>` : ''}
+            </div>
+          </button>`;
+      }).join('');
+      return `
+        <div style="margin-bottom:20px;">
+          <div style="font-weight:700;font-size:15px;margin-bottom:10px;">📍 ${escapeHtml(p.address)}</div>
+          ${entries}
+        </div>`;
+    }).join('');
+  }
+
   // Job list table (Aug 2026) -- same markup, classes, badge colours and
   // status labels as jobsTableHtml() in mysubbies-admin-portal.html, so the
   // job list reads identically across all three portals. Only real
@@ -440,6 +503,7 @@
     if (!email) { renderLogin(); return; }
     if (selectedJobId) { renderDetail(email); return; }
     if (showingPaymentHistory) { renderPaymentHistory(email); return; }
+    if (showingPropertyProfile) { renderPropertyProfile(email); return; }
 
     const allJobs = getJobs().filter(j => j.customerEmail === email);
     const customers = getCustomers();
@@ -465,6 +529,7 @@
           <p class="pagesub">${allJobs.length} job${allJobs.length === 1 ? '' : 's'}</p>
         </div>
         <div style="display:flex;gap:8px;flex-shrink:0;">
+          <button class="btn btn-outline" style="width:auto;" onclick="openPropertyProfile()">My Property</button>
           <button class="btn btn-outline" style="width:auto;" onclick="openPaymentHistory()">Payment history</button>
           <a class="btn btn-black" style="width:auto;" href="mysubbies-website.html#estimate">+ Book another job</a>
         </div>

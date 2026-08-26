@@ -139,6 +139,55 @@ scripting against this again, expect standard DOM queries to fail silently
 — full pointer-event sequences dispatched on the exact text-matching leaf
 element were what actually worked.
 
+## Property Profiles — Phase 1 (added Aug 2026)
+A permanent, address-keyed record of every completed job done at a property,
+on top of the founder's own strategic framing: the real long-term moat here
+isn't the booking app, it's the compounding household + property + contractor
++ transaction history nobody else has. Two new Supabase tables
+(`supabase/schema_v5_property_profiles.sql`): `property_profiles` (one row
+per address, keyed by a best-effort `normalized_address` — trim/lowercase/
+collapse whitespace, **not** geocoding — `job.address` is free text with no
+verification, so this is a string match, not a guaranteed same-property
+match) and `property_history` (one row per *completed* job at that address,
+`job_id unique` so re-syncing the same job never duplicates it).
+
+**Fully automatic, no new UI trigger anywhere.** `api/sync-jobs.js` already
+fires on every `saveJobs()` from all 4 portals (booking, customer,
+contractor, admin) — the property tables are populated right there
+(`syncPropertyProfile()`), so a plumber accepting a job, a customer paying a
+stage, or an admin editing a job all silently keep the property record
+current with zero client-side wiring. A job counts as complete when every
+stage in its own `paymentSchedule` is ticked in `paidStages` — **not**
+`job.status === 'completed'`, which is never actually reached anywhere in
+this codebase (dead/aspirational state, UI has filters for it, nothing sets
+it). If you touch job-completion logic again, use the `paidStages` check,
+not the status field.
+
+Customer-facing read-only view: "My Property" in `mysubbies-customer-portal.html`
+(next to "Payment history", same `render()`-dispatcher pattern), backed by a
+new dedicated endpoint `api/property-profile.js` (`GET ?customerEmail=`) —
+address-keyed, not customer-keyed, so the data model already supports a
+property's history outliving any one customer account, even though nothing
+surfaces that yet.
+
+**Deliberately Phase 1 only — explicit gaps, not oversights:**
+- **No proactive reminder emails** ("your gutters were cleaned 11 months ago
+  — book again"). Would need a real per-category maintenance interval that
+  nobody has defined yet; inventing intervals would mean sending customers
+  fabricated recommendations, which this project doesn't do (see the
+  "no fabricated content" pattern throughout — fake ratings/prices already
+  turned down once for the homepage hero image). Phase 2, once the founder
+  specifies real intervals per category.
+- **No warranties.** There is no warranty field anywhere in the data model
+  (rate card tasks, job records, nothing) — nothing to build this on yet.
+- **No admin/contractor-portal visibility** into property history yet —
+  Phase 1 is customer-facing only. The schema already supports adding it
+  later without rework.
+- Photos are **not** duplicated into the new tables (they're base64 in
+  `job.photoDataUrl(s)`/`milestone_evidence.photo_urls`, already prone to
+  bloat) — `property_history` just references `job_id`, and the customer
+  portal reuses the existing job detail view for photos.
+
 ## Company-only ABN verification (added Aug 2026, ABR lookup live from day one)
 Contractor signup requires both an ABN and an ACN, and validates that the
 ABN is genuinely derived from that ACN (`abn.slice(2) === acn`, after each
