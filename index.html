@@ -862,6 +862,7 @@
             <div id="estCartList"></div>
             <div class="est-cart-total" id="estCartTotal"></div>
             <div class="est-bundle-note" id="estBundleNote" style="display:none;"></div>
+            <button class="btn btn-outline btn-full" onclick="estAddAnotherService()" style="margin-top:10px;">+ Add another service</button>
           </div>
 
           <label class="est-field-label">Suburb</label>
@@ -1619,6 +1620,24 @@
     document.getElementById('estimate').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   function estGoBack() { if (currentEstStep > 1) showEstStep(currentEstStep - 1); }
+
+  // "+ Add another service" (Aug 2026) -- the cart/selectCat mechanics
+  // already supported multi-category bundling fine (nothing ever cleared
+  // `cart` between categories), but there was no discoverable way back to
+  // the category picker once a first item was priced: the only exit was a
+  // generic "← Back" button that read as "undo," not "add a second trade,"
+  // and it left the category search box still full of the first category's
+  // name. This resets just the per-category working selection (not the
+  // cart) and returns to step 1 with a clean search box.
+  function estAddAnotherService() {
+    document.getElementById('estCategoryInput').value = '';
+    document.getElementById('estCatResults').classList.remove('show');
+    selectedCat = null;
+    document.getElementById('estTierWrap').style.display = 'none';
+    document.getElementById('estRefImage').style.display = 'none';
+    showEstStep(1);
+    document.getElementById('estCategoryInput').focus();
+  }
 
   function estStep1Continue() {
     const err = document.getElementById('estStep1Error');
