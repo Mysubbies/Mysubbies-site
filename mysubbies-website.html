@@ -413,7 +413,8 @@
   .section-title-row { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-bottom:20px; }
   .section-title-row h2 { font-size:25px; color:var(--black); }
   .section-title-row a { font-size:13px; font-weight:700; color:var(--black); }
-  .popular-job-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:14px; }
+  .popular-job-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; }
+  @media (max-width:900px) and (min-width:721px) { .popular-job-grid { grid-template-columns:repeat(2, 1fr); } }
   .popular-job-card { display:flex; flex-direction:column; min-width:0; background:#fff; border:1px solid var(--line); border-radius:16px; overflow:hidden; box-shadow:0 8px 22px rgba(20,33,61,.05); }
   .popular-job-card img { width:100%; aspect-ratio:1.35; object-fit:cover; }
   .popular-job-body { padding:14px; display:flex; flex-direction:column; flex:1; }
@@ -774,7 +775,7 @@
     </nav>
     <div class="navctas">
       <a class="navlink" href="mysubbies-customer-portal.html" style="margin-right:2px;">Log in</a>
-      <a class="btn btn-white" href="#estimate">Get an instant price</a>
+      <a class="btn btn-white" href="#estimate">Get an estimated price instantly</a>
     </div>
     <button class="mobiletoggle" id="mobileToggleBtn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
     <a class="app-bell" href="mysubbies-customer-portal.html" aria-label="Notifications"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg></a>
@@ -787,7 +788,7 @@
     <a class="navlink" href="#contractors" onclick="closeMobileMenu()">For professionals</a>
     <div class="mobilemenu-ctas">
       <a class="btn btn-ghost-onblack" href="mysubbies-customer-portal.html">Log in</a>
-      <a class="btn btn-white" href="#estimate" onclick="closeMobileMenu()">Get an instant price</a>
+      <a class="btn btn-white" href="#estimate" onclick="closeMobileMenu()">Get an estimated price instantly</a>
     </div>
   </div>
 </header>
@@ -928,17 +929,13 @@
         <div class="popular-job-body"><h3>Small Concrete Job</h3><div class="popular-job-meta">Tell us what needs doing</div><div class="popular-job-price"><strong>Get price</strong></div><button class="btn" onclick="goToEstimatorWithCategory('Concreting')">Get price</button></div>
       </article>
     </div>
-    <div class="today-card">
-      <div class="today-card-copy"><div class="today-card-icon"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></div><div><strong>Need it done today?</strong><span>Check availability for your area and preferred time.</span></div></div>
-      <a class="btn btn-outline" href="#estimate">Find tradies near me →</a>
-    </div>
   </div>
 </section>
 
 <section id="get-quote">
   <div class="wrap" style="max-width:700px;">
     <div class="estimator" id="estimate">
-      <div class="estimator-label">Get an instant price</div>
+      <div class="estimator-label">Get an estimated price instantly</div>
 
       <div class="est-progress">
         <div class="est-progress-bar"><div class="est-progress-bar-fill" id="estProgressFill" style="width:50%;"></div></div>
@@ -1076,7 +1073,7 @@
       <li><span class="tick">✓</span> Payment released in stages as work progresses, not upfront</li>
       <li><span class="tick">✓</span> Message your contractor directly in the app</li>
     </ul>
-    <a class="btn btn-black btn-lg" href="#estimate">Get an instant price →</a>
+    <a class="btn btn-black btn-lg" href="#estimate">Get an estimated price instantly →</a>
   </div>
   <div class="split-panel dark reveal">
     <div class="split-eyebrow">For contractors</div>
@@ -1096,7 +1093,7 @@
   <h2>Get your next job priced in under a minute.</h2>
   <p>No account required to see the price.</p>
   <div class="btns">
-    <a class="btn btn-white btn-lg" href="#estimate">Get an instant price →</a>
+    <a class="btn btn-white btn-lg" href="#estimate">Get an estimated price instantly →</a>
     <a class="btn btn-ghost-onblack btn-lg" href="mysubbies-contractor-landing.html">Join as a contractor →</a>
   </div>
 </section>

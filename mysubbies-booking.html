@@ -20,12 +20,12 @@
   body { font-family:'Plus Jakarta Sans', system-ui, sans-serif; background: var(--paper); color: var(--ink); line-height:1.5; -webkit-font-smoothing:antialiased; }
   h1, h2 { font-weight:800; letter-spacing:-0.02em; }
   a { color:inherit; text-decoration:none; }
-  header { background: var(--black); }
+  header { background: #fff; border-bottom:1px solid var(--line); }
   .navwrap { max-width:1180px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:64px; }
   .logo { display:flex; align-items:center; gap:9px; }
   .logo-mark { width:28px; height:28px; border-radius:7px; background:#fff; }
-  .logo-word { font-weight:800; font-size:19px; color:#fff; }
-  .backlink { font-size:13px; color:rgba(255,255,255,0.65); }
+  .logo-word { font-weight:800; font-size:19px; color:var(--black); }
+  .backlink { font-size:13px; color:var(--stone); }
   .wrap { max-width:640px; margin:0 auto; padding:48px 24px 80px; }
   .quote-summary { background:#fff; border:1px solid var(--line); border-radius:16px; padding:20px; display:flex; gap:14px; align-items:center; margin-bottom:32px; }
   .quote-summary .qicon { font-size:26px; }
@@ -160,7 +160,7 @@
         <div class="empty-state">
           <h1 class="pagetitle">No job in progress</h1>
           <p>Head back to the site and get an instant price first — that quote carries through to this booking step.</p>
-          <a class="btn btn-black" href="mysubbies-website.html" style="max-width:280px;margin:0 auto;">Get an instant price →</a>
+          <a class="btn btn-black" href="mysubbies-website.html" style="max-width:280px;margin:0 auto;">Get an estimated price instantly →</a>
         </div>`;
       return;
     }

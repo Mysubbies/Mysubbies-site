@@ -20,15 +20,15 @@
   body { font-family:'Plus Jakarta Sans', system-ui, sans-serif; background: var(--paper); color: var(--ink); line-height:1.5; -webkit-font-smoothing:antialiased; }
   h1, h2 { font-weight:800; letter-spacing:-0.02em; }
   a { color:inherit; text-decoration:none; }
-  header { background: var(--black); }
+  header { background: #fff; border-bottom:1px solid var(--line); }
   .navwrap { max-width:1180px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:64px; }
   .logo { display:flex; align-items:center; gap:9px; }
   .logo-mark { width:28px; height:28px; border-radius:7px; background:#fff; }
-  .logo-word { font-weight:800; font-size:19px; color:#fff; }
+  .logo-word { font-weight:800; font-size:19px; color:var(--black); }
   .navlinks { display:flex; align-items:center; gap:22px; font-size:13px; }
   @media (max-width:460px) { .navwrap { padding:0 14px; } .navlinks { gap:9px; font-size:11px; } }
-  .navlinks a { color:rgba(255,255,255,0.65); }
-  .navlinks a.current { color:#fff; font-weight:600; }
+  .navlinks a { color:var(--stone); }
+  .navlinks a.current { color:var(--black); font-weight:600; }
   .wrap { max-width:640px; margin:0 auto; padding:32px 24px 80px; }
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 20px; border-radius:999px; font-size:14px; font-weight:600; cursor:pointer; border:none; }
   .btn-black { background:var(--black); color:#fff; }
@@ -54,6 +54,24 @@
   table.jobstable { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:14px; overflow:hidden; }
   table.jobstable th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:var(--stone); padding:12px 16px; background:var(--paper); }
   table.jobstable td { padding:14px 16px; font-size:13px; border-top:1px solid var(--paper); }
+  /* Mobile job list (Aug 2026) -- the 6-column table read as cramped and
+     uneven on phone widths, so below 640px it's restyled into stacked
+     cards (a standard responsive-table technique: hide the header row,
+     make every cell a full-width block, and use each cell's data-label
+     attribute as its own small caption) rather than shrinking 6 columns
+     into ~350px. Desktop keeps the real table -- same markup/classes as
+     mysubbies-admin-portal.html's/contractor-portal.html's job tables,
+     so all three portals still read identically at desktop widths. */
+  @media (max-width:640px) {
+    table.jobstable, table.jobstable tbody, table.jobstable tr, table.jobstable td { display:block; width:100%; }
+    table.jobstable thead { display:none; }
+    table.jobstable { border:none; background:transparent; }
+    table.jobstable tr.jobrow { background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px; }
+    table.jobstable td { padding:5px 0; border-top:none; }
+    table.jobstable td[data-label]:not([data-label=""])::before { content:attr(data-label); display:block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--stone-light); margin-bottom:2px; }
+    table.jobstable td[data-label=""] { padding-top:8px; }
+    table.jobstable td[data-label=""]:empty { display:none; }
+  }
   tr.jobrow { cursor:pointer; }
   tr.jobrow:hover { background:var(--paper); }
   .badge { font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; display:inline-block; }
@@ -81,6 +99,19 @@
   .msginput input { margin-bottom:0; flex:1; }
   .notify-banner { font-size:12px; color:var(--stone); background:var(--paper); border-radius:10px; padding:10px 14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; }
   .notify-banner button { font-size:12px; font-weight:600; background:none; border:none; text-decoration:underline; cursor:pointer; }
+
+  /* Full footer (Aug 2026) -- matches mysubbies-website.html's footer
+     exactly (same classes/values, own copy per the self-contained
+     convention) so the portal doesn't dead-end into a bare page edge. */
+  footer.sitefoot { background:var(--black); color:rgba(255,255,255,0.55); padding:56px 0 32px; font-size:13px; border-top:1px solid rgba(255,255,255,0.08); margin-top:40px; }
+  .footgrid { display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:32px; margin-bottom:48px; max-width:1180px; margin-left:auto; margin-right:auto; padding:0 24px; }
+  @media (max-width: 780px) { .footgrid { grid-template-columns:1fr 1fr; } }
+  .footgrid h4 { color:#fff; font-size:13px; font-weight:700; margin-bottom:16px; text-transform:uppercase; letter-spacing:0.04em; }
+  .footgrid ul { list-style:none; }
+  .footgrid li { margin-bottom:10px; }
+  .footgrid a { color:inherit; text-decoration:none; }
+  .footgrid a:hover { color:#fff; }
+  .footbottom { max-width:1180px; margin:0 auto; padding:24px 24px 0; border-top:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; }
 
   /* Property Profile Phase 2 (added Aug 2026) -- visual language matches the
      approved mockup: navy hero, floating health card, dark Fix Something CTA,
@@ -164,6 +195,49 @@
 </header>
 
 <div class="wrap" id="app"></div>
+
+<footer class="sitefoot">
+  <div class="footgrid">
+    <div>
+      <div class="logo" style="margin-bottom:14px;">
+        <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="logo-word" style="color:#fff;">MySubbies</div>
+      </div>
+      <p style="max-width:260px;line-height:1.6;">A dedicated contractor panel for Melbourne homes — instant pricing, no bidding, no lead fees.</p>
+    </div>
+    <div>
+      <h4>Categories</h4>
+      <ul>
+        <li><a href="mysubbies-website.html#categories">Decking &amp; Pergolas</a></li>
+        <li><a href="mysubbies-website.html#categories">Fencing &amp; Retaining Walls</a></li>
+        <li><a href="mysubbies-website.html#categories">Electrical &amp; Plumbing</a></li>
+        <li><a href="mysubbies-website.html#categories">All 31 categories</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Company</h4>
+      <ul>
+        <li><a href="mysubbies-website.html#how">How it works</a></li>
+        <li><a href="mysubbies-contractor-landing.html">For contractors</a></li>
+        <li><a href="mysubbies-contractor-portal.html">Contractor login</a></li>
+        <li><a href="mysubbies-blog.html">Blog</a></li>
+        <li><a href="mysubbies-faq.html">FAQ</a></li>
+        <li><a href="mailto:accounts@mysubbies.com.au">Contact us</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Legal</h4>
+      <ul>
+        <li><a href="mysubbies-terms.html">Terms &amp; Conditions</a></li>
+        <li><a href="mysubbies-privacy-policy.html">Privacy Policy</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footbottom">
+    <span>© 2026 MySubbies group. Melbourne, VIC.</span>
+    <span>ABN 74 640 998 992 · Prices shown are GST inclusive</span>
+  </div>
+</footer>
 
 <script>
   function getJobs() { return JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]'); }
@@ -723,12 +797,12 @@
         <tbody>
           ${jobs.map(j => `
             <tr class="jobrow" onclick="selectedJobId='${j.id}'; render();">
-              <td><strong>${escapeHtml(j.category)}</strong>${j.items && j.items.length > 1 ? `<br><span style="color:var(--stone);font-size:12px;">${j.items.length} items</span>` : ''}</td>
-              <td>${escapeHtml(j.suburb)}</td>
-              <td>${j.contractor ? escapeHtml(j.contractor) : '—'}</td>
-              <td><span class="badge ${JOB_BADGE_CLASS[j.status] || 'badge-feed'}">${JOB_BADGE_LABEL[j.status] || j.status}</span></td>
-              <td>$${(j.priceLow || j.basePrice || 0).toLocaleString()}</td>
-              <td>${j.status === 'cancelled' ? `<button class="btn btn-outline" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="hideCancelledJob('${j.id}', event)">Remove</button>` : ''}</td>
+              <td data-label="Job"><strong>${escapeHtml(j.category)}</strong>${j.items && j.items.length > 1 ? `<br><span style="color:var(--stone);font-size:12px;">${j.items.length} items</span>` : ''}</td>
+              <td data-label="Suburb">${escapeHtml(j.suburb)}</td>
+              <td data-label="Contractor">${j.contractor ? escapeHtml(j.contractor) : '—'}</td>
+              <td data-label="Status"><span class="badge ${JOB_BADGE_CLASS[j.status] || 'badge-feed'}">${JOB_BADGE_LABEL[j.status] || j.status}</span></td>
+              <td data-label="Value">$${(j.priceLow || j.basePrice || 0).toLocaleString()}</td>
+              <td data-label="">${j.status === 'cancelled' ? `<button class="btn btn-outline" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="hideCancelledJob('${j.id}', event)">Remove</button>` : ''}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -824,6 +898,10 @@
           <code style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;flex:1;">${myAccount.referralCode || '—'}</code>
           <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="copyReferralCode('${myAccount.referralCode || ''}')">Copy</button>
         </div>
+        <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <div style="font-size:12px;color:var(--stone);">Just want to share the app itself?</div>
+          <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;flex-shrink:0;" onclick="shareAppWithFriend()">Share app link</button>
+        </div>
       </div>
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <div>
@@ -838,7 +916,7 @@
       </div>
     `;
     if (allJobs.length === 0) {
-      app.innerHTML += `<div class="empty">No jobs yet. <a href="mysubbies-website.html#estimate" style="text-decoration:underline;">Get an instant price</a> to submit one.</div>`;
+      app.innerHTML += `<div class="empty">No jobs yet. <a href="mysubbies-website.html#estimate" style="text-decoration:underline;">Get an estimated price instantly</a> to submit one.</div>`;
     } else {
       app.innerHTML += jobStatusFilterChipsHtml(allJobs);
       app.innerHTML += jobSearchBoxHtml();
@@ -1121,6 +1199,22 @@
 
   function copyReferralCode(code) {
     navigator.clipboard.writeText(code).then(() => showToast('Referral code copied!'));
+  }
+
+  // "Share app link" (Aug 2026) -- distinct from the referral-code box above
+  // (that one tracks reward-eligible referrals). This is just "let a friend
+  // open/install the app" -- native share sheet where available (mobile),
+  // clipboard copy as the fallback everywhere else. Uses location.origin
+  // rather than a hardcoded domain since mysubbies.com.au currently points
+  // at the old Wix site, not this app -- see CLAUDE.md/known gaps.
+  function shareAppWithFriend() {
+    const url = location.origin + '/mysubbies-website.html';
+    const shareData = { title: 'MySubbies', text: 'Book trusted Melbourne tradies with upfront estimated pricing — no lead fees, no bidding wars.', url };
+    if (navigator.share) {
+      navigator.share(shareData).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url).then(() => showToast('Link copied — send it to a friend!'));
+    }
   }
   function showToast(msg) {
     let t = document.getElementById('toastMsg');
