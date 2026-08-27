@@ -383,7 +383,12 @@
   /* Customer app shell (Aug 2026) — mirrors the approved mobile reference
      while keeping the existing estimator and booking logic intact. */
   .app-hero { padding:0; background:#fff; overflow:hidden; }
-  .app-hero-shell { max-width:1180px; margin:0 auto; padding:42px 34px 34px; background-image:linear-gradient(90deg,#fff 0%,rgba(255,255,255,.96) 37%,rgba(255,255,255,.18) 67%,rgba(255,255,255,0) 100%),url('images/hero-tradie-v2.png'); background-size:cover; background-position:center; border-radius:0 0 26px 26px; }
+  /* Shell carries the full-bleed background photo/gradient edge-to-edge on
+     wide screens (founder feedback, Aug 2026: large empty margins either
+     side of the hero on a big monitor) -- app-hero-inner is what actually
+     caps the readable content width, same 1180px used by .wrap elsewhere. */
+  .app-hero-shell { background-image:linear-gradient(90deg,#fff 0%,rgba(255,255,255,.96) 37%,rgba(255,255,255,.18) 67%,rgba(255,255,255,0) 100%),url('images/hero-tradie-v2.png'); background-size:cover; background-position:center; }
+  .app-hero-inner { max-width:1180px; margin:0 auto; padding:42px 34px 34px; }
   .app-location-wrap { position:relative; display:inline-block; margin-bottom:28px; }
   .app-location { display:flex; align-items:center; gap:8px; color:var(--black); font-size:14px; font-weight:600; background:none; border:none; cursor:pointer; padding:2px 0; }
   .app-location svg { color:var(--black); flex-shrink:0; }
@@ -460,7 +465,8 @@
     .logo-mark { background:var(--primary-pale); }
     .mobiletoggle { color:var(--black); order:-1; }
     .app-bell { display:block; }
-    .app-hero-shell { padding:20px 18px 22px; background-image:linear-gradient(90deg,#fff 0%,rgba(255,255,255,.98) 38%,rgba(255,255,255,.2) 72%),linear-gradient(0deg,#fff 0%,transparent 35%),url('images/hero-tradie-v2.png'); background-size:auto 410px; background-repeat:no-repeat; background-position:right top; border-radius:0; }
+    .app-hero-shell { background-image:linear-gradient(90deg,#fff 0%,rgba(255,255,255,.98) 38%,rgba(255,255,255,.2) 72%),linear-gradient(0deg,#fff 0%,transparent 35%),url('images/hero-tradie-v2.png'); background-size:auto 410px; background-repeat:no-repeat; background-position:right top; }
+    .app-hero-inner { padding:20px 18px 22px; }
     .app-location-wrap { display:block; margin:0 0 20px 46px; }
     .app-location { font-size:13px; }
     .app-location-picker { left:-46px; }
@@ -814,6 +820,7 @@
 
 <section class="app-hero" id="top">
   <div class="app-hero-shell">
+   <div class="app-hero-inner">
     <div class="app-location-wrap" id="appLocationWrap">
       <button class="app-location" id="appLocationBtn" onclick="toggleLocationPicker(event)" type="button">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
@@ -856,6 +863,7 @@
       <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="9" width="16" height="12" rx="2"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15" r="1"/></svg>Secure<br>Payments</div>
       <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 13a8 8 0 0 1 16 0"/><path d="M4 13v4h3v-5H4M20 13v4h-3v-5h3M17 19c-1 2-3 2-5 2"/></svg>Australian<br>Support</div>
     </div>
+   </div>
   </div>
 </section>
 
