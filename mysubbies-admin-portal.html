@@ -1031,15 +1031,29 @@
       ? all.filter(a => (a.business || '').toLowerCase().includes(q) || (a.contact || '').toLowerCase().includes(q) || (a.email || '').toLowerCase().includes(q))
       : all;
     const rows = contractorsStatusFilter === 'all' ? searched : searched.filter(a => a.status === contractorsStatusFilter);
+    const approvedCount = all.filter(a => a.status === 'approved').length;
     return `
       <h1 class="pagetitle">Contractors</h1>
       <p class="pagesub">${all.length} account${all.length === 1 ? '' : 's'} total. Deactivating blocks login and new job matches until reactivated.</p>
       ${contractorsStatusFilterChipsHtml(all)}
       <input class="searchbox" placeholder="Search by business, contact or email…" value="${escapeHtml(contractorSearchQuery)}" oninput="contractorSearchQuery=this.value; render();" />
+      ${approvedCount > 0 ? `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:14px 0;max-width:640px;">
+          <div style="font-size:12.5px;color:var(--stone);">
+            ${selectedContractorEmails.size > 0 ? `<strong style="color:var(--ink);">${selectedContractorEmails.size}</strong> contractor${selectedContractorEmails.size === 1 ? '' : 's'} selected` : `Select approved contractors to message them`}
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-outline" style="padding:7px 14px;font-size:12.5px;" onclick="selectAllApprovedContractors(getApplications())">Select all approved (${approvedCount})</button>
+            ${selectedContractorEmails.size > 0 ? `<button class="btn btn-outline" style="padding:7px 14px;font-size:12.5px;" onclick="clearContractorSelection()">Clear</button>
+            <button class="btn btn-black" style="padding:7px 14px;font-size:12.5px;" onclick="openMessageComposer()">Message selected →</button>` : ''}
+          </div>
+        </div>
+      ` : ''}
       ${rows.length === 0 ? '<div class="empty">No contractors match.</div>' : rows.map(a => `
         <div class="detailcard" style="max-width:640px;margin-bottom:14px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <div style="display:flex;gap:12px;align-items:center;">
+              ${a.status === 'approved' ? `<input type="checkbox" onclick="toggleContractorSelection('${a.email.replace(/'/g, "\\'")}')" ${selectedContractorEmails.has(a.email) ? 'checked' : ''} style="width:17px;height:17px;flex-shrink:0;cursor:pointer;" title="Select to message" />` : ''}
               ${a.profilePhoto ? `<img src="${escapeHtml(a.profilePhoto)}" style="width:44px;height:44px;border-radius:999px;object-fit:cover;">` : ''}
               <div>
                 <div style="font-weight:700;font-size:15px;">${escapeHtml(a.business)}</div>
