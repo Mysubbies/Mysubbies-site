@@ -273,6 +273,12 @@
         const merged = { ...existing, name: profile?.name || existing.name, phone: profile?.phone || existing.phone, email, password, customerDbId: profile?.id || null };
         customers[email] = merged;
         saveCustomers(customers);
+        // My Jobs (customer-portal.html) checks this exact key to decide
+        // whether the customer is logged in -- without it, "Track it in My
+        // Jobs" after booking drops them back to a login screen even though
+        // their account and job both exist (real bug, Aug 2026: this was
+        // never wired up when registration/login moved to Supabase Auth).
+        localStorage.setItem('mysubbies_customer_email', email);
         beginBookingFlow(merged);
         return;
       }
@@ -310,6 +316,9 @@
       const account = { name, phone, email, password, referralCode, referredBy, createdAt: new Date().toISOString(), customerDbId };
       customers[email] = account;
       saveCustomers(customers);
+      // See the matching comment in the login branch above -- same missing
+      // session key, same bug.
+      localStorage.setItem('mysubbies_customer_email', email);
       beginBookingFlow({ ...account, address, suburb, jobType, businessName });
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
