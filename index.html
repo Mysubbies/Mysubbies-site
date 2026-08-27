@@ -169,6 +169,11 @@
   .est-ambiguous-option:hover { border-color:var(--ink); }
   .est-ambiguous-name { font-weight:600; }
   .est-ambiguous-price { color:var(--stone); font-size:12.5px; white-space:nowrap; flex-shrink:0; }
+  .est-removal-prompt { border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin:12px 0; background:var(--paper); }
+  .est-removal-prompt-text { font-size:13px; margin-bottom:10px; }
+  .est-removal-prompt-text strong { color:var(--ink); }
+  .est-removal-prompt-actions { display:flex; gap:8px; }
+  .est-removal-prompt-actions .btn { padding:9px 16px; font-size:13px; width:auto; }
   .ai-estimate-tag { display:inline-block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.02em; color:var(--accent-dark); background:var(--accent-pale); border-radius:6px; padding:2px 6px; margin-left:4px; vertical-align:middle; }
   .chiprow-est { display:flex; flex-wrap:wrap; gap:7px; }
   .est-tier-quickmatch { width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:14px; color:var(--ink); border:1.5px solid var(--line); border-radius:10px; padding:11px 14px; outline:none; background:#fff; margin-bottom:12px; }
@@ -1020,6 +1025,7 @@
         <div class="est-step-sub">Suburb, size or quantity, site conditions, access, timing and photos.</div>
 
           <div id="estQtyRows"></div>
+          <div id="estRemovalPrompt"></div>
           <button class="btn btn-outline btn-full" onclick="calculateSelectedItems()" style="margin-top:4px;">Calculate price</button>
 
           <div id="estItemPreview" style="display:none;"></div>
@@ -2472,6 +2478,7 @@
     selectedTierSet.clear();
     qtyValues.clear();
     riskAnswers = {};
+    dismissedRemovalPrompts.clear();
     document.getElementById('estCategoryInput').value = c.label;
     document.getElementById('estCatResults').classList.remove('show');
 
@@ -2862,6 +2869,79 @@
     pendingItems = [];
     document.getElementById('estItemPreview').style.display = 'none';
     estResetPriceReveal();
+    renderRemovalPrompt();
+  }
+
+  // "Remove the old one?" follow-up (Aug 2026, founder request) — most
+  // replacement/install jobs also need the old material taken away, and
+  // customers often don't think to look for that as a separate line item.
+  // Deliberately narrow: only wired up for categories where a real,
+  // founder-priced removal task ALREADY exists on the rate card (never
+  // invents a price — same rule that kept Heating & Cooling unpriced until
+  // real rates were supplied). Units are confirmed to match their category's
+  // install tasks (all 'lm' or all 'm²'), so the removal quantity can be
+  // safely pre-filled from whichever install task the customer already
+  // sized, instead of asking them to re-enter the same number.
+  //
+  // Categories with real installs but NO priced removal task yet (Flooring,
+  // Decking, Pergola, Tiling, Concreting, Retaining Wall, etc.) are
+  // deliberately left out — extending this to them means the founder
+  // supplying real removal rates first, not guessing one here.
+  const CATEGORY_REMOVAL_COMPANION = {
+    'Fencing': 'Fence removal & disposal',
+    'Grass Installation': 'Existing lawn/surface removal',
+    'Gutter Guard Installation': 'Gutter guard removal (old/damaged)',
+    'Insulation Installation': 'Old/damaged insulation removal',
+  };
+  let dismissedRemovalPrompts = new Set();
+
+  function renderRemovalPrompt() {
+    const wrap = document.getElementById('estRemovalPrompt');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    if (!selectedCat) return;
+    const companionName = CATEGORY_REMOVAL_COMPANION[selectedCat.label];
+    if (!companionName || dismissedRemovalPrompts.has(companionName)) return;
+    if (selectedTierSet.has(companionName)) return; // already added
+    // Only prompt once the customer has selected at least one OTHER
+    // (real, non-removal) task — nothing to remove the old version of yet.
+    const otherSelected = Array.from(selectedTierSet.keys()).some(name => name !== companionName);
+    if (!otherSelected) return;
+    const companionTask = selectedCat.tasks.find(t => t.name === companionName && !t.unavailable && !t.disabled);
+    if (!companionTask) return;
+
+    wrap.innerHTML = `
+      <div class="est-removal-prompt">
+        <div class="est-removal-prompt-text">Need the old one removed too? <strong>${escapeHtml(companionTask.name)}</strong> — $${companionTask.rate}/${escapeHtml(companionTask.unit)}</div>
+        <div class="est-removal-prompt-actions">
+          <button type="button" class="btn btn-black" onclick="addRemovalCompanion('${companionName.replace(/'/g, "\\'")}')">Yes, add it</button>
+          <button type="button" class="btn btn-outline" onclick="dismissRemovalPrompt('${companionName.replace(/'/g, "\\'")}')">No thanks</button>
+        </div>
+      </div>`;
+  }
+
+  function addRemovalCompanion(taskName) {
+    if (!selectedCat) return;
+    const task = selectedCat.tasks.find(t => t.name === taskName);
+    if (!task) return;
+    // Pre-fill from any already-sized task sharing the same unit (e.g. the
+    // fence just sized in lm) so the customer isn't asked to re-enter the
+    // same measurement — still editable in the qty row like any other.
+    if (!qtyValues.get(task.name)) {
+      const matchingQty = Array.from(selectedTierSet.values())
+        .find(t => t.unit === task.unit && qtyValues.get(t.name));
+      if (matchingQty) qtyValues.set(task.name, qtyValues.get(matchingQty.name));
+    }
+    selectedTierSet.set(task.name, task);
+    renderQtyRows();
+    renderSelectedPills();
+    const chips = document.getElementById('estTierChips');
+    if (chips) chips.querySelectorAll('.chip-est').forEach(b => { if (b.textContent.trim() === task.name) b.classList.add('selected'); });
+  }
+
+  function dismissRemovalPrompt(taskName) {
+    dismissedRemovalPrompts.add(taskName);
+    renderRemovalPrompt();
   }
 
   function qtyHintForUnit(unit) {
