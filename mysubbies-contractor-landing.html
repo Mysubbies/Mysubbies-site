@@ -43,17 +43,23 @@
   .btn-ghost-onblack { background:transparent; color:#fff; border:1px solid rgba(255,255,255,0.3); }
   .btn-lg { padding:16px 30px; font-size:15.5px; }
 
-  .hero { background:var(--black); padding:64px 0 60px; overflow:hidden; }
-  .hero-grid { display:grid; grid-template-columns:1.05fr 0.95fr; gap:48px; align-items:center; }
-  @media (max-width:900px) { .hero-grid { grid-template-columns:1fr; gap:32px; } }
+  /* Full-bleed photo-behind-text hero, same technique as .app-hero-shell on
+     the main site: a horizontal gradient (solid colour where the text sits,
+     fading to fully transparent so the photo shows through unobstructed)
+     layered over the photo as one background-image, rather than a separate
+     photo element next to the text. Kept dark/navy (not the main site's
+     white-to-transparent version) since this page's text is white-on-dark,
+     not the main site's dark-on-white. */
+  .hero { background-image:linear-gradient(90deg, var(--black) 0%, rgba(20,33,61,.94) 42%, rgba(20,33,61,.55) 68%, rgba(20,33,61,.15) 100%), url('images/contractor-landing-hero.jpg'); background-size:cover; background-position:right top; padding:96px 0 84px; overflow:hidden; }
   .hero-eyebrow { display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:rgba(255,255,255,0.6); background:rgba(255,255,255,0.08); padding:7px 14px; border-radius:999px; margin-bottom:24px; }
-  .hero h1 { font-size:clamp(34px, 4.4vw, 54px); line-height:1.06; color:#fff; }
-  .hero p.lede { font-size:16.5px; color:rgba(255,255,255,0.7); max-width:480px; margin-top:20px; line-height:1.6; }
+  .hero h1 { font-size:clamp(34px, 4.4vw, 54px); line-height:1.06; color:#fff; max-width:600px; }
+  .hero p.lede { font-size:16.5px; color:rgba(255,255,255,0.75); max-width:480px; margin-top:20px; line-height:1.6; }
   .hero-actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:32px; }
-  .hero-note { font-size:12.5px; color:rgba(255,255,255,0.5); margin-top:18px; }
-  .hero-photo { position:relative; border-radius:22px; overflow:hidden; aspect-ratio:900/700; box-shadow:0 24px 50px rgba(0,0,0,0.35); }
-  .hero-photo img { width:100%; height:100%; object-fit:cover; display:block; }
-  @media (max-width:900px) { .hero-photo { aspect-ratio:16/10; } }
+  .hero-note { font-size:12.5px; color:rgba(255,255,255,0.55); margin-top:18px; }
+  @media (max-width:720px) {
+    .hero { background-image:linear-gradient(180deg, var(--black) 0%, rgba(20,33,61,.9) 50%, rgba(20,33,61,.6) 100%), url('images/contractor-landing-hero.jpg'); background-position:center top; padding:52px 0 46px; }
+    .hero h1 { max-width:100%; }
+  }
 
   .valuegrid { display:grid; grid-template-columns:repeat(3, 1fr); gap:20px; }
   @media (max-width:860px) { .valuegrid { grid-template-columns:1fr 1fr; } }
@@ -128,21 +134,14 @@
 
 <section class="hero">
   <div class="wrap">
-    <div class="hero-grid">
-      <div>
-        <div class="hero-eyebrow"><span>For Melbourne trades &amp; contractors</span></div>
-        <h1>Work you don't have to chase.</h1>
-        <p class="lede">Real jobs, priced and offered straight to you — no lead fees, no bidding wars, no chasing quotes that go nowhere. Run the whole thing from your phone.</p>
-        <div class="hero-actions">
-          <a class="btn btn-white btn-lg" href="mysubbies-contractor-signup.html">Apply to join the panel →</a>
-          <a class="btn btn-ghost-onblack btn-lg" href="mysubbies-contractor-portal.html">Already applied? Log in →</a>
-        </div>
-        <div class="hero-note">Free to join. We review every application before granting portal access.</div>
-      </div>
-      <div class="hero-photo reveal">
-        <img src="images/contractor-landing-hero.jpg" alt="Contractor checking a job on his phone outside a client's home" loading="eager" />
-      </div>
+    <div class="hero-eyebrow"><span>For Melbourne trades &amp; contractors</span></div>
+    <h1>Work you don't have to chase.</h1>
+    <p class="lede">Real jobs, priced and offered straight to you — no lead fees, no bidding wars, no chasing quotes that go nowhere. Run the whole thing from your phone.</p>
+    <div class="hero-actions">
+      <a class="btn btn-white btn-lg" href="mysubbies-contractor-signup.html">Apply to join the panel →</a>
+      <a class="btn btn-ghost-onblack btn-lg" href="mysubbies-contractor-portal.html">Already applied? Log in →</a>
     </div>
+    <div class="hero-note">Free to join. We review every application before granting portal access.</div>
   </div>
 </section>
 
