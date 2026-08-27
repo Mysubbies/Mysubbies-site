@@ -223,6 +223,15 @@
   let showMessageComposer = false;
   let messageComposerSending = false;
   let messageAttachment = null; // { dataUrl, filename, mime } or null
+  // Subject/body are plain uncontrolled inputs, but attaching a file (or any
+  // other change) needs a full render() same as everywhere else in this
+  // file -- that rebuilds the modal's innerHTML from scratch, which would
+  // silently wipe whatever the admin had already typed. Drafted here and
+  // synced on every keystroke, same "preserve state across a full re-render"
+  // pattern already used for qtyValues/renderQtyRows() elsewhere in this
+  // codebase, so it survives.
+  let messageComposerSubjectDraft = '';
+  let messageComposerBodyDraft = '';
   const MESSAGE_ATTACHMENT_MAX_BYTES = 4 * 1024 * 1024;
 
   function toggleContractorSelection(email) {
@@ -240,12 +249,16 @@
   }
   function openMessageComposer() {
     showMessageComposer = true;
+    messageComposerSubjectDraft = '';
+    messageComposerBodyDraft = '';
     render();
     setTimeout(() => document.getElementById('msgComposerBody')?.focus(), 50);
   }
   function closeMessageComposer() {
     showMessageComposer = false;
     messageAttachment = null;
+    messageComposerSubjectDraft = '';
+    messageComposerBodyDraft = '';
     render();
   }
   function onMessageAttachmentSelected(event) {
@@ -270,8 +283,8 @@
     render();
   }
   async function sendContractorMessage() {
-    const subject = document.getElementById('msgComposerSubject').value.trim();
-    const body = document.getElementById('msgComposerBody').value.trim();
+    const subject = messageComposerSubjectDraft.trim();
+    const body = messageComposerBodyDraft.trim();
     const errBox = document.getElementById('msgComposerError');
     if (!body) { errBox.textContent = 'Write a message before sending.'; errBox.style.display = 'block'; return; }
     errBox.style.display = 'none';
@@ -292,6 +305,8 @@
       if (!res.ok) throw new Error('send failed');
       showMessageComposer = false;
       messageAttachment = null;
+      messageComposerSubjectDraft = '';
+      messageComposerBodyDraft = '';
       selectedContractorEmails.clear();
     } catch (e) {
       errBox.textContent = 'Something went wrong sending that — please try again.';
@@ -1820,9 +1835,9 @@
           </div>
           <div style="font-size:12px;color:var(--stone);margin-bottom:16px;">${recipients.map(escapeHtml).join(', ')}</div>
           <label class="est-field-label" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:4px;">Subject (optional)</label>
-          <input type="text" id="msgComposerSubject" placeholder="e.g. Updated rate card" style="width:100%;font-family:inherit;font-size:14px;border:1.5px solid var(--line);border-radius:10px;padding:11px 13px;outline:none;margin-bottom:12px;" />
+          <input type="text" id="msgComposerSubject" value="${escapeHtml(messageComposerSubjectDraft)}" oninput="messageComposerSubjectDraft=this.value" placeholder="e.g. Updated rate card" style="width:100%;font-family:inherit;font-size:14px;border:1.5px solid var(--line);border-radius:10px;padding:11px 13px;outline:none;margin-bottom:12px;" />
           <label class="est-field-label" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:4px;">Message</label>
-          <textarea id="msgComposerBody" rows="5" placeholder="Write your message…" style="width:100%;font-family:inherit;font-size:14px;border:1.5px solid var(--line);border-radius:10px;padding:11px 13px;outline:none;resize:vertical;margin-bottom:12px;"></textarea>
+          <textarea id="msgComposerBody" rows="5" oninput="messageComposerBodyDraft=this.value" placeholder="Write your message…" style="width:100%;font-family:inherit;font-size:14px;border:1.5px solid var(--line);border-radius:10px;padding:11px 13px;outline:none;resize:vertical;margin-bottom:12px;">${escapeHtml(messageComposerBodyDraft)}</textarea>
           <label class="est-field-label" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;">Attachment (optional, max 4MB)</label>
           ${messageAttachment ? `
             <div style="display:flex;justify-content:space-between;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:13px;">
