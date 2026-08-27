@@ -17,11 +17,13 @@
 // contractor-portal.html's own lazy-migration signUp path.
 const { getSupabase } = require('./_lib/clients');
 const { sendEmail, wrapEmail } = require('./_lib/email');
+const { requireAdmin } = require('./_lib/adminAuth');
 
 const ALLOWED_STATUSES = ['approved', 'preferred', 'watchlist', 'suspended', 'expired_documents', 'manual_review', 'rejected'];
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+  if (!requireAdmin(req, res)) return;
 
   try {
     const { email, status } = req.body || {};

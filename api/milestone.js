@@ -12,6 +12,7 @@
 const { getSupabase } = require('./_lib/clients');
 const { nextClaimableMilestone } = require('./_lib/paymentSchedule');
 const { sendEmail, wrapEmail } = require('./_lib/email');
+const { requireAdmin } = require('./_lib/adminAuth');
 
 async function auditLog(supabase, milestoneId, action, actorRole, actorId, before, after) {
   await supabase.from('payment_audit_logs').insert({
@@ -150,6 +151,7 @@ module.exports = async (req, res) => {
     // milestone claim.
     // ---------------------------------------------------------------
     if (action === 'admin-resolve') {
+      if (!requireAdmin(req, res)) return;
       const { milestoneId, adminAction, adminNotes, actorId } = req.body || {};
       if (!milestoneId || !['approve', 'reject', 'request_evidence', 'return_to_contractor'].includes(adminAction)) {
         res.status(400).json({ error: 'milestoneId and a valid adminAction are required.' });

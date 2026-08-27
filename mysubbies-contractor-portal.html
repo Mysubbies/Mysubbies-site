@@ -1287,7 +1287,10 @@
     // local application record — that's what makes this work cross-device.
     let verified = false;
     let remoteStatus = null; // real status from the `contractors` table, when available
+    let knownAuthUserId = null;
     if (sb) {
+      const { data: existing } = await sb.from('contractors').select('auth_user_id').eq('email', email).maybeSingle();
+      knownAuthUserId = existing?.auth_user_id || null;
       const { data: authData, error } = await sb.auth.signInWithPassword({ email, password });
       verified = !error;
       if (verified) {
@@ -1296,6 +1299,11 @@
       }
     }
     if (!verified) {
+      // Once an account has a real Supabase Auth identity, the plaintext
+      // local-application-password comparison below must never run for it
+      // again -- otherwise a wrong Supabase password would silently
+      // succeed via the old local copy. Same gate as the customer portal.
+      if (knownAuthUserId) { errBox.textContent = 'This account already has a secure login. If you\'ve forgotten your password, contact MySubbies support.'; return; }
       if (!application || application.password !== password) { errBox.textContent = 'No account found with those details.'; return; }
       if (sb) {
         sb.auth.signUp({ email, password }).then(({ data }) => {

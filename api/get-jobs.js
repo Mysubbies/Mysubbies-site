@@ -5,11 +5,11 @@
 // phone) can still see them. Pairs with sync-jobs.js, which is what
 // actually keeps full_record up to date on every mutation.
 //
-// `all=1` is for the admin portal only — no auth gate on that yet since
-// the admin portal itself is only a client-side password prompt (see
-// CLAUDE.md), consistent with the rest of this project's current security
-// posture, not a new gap introduced here.
+// `all=1` is for the admin portal only — gated via api/_lib/adminAuth.js.
+// The customerEmail/contractorEmail branches stay open, called directly by
+// the customer/contractor portals for their own jobs.
 const { getSupabase } = require('./_lib/clients');
+const { requireAdmin } = require('./_lib/adminAuth');
 
 module.exports = async (req, res) => {
   if (req.method !== 'GET') { res.status(405).json({ error: 'Method not allowed' }); return; }
@@ -19,6 +19,9 @@ module.exports = async (req, res) => {
     if (!customerEmail && !contractorEmail && !all) {
       res.status(400).json({ error: 'Provide customerEmail, contractorEmail, or all=1.' });
       return;
+    }
+    if (all && !customerEmail && !contractorEmail) {
+      if (!requireAdmin(req, res)) return;
     }
 
     const supabase = getSupabase();

@@ -3,13 +3,17 @@
 // Combines what were separate get-applications.js / get-customers.js
 // endpoints into one file — Vercel's Hobby plan caps a deployment at 12
 // serverless functions; splitting by ?type= keeps the same behavior
-// without spending a function slot per read endpoint. Admin-only by
-// convention, same posture as before — no auth gate beyond
-// admin-portal.html's own client-side password prompt.
+// without spending a function slot per read endpoint. Admin-only, gated
+// server-side via api/_lib/adminAuth.js -- this used to rely entirely on
+// admin-portal.html's client-side password prompt, which meant anyone who
+// found this URL could read every customer/contractor/payment record with
+// no credential at all.
 const { getSupabase } = require('./_lib/clients');
+const { requireAdmin } = require('./_lib/adminAuth');
 
 module.exports = async (req, res) => {
   if (req.method !== 'GET') { res.status(405).json({ error: 'Method not allowed' }); return; }
+  if (!requireAdmin(req, res)) return;
 
   try {
     const { type } = req.query || {};

@@ -1,5 +1,12 @@
 // POST /api/admin-account
-// Body: { role: 'customer'|'contractor', email, action: 'deactivate'|'reactivate'|'delete' }
+// Body: { action: 'login', password } -- OR --
+//       { role: 'customer'|'contractor', email, action: 'deactivate'|'reactivate'|'delete' }
+//
+// 'login' issues the admin session token (see api/_lib/adminAuth.js) that
+// every other action here, and every other admin-only endpoint, requires
+// via an Authorization: Bearer header. Kept in this file rather than a new
+// top-level /api file since this project already sits at the edge of
+// Vercel's Hobby-plan function-count cap (see CLAUDE.md).
 //
 // deactivate/reactivate just flip a status column that the account's own
 // login flow already checks (customers.status -- see schema_v4 -- and
@@ -18,6 +25,7 @@
 // than let it fail confusingly, or silently strip identifying info out of
 // financial/job records that need to stay intact for the audit trail.
 const { getSupabase } = require('./_lib/clients');
+const { requireAdmin, verifyPassword, signAdminToken } = require('./_lib/adminAuth');
 
 const ROLES = { customer: 'customers', contractor: 'contractors' };
 
@@ -25,7 +33,16 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
   try {
-    const { role, email, action } = req.body || {};
+    const { role, email, action, password } = req.body || {};
+
+    if (action === 'login') {
+      if (!verifyPassword(password)) { res.status(401).json({ error: 'Incorrect password.' }); return; }
+      res.status(200).json({ token: signAdminToken() });
+      return;
+    }
+
+    if (!requireAdmin(req, res)) return;
+
     const table = ROLES[role];
     if (!table || !email || !['deactivate', 'reactivate', 'delete'].includes(action)) {
       res.status(400).json({ error: 'role (customer|contractor), email, and a valid action are required.' });

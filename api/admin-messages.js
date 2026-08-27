@@ -17,6 +17,7 @@
 // still finds out.
 const { getSupabase } = require('./_lib/clients');
 const { sendEmail, wrapEmail } = require('./_lib/email');
+const { requireAdmin } = require('./_lib/adminAuth');
 
 module.exports = async (req, res) => {
   try {
@@ -55,6 +56,7 @@ module.exports = async (req, res) => {
     }
 
     if (action === 'send') {
+      if (!requireAdmin(req, res)) return;
       const { contractorEmails, subject, body, attachmentDataUrl, attachmentFilename, attachmentMime } = req.body || {};
       if (!Array.isArray(contractorEmails) || contractorEmails.length === 0) { res.status(400).json({ error: 'contractorEmails must be a non-empty array.' }); return; }
       if (!body || !body.trim()) { res.status(400).json({ error: 'body is required.' }); return; }

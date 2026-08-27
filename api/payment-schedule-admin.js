@@ -19,13 +19,13 @@
 //       than re-deriving a schedule, so nobody has to re-consent or
 //       re-submit evidence for work already in flight.
 //
-// Admin-only by convention, same posture as the rest of this project's
-// admin endpoints — no auth gate beyond admin-portal.html's own client-side
-// password prompt (see CLAUDE.md).
+// Admin-only, gated server-side via api/_lib/adminAuth.js.
 const { getSupabase } = require('./_lib/clients');
 const { validateSchedule, getConfig, computeMilestoneAmounts, ScheduleValidationError } = require('./_lib/paymentSchedule');
+const { requireAdmin } = require('./_lib/adminAuth');
 
 module.exports = async (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const supabase = getSupabase();
 
   if (req.method === 'GET') {

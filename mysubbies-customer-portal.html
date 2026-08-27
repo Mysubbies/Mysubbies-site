@@ -1742,12 +1742,14 @@
     // no matter which path below ends up confirming the password (real
     // Supabase Auth session, or the local-cache fallback further down) --
     // same reasoning as contractor-portal.html's suspended/rejected gate.
+    let knownAuthUserId = null;
     if (sb) {
-      const { data: statusProfile } = await sb.from('customers').select('status').eq('email', email).maybeSingle();
+      const { data: statusProfile } = await sb.from('customers').select('status, auth_user_id').eq('email', email).maybeSingle();
       if (statusProfile?.status === 'deactivated') {
         document.getElementById('loginError').textContent = 'This account has been deactivated. Contact MySubbies support if you believe this is a mistake.';
         return;
       }
+      knownAuthUserId = statusProfile?.auth_user_id || null;
     }
 
     // Try the REAL account first, regardless of whether this browser has a
@@ -1768,6 +1770,17 @@
       }
     }
     if (!verified) {
+      // Once an account has a real Supabase Auth identity (checked above,
+      // before we even tried signInWithPassword), the plaintext-password
+      // comparison below must never run for it again -- otherwise a wrong
+      // Supabase password would silently succeed via the old local copy,
+      // which is exactly the exposure this gate exists to close. Real
+      // accounts get a distinct message pointing at support instead of a
+      // silent fallback login.
+      if (knownAuthUserId) {
+        document.getElementById('loginError').textContent = 'This account already has a secure login. If you\'ve forgotten your password, contact MySubbies support.';
+        return;
+      }
       if (!account || account.password !== password) {
         document.getElementById('loginError').textContent = 'No account found with those details.';
         return;

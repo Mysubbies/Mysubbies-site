@@ -111,31 +111,50 @@
 <div class="wrap" id="app"></div>
 
 <script>
-  const ADMIN_PASSWORD = 'MySubbies2026!';
-
+  // Real server-side auth (Aug 2026) -- the password used to be a hardcoded
+  // client-side JS constant compared in the browser, and none of the admin
+  // API endpoints checked anything at all, so anyone who found those URLs
+  // could call them directly with no credential. Login now goes through
+  // api/admin-account.js (action:'login'), which checks the password
+  // server-side against ADMIN_PASSWORD and returns a signed, expiring
+  // session token (see api/_lib/adminAuth.js) that every admin-only
+  // endpoint now verifies before acting.
   function checkAdminAuth() {
-    if (localStorage.getItem('mysubbies_admin_authed') === 'true') { Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer()]).then(render); return; }
+    if (localStorage.getItem('mysubbies_admin_token')) { Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer()]).then(render); return; }
     document.getElementById('app').innerHTML = `
       <div style="max-width:360px;margin:80px auto 0;background:#fff;border:1px solid var(--line);border-radius:16px;padding:28px;">
         <h1 style="font-size:22px;font-weight:800;margin-bottom:8px;">Admin login</h1>
-        <p style="font-size:13px;color:var(--stone);margin-bottom:20px;">This is a basic gate to keep the page out of casual view during testing — not real security.</p>
         <input type="password" id="adminPasswordInput" placeholder="Password" style="width:100%;font-size:15px;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:10px;" onkeydown="if(event.key==='Enter') adminLogin()">
         <div id="adminLoginError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
         <button onclick="adminLogin()" style="width:100%;background:var(--black);color:#fff;border:none;border-radius:999px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;">Log in →</button>
       </div>`;
   }
-  function adminLogin() {
+  async function adminLogin() {
     const val = document.getElementById('adminPasswordInput').value;
-    if (val === ADMIN_PASSWORD) {
-      localStorage.setItem('mysubbies_admin_authed', 'true');
+    try {
+      const res = await fetch('/api/admin-account', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'login', password: val }) });
+      const data = await res.json();
+      if (!res.ok) { document.getElementById('adminLoginError').textContent = data.error || 'Incorrect password.'; return; }
+      localStorage.setItem('mysubbies_admin_token', data.token);
       Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer()]).then(render);
-    } else {
-      document.getElementById('adminLoginError').textContent = 'Incorrect password.';
+    } catch (e) {
+      document.getElementById('adminLoginError').textContent = 'Login failed — check your connection and try again.';
     }
   }
   function adminLogout() {
-    localStorage.removeItem('mysubbies_admin_authed');
+    localStorage.removeItem('mysubbies_admin_token');
     checkAdminAuth();
+  }
+  // Every admin-only API call goes through this instead of a bare fetch()
+  // so the session token is always attached, and an expired/invalid token
+  // (401) cleanly drops back to the login screen instead of the dashboard
+  // silently failing to load data.
+  async function adminFetch(url, opts) {
+    const token = localStorage.getItem('mysubbies_admin_token');
+    const headers = Object.assign({}, (opts && opts.headers) || {}, token ? { Authorization: 'Bearer ' + token } : {});
+    const res = await fetch(url, Object.assign({}, opts, { headers }));
+    if (res.status === 401) { localStorage.removeItem('mysubbies_admin_token'); checkAdminAuth(); }
+    return res;
   }
 
   function getJobs() { return JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]'); }
@@ -148,7 +167,7 @@
   // just this admin browser. See api/get-jobs.js.
   async function hydrateJobsFromServer() {
     try {
-      const res = await fetch('/api/get-jobs?all=1');
+      const res = await adminFetch('/api/get-jobs?all=1');
       if (!res.ok) return;
       const { jobs: remoteJobs } = await res.json();
       if (!Array.isArray(remoteJobs) || remoteJobs.length === 0) return;
@@ -291,7 +310,7 @@
     messageComposerSending = true;
     render();
     try {
-      const res = await fetch('/api/admin-messages', {
+      const res = await adminFetch('/api/admin-messages', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'send',
@@ -383,7 +402,7 @@
   // browser. See api/get-admin-list.js?type=applications.
   async function hydrateApplicationsFromServer() {
     try {
-      const res = await fetch('/api/get-admin-list?type=applications');
+      const res = await adminFetch('/api/get-admin-list?type=applications');
       if (!res.ok) return;
       const { applications: remoteApps } = await res.json();
       if (!Array.isArray(remoteApps) || remoteApps.length === 0) return;
@@ -678,7 +697,7 @@
   }
   async function exportCustomersCsv() {
     try {
-      const res = await fetch('/api/get-admin-list?type=customers');
+      const res = await adminFetch('/api/get-admin-list?type=customers');
       const { customers } = await res.json();
       const csv = toCsv(customers || [], [
         { key: 'name', label: 'Name' }, { key: 'email', label: 'Email' },
@@ -917,7 +936,7 @@
     if (customersTabLoading) return;
     customersTabLoading = true;
     try {
-      const res = await fetch('/api/get-admin-list?type=customers');
+      const res = await adminFetch('/api/get-admin-list?type=customers');
       const body = await res.json();
       if (!res.ok) { customersTabData = { error: body.error || 'Could not load customers.' }; }
       else { customersTabData = { rows: body.customers || [] }; }
@@ -934,7 +953,7 @@
   async function accountAction(role, email, action, confirmMsg) {
     if (confirmMsg && !confirm(confirmMsg)) return null;
     try {
-      const res = await fetch('/api/admin-account', {
+      const res = await adminFetch('/api/admin-account', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role, email, action }),
       });
@@ -1076,11 +1095,11 @@
     paymentTabLoading = true;
     try {
       const [tRes, rRes, cRes, dRes, pRes] = await Promise.all([
-        fetch('/api/payment-schedule-admin?type=templates'),
-        fetch('/api/payment-schedule-admin?type=category-rules'),
-        fetch('/api/payment-schedule-admin?type=config'),
-        fetch('/api/get-admin-list?type=milestone-claims'),
-        fetch('/api/get-admin-list?type=pending-schedule-jobs'),
+        adminFetch('/api/payment-schedule-admin?type=templates'),
+        adminFetch('/api/payment-schedule-admin?type=category-rules'),
+        adminFetch('/api/payment-schedule-admin?type=config'),
+        adminFetch('/api/get-admin-list?type=milestone-claims'),
+        adminFetch('/api/get-admin-list?type=pending-schedule-jobs'),
       ]);
       const [t, r, c, d, p] = await Promise.all([tRes.json(), rRes.json(), cRes.json(), dRes.json(), pRes.json()]);
       paymentTabData = {
@@ -1166,7 +1185,7 @@
       material_heavy_tier3_max_cents: Math.round(Number(document.getElementById('cfgMatT3').value) * 100),
     };
     try {
-      const res = await fetch('/api/payment-schedule-admin', {
+      const res = await adminFetch('/api/payment-schedule-admin', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'save-config', config, actorId: 'admin' }),
       });
@@ -1195,7 +1214,7 @@
   }
 
   async function saveCategoryRule(category, scheduleType) {
-    await fetch('/api/payment-schedule-admin', {
+    await adminFetch('/api/payment-schedule-admin', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'save-category-rule', category, scheduleType, allowJobOverride: true, actorId: 'admin' }),
     });
@@ -1289,7 +1308,7 @@
     }));
     const errBox = document.getElementById('templateSaveError');
     try {
-      const res = await fetch('/api/payment-schedule-admin', {
+      const res = await adminFetch('/api/payment-schedule-admin', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'save-template', template: { ...t, milestones }, actorId: 'admin' }),
       });
@@ -1302,7 +1321,7 @@
   }
 
   async function approveTemplate(templateId) {
-    await fetch('/api/payment-schedule-admin', {
+    await adminFetch('/api/payment-schedule-admin', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'approve-template', templateId, actorId: 'admin' }),
     });
@@ -1371,7 +1390,7 @@
     }));
     const errBox = document.getElementById('buildScheduleError');
     try {
-      const res = await fetch('/api/payment-schedule-admin', {
+      const res = await adminFetch('/api/payment-schedule-admin', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'build-job-schedule', jobId, milestones, actorId: 'admin' }),
       });
@@ -1411,7 +1430,7 @@
     const needsNotes = adminAction !== 'approve';
     const notes = needsNotes ? prompt('Notes for this decision (shown in the audit log, optional):') : null;
     if (needsNotes && notes === null) return; // cancelled the prompt
-    await fetch('/api/milestone', {
+    await adminFetch('/api/milestone', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'admin-resolve', milestoneId, adminAction, adminNotes: notes, actorId: 'admin' }),
     });
@@ -1895,7 +1914,7 @@
   // api/update-contractor-status.js. Fire-and-forget, same pattern as
   // saveJobs()'s sync-jobs call.
   function syncContractorStatus(email, status) {
-    fetch('/api/update-contractor-status', {
+    adminFetch('/api/update-contractor-status', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, status }),
     }).catch(() => {});
