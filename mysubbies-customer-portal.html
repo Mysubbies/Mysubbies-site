@@ -23,7 +23,6 @@
   header { background: #fff; border-bottom:1px solid var(--line); }
   .navwrap { max-width:1180px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:64px; }
   .logo { display:flex; align-items:center; gap:9px; }
-  .logo-mark { width:28px; height:28px; border-radius:7px; background:#fff; }
   .logo-word { font-weight:800; font-size:19px; color:var(--black); }
   .logo-word .gold { color:var(--accent); }
   .navlinks { display:flex; align-items:center; gap:22px; font-size:13px; }
@@ -189,7 +188,7 @@
 <header>
   <div class="navwrap">
     <a class="logo" href="mysubbies-website.html">
-      <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      
       <div class="logo-word">My<span class="gold">Subbies</span></div>
     </a>
     <div class="navlinks">
@@ -206,7 +205,7 @@
   <div class="footgrid">
     <div>
       <div class="logo" style="margin-bottom:14px;">
-        <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        
         <div class="logo-word" style="color:#fff;">MySubbies</div>
       </div>
       <p style="max-width:260px;line-height:1.6;">A dedicated contractor panel for Melbourne homes — instant pricing, no bidding, no lead fees.</p>
@@ -831,10 +830,6 @@
           ${p.suburb ? `<div class="prop-hero-suburb">${escapeHtml(p.suburb)}</div>` : ''}
         </div>
       </div>
-      <div style="display:flex;justify-content:flex-end;gap:14px;margin-top:8px;font-size:12px;">
-        <a onclick="stashPropertyForNewJob(); window.location.href='mysubbies-website.html#estimate';" style="text-decoration:underline;color:var(--stone);cursor:pointer;">+ Book another job here</a>
-        <a onclick="hideProperty('${p.propertyId}', '${p.address.replace(/'/g, "\\'")}')" style="text-decoration:underline;color:var(--stone);cursor:pointer;">Remove this property</a>
-      </div>
       <div class="prop-health-card">
         <div>
           <div style="font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--stone);margin-bottom:8px;">House Health</div>
@@ -847,6 +842,10 @@
           <span>▣ &nbsp;${upcomingCount} upcoming reminder${upcomingCount === 1 ? '' : 's'}</span><br>
           <span>◷ &nbsp;Updated from your MySubbies records</span>
         </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:14px;margin:-10px 26px 16px;font-size:12px;position:relative;z-index:4;">
+        <a onclick="stashPropertyForNewJob(); window.location.href='mysubbies-website.html#estimate';" style="text-decoration:underline;color:var(--stone);cursor:pointer;">+ Book another job here</a>
+        <a onclick="hideProperty('${p.propertyId}', '${p.address.replace(/'/g, "\\'")}')" style="text-decoration:underline;color:var(--stone);cursor:pointer;">Remove this property</a>
       </div>
       <button class="prop-fix-cta" onclick="triggerFixSomething()">
         <div class="prop-fix-cta-icon">📷</div>
