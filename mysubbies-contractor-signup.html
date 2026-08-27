@@ -486,6 +486,14 @@
     apps.unshift(application);
     saveApplications(apps);
 
+    // Admin had no way to learn a new application arrived except opening
+    // the Applications tab and checking themselves (founder report, Aug
+    // 2026) -- fire-and-forget, never blocks submission on an email hiccup.
+    fetch('/api/notify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'contractor-application-submitted', business, contact, email, phone, trades: selectedTrades }),
+    }).catch(() => {});
+
     app.innerHTML = `
       <div class="confirm">
         <div class="tick">✓</div>

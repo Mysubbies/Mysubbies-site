@@ -1,5 +1,5 @@
 // POST /api/notify
-// Body: { type: 'job-assigned' | 'stage-requested' | 'new-job-available', ...type-specific fields }
+// Body: { type: 'job-assigned' | 'stage-requested' | 'new-job-available' | 'contractor-application-submitted', ...type-specific fields }
 //
 // Combines what were separate notify-job-assigned.js / notify-stage-requested.js
 // endpoints into one file — Vercel's Hobby plan caps a deployment at 12
@@ -19,8 +19,18 @@
 //   itself (same trade-match rule the Job Feed already filters by --
 //   approved status + trades array includes this category) rather than
 //   trusting a client-supplied recipient list.
+// contractor-application-submitted: { business, contact, email, phone,
+//   trades } — fired from mysubbies-contractor-signup.html once a new
+//   application is saved. Added Aug 2026: until this existed, admin had
+//   NO way to learn a new application arrived except opening the admin
+//   portal's Applications tab and checking themselves — same gap as
+//   new-job-available had for contractors, just on the admin side.
+//   ADMIN_NOTIFY_EMAIL is optional; defaults to the site's own published
+//   contact address so this works with zero extra Vercel config.
 const { sendEmail, wrapEmail } = require('./_lib/email');
 const { getSupabase } = require('./_lib/clients');
+
+const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || 'accounts@mysubbies.com.au';
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
@@ -91,6 +101,23 @@ module.exports = async (req, res) => {
       })));
 
       res.status(200).json({ sent: true, notified: matches.length });
+      return;
+    }
+
+    if (type === 'contractor-application-submitted') {
+      const { business, contact, email, phone, trades } = req.body || {};
+      if (!business || !email) { res.status(400).json({ error: 'business and email are required.' }); return; }
+      await sendEmail({
+        to: ADMIN_NOTIFY_EMAIL,
+        subject: `New contractor application — ${business}`,
+        html: wrapEmail(`
+          <h2 style="margin-top:0;">A new contractor application needs review</h2>
+          <p><strong>${business}</strong>${contact ? ` (${contact})` : ''} applied to join the panel.</p>
+          <p>Email: ${email}${phone ? `<br>Phone: ${phone}` : ''}${Array.isArray(trades) && trades.length ? `<br>Trades: ${trades.join(', ')}` : ''}</p>
+          <p><a href="https://mysubbies-site.vercel.app/mysubbies-admin-portal.html">Review in Applications →</a></p>
+        `),
+      });
+      res.status(200).json({ sent: true });
       return;
     }
 
