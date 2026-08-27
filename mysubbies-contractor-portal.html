@@ -1355,7 +1355,10 @@
     localStorage.setItem('mysubbies_contractor_email', email);
     // Same fix as customer-portal.html: the page-load hydrate already ran
     // and no-op'd before this login existed, so it needs to run again now.
-    await hydrateJobsFromServer();
+    // hydrateAdminMessages() has the exact same email-guard early-return, so
+    // it needs the same re-run -- without this, Messages sat empty until a
+    // manual refresh (found live-testing the messaging feature, Aug 2026).
+    await Promise.all([hydrateJobsFromServer(), hydrateAdminMessages()]);
     render();
   }
   function logout() {
