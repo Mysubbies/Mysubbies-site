@@ -796,10 +796,17 @@
   // place "not yet completed" jobs actually live.
   function renderActiveJobsAtProperty(p, email) {
     const hiddenJobIds = getHiddenJobIds(email);
+    // job.status never actually reaches 'completed' anywhere in this codebase
+    // (see CLAUDE.md) -- a fully paid job stays 'assigned' forever, so the
+    // real "is this job done" signal is every paymentSchedule stage being
+    // ticked in paidStages. Without this check a completed job would show
+    // here AND in the History section below, duplicated indefinitely.
+    const isFullyPaid = j => (j.paymentSchedule || []).length > 0 && (j.paymentSchedule || []).every(s => j.paidStages && j.paidStages[s.key]);
     const active = getJobs().filter(j =>
       j.customerEmail === email && !hiddenJobIds.has(j.id) &&
       normalizeAddressLocal(j.address) === normalizeAddressLocal(p.address) &&
-      ['feed', 'assigned', 'cancellation_requested'].includes(j.status)
+      ['feed', 'assigned', 'cancellation_requested'].includes(j.status) &&
+      !isFullyPaid(j)
     );
     if (active.length === 0) return '';
     return `<div class="section-head">Current Jobs</div>` + active.map(j => `
