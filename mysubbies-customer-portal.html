@@ -584,10 +584,24 @@
   // Only real recurring "visit" mowing tasks, pulled live from the rate card
   // -- if the founder renames/adds/removes a mowing tier, this list follows
   // automatically instead of drifting out of sync with a hardcoded list.
+  //
+  // Falls back to a small snapshot of the real current rates if the rate
+  // card isn't in this browser's localStorage yet (e.g. a customer who
+  // logged straight into My Jobs without opening the estimator first, or on
+  // a different device) -- without this, the entire "Want a mowing
+  // reminder?" setup card silently disappears with no way to explain why,
+  // since it has nothing to list in the dropdown. Same accepted-snapshot
+  // pattern as DEFAULT_PAYMENT_SCHEDULE in booking.html for the same class
+  // of "shared localStorage key not populated yet" gap.
   function getMowingTaskOptions() {
     const cat = getLocalRateCard().find(c => c.label === 'Gardening & Lawn Mowing');
-    if (!cat) return [];
-    return (cat.tasks || []).filter(t => t.unit === 'visit' && !t.disabled && !t.unavailable && /mowing/i.test(t.name));
+    const live = cat ? (cat.tasks || []).filter(t => t.unit === 'visit' && !t.disabled && !t.unavailable && /mowing/i.test(t.name)) : [];
+    if (live.length) return live;
+    return [
+      { name: 'Lawn mowing — small (up to 300 sqm)', unit: 'visit', rate: 80 },
+      { name: 'Lawn mowing — medium (300–600 sqm)', unit: 'visit', rate: 130 },
+      { name: 'Lawn mowing — large (600 sqm+)', unit: 'visit', rate: 220 },
+    ];
   }
 
   function getUpcomingMaintenanceCards(p) {
@@ -601,7 +615,7 @@
         cards.push({
           title: 'Lawn mowing recommended',
           sub: (lastMow ? 'Last completed ' + new Date(lastMow.completedAt).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' }) : 'Reminder set') + ' · Every ' + mow.intervalWeeks + ' weeks',
-          price: findTaskRate('Gardening & Lawn Mowing', mow.taskName),
+          price: findTaskRate('Gardening & Lawn Mowing', mow.taskName) ?? (getMowingTaskOptions().find(o => o.name === mow.taskName) || {}).rate ?? null,
           taskName: mow.taskName, catLabel: 'Gardening & Lawn Mowing', suburb: p.suburb || '',
         });
       }
