@@ -214,6 +214,94 @@
     </div>`;
   }
 
+  // Admin -> contractor messaging (added Aug 2026) -- standalone from the
+  // existing per-job internalMessages thread, no job involved. Select one
+  // or many approved contractors from the Applications tab and send them
+  // the same message (+ optional attachment, e.g. an updated rate card).
+  // See api/admin-messages.js.
+  let selectedContractorEmails = new Set();
+  let showMessageComposer = false;
+  let messageComposerSending = false;
+  let messageAttachment = null; // { dataUrl, filename, mime } or null
+  const MESSAGE_ATTACHMENT_MAX_BYTES = 4 * 1024 * 1024;
+
+  function toggleContractorSelection(email) {
+    if (selectedContractorEmails.has(email)) selectedContractorEmails.delete(email);
+    else selectedContractorEmails.add(email);
+    render();
+  }
+  function selectAllApprovedContractors(applications) {
+    applications.filter(a => a.status === 'approved').forEach(a => selectedContractorEmails.add(a.email));
+    render();
+  }
+  function clearContractorSelection() {
+    selectedContractorEmails.clear();
+    render();
+  }
+  function openMessageComposer() {
+    showMessageComposer = true;
+    render();
+    setTimeout(() => document.getElementById('msgComposerBody')?.focus(), 50);
+  }
+  function closeMessageComposer() {
+    showMessageComposer = false;
+    messageAttachment = null;
+    render();
+  }
+  function onMessageAttachmentSelected(event) {
+    const file = (event.target.files || [])[0];
+    event.target.value = '';
+    if (!file) return;
+    const errBox = document.getElementById('msgComposerError');
+    if (file.size > MESSAGE_ATTACHMENT_MAX_BYTES) {
+      if (errBox) { errBox.textContent = 'That file is too large — please use one under 4MB.'; errBox.style.display = 'block'; }
+      return;
+    }
+    if (errBox) errBox.style.display = 'none';
+    const reader = new FileReader();
+    reader.onload = () => {
+      messageAttachment = { dataUrl: reader.result, filename: file.name, mime: file.type || 'application/octet-stream' };
+      render();
+    };
+    reader.readAsDataURL(file);
+  }
+  function removeMessageAttachment() {
+    messageAttachment = null;
+    render();
+  }
+  async function sendContractorMessage() {
+    const subject = document.getElementById('msgComposerSubject').value.trim();
+    const body = document.getElementById('msgComposerBody').value.trim();
+    const errBox = document.getElementById('msgComposerError');
+    if (!body) { errBox.textContent = 'Write a message before sending.'; errBox.style.display = 'block'; return; }
+    errBox.style.display = 'none';
+    messageComposerSending = true;
+    render();
+    try {
+      const res = await fetch('/api/admin-messages', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send',
+          contractorEmails: Array.from(selectedContractorEmails),
+          subject: subject || null, body,
+          attachmentDataUrl: messageAttachment ? messageAttachment.dataUrl : null,
+          attachmentFilename: messageAttachment ? messageAttachment.filename : null,
+          attachmentMime: messageAttachment ? messageAttachment.mime : null,
+        }),
+      });
+      if (!res.ok) throw new Error('send failed');
+      showMessageComposer = false;
+      messageAttachment = null;
+      selectedContractorEmails.clear();
+    } catch (e) {
+      errBox.textContent = 'Something went wrong sending that — please try again.';
+      errBox.style.display = 'block';
+    } finally {
+      messageComposerSending = false;
+      render();
+    }
+  }
+
   let customersStatusFilter = 'all';
   function customersStatusFilterChipsHtml(customers) {
     const statusOf = c => c.status === 'deactivated' ? 'deactivated' : 'active';
@@ -1657,13 +1745,27 @@
     if (applications.length === 0) return '<div class="empty">No contractor applications yet.</div>';
     const statusBadge = { pending: 'badge-feed', approved: 'badge-completed', preferred: 'badge-completed', watchlist: 'badge-feed', suspended: 'badge-rejected', expired_documents: 'badge-rejected', manual_review: 'badge-feed', rejected: 'badge-rejected' };
     const filtered = applicationsStatusFilter === 'all' ? applications : applications.filter(a => a.status === applicationsStatusFilter);
+    const approvedCount = applications.filter(a => a.status === 'approved').length;
     return `
       <h1 class="pagetitle">Contractor applications</h1>
       ${applicationsStatusFilterChipsHtml(applications)}
+      ${approvedCount > 0 ? `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:14px;max-width:640px;">
+          <div style="font-size:12.5px;color:var(--stone);">
+            ${selectedContractorEmails.size > 0 ? `<strong style="color:var(--ink);">${selectedContractorEmails.size}</strong> contractor${selectedContractorEmails.size === 1 ? '' : 's'} selected` : `Select approved contractors to message them`}
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-outline" style="padding:7px 14px;font-size:12.5px;" onclick="selectAllApprovedContractors(getApplications())">Select all approved (${approvedCount})</button>
+            ${selectedContractorEmails.size > 0 ? `<button class="btn btn-outline" style="padding:7px 14px;font-size:12.5px;" onclick="clearContractorSelection()">Clear</button>
+            <button class="btn btn-black" style="padding:7px 14px;font-size:12.5px;" onclick="openMessageComposer()">Message selected \u2192</button>` : ''}
+          </div>
+        </div>
+      ` : ''}
       ${filtered.length === 0 ? '<div class="empty">No applications in this status.</div>' : filtered.map(a => `
         <div class="detailcard" style="max-width:640px;margin-bottom:14px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <div style="display:flex;gap:12px;align-items:center;">
+              ${a.status === 'approved' ? `<input type="checkbox" onclick="toggleContractorSelection('${a.email.replace(/'/g, "\\'")}')" ${selectedContractorEmails.has(a.email) ? 'checked' : ''} style="width:17px;height:17px;flex-shrink:0;cursor:pointer;" title="Select to message" />` : ''}
               ${a.profilePhoto ? `<img src="${escapeHtml(a.profilePhoto)}" style="width:44px;height:44px;border-radius:999px;object-fit:cover;">` : ''}
               <div>
                 <div style="font-weight:700;font-size:16px;">${escapeHtml(a.business)}</div>
@@ -1703,7 +1805,40 @@
           `}
         </div>
       `).join('')}
+      ${showMessageComposer ? messageComposerHtml() : ''}
     `;
+  }
+
+  function messageComposerHtml() {
+    const recipients = Array.from(selectedContractorEmails);
+    return `
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this) closeMessageComposer();">
+        <div style="background:#fff;border-radius:16px;padding:24px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <h2 style="font-size:18px;">Message ${recipients.length} contractor${recipients.length === 1 ? '' : 's'}</h2>
+            <button onclick="closeMessageComposer()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--stone);line-height:1;">✕</button>
+          </div>
+          <div style="font-size:12px;color:var(--stone);margin-bottom:16px;">${recipients.map(escapeHtml).join(', ')}</div>
+          <label class="est-field-label" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:4px;">Subject (optional)</label>
+          <input type="text" id="msgComposerSubject" placeholder="e.g. Updated rate card" style="width:100%;font-family:inherit;font-size:14px;border:1.5px solid var(--line);border-radius:10px;padding:11px 13px;outline:none;margin-bottom:12px;" />
+          <label class="est-field-label" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:4px;">Message</label>
+          <textarea id="msgComposerBody" rows="5" placeholder="Write your message…" style="width:100%;font-family:inherit;font-size:14px;border:1.5px solid var(--line);border-radius:10px;padding:11px 13px;outline:none;resize:vertical;margin-bottom:12px;"></textarea>
+          <label class="est-field-label" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;">Attachment (optional, max 4MB)</label>
+          ${messageAttachment ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:13px;">
+              <span>📎 ${escapeHtml(messageAttachment.filename)}</span>
+              <button onclick="removeMessageAttachment()" style="background:none;border:none;color:var(--stone);cursor:pointer;font-size:16px;line-height:1;">✕</button>
+            </div>
+          ` : `
+            <input type="file" id="msgComposerAttachment" onchange="onMessageAttachmentSelected(event)" style="font-size:13px;margin-bottom:12px;" />
+          `}
+          <div id="msgComposerError" style="color:#B4232C;font-size:13px;margin-bottom:10px;display:none;"></div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-outline" style="flex:1;" onclick="closeMessageComposer()">Cancel</button>
+            <button class="btn btn-black" style="flex:2;" onclick="sendContractorMessage()" ${messageComposerSending ? 'disabled' : ''}>${messageComposerSending ? 'Sending…' : 'Send →'}</button>
+          </div>
+        </div>
+      </div>`;
   }
 
   // Mirrors the decision into the real `contractors` table (matched by

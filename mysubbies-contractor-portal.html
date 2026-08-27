@@ -212,6 +212,33 @@
     } catch (e) { /* offline or first load — local data still works */ }
   }
 
+  // Admin -> contractor messaging (added Aug 2026) -- standalone channel,
+  // no job involved (e.g. admin sending an updated rate card to the whole
+  // panel). See api/admin-messages.js. Lives in Supabase only, no
+  // localStorage mirror, same reasoning as property-profile.js: this is
+  // read-mostly, per-contractor, and never needs to work offline.
+  let adminMessages = [];
+  async function hydrateAdminMessages() {
+    const email = localStorage.getItem('mysubbies_contractor_email');
+    if (!email) return;
+    try {
+      const res = await fetch('/api/admin-messages?contractorEmail=' + encodeURIComponent(email));
+      if (!res.ok) return;
+      const data = await res.json();
+      adminMessages = Array.isArray(data.messages) ? data.messages : [];
+    } catch (e) { /* offline or first load — messages just won't show yet */ }
+  }
+  function markMessageRead(id) {
+    const msg = adminMessages.find(m => m.id === id);
+    if (!msg || msg.read_at) return;
+    msg.read_at = new Date().toISOString(); // optimistic, avoids a re-render round trip
+    render();
+    fetch('/api/admin-messages', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'markRead', messageId: id, contractorEmail: localStorage.getItem('mysubbies_contractor_email') }),
+    }).catch(() => {});
+  }
+
   // Manual refresh (Aug 2026) -- re-pulls jobs from Supabase and re-renders,
   // for a contractor checking the feed/My Jobs for updates without a full
   // page reload (which would lose scroll position and whatever tab they're on).
@@ -221,7 +248,7 @@
     manualRefreshInFlight = true;
     const icon = document.getElementById('refreshIcon');
     if (icon) icon.classList.add('spinning');
-    hydrateJobsFromServer().then(() => {
+    Promise.all([hydrateJobsFromServer(), hydrateAdminMessages()]).then(() => {
       render();
       showToast('Refreshed');
     }).catch(() => {}).finally(() => {
@@ -480,6 +507,7 @@
         <button class="${tab==='feed'?'active':''}" onclick="tab='feed'; render();">Job Feed ${feedJobs.length ? '('+feedJobs.length+')' : ''}</button>
         <button class="${tab==='myjobs'?'active':''}" onclick="tab='myjobs'; render();">My Jobs ${myJobs.length ? '('+myJobs.length+')' : ''}</button>
         <button class="${tab==='earnings'?'active':''}" onclick="tab='earnings'; render();">Earnings</button>
+        <button class="${tab==='messages'?'active':''}" onclick="tab='messages'; render();">Messages ${adminMessages.filter(m => !m.read_at).length ? '('+adminMessages.filter(m => !m.read_at).length+')' : ''}</button>
       </div>
     `;
 
@@ -512,6 +540,25 @@
             </tbody>
           </table>
         `}
+      `;
+      return;
+    }
+
+    if (tab === 'messages') {
+      app.innerHTML += `
+        <h1 class="pagetitle">Messages</h1>
+        <p class="jobmeta" style="margin-bottom:16px;">Messages from MySubbies admin — separate from the job-specific chat on each job.</p>
+        ${adminMessages.length === 0 ? '<div class="empty">No messages yet.</div>' : adminMessages.map(m => `
+          <div class="box" style="margin-bottom:10px;${m.read_at ? '' : 'border-color:var(--black);'}" ${m.read_at ? '' : `onclick="markMessageRead('${m.id}')"`}>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;">
+              <strong style="font-size:14px;">${escapeHtml(m.subject || 'Message from MySubbies')}</strong>
+              ${m.read_at ? '' : '<span class="badge badge-feed" style="flex-shrink:0;">New</span>'}
+            </div>
+            <div class="jobmeta" style="margin:4px 0 8px;">${new Date(m.sent_at).toLocaleString('en-AU')}</div>
+            <div style="font-size:13.5px;line-height:1.5;white-space:pre-wrap;">${escapeHtml(m.body)}</div>
+            ${m.attachment_data_url ? `<a href="${m.attachment_data_url}" download="${escapeHtml(m.attachment_filename || 'attachment')}" style="display:inline-block;margin-top:10px;font-size:13px;font-weight:600;text-decoration:underline;">📎 ${escapeHtml(m.attachment_filename || 'Download attachment')}</a>` : ''}
+          </div>
+        `).join('')}
       `;
       return;
     }
@@ -1318,7 +1365,7 @@
     render();
   }
 
-  hydrateJobsFromServer().then(render);
+  Promise.all([hydrateJobsFromServer(), hydrateAdminMessages()]).then(render);
 </script>
 <script>
 if ('serviceWorker' in navigator) {
