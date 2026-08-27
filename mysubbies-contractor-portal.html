@@ -30,6 +30,10 @@
   @media (max-width:460px) { .navwrap { padding:0 14px; } .navlinks { gap:9px; font-size:11px; } }
   .navlinks a { color:var(--stone); }
   .navlinks a.current { color:var(--black); font-weight:600; }
+  .navlink-refresh { display:flex; align-items:center; cursor:pointer; color:var(--stone); }
+  .navlink-refresh:hover { color:var(--black); }
+  .navlink-refresh svg.spinning { animation:navlink-refresh-spin 0.8s linear infinite; }
+  @keyframes navlink-refresh-spin { to { transform:rotate(360deg); } }
   .wrap { max-width:640px; margin:0 auto; padding:32px 24px 80px; }
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 20px; border-radius:999px; font-size:14px; font-weight:600; cursor:pointer; border:none; }
   .btn-black { background:var(--black); color:#fff; }
@@ -174,6 +178,7 @@
       <div class="logo-word">MySubbies</div>
     </div>
     <div class="navlinks">
+      <a class="navlink-refresh" id="refreshLink" onclick="manualRefresh()" title="Refresh"><svg id="refreshIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></a>
       <a class="current" href="mysubbies-contractor-portal.html">Contractor Portal</a>
     </div>
   </div>
@@ -206,6 +211,37 @@
       localStorage.setItem('mysubbies_jobs', JSON.stringify(Array.from(byId.values())));
     } catch (e) { /* offline or first load — local data still works */ }
   }
+
+  // Manual refresh (Aug 2026) -- re-pulls jobs from Supabase and re-renders,
+  // for a contractor checking the feed/My Jobs for updates without a full
+  // page reload (which would lose scroll position and whatever tab they're on).
+  let manualRefreshInFlight = false;
+  function manualRefresh() {
+    if (manualRefreshInFlight) return;
+    manualRefreshInFlight = true;
+    const icon = document.getElementById('refreshIcon');
+    if (icon) icon.classList.add('spinning');
+    hydrateJobsFromServer().then(() => {
+      render();
+      showToast('Refreshed');
+    }).catch(() => {}).finally(() => {
+      manualRefreshInFlight = false;
+      if (icon) icon.classList.remove('spinning');
+    });
+  }
+  function showToast(msg) {
+    let t = document.getElementById('toastMsg');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'toastMsg';
+      t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--black);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;z-index:20;';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 2000);
+  }
+
   function getContractorName() { return localStorage.getItem('mysubbies_contractor_name'); }
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
