@@ -631,6 +631,7 @@
   }
 
   function triggerFixSomething() {
+    stashPropertyForNewJob();
     localStorage.setItem('mysubbies_open_fix_something', '1');
     window.location.href = 'mysubbies-website.html#categories';
   }
@@ -640,6 +641,7 @@
   // initRebookIfRequested() already rebuilds a fully-priced cart from the
   // live rate card and jumps straight to step 2.
   function bookMaintenanceTask(catLabel, taskName, suburb) {
+    stashPropertyForNewJob();
     localStorage.setItem('mysubbies_rebook_request', JSON.stringify({ items: [{ catLabel, taskName, qty: 1 }], suburb: suburb || '' }));
     window.location.href = 'mysubbies-website.html#estimate';
   }
@@ -677,9 +679,45 @@
     propertyCategoryFilter = (propertyCategoryFilter === label) ? null : label;
     const wrap = document.getElementById('propertyProfileList');
     const email = getCurrentCustomerEmail();
-    if (wrap && lastPropertyProfiles.length && email) {
-      wrap.innerHTML = lastPropertyProfiles.map(p => renderOnePropertyProfile(p, email)).join('<div style="height:32px;"></div>');
+    if (wrap && lastPropertyProfiles.length && email) renderPropertyProfileList(wrap, lastPropertyProfiles, email);
+  }
+
+  // Multi-property support (Aug 2026, founder request): a customer with
+  // jobs at more than one address gets a dropdown to switch which
+  // property's House Health they're viewing, instead of every property
+  // being stacked on one long page. Single-property customers (the common
+  // case) see no dropdown at all -- unchanged from before. The selected
+  // property also becomes the target address for any new job raised from
+  // this screen -- see stashPropertyForNewJob().
+  let selectedPropertyId = null;
+  function renderPropertyProfileList(wrap, properties, email) {
+    if (!selectedPropertyId || !properties.some(p => p.propertyId === selectedPropertyId)) {
+      selectedPropertyId = properties[0].propertyId;
     }
+    const selector = properties.length > 1 ? `
+      <label class="est-field-label" style="display:block;margin-bottom:8px;">Property</label>
+      <select id="propertySelect" onchange="switchSelectedProperty(this.value)" style="width:100%;font-size:14px;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:20px;background:#fff;">
+        ${properties.map(p => `<option value="${p.propertyId}" ${p.propertyId === selectedPropertyId ? 'selected' : ''}>${escapeHtml(p.address)}</option>`).join('')}
+      </select>
+    ` : '';
+    const selected = properties.find(p => p.propertyId === selectedPropertyId) || properties[0];
+    wrap.innerHTML = selector + renderOnePropertyProfile(selected, email);
+  }
+  function switchSelectedProperty(propertyId) {
+    selectedPropertyId = propertyId;
+    propertyCategoryFilter = null;
+    const wrap = document.getElementById('propertyProfileList');
+    const email = getCurrentCustomerEmail();
+    if (wrap && email) renderPropertyProfileList(wrap, lastPropertyProfiles, email);
+  }
+  // Stashes the currently-selected property's address so the next job
+  // created (via Fix Something or +Book another job from this screen) is
+  // correctly tagged to THIS property instead of silently defaulting to
+  // the account's single saved address -- see createJob() in
+  // mysubbies-booking.html, which reads and clears this override.
+  function stashPropertyForNewJob() {
+    const p = lastPropertyProfiles.find(x => x.propertyId === selectedPropertyId);
+    if (p) localStorage.setItem('mysubbies_new_job_property', JSON.stringify({ address: p.address, suburb: p.suburb || '' }));
   }
 
   function renderHomeCatCard(c, p) {
@@ -737,7 +775,7 @@
       if (h.contractorEmail) seenContractors.add(h.contractorEmail);
       const dateStr = h.completedAt ? new Date(h.completedAt).toLocaleDateString('en-AU', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
       return `
-        <button class="jobcard" style="text-align:left;" onclick="selectedJobId='${h.jobId}'; showingPropertyProfile=false; render();">
+        <button class="jobcard" style="text-align:left;" onclick="selectedJobId='${h.jobId}'; render();">
           <div class="jobtitle">${escapeHtml(h.category)}</div>
           ${h.taskSummary ? `<div class="jobmeta" style="margin-bottom:6px;">${escapeHtml(h.taskSummary)}</div>` : ''}
           <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--stone);">
@@ -746,6 +784,32 @@
           </div>
         </button>`;
     }).join('');
+  }
+
+  // In-progress jobs at this property (Aug 2026, founder request) -- the
+  // property_history table (rendered above) only ever contains COMPLETED
+  // jobs (every payment stage paid, see api/sync-jobs.js), so a job that's
+  // just been booked or is currently with a contractor never showed up
+  // under House Health at all before this. Computed live from getJobs()
+  // (address-matched, same normalizeAddressLocal() used everywhere else in
+  // this feature) rather than from property_history, since that's the only
+  // place "not yet completed" jobs actually live.
+  function renderActiveJobsAtProperty(p, email) {
+    const hiddenJobIds = getHiddenJobIds(email);
+    const active = getJobs().filter(j =>
+      j.customerEmail === email && !hiddenJobIds.has(j.id) &&
+      normalizeAddressLocal(j.address) === normalizeAddressLocal(p.address) &&
+      ['feed', 'assigned', 'cancellation_requested'].includes(j.status)
+    );
+    if (active.length === 0) return '';
+    return `<div class="section-head">Current Jobs</div>` + active.map(j => `
+      <button class="jobcard" style="text-align:left;" onclick="selectedJobId='${j.id}'; render();">
+        <div class="jobtitle">${escapeHtml(j.category)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--stone);margin-top:4px;">
+          <span><span class="badge ${JOB_BADGE_CLASS[j.status] || 'badge-feed'}">${JOB_BADGE_LABEL[j.status] || j.status}</span>${j.contractor ? ' · ' + escapeHtml(j.contractor) : ''}</span>
+          <span style="font-weight:700;color:var(--ink);">$${(j.priceLow || j.basePrice || 0).toLocaleString()}</span>
+        </div>
+      </button>`).join('');
   }
 
   function renderOnePropertyProfile(p, email) {
@@ -759,6 +823,10 @@
           <div class="prop-hero-address">📍 ${escapeHtml(p.address)}</div>
           ${p.suburb ? `<div class="prop-hero-suburb">${escapeHtml(p.suburb)}</div>` : ''}
         </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:14px;margin-top:8px;font-size:12px;">
+        <a onclick="stashPropertyForNewJob(); window.location.href='mysubbies-website.html#estimate';" style="text-decoration:underline;color:var(--stone);cursor:pointer;">+ Book another job here</a>
+        <a onclick="hideProperty('${p.propertyId}', '${p.address.replace(/'/g, "\\'")}')" style="text-decoration:underline;color:var(--stone);cursor:pointer;">Remove this property</a>
       </div>
       <div class="prop-health-card">
         <div>
@@ -778,6 +846,7 @@
         <div><div class="prop-fix-cta-title">Something need fixing?</div><div class="prop-fix-cta-sub">Upload a photo and we'll tell you what's wrong and the price.</div></div>
         <div class="prop-fix-cta-arrow">→</div>
       </button>
+      ${renderActiveJobsAtProperty(p, email)}
       <div class="section-head">Your Home</div>
       <div class="home-grid">${HOME_GRID_CATEGORIES.map(c => renderHomeCatCard(c, p)).join('')}</div>
       ${renderUpcomingMaintenanceSection(p)}
@@ -788,7 +857,7 @@
 
   async function renderPropertyProfile(email) {
     app.innerHTML = `
-      <button class="backbtn" onclick="closePropertyProfile()">← Back to my jobs</button>
+      <button class="backbtn" onclick="closePropertyProfile()">← All jobs</button>
       <div id="propertyProfileList"><div class="empty">Loading…</div></div>
     `;
     const wrap = document.getElementById('propertyProfileList');
@@ -800,14 +869,42 @@
       properties = (data && data.properties) || [];
     } catch (e) { /* fall through to empty state below */ }
 
+    const hiddenPropertyIds = getHiddenPropertyIds(email);
+    properties = properties.filter(p => !hiddenPropertyIds.has(p.propertyId));
     lastPropertyProfiles = properties;
 
     if (properties.length === 0) {
-      wrap.innerHTML = `<h1 class="pagetitle" style="margin-bottom:10px;">House Health</h1><div class="empty">Your House Health record will build automatically as MySubbies jobs are completed and paid at your address.</div>`;
+      wrap.innerHTML = `<h1 class="pagetitle" style="margin-bottom:10px;">House Health</h1><div class="empty">Your House Health record will build automatically as soon as you book your first job. <a href="mysubbies-website.html#estimate" style="text-decoration:underline;">Get an estimated price instantly</a> to get started.</div>`;
       return;
     }
 
-    wrap.innerHTML = properties.map(p => renderOnePropertyProfile(p, email)).join('<div style="height:32px;"></div>');
+    renderPropertyProfileList(wrap, properties, email);
+  }
+
+  // "Delete house profile" (Aug 2026, founder request) -- hides a property
+  // from this customer's own House Health view only, same "hide, don't
+  // destroy" pattern already used for cancelled jobs (getHiddenJobIds).
+  // The underlying property_profiles/property_history record is untouched
+  // -- deliberately: it's the permanent record the whole feature exists
+  // for, and other jobs/customers may still reference the same address.
+  function getHiddenPropertyIds(email) {
+    try {
+      const all = JSON.parse(localStorage.getItem('mysubbies_customer_hidden_properties') || '{}');
+      return new Set(all[email] || []);
+    } catch (e) { return new Set(); }
+  }
+  function hideProperty(propertyId, addressLabel) {
+    const email = getCurrentCustomerEmail();
+    if (!email) return;
+    if (!confirm(`Remove "${addressLabel}" from your House Health? Your job history stays intact — MySubbies can restore this view if you ever need it back.`)) return;
+    try {
+      const all = JSON.parse(localStorage.getItem('mysubbies_customer_hidden_properties') || '{}');
+      if (!all[email]) all[email] = [];
+      if (!all[email].includes(propertyId)) all[email].push(propertyId);
+      localStorage.setItem('mysubbies_customer_hidden_properties', JSON.stringify(all));
+    } catch (e) { /* non-critical -- worst case the property just stays visible */ }
+    if (selectedPropertyId === propertyId) selectedPropertyId = null;
+    renderPropertyProfile(email);
   }
 
   // Job list table (Aug 2026) -- same markup, classes, badge colours and
@@ -1670,6 +1767,7 @@
     // who's logged in, or a first login on a fresh device shows "0 jobs"
     // even though jobs exist on the server. Found via live testing.
     await hydrateJobsFromServer();
+    showingPropertyProfile = true; // House Health is the default landing view
     render();
   }
   function logout() {
@@ -1710,10 +1808,16 @@
   window.addEventListener('storage', (e) => { if (e.key === 'mysubbies_jobs') { checkForNewMessages(); render(); } });
   setInterval(checkForNewMessages, 3000);
 
-  if (window.location.hash === '#house-health' || localStorage.getItem('mysubbies_open_house_health') === '1') {
-    showingPropertyProfile = true;
-    localStorage.removeItem('mysubbies_open_house_health');
-  }
+  // House Health is now the default landing view for "My Jobs" (founder
+  // request, Aug 2026 — feels more personalized than a flat job list).
+  // Deep-links (#house-health / mysubbies_open_house_health from the main
+  // site) already forced this open; now it's just the default too, so the
+  // only remaining case to explicitly check is nothing -- always default
+  // true unless the customer explicitly navigated elsewhere in-session
+  // (render() itself still lets them reach the flat "All jobs" list via
+  // closePropertyProfile()).
+  showingPropertyProfile = true;
+  localStorage.removeItem('mysubbies_open_house_health');
   hydrateJobsFromServer().then(render);
 </script>
 <script>

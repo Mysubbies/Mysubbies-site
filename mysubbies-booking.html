@@ -488,6 +488,18 @@
     const bundleId = isBundle ? 'bundle_' + Date.now() : null;
     const createdJobs = [];
 
+    // Property-specific override (Aug 2026): set by mysubbies-customer-portal.html
+    // when a multi-property customer raises a job from a specific property's
+    // House Health view, so the new job is correctly tagged to THAT property
+    // instead of silently defaulting to the account's single saved address
+    // below. Cleared immediately so it never leaks into a later, unrelated
+    // booking in the same browser session.
+    let addressOverride = null;
+    try {
+      const raw = localStorage.getItem('mysubbies_new_job_property');
+      if (raw) { addressOverride = JSON.parse(raw); localStorage.removeItem('mysubbies_new_job_property'); }
+    } catch (e) { /* malformed override -- fall back to the account address below */ }
+
     uniqueCats.forEach(catLabel => {
       const catItems = items.filter(i => i.catLabel === catLabel);
       const catBase = catItems.reduce((s, i) => s + i.base, 0);
@@ -502,7 +514,8 @@
         items: catItems,
         unit: singleItem ? singleItem.unit : null, qty: singleItem ? singleItem.qty : null,
         basePrice: catBase, priceLow: catLow, priceHigh: catHigh,
-        suburb: customer.suburb || quote.suburb || 'Melbourne', address: customer.address || '',
+        suburb: (addressOverride && addressOverride.suburb) || customer.suburb || quote.suburb || 'Melbourne',
+        address: (addressOverride && addressOverride.address) || customer.address || '',
         customerName: customer.name, customerPhone: customer.phone, customerEmail: customer.email,
         jobType: customer.jobType || 'private', businessName: customer.businessName || '',
         site: quote.site, access: quote.access, urgency: quote.urgency, hasPhoto: quote.hasPhoto, photoDataUrl: quote.photoDataUrl || null, photoDataUrls: quote.photoDataUrls || (quote.photoDataUrl ? [quote.photoDataUrl] : []),
