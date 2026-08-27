@@ -24,13 +24,16 @@
   section { padding:80px 0; }
   @media (max-width:720px) { section { padding:52px 0; } }
 
-  header { position:sticky; top:0; z-index:50; background:var(--black); }
+  header { position:sticky; top:0; z-index:50; background:#fff; border-bottom:1px solid var(--line); }
   .navwrap { max-width:1180px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; gap:16px; height:64px; }
   .logo { display:flex; align-items:center; gap:9px; }
   .logo-mark { width:28px; height:28px; border-radius:7px; background:#fff; flex-shrink:0; }
-  .logo-word { font-weight:800; font-size:19px; color:#fff; white-space:nowrap; }
+  .logo-word { font-weight:800; font-size:19px; color:var(--black); white-space:nowrap; }
+  .logo-word .gold { color:var(--accent); }
   .navctas { display:flex; align-items:center; gap:10px; }
-  .navctas a.navlink { font-size:13.5px; font-weight:500; color:rgba(255,255,255,0.72); }
+  .navctas a.navlink { font-size:13.5px; font-weight:600; color:var(--stone); }
+  .navctas a.navlink:hover { color:var(--black); }
+  .navctas .btn-white { background:var(--black); color:#fff; }
   @media (max-width:560px) { .navctas a.navlink { display:none; } }
 
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:13px 24px; border-radius:999px; font-size:14.5px; font-weight:600; cursor:pointer; border:none; transition:opacity .12s; white-space:nowrap; }
@@ -40,12 +43,17 @@
   .btn-ghost-onblack { background:transparent; color:#fff; border:1px solid rgba(255,255,255,0.3); }
   .btn-lg { padding:16px 30px; font-size:15.5px; }
 
-  .hero { background:var(--black); padding:64px 0 60px; }
+  .hero { background:var(--black); padding:64px 0 60px; overflow:hidden; }
+  .hero-grid { display:grid; grid-template-columns:1.05fr 0.95fr; gap:48px; align-items:center; }
+  @media (max-width:900px) { .hero-grid { grid-template-columns:1fr; gap:32px; } }
   .hero-eyebrow { display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:rgba(255,255,255,0.6); background:rgba(255,255,255,0.08); padding:7px 14px; border-radius:999px; margin-bottom:24px; }
-  .hero h1 { font-size:clamp(34px, 5vw, 56px); line-height:1.06; color:#fff; max-width:680px; }
-  .hero p.lede { font-size:16.5px; color:rgba(255,255,255,0.7); max-width:520px; margin-top:20px; line-height:1.6; }
+  .hero h1 { font-size:clamp(34px, 4.4vw, 54px); line-height:1.06; color:#fff; }
+  .hero p.lede { font-size:16.5px; color:rgba(255,255,255,0.7); max-width:480px; margin-top:20px; line-height:1.6; }
   .hero-actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:32px; }
   .hero-note { font-size:12.5px; color:rgba(255,255,255,0.5); margin-top:18px; }
+  .hero-photo { position:relative; border-radius:22px; overflow:hidden; aspect-ratio:900/700; box-shadow:0 24px 50px rgba(0,0,0,0.35); }
+  .hero-photo img { width:100%; height:100%; object-fit:cover; display:block; }
+  @media (max-width:900px) { .hero-photo { aspect-ratio:16/10; } }
 
   .valuegrid { display:grid; grid-template-columns:repeat(3, 1fr); gap:20px; }
   @media (max-width:860px) { .valuegrid { grid-template-columns:1fr 1fr; } }
@@ -79,9 +87,15 @@
   .ctaband p { color:rgba(255,255,255,0.65); font-size:15.5px; margin-bottom:32px; }
   .ctaband .btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
 
-  footer { background:var(--black); color:rgba(255,255,255,0.5); padding:40px 24px 28px; text-align:center; font-size:13px; border-top:1px solid rgba(255,255,255,0.08); }
-  footer a:hover { color:#fff; }
-  .footlinks { display:flex; gap:18px; justify-content:center; flex-wrap:wrap; margin-top:14px; }
+  footer.sitefoot { background:var(--black); color:rgba(255,255,255,0.55); padding:56px 0 32px; font-size:13px; border-top:1px solid rgba(255,255,255,0.08); }
+  .footgrid { display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:32px; margin-bottom:48px; max-width:1180px; margin-left:auto; margin-right:auto; padding:0 24px; }
+  @media (max-width:780px) { .footgrid { grid-template-columns:1fr 1fr; } }
+  .footgrid h4 { color:#fff; font-size:13px; font-weight:700; margin-bottom:16px; text-transform:uppercase; letter-spacing:0.04em; }
+  .footgrid ul { list-style:none; }
+  .footgrid li { margin-bottom:10px; }
+  .footgrid a { color:inherit; text-decoration:none; }
+  .footgrid a:hover { color:#fff; }
+  .footbottom { max-width:1180px; margin:0 auto; padding:24px 24px 0; border-top:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; }
 
   .reveal { opacity:0; transform:translateY(16px); transition:opacity .6s ease, transform .6s ease; }
   .reveal.in { opacity:1; transform:none; }
@@ -103,7 +117,7 @@
   <div class="navwrap">
     <a class="logo" href="mysubbies-website.html">
       <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-      <div class="logo-word">MySubbies</div>
+      <div class="logo-word">My<span class="gold">Subbies</span></div>
     </a>
     <div class="navctas">
       <a class="navlink" href="mysubbies-contractor-portal.html">Already applied? Log in</a>
@@ -114,14 +128,21 @@
 
 <section class="hero">
   <div class="wrap">
-    <div class="hero-eyebrow"><span>For Melbourne trades &amp; contractors</span></div>
-    <h1>Work you don't have to chase.</h1>
-    <p class="lede">Real jobs, priced and offered straight to you — no lead fees, no bidding wars, no chasing quotes that go nowhere. Run the whole thing from your phone.</p>
-    <div class="hero-actions">
-      <a class="btn btn-white btn-lg" href="mysubbies-contractor-signup.html">Apply to join the panel →</a>
-      <a class="btn btn-ghost-onblack btn-lg" href="mysubbies-contractor-portal.html">Already applied? Log in →</a>
+    <div class="hero-grid">
+      <div>
+        <div class="hero-eyebrow"><span>For Melbourne trades &amp; contractors</span></div>
+        <h1>Work you don't have to chase.</h1>
+        <p class="lede">Real jobs, priced and offered straight to you — no lead fees, no bidding wars, no chasing quotes that go nowhere. Run the whole thing from your phone.</p>
+        <div class="hero-actions">
+          <a class="btn btn-white btn-lg" href="mysubbies-contractor-signup.html">Apply to join the panel →</a>
+          <a class="btn btn-ghost-onblack btn-lg" href="mysubbies-contractor-portal.html">Already applied? Log in →</a>
+        </div>
+        <div class="hero-note">Free to join. We review every application before granting portal access.</div>
+      </div>
+      <div class="hero-photo reveal">
+        <img src="images/contractor-landing-hero.jpg" alt="Tradesperson working on a construction frame" loading="eager" />
+      </div>
     </div>
-    <div class="hero-note">Free to join. We review every application before granting portal access.</div>
   </div>
 </section>
 
@@ -134,7 +155,7 @@
     <div class="valuegrid">
       <div class="valuecard reveal"><div class="vc-icon">💸</div><h3>No lead fees</h3><p>Ever — not per job, not per lead, not a subscription to stay visible.</p></div>
       <div class="valuecard reveal"><div class="vc-icon">🤝</div><h3>No bidding</h3><p>Each job is offered to one matched contractor at a time — you're not racing anyone to the bottom on price.</p></div>
-      <div class="valuecard reveal"><div class="vc-icon">💰</div><h3>Fixed payout</h3><p>The amount you'll be paid is shown before you ever accept a job — no surprises later.</p></div>
+      <div class="valuecard reveal"><div class="vc-icon">💰</div><h3>Keep 75% of every job</h3><p>MySubbies takes a flat 25% commission — nothing else. The exact amount you'll be paid is shown before you ever accept, no surprises later.</p></div>
       <div class="valuecard reveal"><div class="vc-icon">📆</div><h3>Staged payments</h3><p>Paid as the job progresses through agreed stages, not just a lump sum at the very end.</p></div>
       <div class="valuecard reveal"><div class="vc-icon">🎯</div><h3>Matched to your trade &amp; area</h3><p>You only see jobs in the trades and suburbs you've told us you cover.</p></div>
       <div class="valuecard reveal"><div class="vc-icon">💬</div><h3>Message customers in-app</h3><p>All communication happens in one thread inside the portal — no missed calls, no lost texts.</p></div>
@@ -191,14 +212,37 @@
   </div>
 </section>
 
-<footer>
-  © 2026 MySubbies group. Melbourne, VIC.
-  <div class="footlinks">
-    <a href="mysubbies-website.html">Home</a>
-    <a href="mysubbies-faq.html">FAQ</a>
-    <a href="mysubbies-contractor-agreement.html">Contractor Agreement</a>
-    <a href="mysubbies-terms.html">Terms</a>
-    <a href="mailto:accounts@mysubbies.com.au">Contact us</a>
+<footer class="sitefoot">
+  <div class="footgrid">
+    <div>
+      <div class="logo" style="margin-bottom:14px;">
+        <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="logo-word" style="color:#fff;">MySubbies</div>
+      </div>
+      <p style="max-width:260px;line-height:1.6;">A dedicated contractor panel for Melbourne homes — instant pricing, no bidding, no lead fees.</p>
+    </div>
+    <div>
+      <h4>For contractors</h4>
+      <ul>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="mysubbies-contractor-signup.html">Apply to join</a></li>
+        <li><a href="mysubbies-contractor-portal.html">Contractor login</a></li>
+        <li><a href="mysubbies-contractor-agreement.html">Contractor Agreement</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Company</h4>
+      <ul>
+        <li><a href="mysubbies-website.html">Home</a></li>
+        <li><a href="mysubbies-faq.html">FAQ</a></li>
+        <li><a href="mysubbies-terms.html">Terms</a></li>
+        <li><a href="mysubbies-privacy-policy.html">Privacy Policy</a></li>
+        <li><a href="mailto:accounts@mysubbies.com.au">Contact us</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footbottom">
+    <span>© 2026 MySubbies group. Melbourne, VIC.</span>
   </div>
 </footer>
 
