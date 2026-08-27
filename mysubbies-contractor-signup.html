@@ -20,12 +20,14 @@
   body { font-family:'Plus Jakarta Sans', system-ui, sans-serif; background: var(--paper); color: var(--ink); line-height:1.5; -webkit-font-smoothing:antialiased; }
   h1, h2 { font-weight:800; letter-spacing:-0.02em; }
   a { color:inherit; text-decoration:none; }
-  header { background: var(--black); }
+  header { background: #fff; border-bottom:1px solid var(--line); }
   .navwrap { max-width:1180px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:64px; }
   .logo { display:flex; align-items:center; gap:9px; }
   .logo-mark { width:28px; height:28px; border-radius:7px; background:#fff; }
-  .logo-word { font-weight:800; font-size:19px; color:#fff; }
-  .navlinks a { color:rgba(255,255,255,0.65); font-size:13px; }
+  .logo-word { font-weight:800; font-size:19px; color:var(--black); }
+  .logo-word .gold { color:var(--accent); }
+  .navlinks a { color:var(--stone); font-size:13px; }
+  .navlinks a:hover { color:var(--black); }
   .wrap { max-width:640px; margin:0 auto; padding:48px 24px 80px; }
   .pitch { background:var(--black); color:#fff; border-radius:16px; padding:32px 28px; margin-bottom:32px; }
   .pitch-eyebrow { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:rgba(255,255,255,0.55); margin-bottom:10px; }
@@ -93,7 +95,7 @@
   <div class="navwrap">
     <a class="logo" href="mysubbies-website.html">
       <div class="logo-mark"><svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="4" y="4" width="52" height="52" rx="15" fill="#FFFFFF"/><path d="M17 42 V19 L30 33 L43 19 V42" fill="none" stroke="#000000" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-      <div class="logo-word">MySubbies</div>
+      <div class="logo-word">My<span class="gold">Subbies</span></div>
     </a>
     <div class="navlinks"><a href="mysubbies-contractor-portal.html">Already applied? Log in</a></div>
   </div>
