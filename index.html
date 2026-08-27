@@ -161,6 +161,14 @@
   .est-ai-estimate-range { font-size:18px; font-weight:800; color:var(--ink); margin-top:4px; }
   .est-ai-estimate-reason { font-size:12.5px; color:var(--stone); margin-top:4px; line-height:1.5; }
   .est-ai-estimate-caveat { font-size:11.5px; color:var(--stone); margin-top:8px; line-height:1.5; }
+  .est-match-line.ambiguous { margin:6px 0 14px; }
+  .est-ambiguous-wrap { border:1px solid var(--line); border-radius:10px; padding:10px; background:var(--paper); }
+  .est-ambiguous-label { font-size:12.5px; color:var(--stone); margin-bottom:8px; font-weight:600; }
+  .est-ambiguous-option { display:flex; justify-content:space-between; align-items:center; gap:10px; width:100%; text-align:left; background:#fff; border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:6px; cursor:pointer; font-size:13.5px; font-family:inherit; color:var(--ink); }
+  .est-ambiguous-option:last-child { margin-bottom:0; }
+  .est-ambiguous-option:hover { border-color:var(--ink); }
+  .est-ambiguous-name { font-weight:600; }
+  .est-ambiguous-price { color:var(--stone); font-size:12.5px; white-space:nowrap; flex-shrink:0; }
   .ai-estimate-tag { display:inline-block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.02em; color:var(--accent-dark); background:var(--accent-pale); border-radius:6px; padding:2px 6px; margin-left:4px; vertical-align:middle; }
   .chiprow-est { display:flex; flex-wrap:wrap; gap:7px; }
   .est-tier-quickmatch { width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:14px; color:var(--ink); border:1.5px solid var(--line); border-radius:10px; padding:11px 14px; outline:none; background:#fff; margin-bottom:12px; }
@@ -985,7 +993,7 @@
             <!-- Full browsable task list -- hidden by request (was reading as
                  clutter on a category with many tasks). Kept in the DOM, not
                  deleted, since selection/matching logic (toggleTierSelection,
-                 estFindBestTaskMatch highlighting) still reads/writes to it. -->
+                 estFindTaskMatches highlighting) still reads/writes to it. -->
             <div class="chiprow-est" id="estTierChips" style="display:none;"></div>
           </div>
 
@@ -1900,10 +1908,18 @@
     if (note) note.style.display = 'none';
   }
 
-  function goToEstimatorWithCategory(label) {
+  function goToEstimatorWithCategory(label, prefillQuery) {
     const cat = CATEGORIES.find(c => c.label === label);
     document.getElementById('estimate').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    if (cat) setTimeout(() => selectCat(cat), 350);
+    if (cat) setTimeout(() => {
+      selectCat(cat);
+      // selectCat() clears the quick-match box, so any prefill has to be
+      // applied after it runs, not before.
+      if (prefillQuery) {
+        const input = document.getElementById('estTierQuickMatch');
+        if (input) { input.value = prefillQuery; onTierQuickMatch(); }
+      }
+    }, 350);
   }
 
   // Hero booking-starter (item 3) — "Describe your job" is AI-reactive: it
@@ -1991,7 +2007,7 @@
       return;
     }
 
-    heroLastSuggestion = { category: data.category, likelyService: data.likelyService || '' };
+    heroLastSuggestion = { category: data.category, likelyService: data.likelyService || '', description: description || '' };
     const role = heroTradeRoleName(data.category);
     const startingPrice = heroCategoryStartingPrice(data.category);
     const priceLine = startingPrice
@@ -2025,7 +2041,7 @@
     if (!heroLastSuggestion) return;
     const status = document.getElementById('bstarterStatus');
     if (status) status.innerHTML = '';
-    continueToEstimatorFromFs(heroLastSuggestion.category, heroLastSuggestion.likelyService);
+    continueToEstimatorFromFs(heroLastSuggestion.category, heroLastSuggestion.likelyService, heroLastSuggestion.description);
   }
 
   function heroRejectSuggestion() {
@@ -2272,6 +2288,10 @@
     }
 
     const workList = (data.likelyWork || []).map(w => `<li>${escapeHtml(w)}</li>`).join('');
+    // Stashed rather than round-tripped through the onclick attribute below --
+    // same reasoning as estPendingAiEstimate: description is raw customer-
+    // typed text, unsafe/fragile to embed inside an HTML attribute.
+    fsPendingContinuation = { category: data.category, likelyService: data.likelyService || '', description: description || '' };
     document.getElementById('fsModalBody').innerHTML = `
       <h3>${escapeHtml(data.likelyService || data.category)}</h3>
       <div class="fs-result">
@@ -2279,11 +2299,19 @@
         <ul>${workList}</ul>
         <div class="fs-confidence">AI match confidence: ${Math.round(data.confidence)}%${data.askMoreQuestions ? ' — we\'ll ask a couple more questions to confirm.' : ''}</div>
       </div>
-      <button class="btn btn-black btn-full" style="width:100%;margin-top:16px;" onclick="continueToEstimatorFromFs('${escapeHtml(data.category)}', '${escapeHtml(data.likelyService || '')}')">Continue to price →</button>
+      <button class="btn btn-black btn-full" style="width:100%;margin-top:16px;" onclick="continueToEstimatorFromFsPending()">Continue to price →</button>
     `;
   }
 
-  function continueToEstimatorFromFs(category, likelyService) {
+  let fsPendingContinuation = null;
+  function continueToEstimatorFromFsPending() {
+    if (!fsPendingContinuation) return;
+    const { category, likelyService, description } = fsPendingContinuation;
+    fsPendingContinuation = null;
+    continueToEstimatorFromFs(category, likelyService, description);
+  }
+
+  function continueToEstimatorFromFs(category, likelyService, originalDescription) {
     closeFixSomething();
     // The AI only sees category NAMES, not the task list inside each one, so
     // it sometimes picks a plausible-sounding category (e.g. "Fencing" for a
@@ -2323,7 +2351,14 @@
         showEstStep(2);
       }, 350);
     } else {
-      goToEstimatorWithCategory(targetCategory);
+      // No single confident task match — land on the category and carry the
+      // customer's own words (likelyService, falling back to their raw typed/
+      // spoken description) into the quick-match box so they aren't asked to
+      // redescribe a job they already told the AI about. Auto-triggers the
+      // same matching onTierQuickMatch() runs on a real keystroke, so a
+      // specific-enough phrase can still resolve straight to a task (or an
+      // ambiguous multi-option pick) without the customer typing anything.
+      goToEstimatorWithCategory(targetCategory, likelyService || originalDescription || '');
     }
   }
 
@@ -2486,15 +2521,24 @@
   // bidirectional-substring approach already used by continueToEstimatorFromFs,
   // with a keyword-overlap fallback for phrasing that doesn't substring-match.
   //
-  // When even that fails, falls through to /api/classify-job's task-match
-  // mode (added Aug 2026): a real Claude call that either (a) finds a real
-  // rate-card task the local matcher missed — still priced off the rate
-  // card exactly as normal — or (b) if genuinely nothing fits, offers an
-  // AI-estimated market price, clearly labelled and never auto-added
-  // without the customer explicitly accepting it. This was the founder's
-  // explicit call after "service not found" was dead-ending real bookings —
-  // see the comment above handleTaskMatch in api/classify-job.js for the
-  // full reasoning and the safeguards (aiEstimated flag, forced
+  // A generic query (e.g. "decking") legitimately substring-matches several
+  // real subcategory variants (Treated pine / Merbau / Composite decking) --
+  // silently auto-adding just the first one used to commit the customer to a
+  // task they never actually chose. estFindTaskMatches (below) now returns
+  // an 'ambiguous' result whenever more than one task matches equally well,
+  // and onTierQuickMatch renders those as a real "which one?" picker with
+  // each option's own rate-card price (founder request, Aug 2026) instead of
+  // guessing. Only when exactly one task matches is it auto-added.
+  //
+  // When nothing matches at all, falls through to /api/classify-job's
+  // task-match mode (added Aug 2026): a real Claude call that either (a)
+  // finds a real rate-card task the local matcher missed — still priced off
+  // the rate card exactly as normal — or (b) if genuinely nothing fits,
+  // offers an AI-estimated market price, clearly labelled and never
+  // auto-added without the customer explicitly accepting it. This was the
+  // founder's explicit call after "service not found" was dead-ending real
+  // bookings — see the comment above handleTaskMatch in api/classify-job.js
+  // for the full reasoning and the safeguards (aiEstimated flag, forced
   // needsSiteVisit) that keep this from being treated as a firm price.
   let estTierQuickMatchTimer = null;
   let estAiTaskMatchToken = 0;
@@ -2505,18 +2549,28 @@
       if (!selectedCat) return;
       const query = document.getElementById('estTierQuickMatch').value.trim();
       const matchLine = document.getElementById('estTierMatchLine');
-      if (!query) { matchLine.textContent = ''; matchLine.className = 'est-match-line'; return; }
-      const match = estFindBestTaskMatch(selectedCat.tasks, query);
-      if (!match) {
-        if (query.length >= 4) {
-          estRequestAiTaskMatch(query);
-        } else {
-          matchLine.textContent = 'No exact match yet — keep typing, or Continue and we’ll help refine it.';
-          matchLine.className = 'est-match-line none';
-        }
+      if (!query) {
+        matchLine.textContent = ''; matchLine.className = 'est-match-line';
+        // Box was cleared -- the next match found is a genuinely new item,
+        // not a correction of the last one, so stop tracking it for replace.
+        estQuickMatchAutoTaskName = null;
         return;
       }
-      estAddMatchedTask(match);
+      const result = estFindTaskMatches(selectedCat.tasks, query);
+      if (result.type === 'single') {
+        estSetQuickMatchAutoTask(result.task, parseQuantity(query, result.task.unit));
+        return;
+      }
+      if (result.type === 'ambiguous') {
+        estRenderAmbiguousMatches(result.tasks, query);
+        return;
+      }
+      if (query.length >= 4) {
+        estRequestAiTaskMatch(query);
+      } else {
+        matchLine.textContent = 'No exact match yet — keep typing, or Continue and we’ll help refine it.';
+        matchLine.className = 'est-match-line none';
+      }
     }, 300);
   }
 
@@ -2536,6 +2590,72 @@
     chips.querySelectorAll('.chip-est').forEach(b => {
       if (b.textContent.trim() === match.name) b.classList.add('selected');
     });
+  }
+
+  // Tracks the one task most recently added purely from the quick-match box
+  // (typing, or picking an ambiguous option) -- as opposed to a task the
+  // customer deliberately clicked in the browsable chip list below
+  // (toggleTierSelection), which is intentionally still free multi-select
+  // (e.g. Deck stairs + Balustrade together). Without this, editing/
+  // correcting the same typed text (e.g. "decking" -> "timber decking and
+  // composite decking") could resolve to a different task at each keystroke
+  // and each one would silently stay selected, ending with several
+  // subcategory variants added at once when the customer only ever meant
+  // one. Reset to null whenever the box is cleared, so typing a genuinely
+  // separate second item afterwards still adds alongside the first.
+  let estQuickMatchAutoTaskName = null;
+  function estSetQuickMatchAutoTask(task, prefillQty) {
+    const isNew = !selectedTierSet.has(task.name);
+    if (estQuickMatchAutoTaskName && estQuickMatchAutoTaskName !== task.name && selectedTierSet.has(estQuickMatchAutoTaskName)) {
+      selectedTierSet.delete(estQuickMatchAutoTaskName);
+      qtyValues.delete(estQuickMatchAutoTaskName);
+      const prevChip = Array.from(document.querySelectorAll('#estTierChips .chip-est')).find(b => b.textContent.trim() === estQuickMatchAutoTaskName);
+      if (prevChip) prevChip.classList.remove('selected');
+    }
+    estQuickMatchAutoTaskName = task.name;
+    // Only prefill the qty row on a genuinely new add -- don't clobber a
+    // value the customer may have already typed/edited for this task.
+    if (isNew && prefillQty) qtyValues.set(task.name, String(prefillQty));
+    estAddMatchedTask(task);
+  }
+
+  // Renders every equally-good match as a clickable option with its own
+  // real rate-card price, instead of silently picking one. If the query
+  // included a parseable quantity (e.g. "30sqm decking"), each option shows
+  // its actual computed price for that quantity; otherwise the per-unit rate.
+  let estLastAmbiguousQuery = '';
+  function estRenderAmbiguousMatches(tasks, query) {
+    estLastAmbiguousQuery = query;
+    const matchLine = document.getElementById('estTierMatchLine');
+    matchLine.className = 'est-match-line ambiguous';
+    const optionsHtml = tasks.map(t => {
+      const qty = parseQuantity(query, t.unit);
+      let priceLabel;
+      if (qty && qty > 0) {
+        const raw = Math.round(qty * t.rate);
+        const price = (t.minJobPrice && raw < t.minJobPrice) ? t.minJobPrice : raw;
+        priceLabel = `$${price.toLocaleString()}`;
+      } else {
+        priceLabel = `$${t.rate}/${t.unit}`;
+      }
+      const safeName = t.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      return `<button type="button" class="est-ambiguous-option" onclick="estPickAmbiguousMatch('${safeName}')">
+        <span class="est-ambiguous-name">${escapeHtml(t.name)}</span>
+        <span class="est-ambiguous-price">${priceLabel}</span>
+      </button>`;
+    }).join('');
+    matchLine.innerHTML = `
+      <div class="est-ambiguous-wrap">
+        <div class="est-ambiguous-label">A few options match "${escapeHtml(query)}" — which one?</div>
+        ${optionsHtml}
+      </div>`;
+  }
+
+  function estPickAmbiguousMatch(taskName) {
+    if (!selectedCat) return;
+    const task = selectedCat.tasks.find(t => t.name === taskName);
+    if (!task) return;
+    estSetQuickMatchAutoTask(task, parseQuantity(estLastAmbiguousQuery, task.unit));
   }
 
   async function estRequestAiTaskMatch(query) {
@@ -2559,7 +2679,7 @@
 
       if (data.matched && data.taskName) {
         const task = selectedCat.tasks.find(t => t.name === data.taskName);
-        if (task) { estAddMatchedTask(task); return; }
+        if (task) { estSetQuickMatchAutoTask(task, parseQuantity(query, task.unit)); return; }
       }
 
       if (data.aiEstimate) {
@@ -2613,15 +2733,43 @@
     estAddMatchedTask(task);
   }
 
-  function estFindBestTaskMatch(tasks, query) {
-    const needle = query.toLowerCase().trim();
-    if (!needle) return null;
+  // Strips a leading/trailing quantity phrase (e.g. "30sqm", "12 lm", "2x3m")
+  // and filler words so "30sqm decking" matches on "decking", not the whole
+  // literal phrase — the quantity itself is still read separately by
+  // parseQuantity() against the RAW query at each call site, this is only
+  // used to find which task(s) the descriptive part of the query means.
+  function estStripQuantityPhrase(text) {
+    return text
+      .replace(/\b\d+\.?\d*\s*(m²|m2|sqm|sq\s?m|lm|m³|m3|hrs?|hours?|steps?|units?|trees?|gates?|lights?|stumps?)\b/gi, ' ')
+      .replace(/\b\d+\.?\d*\s*[x×]\s*\d+\.?\d*\s*m?\b/gi, ' ')
+      .replace(/\bof\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  // Returns { type: 'none' } | { type: 'single', task } | { type: 'ambiguous', tasks }.
+  // A generic word like "decking" or "concrete" legitimately substring-matches
+  // several real subcategory variants at once — this used to just take the
+  // first (available.find), silently committing the customer to whichever
+  // task happened to be listed first. Now every equally-good match is
+  // returned so the caller can ask "which one?" instead of guessing.
+  function estFindTaskMatches(tasks, query) {
+    const needle = estStripQuantityPhrase(query.toLowerCase().trim());
+    if (!needle) return { type: 'none' };
     const available = tasks.filter(t => !t.unavailable && !t.disabled);
-    const substringMatch = available.find(t => {
+
+    // An exact name match always wins outright, even if it's also a
+    // substring of sibling variants (e.g. typing the full task name).
+    const exact = available.find(t => t.name.toLowerCase() === needle);
+    if (exact) return { type: 'single', task: exact };
+
+    const substringMatches = available.filter(t => {
       const name = t.name.toLowerCase();
       return needle.includes(name) || name.includes(needle);
     });
-    if (substringMatch) return substringMatch;
+    if (substringMatches.length === 1) return { type: 'single', task: substringMatches[0] };
+    if (substringMatches.length > 1) return { type: 'ambiguous', tasks: substringMatches };
+
     // A single coincidental shared word (e.g. "rainwater" vs "water", or
     // "install" vs "installation") isn't enough to silently commit a
     // customer to a specific paid task — this used to accept any
@@ -2631,14 +2779,18 @@
     // most of the query's meaningful words to be accounted for, so a vague
     // or unrelated query correctly falls through to the AI match instead.
     const needleWords = needle.split(/\s+/).filter(w => w.length > 2);
-    let best = null, bestScore = 0;
-    available.forEach(t => {
+    if (!needleWords.length) return { type: 'none' };
+    let bestScore = 0;
+    const scored = available.map(t => {
       const nameWords = t.name.toLowerCase().replace(/[()]/g, '').split(/\s+/);
       const score = needleWords.filter(w => nameWords.some(nw => nw.includes(w) || w.includes(nw))).length;
-      if (score > bestScore) { bestScore = score; best = t; }
+      if (score > bestScore) bestScore = score;
+      return { t, score };
     });
-    if (best && bestScore >= 2 && bestScore / needleWords.length >= 0.6) return best;
-    return null;
+    if (bestScore < 2 || bestScore / needleWords.length < 0.6) return { type: 'none' };
+    const qualifying = scored.filter(s => s.score === bestScore).map(s => s.t);
+    if (qualifying.length === 1) return { type: 'single', task: qualifying[0] };
+    return { type: 'ambiguous', tasks: qualifying };
   }
 
   // Renders one quantity row per currently-selected chip, keyed by task
