@@ -367,7 +367,16 @@
       contractorThreadMessages = [];
     }
     contractorThreadLoading = false;
-    renderContractorThreadList();
+    // Must be a full render(), not just renderContractorThreadList() --
+    // the modal is still showing the "Loading…" branch of
+    // contractorThreadModalHtml() at this point (that branch has no
+    // #contractorThreadList element at all), so renderContractorThreadList()
+    // alone would find nothing to update and silently no-op, leaving the
+    // modal stuck on "Loading…" forever. render() regenerates the modal
+    // HTML for the now-loaded state (which itself calls
+    // renderContractorThreadList() again afterward -- see the bottom of
+    // render()), so this isn't redundant, it's the actual fix.
+    render();
     // Fire-and-forget -- admin has just seen this thread, mark any
     // contractor replies read. Doesn't need to block the view rendering.
     adminFetch('/api/admin-messages', {
