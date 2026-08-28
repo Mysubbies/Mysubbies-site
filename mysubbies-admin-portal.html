@@ -336,6 +336,101 @@
     }
   }
 
+  // Single-contractor conversation thread (added Aug 2026) -- distinct from
+  // the broadcast composer above (that's one-way, multi-recipient, no
+  // history shown). This is a real two-way thread with one contractor:
+  // their replies (api/admin-messages.js action:'reply') show up here, and
+  // admin can reply back in-thread by reusing the existing 'send' action
+  // with a single-email array.
+  let openContractorThreadEmail = null;
+  let contractorThreadMessages = [];
+  let contractorThreadLoading = false;
+  let contractorThreadSending = false;
+  function openContractorThread(email) {
+    openContractorThreadEmail = email;
+    contractorThreadMessages = [];
+    contractorThreadLoading = true;
+    render();
+    loadContractorThread(email);
+  }
+  function closeContractorThread() {
+    openContractorThreadEmail = null;
+    contractorThreadMessages = [];
+    render();
+  }
+  async function loadContractorThread(email) {
+    try {
+      const res = await fetch('/api/admin-messages?contractorEmail=' + encodeURIComponent(email));
+      const data = await res.json();
+      contractorThreadMessages = Array.isArray(data.messages) ? data.messages : [];
+    } catch (e) {
+      contractorThreadMessages = [];
+    }
+    contractorThreadLoading = false;
+    renderContractorThreadList();
+    // Fire-and-forget -- admin has just seen this thread, mark any
+    // contractor replies read. Doesn't need to block the view rendering.
+    adminFetch('/api/admin-messages', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'adminMarkRead', contractorEmail: email }),
+    }).catch(() => {});
+  }
+  function contractorThreadModalHtml() {
+    return `
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this) closeContractorThread();">
+        <div style="background:#fff;border-radius:16px;padding:24px;max-width:480px;width:100%;max-height:85vh;display:flex;flex-direction:column;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h2 style="font-size:16px;">${escapeHtml(openContractorThreadEmail)}</h2>
+            <button onclick="closeContractorThread()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--stone);line-height:1;">✕</button>
+          </div>
+          ${contractorThreadLoading ? '<div class="note">Loading…</div>' : `
+            <div class="msglist" id="contractorThreadList" style="flex:1;max-height:none;"></div>
+            <div class="msginput">
+              <input type="text" id="contractorThreadInput" placeholder="Reply…" onkeydown="if(event.key==='Enter') sendContractorThreadReply()" ${contractorThreadSending ? 'disabled' : ''} />
+              <button class="btn btn-black" onclick="sendContractorThreadReply()" ${contractorThreadSending ? 'disabled' : ''}>${contractorThreadSending ? '…' : 'Send'}</button>
+            </div>
+          `}
+        </div>
+      </div>`;
+  }
+  function renderContractorThreadList() {
+    const list = document.getElementById('contractorThreadList');
+    if (!list) return;
+    if (contractorThreadMessages.length === 0) { list.innerHTML = '<div style="font-size:12px;color:var(--stone-light);">No messages yet.</div>'; return; }
+    list.innerHTML = contractorThreadMessages.map(m => `
+      <div class="msgbubble ${m.sender_role === 'admin' ? 'mine' : 'theirs'}">
+        <div class="msgmeta">${m.sender_role === 'admin' ? 'You (MySubbies)' : 'Contractor'} · ${new Date(m.sent_at).toLocaleString('en-AU')}</div>
+        ${m.subject ? `<div style="font-weight:700;margin-bottom:2px;">${escapeHtml(m.subject)}</div>` : ''}
+        <div style="white-space:pre-wrap;">${escapeHtml(m.body)}</div>
+        ${m.attachment_data_url ? `<div style="margin-top:6px;"><a href="${m.attachment_data_url}" download="${escapeHtml(m.attachment_filename || 'attachment')}" style="color:inherit;text-decoration:underline;font-size:12px;font-weight:600;">📎 ${escapeHtml(m.attachment_filename || 'Download attachment')}</a></div>` : ''}
+      </div>
+    `).join('');
+    list.scrollTop = list.scrollHeight;
+  }
+  async function sendContractorThreadReply() {
+    const input = document.getElementById('contractorThreadInput');
+    const text = input.value.trim();
+    if (!text || contractorThreadSending) return;
+    contractorThreadSending = true;
+    input.disabled = true;
+    try {
+      const res = await adminFetch('/api/admin-messages', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send', contractorEmails: [openContractorThreadEmail], body: text }),
+      });
+      if (!res.ok) throw new Error('send failed');
+      input.value = '';
+      contractorThreadSending = false;
+      await loadContractorThread(openContractorThreadEmail);
+      const freshInput = document.getElementById('contractorThreadInput');
+      if (freshInput) freshInput.disabled = false;
+    } catch (e) {
+      contractorThreadSending = false;
+      input.disabled = false;
+      showToast('Could not send — try again');
+    }
+  }
+
   let customersStatusFilter = 'all';
   function customersStatusFilterChipsHtml(customers) {
     const statusOf = c => c.status === 'deactivated' ? 'deactivated' : 'active';
@@ -669,8 +764,10 @@
           })()}
         `}
       ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab()}
+      ${openContractorThreadEmail ? contractorThreadModalHtml() : ''}
     `;
     if (tab === 'ratecard') wireRateCardTab();
+    if (openContractorThreadEmail) renderContractorThreadList();
   }
 
   function getCustomersMap() { return JSON.parse(localStorage.getItem('mysubbies_customers') || '{}'); }
@@ -1065,6 +1162,7 @@
           <div class="row"><span class="l">Trades</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml((a.trades || []).join(', ') || '—')}</span></div>
           <div class="row"><span class="l">Applied</span><span class="r">${a.appliedAt ? new Date(a.appliedAt).toLocaleDateString('en-AU') : '—'}</span></div>
           <div style="display:flex;gap:8px;margin-top:14px;">
+            <button class="btn btn-outline" style="flex:1;" onclick="openContractorThread('${a.email.replace(/'/g, "\\'")}')">💬 Messages</button>
             ${a.status === 'suspended'
               ? `<button class="btn btn-outline" style="flex:1;" onclick="reactivateContractor('${a.id}')">Reactivate</button>`
               : `<button class="btn btn-outline" style="flex:1;" onclick="deactivateContractor('${a.id}')">Deactivate</button>`}
@@ -1458,11 +1556,11 @@
     const totalTasks = categories.reduce((s, c) => s + c.tasks.length, 0);
     return `
       <h1 class="pagetitle">Rate card</h1>
-      <p style="color:var(--stone);font-size:13px;margin-bottom:20px;margin-top:-8px;">${categories.length} categories, ${totalTasks} priced tasks \u2014 this feeds the live price estimator directly.</p>
+      <p style="color:var(--stone);font-size:13px;margin-bottom:20px;margin-top:-8px;">${categories.length} categories, ${totalTasks} priced tasks — this feeds the live price estimator directly.</p>
 
       <div class="detailcard" style="max-width:640px;margin-bottom:20px;">
         <h3 style="font-size:15px;margin-bottom:8px;">Upload a rate card</h3>
-        <p style="font-size:12.5px;color:var(--stone);margin-bottom:12px;">CSV file with columns: <strong>Category, Task, Unit, Rate, Notes</strong> (Notes optional). This replaces the entire rate card \u2014 you'll see a preview before it goes live.</p>
+        <p style="font-size:12.5px;color:var(--stone);margin-bottom:12px;">CSV file with columns: <strong>Category, Task, Unit, Rate, Notes</strong> (Notes optional). This replaces the entire rate card — you'll see a preview before it goes live.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-outline" onclick="downloadRateCardTemplate()">Download CSV template</button>
           <button class="btn btn-outline" onclick="document.getElementById('rcFileInput').click()">Upload CSV</button>
@@ -1484,7 +1582,7 @@
 
       <div class="detailcard" style="max-width:640px;margin-bottom:20px;">
         <h3 style="font-size:15px;margin-bottom:8px;">Bulk price update</h3>
-        <p style="font-size:12.5px;color:var(--stone);margin-bottom:12px;">Apply a percentage change across every rate at once \u2014 useful for an annual CPI adjustment. You'll see exactly what changes before it's applied.</p>
+        <p style="font-size:12.5px;color:var(--stone);margin-bottom:12px;">Apply a percentage change across every rate at once — useful for an annual CPI adjustment. You'll see exactly what changes before it's applied.</p>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
           <input type="number" id="bulkPct" placeholder="e.g. 3.8" step="0.1" style="width:110px;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
           <span style="font-size:13px;color:var(--stone);">%</span>
@@ -1505,10 +1603,10 @@
           <input type="text" id="rcManageSearch" value="${escapeHtml(rcManageSearchQuery)}" oninput="onRcManageSearchInput(this)" placeholder="Search services or categories…" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:14px;font-family:inherit;" />
           <div id="rcManageList">${rateCardManageHtml(categories, rcManageSearchQuery)}</div>
         ` : `
-          <p style="font-size:12.5px;color:var(--stone);margin-bottom:10px;">This still opens a real search for you to review \u2014 there's no live pricing feed wired up, so nothing is picked without you looking at it first. Enter what you find as a low-high range per sub-category below; the rate added to the card is the average of your range.</p>
+          <p style="font-size:12.5px;color:var(--stone);margin-bottom:10px;">This still opens a real search for you to review — there's no live pricing feed wired up, so nothing is picked without you looking at it first. Enter what you find as a low-high range per sub-category below; the rate added to the card is the average of your range.</p>
           <div style="background:var(--paper);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--stone);margin-bottom:14px;line-height:1.5;">
-            <strong style="color:var(--ink);">Tip:</strong> most trades split into sub-categories \u2014 install vs. repair vs. replace, or small/medium/large size bands. Add one row per sub-category you find, not just one row for the whole category.
-            ${categories.length ? `<br><strong style="color:var(--ink);">Which existing categories do well?</strong> Check the <a href="#" onclick="tab='reports'; render(); return false;" style="text-decoration:underline;">Reports</a> tab's Revenue by category section \u2014 real sales data beats a guess. A brand-new category has no sales history yet, so that call is still yours.` : ''}
+            <strong style="color:var(--ink);">Tip:</strong> most trades split into sub-categories — install vs. repair vs. replace, or small/medium/large size bands. Add one row per sub-category you find, not just one row for the whole category.
+            ${categories.length ? `<br><strong style="color:var(--ink);">Which existing categories do well?</strong> Check the <a href="#" onclick="tab='reports'; render(); return false;" style="text-decoration:underline;">Reports</a> tab's Revenue by category section — real sales data beats a guess. A brand-new category has no sales history yet, so that call is still yours.` : ''}
           </div>
           <div style="display:flex;gap:8px;margin-bottom:16px;">
             <input type="text" id="researchQuery" placeholder="Category to research (e.g. Pool Fencing)" style="flex:1;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
@@ -1518,7 +1616,7 @@
           <datalist id="rcCatList">${categories.map(c => `<option value="${c.label}">`).join('')}</datalist>
           <div id="researchRowsWrap">${researchRowsHtml()}</div>
           <button class="btn btn-outline" style="margin-bottom:12px;" onclick="addResearchRow()">+ Add sub-category row</button>
-          <button class="btn btn-black" onclick="addResearchedServices()">Add all to rate card \u2192</button>
+          <button class="btn btn-black" onclick="addResearchedServices()">Add all to rate card →</button>
           <div id="addSvcError"></div>
         `}
       </div>
@@ -1686,8 +1784,8 @@
         <div style="font-size:13px;font-weight:600;margin-bottom:8px;">${pct > 0 ? '+' : ''}${pct}% across ${rows.length} priced tasks</div>
         ${sample.map(r => `
           <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;">
-            <span style="color:var(--stone);">${r.cat} \u2014 ${r.task}</span>
-            <span>$${r.oldRate.toLocaleString()} \u2192 <strong>$${r.newRate.toLocaleString()}</strong></span>
+            <span style="color:var(--stone);">${r.cat} — ${r.task}</span>
+            <span>$${r.oldRate.toLocaleString()} → <strong>$${r.newRate.toLocaleString()}</strong></span>
           </div>
         `).join('')}
         ${rows.length > 6 ? `<div style="font-size:11.5px;color:var(--stone-light);margin-top:4px;">+ ${rows.length - 6} more</div>` : ''}
@@ -1724,7 +1822,7 @@
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--stone);margin-bottom:8px;">Update history</div>
         ${log.slice(0, 5).map(l => `
           <div style="font-size:12px;color:var(--stone);padding:3px 0;">
-            ${l.pct > 0 ? '+' : ''}${l.pct}% applied to ${l.taskCount} tasks \u00b7 ${new Date(l.appliedAt).toLocaleDateString('en-AU')} ${new Date(l.appliedAt).toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit'})}
+            ${l.pct > 0 ? '+' : ''}${l.pct}% applied to ${l.taskCount} tasks · ${new Date(l.appliedAt).toLocaleDateString('en-AU')} ${new Date(l.appliedAt).toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit'})}
           </div>
         `).join('')}
       </div>
@@ -1783,7 +1881,7 @@
     const reader = new FileReader();
     reader.onload = (ev) => {
       const rows = parseCSV(ev.target.result);
-      if (rows.length < 2) { document.getElementById('rcUploadPreview').innerHTML = '<div class="error" style="margin-top:12px;">That file doesn\u2019t look right \u2014 no rows found.</div>'; return; }
+      if (rows.length < 2) { document.getElementById('rcUploadPreview').innerHTML = '<div class="error" style="margin-top:12px;">That file doesn’t look right — no rows found.</div>'; return; }
       const header = rows[0].map(h => h.trim().toLowerCase());
       const idx = { category: header.indexOf('category'), task: header.indexOf('task'), unit: header.indexOf('unit'), rate: header.indexOf('rate'), notes: header.indexOf('notes') };
       if (idx.category === -1 || idx.task === -1 || idx.unit === -1 || idx.rate === -1) {
@@ -1839,7 +1937,7 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-outline" style="padding:7px 14px;font-size:12.5px;" onclick="selectAllApprovedContractors(getApplications())">Select all approved (${approvedCount})</button>
             ${selectedContractorEmails.size > 0 ? `<button class="btn btn-outline" style="padding:7px 14px;font-size:12.5px;" onclick="clearContractorSelection()">Clear</button>
-            <button class="btn btn-black" style="padding:7px 14px;font-size:12.5px;" onclick="openMessageComposer()">Message selected \u2192</button>` : ''}
+            <button class="btn btn-black" style="padding:7px 14px;font-size:12.5px;" onclick="openMessageComposer()">Message selected →</button>` : ''}
           </div>
         </div>
       ` : ''}
@@ -1851,7 +1949,7 @@
               ${a.profilePhoto ? `<img src="${escapeHtml(a.profilePhoto)}" style="width:44px;height:44px;border-radius:999px;object-fit:cover;">` : ''}
               <div>
                 <div style="font-weight:700;font-size:16px;">${escapeHtml(a.business)}</div>
-                <div style="font-size:12px;color:var(--stone);margin-top:2px;">${escapeHtml(a.contact)} \u00b7 ${escapeHtml(a.email)} \u00b7 ${escapeHtml(a.phone)}</div>
+                <div style="font-size:12px;color:var(--stone);margin-top:2px;">${escapeHtml(a.contact)} · ${escapeHtml(a.email)} · ${escapeHtml(a.phone)}</div>
               </div>
             </div>
             <span class="badge ${statusBadge[a.status]}">${a.status}</span>
@@ -1874,11 +1972,13 @@
           </div>
           ${a.status === 'pending' ? `
             <div style="display:flex;gap:8px;margin-top:14px;">
+              <button class="btn btn-outline" style="flex:1;" onclick="openContractorThread('${a.email.replace(/'/g, "\\'")}')">\ud83d\udcac</button>
               <button class="btn btn-outline" style="flex:1;" onclick="rejectApplication('${a.id}')">Reject</button>
-              <button class="btn btn-black" style="flex:2;" onclick="approveApplication('${a.id}')">Approve \u2192</button>
+              <button class="btn btn-black" style="flex:2;" onclick="approveApplication('${a.id}')">Approve →</button>
             </div>
           ` : `
             <div style="display:flex;gap:8px;margin-top:14px;">
+              <button class="btn btn-outline" style="flex:1;" onclick="openContractorThread('${a.email.replace(/'/g, "\\'")}')">\ud83d\udcac Messages</button>
               ${a.status === 'suspended'
                 ? `<button class="btn btn-outline" style="flex:1;" onclick="reactivateContractor('${a.id}')">Reactivate</button>`
                 : `<button class="btn btn-outline" style="flex:1;" onclick="deactivateContractor('${a.id}')">Deactivate</button>`}

@@ -228,15 +228,59 @@
       adminMessages = Array.isArray(data.messages) ? data.messages : [];
     } catch (e) { /* offline or first load — messages just won't show yet */ }
   }
-  function markMessageRead(id) {
-    const msg = adminMessages.find(m => m.id === id);
-    if (!msg || msg.read_at) return;
-    msg.read_at = new Date().toISOString(); // optimistic, avoids a re-render round trip
-    render();
-    fetch('/api/admin-messages', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'markRead', messageId: id, contractorEmail: localStorage.getItem('mysubbies_contractor_email') }),
-    }).catch(() => {});
+  // Called from inside render() itself (the messages tab branch) -- must
+  // NOT call render() again, or every unread message would recurse into a
+  // fresh render() call before the previous one finishes. The bubble
+  // thread doesn't show a per-message read/unread state, so there's
+  // nothing that needs a repaint here anyway -- just optimistic local
+  // mutation + a fire-and-forget POST per newly-read message.
+  function markAllAdminMessagesRead() {
+    const email = localStorage.getItem('mysubbies_contractor_email');
+    adminMessages.filter(m => m.sender_role === 'admin' && !m.read_at).forEach(m => {
+      m.read_at = new Date().toISOString();
+      fetch('/api/admin-messages', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'markRead', messageId: m.id, contractorEmail: email }),
+      }).catch(() => {});
+    });
+  }
+  function renderAdminThread() {
+    const list = document.getElementById('msgListAdminThread');
+    if (!list) return;
+    if (adminMessages.length === 0) { list.innerHTML = '<div style="font-size:12px;color:var(--stone-light);">No messages yet.</div>'; return; }
+    list.innerHTML = adminMessages.map(m => `
+      <div class="msgbubble ${m.sender_role === 'contractor' ? 'mine' : 'theirs'}">
+        <div class="msgmeta">${m.sender_role === 'contractor' ? 'You' : 'MySubbies'} · ${new Date(m.sent_at).toLocaleString('en-AU')}</div>
+        ${m.subject ? `<div style="font-weight:700;margin-bottom:2px;">${escapeHtml(m.subject)}</div>` : ''}
+        <div style="white-space:pre-wrap;">${escapeHtml(m.body)}</div>
+        ${m.attachment_data_url ? `<div style="margin-top:6px;"><a href="${m.attachment_data_url}" download="${escapeHtml(m.attachment_filename || 'attachment')}" style="color:inherit;text-decoration:underline;font-size:12px;font-weight:600;">📎 ${escapeHtml(m.attachment_filename || 'Download attachment')}</a></div>` : ''}
+      </div>
+    `).join('');
+    list.scrollTop = list.scrollHeight;
+  }
+  async function sendAdminThreadReply() {
+    const input = document.getElementById('msgInputAdminThread');
+    const text = input.value.trim();
+    if (!text) return;
+    const email = localStorage.getItem('mysubbies_contractor_email');
+    if (!email) return;
+    input.value = '';
+    const optimistic = { id: 'temp_' + Date.now(), contractor_email: email, sender_role: 'contractor', subject: null, body: text, sent_at: new Date().toISOString(), read_at: new Date().toISOString() };
+    adminMessages.push(optimistic);
+    renderAdminThread();
+    try {
+      const res = await fetch('/api/admin-messages', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reply', contractorEmail: email, body: text }),
+      });
+      if (!res.ok) throw new Error('send failed');
+      const data = await res.json();
+      if (data.message) Object.assign(optimistic, data.message);
+    } catch (e) {
+      adminMessages = adminMessages.filter(m => m.id !== optimistic.id);
+      renderAdminThread();
+      showToast('Could not send — try again');
+    }
   }
 
   // Manual refresh (Aug 2026) -- re-pulls jobs from Supabase and re-renders,
@@ -547,19 +591,17 @@
     if (tab === 'messages') {
       app.innerHTML += `
         <h1 class="pagetitle">Messages</h1>
-        <p class="jobmeta" style="margin-bottom:16px;">Messages from MySubbies admin — separate from the job-specific chat on each job.</p>
-        ${adminMessages.length === 0 ? '<div class="empty">No messages yet.</div>' : adminMessages.map(m => `
-          <div class="box" style="margin-bottom:10px;${m.read_at ? '' : 'border-color:var(--black);'}" ${m.read_at ? '' : `onclick="markMessageRead('${m.id}')"`}>
-            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;">
-              <strong style="font-size:14px;">${escapeHtml(m.subject || 'Message from MySubbies')}</strong>
-              ${m.read_at ? '' : '<span class="badge badge-feed" style="flex-shrink:0;">New</span>'}
-            </div>
-            <div class="jobmeta" style="margin:4px 0 8px;">${new Date(m.sent_at).toLocaleString('en-AU')}</div>
-            <div style="font-size:13.5px;line-height:1.5;white-space:pre-wrap;">${escapeHtml(m.body)}</div>
-            ${m.attachment_data_url ? `<a href="${m.attachment_data_url}" download="${escapeHtml(m.attachment_filename || 'attachment')}" style="display:inline-block;margin-top:10px;font-size:13px;font-weight:600;text-decoration:underline;">📎 ${escapeHtml(m.attachment_filename || 'Download attachment')}</a>` : ''}
+        <p class="jobmeta" style="margin-bottom:16px;">Messages with MySubbies admin — separate from the job-specific chat on each job.</p>
+        <div class="msgbox">
+          <div class="msglist" id="msgListAdminThread"></div>
+          <div class="msginput">
+            <input type="text" id="msgInputAdminThread" placeholder="Reply to MySubbies…" onkeydown="if(event.key==='Enter') sendAdminThreadReply()" />
+            <button class="btn btn-black" onclick="sendAdminThreadReply()">Send</button>
           </div>
-        `).join('')}
+        </div>
       `;
+      renderAdminThread();
+      markAllAdminMessagesRead();
       return;
     }
 

@@ -1,0 +1,18 @@
+-- Two-way admin <-> contractor messaging (added Aug 2026)
+--
+-- admin_contractor_messages (schema_v7) was admin-to-contractor only --
+-- every row was implicitly sent by admin, and contractors could only read
+-- and mark-read, never write. This adds sender_role so a contractor can
+-- reply directly in the same thread instead of it being a one-way
+-- announcement channel.
+--
+-- read_at keeps its existing meaning but now applies in both directions:
+-- "read by the recipient of this specific message" -- for an
+-- sender_role='admin' row that's the contractor (unchanged, existing
+-- markRead action), for a sender_role='contractor' row (a reply) that's
+-- admin (new adminMarkRead action). No second read-tracking column needed.
+--
+-- Existing rows all default to 'admin' since every row created before this
+-- migration was, in fact, sent by admin -- the default backfills them
+-- correctly on ALTER, not just new inserts.
+alter table admin_contractor_messages add column if not exists sender_role text not null default 'admin' check (sender_role in ('admin', 'contractor'));
