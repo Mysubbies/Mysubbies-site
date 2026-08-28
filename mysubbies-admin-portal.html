@@ -584,6 +584,8 @@
     Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer()]).then(() => {
       paymentTabData = null;
       customersTabData = null;
+      unreadContractorMessageCount = null;
+      messageThreadsData = null;
       render();
       showToast('Refreshed');
     }).catch(() => {}).finally(() => {
@@ -760,6 +762,7 @@
     const actionRequiredHtml = `
       <div class="detailcard" style="margin-bottom:16px;border:1.5px solid #F0D89B;background:#FFFBF2;">
         <h2 style="font-size:16px;margin-bottom:2px;">⚡ Action required</h2>
+        ${notifyBannerHtml()}
         ${totalActionCount === 0 ? `<div style="font-size:13px;color:var(--stone);padding:8px 0 2px;">✓ Nothing needs your attention right now.</div>` : `
           ${cancellationRequests.map(j => `
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #F0D89B;">
@@ -838,6 +841,7 @@
     `;
     if (tab === 'ratecard') wireRateCardTab();
     if (openContractorThreadEmail) renderContractorThreadList();
+    wireNotifyButton();
   }
 
   function getCustomersMap() { return JSON.parse(localStorage.getItem('mysubbies_customers') || '{}'); }
@@ -2363,6 +2367,58 @@
   }
   window.addEventListener('storage', (e) => { if (e.key === 'mysubbies_jobs') { checkForNewMessages(); render(); } });
   setInterval(checkForNewMessages, 3000);
+
+  // checkForNewMessages() above only ever sees what's already sitting in
+  // THIS browser's localStorage -- fine for job messages, since every
+  // portal syncs those on every save. It's blind to anything that
+  // originates purely server-side from a different device: a contractor's
+  // reply, a new application, a cancellation request, a disputed
+  // milestone. This is a real poll of the server every 25s, comparing the
+  // same "how many things need my attention" total the Action required
+  // panel already computes, and firing one real desktop notification when
+  // it goes up. Disputes/inquiries are still localStorage-only (no
+  // Supabase mirror -- a known, pre-existing gap) so they're read fresh
+  // from local storage same as always, not actually re-fetched here.
+  let lastKnownActionTotal = null;
+  async function pollForNewActivity() {
+    if (!localStorage.getItem('mysubbies_admin_token')) return; // not logged in yet -- nothing to poll for
+    try {
+      await Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer()]);
+      const unreadRes = await adminFetch('/api/get-admin-list?type=unread-contractor-messages');
+      const unreadData = await unreadRes.json();
+      unreadContractorMessageCount = unreadData.contractorCount || 0;
+      messageThreadsData = null; // cheap to invalidate -- reloads next time that tab is opened
+
+      let milestoneCount = 0, scheduleCount = 0;
+      try {
+        const [mRes, sRes] = await Promise.all([
+          adminFetch('/api/get-admin-list?type=milestone-claims'),
+          adminFetch('/api/get-admin-list?type=pending-schedule-jobs'),
+        ]);
+        const [mData, sData] = await Promise.all([mRes.json(), sRes.json()]);
+        milestoneCount = (mData.milestones || []).length;
+        scheduleCount = (sData.schedules || []).length;
+        if (paymentTabData) { paymentTabData.disputedMilestones = mData.milestones || []; paymentTabData.pendingScheduleJobs = sData.schedules || []; }
+      } catch (e) { /* payment-schedule counts just won't update this cycle */ }
+
+      const freshJobs = getJobs();
+      const freshApps = getApplications();
+      const cancellationCount = freshJobs.filter(j => j.status === 'cancellation_requested').length;
+      const pendingAppCount = freshApps.filter(a => a.status === 'pending').length;
+      const openDisputeCount = getDisputes().filter(d => d.status === 'open').length;
+      const openInquiryCount = getInquiries().filter(i => i.status === 'open').length;
+      const freshTotal = cancellationCount + openDisputeCount + openInquiryCount + pendingAppCount + unreadContractorMessageCount + milestoneCount + scheduleCount;
+
+      if (lastKnownActionTotal !== null && freshTotal > lastKnownActionTotal) {
+        const delta = freshTotal - lastKnownActionTotal;
+        notify(`${delta} new item${delta === 1 ? '' : 's'} need${delta === 1 ? 's' : ''} your attention in MySubbies admin.`);
+      }
+      lastKnownActionTotal = freshTotal;
+      render();
+    } catch (e) { /* offline or transient -- next interval will catch up */ }
+  }
+  setInterval(pollForNewActivity, 25000);
+  pollForNewActivity();
 
   // Approved contractors first (and ones covering this job's category
   // floated to the top), so reassigning is a pick-from-list action instead
