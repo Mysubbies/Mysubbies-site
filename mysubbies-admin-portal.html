@@ -379,10 +379,12 @@
     render();
     // Fire-and-forget -- admin has just seen this thread, mark any
     // contractor replies read. Doesn't need to block the view rendering.
+    // Re-checks the Action required badge count afterward so it drops
+    // immediately instead of only on next page load.
     adminFetch('/api/admin-messages', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'adminMarkRead', contractorEmail: email }),
-    }).catch(() => {});
+    }).then(() => { unreadContractorMessageCount = null; loadUnreadContractorMessageCount(); }).catch(() => {});
   }
   function contractorThreadModalHtml() {
     return `
@@ -691,6 +693,7 @@
     // pending-schedule counts the moment admin logs in, not just after
     // they happen to click into that tab.
     if (!paymentTabData && !paymentTabLoading) loadPaymentScheduleTab();
+    if (unreadContractorMessageCount === null && !unreadContractorMessageLoading) loadUnreadContractorMessageCount();
     if (tab === 'customers' && !customersTabData && !customersTabLoading) loadCustomersTab();
     const paymentBadgeCount = paymentTabData ? (paymentTabData.disputedMilestones || []).length + (paymentTabData.pendingScheduleJobs || []).length : 0;
 
@@ -701,7 +704,7 @@
     // else links to the tab that already has the full review UI for it.
     const disputedMilestoneCount = paymentTabData ? (paymentTabData.disputedMilestones || []).length : 0;
     const pendingScheduleCount = paymentTabData ? (paymentTabData.pendingScheduleJobs || []).length : 0;
-    const totalActionCount = cancellationRequests.length + openDisputeCount + openInquiryCount + pendingCount + disputedMilestoneCount + pendingScheduleCount;
+    const totalActionCount = cancellationRequests.length + openDisputeCount + openInquiryCount + pendingCount + disputedMilestoneCount + pendingScheduleCount + (unreadContractorMessageCount || 0);
     const actionRequiredHtml = `
       <div class="detailcard" style="margin-bottom:16px;border:1.5px solid #F0D89B;background:#FFFBF2;">
         <h2 style="font-size:16px;margin-bottom:2px;">⚡ Action required</h2>
@@ -725,6 +728,11 @@
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #F0D89B;">
               <span style="font-size:13px;">⚠ ${pendingCount} pending contractor application${pendingCount === 1 ? '' : 's'}</span>
               <button class="btn btn-outline" style="width:auto;flex-shrink:0;padding:6px 12px;font-size:12px;" onclick="tab='applications'; render();">View</button>
+            </div>` : ''}
+          ${unreadContractorMessageCount ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #F0D89B;">
+              <span style="font-size:13px;">⚠ ${unreadContractorMessageCount} contractor${unreadContractorMessageCount === 1 ? '' : 's'} waiting on a reply</span>
+              <button class="btn btn-outline" style="width:auto;flex-shrink:0;padding:6px 12px;font-size:12px;" onclick="tab='contractors'; render();">View</button>
             </div>` : ''}
           ${disputedMilestoneCount ? `
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #F0D89B;">
@@ -1207,6 +1215,23 @@
 
   let paymentTabData = null;
   let paymentTabLoading = false;
+  // Unread contractor replies count, for the Action required checklist --
+  // loaded unconditionally on every render (same reasoning as
+  // paymentTabData below: an admin should see this the moment they log
+  // in, not only after happening to open a specific contractor's thread).
+  let unreadContractorMessageCount = null; // null = not loaded yet (distinct from a real 0)
+  let unreadContractorMessageLoading = false;
+  async function loadUnreadContractorMessageCount() {
+    if (unreadContractorMessageLoading) return;
+    unreadContractorMessageLoading = true;
+    try {
+      const res = await adminFetch('/api/get-admin-list?type=unread-contractor-messages');
+      const data = await res.json();
+      unreadContractorMessageCount = data.contractorCount || 0;
+    } catch (e) { /* leave at last-known count */ }
+    unreadContractorMessageLoading = false;
+    render();
+  }
   let editingTemplateId = null;
   let editingTemplateDraft = null;
   let buildingScheduleForJobId = null;

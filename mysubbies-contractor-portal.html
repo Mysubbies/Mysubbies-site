@@ -218,6 +218,34 @@
   // localStorage mirror, same reasoning as property-profile.js: this is
   // read-mostly, per-contractor, and never needs to work offline.
   let adminMessages = [];
+  let msgThreadAttachment = null; // { dataUrl, filename, mime } or null
+  // Attaching a file needs a full render() to show the attachment chip,
+  // which would otherwise silently wipe whatever the contractor already
+  // typed in the reply box (a plain uncontrolled input has no state to
+  // restore from) -- same "preserve draft across re-render" pattern
+  // already used for the admin composer's subject/body in
+  // mysubbies-admin-portal.html.
+  let msgThreadReplyDraft = '';
+  const MESSAGE_ATTACHMENT_MAX_BYTES = 4 * 1024 * 1024;
+  function onMsgThreadAttachmentSelected(event) {
+    const file = (event.target.files || [])[0];
+    event.target.value = '';
+    if (!file) return;
+    if (file.size > MESSAGE_ATTACHMENT_MAX_BYTES) {
+      showToast('That file is too large — please use one under 4MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      msgThreadAttachment = { dataUrl: reader.result, filename: file.name, mime: file.type || 'application/octet-stream' };
+      render();
+    };
+    reader.readAsDataURL(file);
+  }
+  function removeMsgThreadAttachment() {
+    msgThreadAttachment = null;
+    render();
+  }
   async function hydrateAdminMessages() {
     const email = localStorage.getItem('mysubbies_contractor_email');
     if (!email) return;
@@ -259,19 +287,33 @@
     list.scrollTop = list.scrollHeight;
   }
   async function sendAdminThreadReply() {
-    const input = document.getElementById('msgInputAdminThread');
-    const text = input.value.trim();
+    const text = msgThreadReplyDraft.trim();
     if (!text) return;
     const email = localStorage.getItem('mysubbies_contractor_email');
     if (!email) return;
-    input.value = '';
-    const optimistic = { id: 'temp_' + Date.now(), contractor_email: email, sender_role: 'contractor', subject: null, body: text, sent_at: new Date().toISOString(), read_at: new Date().toISOString() };
+    const attachment = msgThreadAttachment;
+    msgThreadReplyDraft = '';
+    msgThreadAttachment = null;
+    const input = document.getElementById('msgInputAdminThread');
+    if (input) input.value = '';
+    const optimistic = {
+      id: 'temp_' + Date.now(), contractor_email: email, sender_role: 'contractor', subject: null, body: text,
+      attachment_data_url: attachment ? attachment.dataUrl : null,
+      attachment_filename: attachment ? attachment.filename : null,
+      attachment_mime: attachment ? attachment.mime : null,
+      sent_at: new Date().toISOString(), read_at: new Date().toISOString(),
+    };
     adminMessages.push(optimistic);
-    renderAdminThread();
+    render();
     try {
       const res = await fetch('/api/admin-messages', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reply', contractorEmail: email, body: text }),
+        body: JSON.stringify({
+          action: 'reply', contractorEmail: email, body: text,
+          attachmentDataUrl: attachment ? attachment.dataUrl : null,
+          attachmentFilename: attachment ? attachment.filename : null,
+          attachmentMime: attachment ? attachment.mime : null,
+        }),
       });
       if (!res.ok) throw new Error('send failed');
       const data = await res.json();
@@ -594,8 +636,16 @@
         <p class="jobmeta" style="margin-bottom:16px;">Messages with MySubbies admin — separate from the job-specific chat on each job.</p>
         <div class="msgbox">
           <div class="msglist" id="msgListAdminThread"></div>
+          ${msgThreadAttachment ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px 11px;margin-bottom:8px;font-size:12.5px;">
+              <span>📎 ${escapeHtml(msgThreadAttachment.filename)}</span>
+              <button onclick="removeMsgThreadAttachment()" style="background:none;border:none;color:var(--stone);cursor:pointer;font-size:15px;line-height:1;">✕</button>
+            </div>
+          ` : `
+            <input type="file" id="msgThreadAttachmentInput" onchange="onMsgThreadAttachmentSelected(event)" style="font-size:12px;margin-bottom:8px;" />
+          `}
           <div class="msginput">
-            <input type="text" id="msgInputAdminThread" placeholder="Reply to MySubbies…" onkeydown="if(event.key==='Enter') sendAdminThreadReply()" />
+            <input type="text" id="msgInputAdminThread" value="${escapeHtml(msgThreadReplyDraft)}" oninput="msgThreadReplyDraft=this.value" placeholder="Reply to MySubbies…" onkeydown="if(event.key==='Enter') sendAdminThreadReply()" />
             <button class="btn btn-black" onclick="sendAdminThreadReply()">Send</button>
           </div>
         </div>

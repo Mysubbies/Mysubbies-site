@@ -79,11 +79,21 @@ module.exports = async (req, res) => {
     }
 
     if (action === 'reply') {
-      const { contractorEmail, body } = req.body || {};
+      const { contractorEmail, body, attachmentDataUrl, attachmentFilename, attachmentMime } = req.body || {};
       if (!contractorEmail || !body || !body.trim()) { res.status(400).json({ error: 'contractorEmail and body are required.' }); return; }
+      // Same server-side backstop as the 'send' action -- client already
+      // enforces a cap before this is ever called.
+      if (attachmentDataUrl && attachmentDataUrl.length > 6 * 1024 * 1024) {
+        res.status(400).json({ error: 'Attachment is too large — please use a file under 4MB.' }); return;
+      }
       const { data, error } = await supabase
         .from('admin_contractor_messages')
-        .insert({ contractor_email: contractorEmail, sender_role: 'contractor', subject: null, body })
+        .insert({
+          contractor_email: contractorEmail, sender_role: 'contractor', subject: null, body,
+          attachment_data_url: attachmentDataUrl || null,
+          attachment_filename: attachmentFilename || null,
+          attachment_mime: attachmentMime || null,
+        })
         .select()
         .single();
       if (error) throw error;
@@ -95,6 +105,7 @@ module.exports = async (req, res) => {
           <h2 style="margin-top:0;">New reply from a contractor</h2>
           <p><strong>${String(contractorEmail).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))}</strong></p>
           <p style="white-space:pre-wrap;">${String(body).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))}</p>
+          ${attachmentFilename ? `<p>Attachment: <strong>${String(attachmentFilename).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))}</strong> — view it in the admin portal.</p>` : ''}
           <p><a href="https://mysubbies-site.vercel.app/mysubbies-admin-portal.html">Open Admin Portal →</a></p>
         `),
       }).catch(() => {});

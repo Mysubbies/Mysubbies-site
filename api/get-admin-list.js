@@ -82,7 +82,26 @@ module.exports = async (req, res) => {
       return;
     }
 
-    res.status(400).json({ error: 'type must be applications, customers, milestone-claims, pending-schedule-jobs, or payment-audit.' });
+    // Unread contractor replies (see schema_v8_two_way_admin_contractor_messages.sql)
+    // -- feeds the Action required checklist so an admin who never happens
+    // to open a specific contractor's thread still finds out a reply is
+    // waiting. Grouped by contractor rather than returning every row, since
+    // the checklist only needs a count, not the message content.
+    if (type === 'unread-contractor-messages') {
+      const { data, error } = await supabase
+        .from('admin_contractor_messages')
+        .select('contractor_email')
+        .eq('sender_role', 'contractor')
+        .is('read_at', null)
+        .limit(2000);
+      if (error) throw error;
+      const byContractor = {};
+      (data || []).forEach(r => { byContractor[r.contractor_email] = (byContractor[r.contractor_email] || 0) + 1; });
+      res.status(200).json({ count: (data || []).length, contractorCount: Object.keys(byContractor).length });
+      return;
+    }
+
+    res.status(400).json({ error: 'type must be applications, customers, milestone-claims, pending-schedule-jobs, payment-audit, or unread-contractor-messages.' });
   } catch (err) {
     console.error('get-admin-list error:', err);
     res.status(500).json({ error: 'Could not fetch data.' });
