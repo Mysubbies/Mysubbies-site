@@ -101,7 +101,31 @@ module.exports = async (req, res) => {
       return;
     }
 
-    res.status(400).json({ error: 'type must be applications, customers, milestone-claims, pending-schedule-jobs, payment-audit, or unread-contractor-messages.' });
+    // One row per contractor conversation (most recent message + unread
+    // count), for the dedicated Messages tab -- reduced client-side from
+    // the raw message rows rather than a DB view/function, matching this
+    // project's existing preference for simple queries over new SQL
+    // objects at this data scale (a solo-founder marketplace's contractor
+    // panel, not a high-volume inbox).
+    if (type === 'message-threads') {
+      const { data, error } = await supabase
+        .from('admin_contractor_messages')
+        .select('contractor_email, sender_role, body, sent_at, read_at')
+        .order('sent_at', { ascending: false })
+        .limit(1000);
+      if (error) throw error;
+      const threads = {};
+      (data || []).forEach(m => {
+        if (!threads[m.contractor_email]) {
+          threads[m.contractor_email] = { contractorEmail: m.contractor_email, lastMessage: m.body, lastSenderRole: m.sender_role, lastSentAt: m.sent_at, unreadCount: 0 };
+        }
+        if (m.sender_role === 'contractor' && !m.read_at) threads[m.contractor_email].unreadCount += 1;
+      });
+      res.status(200).json({ threads: Object.values(threads).sort((a, b) => new Date(b.lastSentAt) - new Date(a.lastSentAt)) });
+      return;
+    }
+
+    res.status(400).json({ error: 'type must be applications, customers, milestone-claims, pending-schedule-jobs, payment-audit, unread-contractor-messages, or message-threads.' });
   } catch (err) {
     console.error('get-admin-list error:', err);
     res.status(500).json({ error: 'Could not fetch data.' });

@@ -384,7 +384,13 @@
     adminFetch('/api/admin-messages', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'adminMarkRead', contractorEmail: email }),
-    }).then(() => { unreadContractorMessageCount = null; loadUnreadContractorMessageCount(); }).catch(() => {});
+    }).then(() => {
+      unreadContractorMessageCount = null;
+      loadUnreadContractorMessageCount();
+      // If the Messages tab list is loaded, its unread badges are now
+      // stale too -- force it to refetch next time it's shown.
+      messageThreadsData = null;
+    }).catch(() => {});
   }
   function contractorThreadModalHtml() {
     return `
@@ -440,6 +446,51 @@
       input.disabled = false;
       showToast('Could not send — try again');
     }
+  }
+
+  // Dedicated Messages tab (Aug 2026) -- previously the only way to know a
+  // contractor had replied was the Action required banner on Overview, or
+  // stumbling onto it via the per-contractor "💬 Messages" button in
+  // Applications/Contractors. This gives it a real home with its own
+  // always-visible badge in the tab bar (same convention as Applications/
+  // Disputes/Inquiries), so a new reply is impossible to miss regardless
+  // of which tab admin happens to be on.
+  let messageThreadsData = null;
+  let messageThreadsLoading = false;
+  async function loadMessageThreads() {
+    if (messageThreadsLoading) return;
+    messageThreadsLoading = true;
+    try {
+      const res = await adminFetch('/api/get-admin-list?type=message-threads');
+      const data = await res.json();
+      messageThreadsData = Array.isArray(data.threads) ? data.threads : [];
+    } catch (e) {
+      messageThreadsData = [];
+    }
+    messageThreadsLoading = false;
+    render();
+  }
+  function renderMessagesTab(applications) {
+    if (!messageThreadsData) return '<h1 class="pagetitle">Messages</h1><div class="empty">Loading…</div>';
+    if (messageThreadsData.length === 0) return '<h1 class="pagetitle">Messages</h1><div class="empty">No conversations yet — message a contractor from the Contractors or Applications tab to start one.</div>';
+    return `
+      <h1 class="pagetitle">Messages</h1>
+      <p class="pagesub">Every conversation with a contractor, most recent first.</p>
+      ${messageThreadsData.map(t => {
+        const app = applications.find(a => a.email === t.contractorEmail);
+        const name = app ? app.business : t.contractorEmail;
+        const preview = t.lastMessage.length > 90 ? t.lastMessage.slice(0, 90) + '…' : t.lastMessage;
+        return `
+        <button class="detailcard" style="max-width:640px;margin-bottom:10px;text-align:left;width:100%;cursor:pointer;display:block;${t.unreadCount ? 'border-color:var(--black);' : ''}" onclick="openContractorThread('${t.contractorEmail.replace(/'/g, "\\'")}')">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;">
+            <strong style="font-size:14px;">${escapeHtml(name)}</strong>
+            ${t.unreadCount ? `<span class="badge badge-feed" style="flex-shrink:0;">${t.unreadCount} new</span>` : ''}
+          </div>
+          <div class="jobmeta" style="margin:2px 0 6px;">${escapeHtml(t.contractorEmail)} · ${new Date(t.lastSentAt).toLocaleString('en-AU')}</div>
+          <div style="font-size:13px;color:var(--stone);">${t.lastSenderRole === 'admin' ? 'You: ' : ''}${escapeHtml(preview)}</div>
+        </button>`;
+      }).join('')}
+    `;
   }
 
   let customersStatusFilter = 'all';
@@ -695,6 +746,7 @@
     if (!paymentTabData && !paymentTabLoading) loadPaymentScheduleTab();
     if (unreadContractorMessageCount === null && !unreadContractorMessageLoading) loadUnreadContractorMessageCount();
     if (tab === 'customers' && !customersTabData && !customersTabLoading) loadCustomersTab();
+    if (tab === 'messages' && !messageThreadsData && !messageThreadsLoading) loadMessageThreads();
     const paymentBadgeCount = paymentTabData ? (paymentTabData.disputedMilestones || []).length + (paymentTabData.pendingScheduleJobs || []).length : 0;
 
     // Action required (Aug 2026) -- a single always-visible checklist of
@@ -759,6 +811,7 @@
         <button class="${tab==='overview'?'active':''}" onclick="tab='overview'; render();">All Jobs</button>
         <button class="${tab==='applications'?'active':''}" onclick="tab='applications'; render();">Applications ${pendingCount ? '(' + pendingCount + ')' : ''}</button>
         <button class="${tab==='contractors'?'active':''}" onclick="tab='contractors'; render();">Contractors</button>
+        <button class="${tab==='messages'?'active':''}" onclick="tab='messages'; render();">Messages ${unreadContractorMessageCount ? '(' + unreadContractorMessageCount + ')' : ''}</button>
         <button class="${tab==='customers'?'active':''}" onclick="tab='customers'; render();">Customers</button>
         <button class="${tab==='disputes'?'active':''}" onclick="tab='disputes'; render();">Disputes ${openDisputeCount ? '(' + openDisputeCount + ')' : ''}</button>
         <button class="${tab==='inquiries'?'active':''}" onclick="tab='inquiries'; render();">Inquiries ${openInquiryCount ? '(' + openInquiryCount + ')' : ''}</button>
@@ -780,7 +833,7 @@
               : jobsTableHtml(filtered);
           })()}
         `}
-      ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab()}
+      ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab()}
       ${openContractorThreadEmail ? contractorThreadModalHtml() : ''}
     `;
     if (tab === 'ratecard') wireRateCardTab();
