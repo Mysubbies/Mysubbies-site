@@ -355,6 +355,23 @@
     setTimeout(() => { t.style.display = 'none'; }, 2000);
   }
 
+  // Referral sharing (Aug 2026) -- mirrors copyReferralCode()/shareAppWithFriend()
+  // in mysubbies-customer-portal.html, but the share link here carries the
+  // actual ?ref=CODE so a referred contractor lands on signup with their
+  // code already filled in, rather than sharing a bare, code-less app link.
+  function copyContractorReferralCode(code) {
+    navigator.clipboard.writeText(code).then(() => showToast('Referral code copied!'));
+  }
+  function shareContractorReferralLink(code) {
+    const url = location.origin + '/mysubbies-contractor-signup.html?ref=' + encodeURIComponent(code);
+    const shareData = { title: 'Join MySubbies', text: 'Join the MySubbies contractor panel — no lead fees, no bidding wars.', url };
+    if (navigator.share) {
+      navigator.share(shareData).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url).then(() => showToast('Link copied — send it to a contractor!'));
+    }
+  }
+
   function getContractorName() { return localStorage.getItem('mysubbies_contractor_name'); }
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
@@ -366,6 +383,11 @@
   let selectedEarningsJobId = null;
   let earningsJobData = null;
   let earningsJobLoading = false;
+  // Stripe Connect payout setup status (Aug 2026) -- fetched once when the
+  // Earnings tab is first opened via the read side of
+  // create-connect-onboarding-link.js. null = not yet fetched.
+  let connectOnboardingStatus = null;
+  let connectOnboardingLoading = false;
   const app = document.getElementById('app');
 
   // General-purpose "Contact MySubbies" inquiry (Aug 2026) -- not tied to
@@ -586,6 +608,11 @@
           <div style="font-size:12px;color:var(--stone);margin-bottom:8px;">${referredCount} contractor${referredCount===1?'':'s'} referred so far.</div>
           <div style="display:flex;gap:8px;align-items:center;">
             <code style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;flex:1;">${myApp.referralCode}</code>
+            <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;flex-shrink:0;" onclick="copyContractorReferralCode('${myApp.referralCode}')">Copy</button>
+          </div>
+          <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <div style="font-size:12px;color:var(--stone);">Share the sign-up link directly</div>
+            <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;flex-shrink:0;" onclick="shareContractorReferralLink('${myApp.referralCode}')">Share link</button>
           </div>
         </div>`;
       })()}
@@ -598,12 +625,14 @@
     `;
 
     if (tab === 'earnings') {
+      if (connectOnboardingStatus === null && !connectOnboardingLoading) loadConnectOnboardingStatus();
       const completed = myJobsCompleted;
       const totalEarned = completed.reduce((s, j) => s + Math.round((j.basePrice || 0) * 0.75), 0);
       const rated = completed.filter(j => j.customerRating);
       const avgRating = rated.length ? (rated.reduce((s, j) => s + j.customerRating, 0) / rated.length).toFixed(1) : null;
       app.innerHTML += `
         <h1 class="pagetitle">Earnings</h1>
+        ${payoutSetupCardHtml()}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
           <div class="box"><div style="font-size:22px;font-weight:800;">$${totalEarned.toLocaleString()}</div><div class="jobmeta">Total earned</div></div>
           <div class="box"><div style="font-size:22px;font-weight:800;">${completed.length}</div><div class="jobmeta">Jobs completed</div></div>
@@ -888,6 +917,66 @@
   // enforce. A completed job is different -- by definition every milestone
   // is already resolved, so showing the real 75% payout per stage is just
   // reporting what happened, not promising anything.
+  // Stripe Connect payout setup (Aug 2026) -- the account itself and the
+  // weekly payout cron already existed; this is the first UI ever wired to
+  // it. Status: 'not_started' (no row yet) | 'pending' (account created,
+  // onboarding unfinished) | 'complete' (Stripe confirmed via the
+  // account.updated webhook -- eligible for the weekly auto-transfer of the
+  // deposit's 75% share).
+  async function loadConnectOnboardingStatus() {
+    connectOnboardingLoading = true;
+    try {
+      const email = localStorage.getItem('mysubbies_contractor_email');
+      const resp = await fetch('/api/create-connect-onboarding-link?contractorEmail=' + encodeURIComponent(email));
+      const data = await resp.json();
+      connectOnboardingStatus = data.onboardingStatus || 'not_started';
+    } catch (e) {
+      connectOnboardingStatus = 'not_started';
+    }
+    connectOnboardingLoading = false;
+    render();
+  }
+
+  async function startConnectOnboarding() {
+    connectOnboardingLoading = true;
+    render();
+    try {
+      const email = localStorage.getItem('mysubbies_contractor_email');
+      const resp = await fetch('/api/create-connect-onboarding-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contractorEmail: email, refreshUrl: location.href, returnUrl: location.href })
+      });
+      const data = await resp.json();
+      if (data.url) {
+        location.href = data.url;
+      } else {
+        connectOnboardingLoading = false;
+        showToast(data.error || 'Could not start payout setup. Please try again.');
+        render();
+      }
+    } catch (e) {
+      connectOnboardingLoading = false;
+      showToast('Could not start payout setup. Please try again.');
+      render();
+    }
+  }
+
+  function payoutSetupCardHtml() {
+    if (connectOnboardingStatus === 'complete') {
+      return `<div class="box" style="margin-bottom:20px;border-color:var(--good);">
+        <div style="font-size:13px;font-weight:700;color:var(--good);">✓ Payout setup complete</div>
+        <div class="jobmeta">Your bank details are on file with Stripe — you're eligible for the weekly automatic deposit payout.</div>
+      </div>`;
+    }
+    const isPending = connectOnboardingStatus === 'pending';
+    return `<div class="box" style="margin-bottom:20px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px;">${isPending ? 'Finish setting up payments' : 'Set up payments'}</div>
+      <div class="jobmeta" style="margin-bottom:10px;">${isPending ? "You started adding your bank details but didn't finish — pick up where you left off." : 'Add your bank details with Stripe (takes about 5 minutes) so MySubbies can pay you.'}</div>
+      <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="startConnectOnboarding()" ${connectOnboardingLoading ? 'disabled' : ''}>${connectOnboardingLoading ? 'Loading…' : (isPending ? 'Continue setup →' : 'Set up payments →')}</button>
+    </div>`;
+  }
+
   function openEarningsDetail(jobId) {
     selectedEarningsJobId = jobId;
     earningsJobData = null;

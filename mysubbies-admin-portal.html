@@ -470,6 +470,82 @@
     messageThreadsLoading = false;
     render();
   }
+  // Completed jobs per contractor, for manual weekly payment (Aug 2026) --
+  // see api/get-admin-list.js's type=contractor-payouts for the completion
+  // logic and the payout_line_items netting-off. Same load-once-per-tab-open
+  // pattern as messageThreadsData above.
+  let contractorPayoutsData = null;
+  let contractorPayoutsLoading = false;
+  async function loadContractorPayouts() {
+    if (contractorPayoutsLoading) return;
+    contractorPayoutsLoading = true;
+    try {
+      const res = await adminFetch('/api/get-admin-list?type=contractor-payouts');
+      const data = await res.json();
+      contractorPayoutsData = Array.isArray(data.contractors) ? data.contractors : [];
+    } catch (e) {
+      contractorPayoutsData = [];
+    }
+    contractorPayoutsLoading = false;
+    render();
+  }
+  let expandedPayoutContractor = null;
+  function togglePayoutContractor(email) {
+    expandedPayoutContractor = expandedPayoutContractor === email ? null : email;
+    render();
+  }
+  function contractorPayoutsSectionHtml() {
+    if (!contractorPayoutsData) return `<div class="detailcard" style="margin-bottom:14px;"><h3 style="font-size:15px;margin-bottom:12px;">Contractor payouts (weekly)</h3><div class="empty">Loading…</div></div>`;
+    if (contractorPayoutsData.length === 0) return `<div class="detailcard" style="margin-bottom:14px;"><h3 style="font-size:15px;margin-bottom:12px;">Contractor payouts (weekly)</h3><div class="empty">No completed jobs yet.</div></div>`;
+    const totalNet = contractorPayoutsData.reduce((s, c) => s + c.netOwedCents, 0);
+    return `
+      <div class="detailcard" style="margin-bottom:14px;">
+        <h3 style="font-size:15px;margin-bottom:4px;">Contractor payouts (weekly)</h3>
+        <p class="jobmeta" style="margin-bottom:12px;">Completed jobs per contractor. The deposit's 75% share is already sent automatically by the weekly Stripe transfer once a contractor's payout setup is complete — everything else here is still paid manually. "Still owed" already nets that off.</p>
+        <div class="row" style="font-weight:700;"><span class="l">Total still owed (manual), all contractors</span><span class="r">$${(totalNet/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
+        ${contractorPayoutsData.map(c => `
+          <div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="togglePayoutContractor('${escapeHtml(c.contractorEmail)}')">
+              <div>
+                <div style="font-weight:700;font-size:13px;">${escapeHtml(c.businessName || c.contractorEmail)}</div>
+                <div class="jobmeta">${escapeHtml(c.contractorEmail)} · ${c.jobCount} completed job${c.jobCount === 1 ? '' : 's'}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-weight:800;">$${(c.netOwedCents/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                <div class="jobmeta">still owed</div>
+              </div>
+            </div>
+            ${expandedPayoutContractor === c.contractorEmail ? `
+              <div style="margin-top:8px;font-size:12px;">
+                <div class="row"><span class="l">Gross owed (75% of all completed jobs)</span><span class="r">$${(c.grossOwedCents/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
+                <div class="row"><span class="l">Already sent automatically (deposit transfers)</span><span class="r">$${(c.alreadyPaidCents/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
+                <table style="width:100%;border-collapse:collapse;margin-top:8px;">
+                  <thead><tr>
+                    <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">Job</th>
+                    <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">Suburb</th>
+                    <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">Completed</th>
+                    <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">Share (75%)</th>
+                    <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">Already sent</th>
+                  </tr></thead>
+                  <tbody>
+                    ${c.jobs.map(j => `
+                      <tr>
+                        <td style="padding:4px;">${escapeHtml(j.category)}</td>
+                        <td style="padding:4px;">${escapeHtml(j.suburb || '')}</td>
+                        <td style="padding:4px;">${j.completedAt ? new Date(j.completedAt).toLocaleDateString('en-AU') : '—'}</td>
+                        <td style="padding:4px;">$${(j.shareCents/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                        <td style="padding:4px;">$${(j.alreadyPaidCents/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            ` : ''}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
   function renderMessagesTab(applications) {
     if (!messageThreadsData) return '<h1 class="pagetitle">Messages</h1><div class="empty">Loading…</div>';
     if (messageThreadsData.length === 0) return '<h1 class="pagetitle">Messages</h1><div class="empty">No conversations yet — message a contractor from the Contractors or Applications tab to start one.</div>';
@@ -586,6 +662,7 @@
       customersTabData = null;
       unreadContractorMessageCount = null;
       messageThreadsData = null;
+      contractorPayoutsData = null;
       render();
       showToast('Refreshed');
     }).catch(() => {}).finally(() => {
@@ -749,6 +826,7 @@
     if (unreadContractorMessageCount === null && !unreadContractorMessageLoading) loadUnreadContractorMessageCount();
     if (tab === 'customers' && !customersTabData && !customersTabLoading) loadCustomersTab();
     if (tab === 'messages' && !messageThreadsData && !messageThreadsLoading) loadMessageThreads();
+    if (tab === 'reports' && !contractorPayoutsData && !contractorPayoutsLoading) loadContractorPayouts();
     const paymentBadgeCount = paymentTabData ? (paymentTabData.disputedMilestones || []).length + (paymentTabData.pendingScheduleJobs || []).length : 0;
 
     // Action required (Aug 2026) -- a single always-visible checklist of
@@ -977,6 +1055,8 @@
         <div class="row"><span class="l">Completed jobs value</span><span class="r">$${completedGmv.toLocaleString()} (${completedJobs.length} jobs)</span></div>
         <div class="row"><span class="l">Average job value</span><span class="r">$${jobs.length ? Math.round(gmv / jobs.length).toLocaleString() : 0}</span></div>
       </div>
+
+      ${contractorPayoutsSectionHtml()}
 
       <div class="detailcard" style="margin-bottom:14px;">
         <h3 style="font-size:15px;margin-bottom:12px;">Revenue by category</h3>

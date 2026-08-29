@@ -456,6 +456,13 @@
     const submitBtnLabel = submitBtn ? submitBtn.textContent : '';
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
 
+    // Computed before the Supabase insert below (used to be after it) so the
+    // real referral_code/referred_by columns get populated at signup time
+    // instead of only reaching Supabase later via the full_application jsonb
+    // mirror -- see schema_v9_contractor_referrals.sql.
+    const referralCode = (business.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'TRDE') + Math.floor(1000 + Math.random() * 9000);
+    const referredBy = apps.some(a => a.referralCode === referralInput) ? referralInput : null;
+
     // Real account + backend profile row, same pattern as customer signup.
     // Approval status (pending/approved/rejected) below is still driven by
     // the existing localStorage application record — admin approval hasn't
@@ -468,13 +475,11 @@
       if (user) {
         await sb.from('contractors').insert({
           auth_user_id: user.id, email, business_name: business, abn, acn, phone,
-          categories: selectedTrades,
+          categories: selectedTrades, referral_code: referralCode, referred_by: referredBy,
         });
       }
     }
 
-    const referralCode = (business.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'TRDE') + Math.floor(1000 + Math.random() * 9000);
-    const referredBy = apps.some(a => a.referralCode === referralInput) ? referralInput : null;
     const application = {
       id: 'app_' + Date.now(), business, abn, acn, contact, phone, email, password,
       trades: selectedTrades, otherTrade: otherTradeText.trim() || null,
@@ -506,6 +511,17 @@
   }
 
   render();
+
+  // Referral share links (Aug 2026) point here as
+  // mysubbies-contractor-signup.html?ref=CODE -- prefill, not lock, so a
+  // referred applicant can still correct/clear it. Runs after render()
+  // since #fContractorReferral doesn't exist in the DOM until the form is
+  // built.
+  (function prefillReferralFromUrl() {
+    const ref = new URLSearchParams(location.search).get('ref');
+    const input = document.getElementById('fContractorReferral');
+    if (ref && input) input.value = ref.trim().toUpperCase();
+  })();
 </script>
 <script>
 if ('serviceWorker' in navigator) {
