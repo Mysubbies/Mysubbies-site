@@ -1153,6 +1153,45 @@
     if (newEl) { newEl.focus(); newEl.setSelectionRange(cursorPos, cursorPos); }
   }
 
+  // Quick "add a single task to an existing category" (Aug 2026) -- Research
+  // New already lets an admin add tasks, but forces the Google-research +
+  // low/high-range-averaging workflow even when the admin already knows the
+  // exact rate they want (e.g. a straightforward new line item like "Removal
+  // of existing tile floor" under Flooring). This is the lighter-weight path
+  // for that case, scoped to one category at a time from Manage Existing.
+  let rcAddingTaskCat = null;
+  let rcNewTaskDraft = { name: '', unit: '', rate: '', notes: '' };
+  function openAddTaskForm(catLabel) {
+    rcAddingTaskCat = catLabel;
+    rcNewTaskDraft = { name: '', unit: '', rate: '', notes: '' };
+    const list = document.getElementById('rcManageList');
+    if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
+  }
+  function cancelAddTaskForm() {
+    rcAddingTaskCat = null;
+    const list = document.getElementById('rcManageList');
+    if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
+  }
+  function saveNewTask(catLabel) {
+    const name = rcNewTaskDraft.name.trim();
+    const unit = rcNewTaskDraft.unit.trim();
+    const rate = rcNewTaskDraft.rate === '' ? NaN : Number(rcNewTaskDraft.rate);
+    const errBox = document.getElementById('rcNewTaskError');
+    if (!name || !unit || isNaN(rate)) {
+      if (errBox) errBox.innerHTML = '<div class="error" style="margin-top:6px;">Enter a task name, unit, and rate.</div>';
+      return;
+    }
+    const categories = getRateCard();
+    const cat = categories.find(c => c.label === catLabel);
+    if (!cat) return;
+    cat.tasks.push({ name, unit, rate, notes: rcNewTaskDraft.notes.trim() });
+    saveRateCard(categories);
+    rcAddingTaskCat = null;
+    rcNewTaskDraft = { name: '', unit: '', rate: '', notes: '' };
+    const list = document.getElementById('rcManageList');
+    if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
+  }
+
   // Section 5 of the small-jobs brief: a configurable floor so a job never
   // books through at a price where the platform economics don't work.
   // Not yet enforced anywhere in the booking flow — that wiring is separate
@@ -1833,6 +1872,25 @@
             </div>
           </div>
         `).join('')}
+        ${c.label === rcAddingTaskCat ? `
+          <div style="margin-top:8px;padding:10px;background:var(--paper);border-radius:8px;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--stone);margin-bottom:8px;">New task</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+              <input type="text" value="${escapeHtml(rcNewTaskDraft.name)}" oninput="rcNewTaskDraft.name=this.value" placeholder="Task name (e.g. Removal of existing tile floor)" style="flex:1;min-width:160px;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;" />
+              <input type="text" value="${escapeHtml(rcNewTaskDraft.unit)}" oninput="rcNewTaskDraft.unit=this.value" placeholder="Unit (e.g. m²)" style="width:70px;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;" />
+              <span style="font-size:12px;color:var(--stone);align-self:center;">$</span>
+              <input type="number" value="${escapeHtml(rcNewTaskDraft.rate)}" oninput="rcNewTaskDraft.rate=this.value" placeholder="Rate" style="width:80px;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;" />
+            </div>
+            <textarea oninput="rcNewTaskDraft.notes=this.value" placeholder="Customer-facing details / specs (optional)" style="width:100%;font-size:12px;padding:7px 9px;border:1px solid var(--line);border-radius:6px;font-family:inherit;min-height:44px;resize:vertical;margin-bottom:8px;">${escapeHtml(rcNewTaskDraft.notes)}</textarea>
+            <div id="rcNewTaskError"></div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-black" style="width:auto;padding:6px 14px;font-size:12px;" onclick="saveNewTask('${c.label.replace(/'/g,"\\'")}')">Add task</button>
+              <button class="btn btn-outline" style="width:auto;padding:6px 14px;font-size:12px;" onclick="cancelAddTaskForm()">Cancel</button>
+            </div>
+          </div>
+        ` : `
+          <button class="btn btn-outline" style="width:auto;padding:6px 12px;font-size:11.5px;margin-top:6px;" onclick="openAddTaskForm('${c.label.replace(/'/g,"\\'")}')">+ Add task</button>
+        `}
       </div>
     `).join('');
   }
