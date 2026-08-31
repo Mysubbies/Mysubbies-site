@@ -937,10 +937,11 @@
   function customerJobsTableHtml(jobs) {
     return `
       <table class="jobstable">
-        <thead><tr><th>Job</th><th>Suburb</th><th>Contractor</th><th>Status</th><th>Value</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>Job</th><th>Suburb</th><th>Contractor</th><th>Status</th><th>Value</th><th></th></tr></thead>
         <tbody>
           ${jobs.map(j => `
             <tr class="jobrow" onclick="selectedJobId='${j.id}'; render();">
+              <td data-label="#">${j.jobNumber ? '#' + j.jobNumber : '—'}</td>
               <td data-label="Job"><strong>${escapeHtml(j.category)}</strong>${j.items && j.items.length > 1 ? `<br><span style="color:var(--stone);font-size:12px;">${j.items.length} items</span>` : ''}</td>
               <td data-label="Suburb">${escapeHtml(j.suburb)}</td>
               <td data-label="Contractor">${j.contractor ? escapeHtml(j.contractor) : '—'}</td>
@@ -1089,7 +1090,7 @@
         ${j.photoDataUrl ? `<img src="${j.photoDataUrl}" style="width:100%;border-radius:12px;margin-bottom:16px;max-height:200px;object-fit:cover;">` : ''}
         <span class="pill">${escapeHtml(j.category)}</span>
         <h1 class="pagetitle" style="margin-top:8px;">${escapeHtml(j.category)}</h1>
-        <div class="jobmeta" style="margin-bottom:16px;">📍 ${escapeHtml(j.suburb)}</div>
+        <div class="jobmeta" style="margin-bottom:16px;">${j.jobNumber ? `Job #${j.jobNumber} · ` : ''}📍 ${escapeHtml(j.suburb)}</div>
         <div class="row"><span class="l">Estimated cost</span><span class="r">$${(j.priceLow||j.basePrice||0).toLocaleString()}</span></div>
         <div class="row"><span class="l">Contractor</span><span class="r">${j.contractor ? escapeHtml(j.contractor) : 'Awaiting acceptance'}</span></div>
         ${j.contractor && !['cancellation_requested', 'cancelled'].includes(j.status) ? `<div id="milestoneSectionWrap"><div class="note">Loading payment schedule…</div></div>` : ''}

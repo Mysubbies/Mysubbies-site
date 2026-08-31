@@ -141,7 +141,7 @@ module.exports = async (req, res) => {
     if (type === 'contractor-payouts') {
       const { data: jobs, error: jobsErr } = await supabase
         .from('jobs')
-        .select('id, category, suburb, contractor_email, base_price_cents, full_record, updated_at')
+        .select('id, job_number, category, suburb, contractor_email, base_price_cents, full_record, updated_at')
         .not('contractor_email', 'is', null)
         .limit(5000);
       if (jobsErr) throw jobsErr;
@@ -198,6 +198,7 @@ module.exports = async (req, res) => {
         if (!byContractor[email]) byContractor[email] = { contractorEmail: email, jobs: [], grossOwedCents: 0, alreadyPaidCents: 0 };
         byContractor[email].jobs.push({
           jobId: job.id,
+          jobNumber: job.job_number,
           category: job.category,
           suburb: job.suburb,
           basePriceCents: job.base_price_cents || 0,

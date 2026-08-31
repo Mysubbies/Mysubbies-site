@@ -521,6 +521,7 @@
                 <div class="row"><span class="l">Already sent automatically (deposit transfers)</span><span class="r">$${(c.alreadyPaidCents/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
                 <table style="width:100%;border-collapse:collapse;margin-top:8px;">
                   <thead><tr>
+                    <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">#</th>
                     <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">Job</th>
                     <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">Suburb</th>
                     <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">Completed</th>
@@ -530,6 +531,7 @@
                   <tbody>
                     ${c.jobs.map(j => `
                       <tr>
+                        <td style="padding:4px;">${j.jobNumber ? '#' + j.jobNumber : '—'}</td>
                         <td style="padding:4px;">${escapeHtml(j.category)}</td>
                         <td style="padding:4px;">${escapeHtml(j.suburb || '')}</td>
                         <td style="padding:4px;">${j.completedAt ? new Date(j.completedAt).toLocaleDateString('en-AU') : '—'}</td>
@@ -699,7 +701,7 @@
             <div style="display:flex;justify-content:space-between;align-items:flex-start;">
               <div>
                 <div style="font-weight:700;font-size:15px;">${escapeHtml(d.reason)}</div>
-                <div style="font-size:12px;color:var(--stone);margin-top:2px;">${job ? escapeHtml(job.category + ' — ' + job.suburb) : 'Job not found'} · reported by ${escapeHtml(d.reportedBy)} · ${new Date(d.reportedAt).toLocaleDateString('en-AU')}</div>
+                <div style="font-size:12px;color:var(--stone);margin-top:2px;">${job ? (job.jobNumber ? `Job #${job.jobNumber} — ` : '') + escapeHtml(job.category + ' — ' + job.suburb) : 'Job not found'} · reported by ${escapeHtml(d.reportedBy)} · ${new Date(d.reportedAt).toLocaleDateString('en-AU')}</div>
               </div>
               <span class="badge ${d.status === 'open' ? 'badge-feed' : 'badge-completed'}">${d.status}</span>
             </div>
@@ -1731,8 +1733,10 @@
     const evidenceRows = m.milestone_evidence || [];
     const evidence = evidenceRows[evidenceRows.length - 1];
     const jobId = m.job_payment_schedules ? m.job_payment_schedules.job_id : '';
+    const relatedJob = jobId ? getJobs().find(j => j.id === jobId) : null;
+    const jobLabel = relatedJob && relatedJob.jobNumber ? `#${relatedJob.jobNumber}` : jobId;
     return `<div class="detailcard" style="max-width:none;margin-bottom:12px;">
-      <div class="row"><span class="l">Job</span><span class="r">${escapeHtml(jobId)}</span></div>
+      <div class="row"><span class="l">Job</span><span class="r">${escapeHtml(jobLabel)}</span></div>
       <div class="row"><span class="l">Milestone</span><span class="r">${escapeHtml(m.label)} (${m.pct}%, $${(m.amount_cents / 100).toLocaleString()})</span></div>
       ${dispute ? `<div class="row"><span class="l">Customer's reason</span><span class="r" style="text-align:right;max-width:60%;">${escapeHtml(dispute.reason || '')}</span></div>` : ''}
       ${evidence ? `
@@ -2333,12 +2337,13 @@
     const badgeLabel = { feed: 'Awaiting contractor', assigned: 'Assigned', completed: 'Completed', cancellation_requested: 'Cancellation requested', cancelled: 'Cancelled' };
     return `
       <table>
-        <thead><tr><th>Job</th><th>Suburb</th><th>Contractor</th><th>Status</th><th>Submitted</th><th>Value</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>Job</th><th>Suburb</th><th>Contractor</th><th>Status</th><th>Submitted</th><th>Value</th><th></th></tr></thead>
         <tbody>
           ${jobs.map(j => {
             const submitted = jobSubmittedText(j);
             return `
             <tr class="jobrow" onclick="selectedJobId='${j.id}'; render();">
+              <td>${j.jobNumber ? '#' + j.jobNumber : '—'}</td>
               <td><strong>${j.icon || ''} ${escapeHtml(j.category)}</strong><br><span style="color:var(--stone);font-size:12px;">${j.items && j.items.length > 1 ? j.items.length + ' items' : (j.qty || '') + ' ' + escapeHtml(j.unit || '')}</span></td>
               <td>${escapeHtml(j.suburb)}</td>
               <td>${escapeHtml(j.contractor || '—')}</td>
@@ -2369,7 +2374,7 @@
           </div>
         ` : j.photoDataUrl ? `<img class="jobphoto" src="${j.photoDataUrl}">` : ''}
         <h1 class="pagetitle" style="margin-bottom:2px;">${j.icon || ''} ${escapeHtml(j.category)}</h1>
-        <div style="color:var(--stone);font-size:13px;margin-bottom:16px;">${j.items && j.items.length > 1 ? j.items.length + ' items' : `${j.qty || ''} ${escapeHtml(j.unit || '')}`} · 📍 ${j.address ? escapeHtml(j.address) + ', ' : ''}${escapeHtml(j.suburb)}</div>
+        <div style="color:var(--stone);font-size:13px;margin-bottom:16px;">${j.jobNumber ? `Job #${j.jobNumber} · ` : ''}${j.items && j.items.length > 1 ? j.items.length + ' items' : `${j.qty || ''} ${escapeHtml(j.unit || '')}`} · 📍 ${j.address ? escapeHtml(j.address) + ', ' : ''}${escapeHtml(j.suburb)}</div>
 
         ${j.items && j.items.length ? `
           <div style="border-top:1px solid var(--paper);border-bottom:1px solid var(--paper);padding:10px 0;margin-bottom:8px;">

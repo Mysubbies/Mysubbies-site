@@ -723,7 +723,7 @@
   function feedJobsTableHtml(jobs) {
     return `
       <table class="jobstable">
-        <thead><tr><th>Job</th><th>Suburb</th><th>Status</th><th>Payout</th></tr></thead>
+        <thead><tr><th>#</th><th>Job</th><th>Suburb</th><th>Status</th><th>Payout</th></tr></thead>
         <tbody>
           ${jobs.map(j => {
             const titleDetail = j.items && j.items.length === 1 ? j.items[0].taskName
@@ -732,6 +732,7 @@
             const payout = Math.round((j.basePrice || 0) * 0.75);
             return `
               <tr class="jobrow" onclick="selectedJobId='${j.id}'; render();">
+                <td>${j.jobNumber ? '#' + j.jobNumber : '—'}</td>
                 <td><strong>${escapeHtml(j.category)}</strong><br><span style="color:var(--stone);font-size:12px;">${escapeHtml(titleDetail)}</span></td>
                 <td>${escapeHtml(j.suburb)}</td>
                 <td><span class="badge badge-feed">Open</span></td>
@@ -752,12 +753,13 @@
   function myJobsTableHtml(jobs) {
     return `
       <table class="jobstable">
-        <thead><tr><th>Job</th><th>Suburb</th><th>Customer</th><th>Status</th><th>Payout</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>Job</th><th>Suburb</th><th>Customer</th><th>Status</th><th>Payout</th><th></th></tr></thead>
         <tbody>
           ${jobs.map(j => {
             const titleDetail = j.items && j.items.length === 1 ? j.items[0].taskName : j.category;
             return `
               <tr class="jobrow" onclick="selectedJobId='${j.id}'; render();">
+                <td>${j.jobNumber ? '#' + j.jobNumber : '—'}</td>
                 <td><strong>${escapeHtml(titleDetail)}</strong>${j.items && j.items.length > 1 ? `<br><span style="color:var(--stone);font-size:12px;">${j.items.length} items</span>` : ''}</td>
                 <td>${escapeHtml(j.suburb)}</td>
                 <td>${j.customerName ? escapeHtml(j.customerName) : '—'}</td>
@@ -837,7 +839,7 @@
         ` : j.photoDataUrl ? `<img class="jobphoto" src="${j.photoDataUrl}">` : ''}
         <span class="pill">${escapeHtml(j.category)}</span>
         <h1 class="pagetitle" style="margin-top:8px;">${escapeHtml(j.category)}${j.items && j.items.length > 1 ? '' : ` — ${j.qty} ${escapeHtml(j.unit)}`}</h1>
-        <div class="jobmeta" style="margin-bottom:16px;">📍 ${escapeHtml(isMine ? (j.address || j.suburb) : j.suburb)} ${isMine ? '· ' + escapeHtml(j.customerName) : ''}</div>
+        <div class="jobmeta" style="margin-bottom:16px;">${j.jobNumber ? `Job #${j.jobNumber} · ` : ''}📍 ${escapeHtml(isMine ? (j.address || j.suburb) : j.suburb)} ${isMine ? '· ' + escapeHtml(j.customerName) : ''}</div>
         ${j.items && j.items.length ? `
           <div style="border-top:1px solid var(--paper);border-bottom:1px solid var(--paper);padding:10px 0;margin-bottom:8px;">
             ${j.items.map(i => `
