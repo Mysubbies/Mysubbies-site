@@ -222,6 +222,19 @@
   .estimator-result .price-sub { font-size:12px; color:var(--stone); }
   .estimator-note { font-size:11px; color:var(--stone-light); margin-top:12px; }
 
+  /* Primary priced comparison cards (Sep 2026) -- see estPrimaryUnitGroup() */
+  .est-primary-options { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+  .est-primary-option { display:flex; justify-content:space-between; align-items:center; gap:12px; width:100%; text-align:left; padding:13px 14px; border:1.5px solid var(--line); border-radius:12px; background:#fff; cursor:pointer; font-family:inherit; }
+  .est-primary-option:hover { border-color: var(--stone-light); }
+  .est-primary-option.selected { border-color: var(--black); background: var(--paper); }
+  .est-primary-option-photo { width:44px; height:44px; border-radius:8px; object-fit:cover; flex-shrink:0; }
+  .est-primary-option-body { flex:1; min-width:0; }
+  .est-primary-option-name { font-size:13.5px; font-weight:700; color:var(--ink); }
+  .est-primary-option-notes { font-size:11.5px; color:var(--stone); margin-top:2px; line-height:1.4; }
+  .est-primary-option-price { font-size:16px; font-weight:800; color:var(--black); white-space:nowrap; flex-shrink:0; }
+  .est-primary-option-check { width:20px; height:20px; border-radius:50%; border:1.5px solid var(--line); flex-shrink:0; display:grid; place-items:center; font-size:12px; color:#fff; }
+  .est-primary-option.selected .est-primary-option-check { background:var(--black); border-color:var(--black); }
+
   .hero-visual { background: var(--paper); border:1px solid var(--line); border-radius:24px; padding:32px; height:100%; min-height:420px; display:flex; flex-direction:column; justify-content:flex-end; }
   .hero-visual .hv-row { display:flex; justify-content:space-between; align-items:center; padding:14px 0; border-top:1px solid var(--line); font-size:14px; }
   .hero-visual .hv-row:first-child { border-top:none; }
@@ -1043,18 +1056,6 @@
 
           <div id="estRefImage" style="display:none;margin-bottom:14px;"></div>
 
-          <div id="estTierWrap" style="display:none;">
-            <label class="est-field-label">Add the specific job(s)</label>
-            <input type="text" id="estTierQuickMatch" class="est-tier-quickmatch" placeholder="Type what you need, e.g. &quot;replace a power point&quot;" autocomplete="off" oninput="onTierQuickMatch()" />
-            <div class="est-match-line" id="estTierMatchLine"></div>
-            <div class="chiprow-est" id="estSelectedPills"></div>
-            <!-- Full browsable task list -- hidden by request (was reading as
-                 clutter on a category with many tasks). Kept in the DOM, not
-                 deleted, since selection/matching logic (toggleTierSelection,
-                 estFindTaskMatches highlighting) still reads/writes to it. -->
-            <div class="chiprow-est" id="estTierChips" style="display:none;"></div>
-          </div>
-
         <div class="est-field-error" id="estStep1Error"></div>
         <div class="est-step-nav"><button class="btn btn-black" onclick="estStep1Continue()">Continue →</button></div>
       </div>
@@ -1068,6 +1069,37 @@
       <div class="est-step" data-step="2">
         <div class="est-step-title">Tell us about the job</div>
         <div class="est-step-sub">Suburb, size or quantity, site conditions, access, timing and photos.</div>
+
+          <!-- Primary priced comparison (Sep 2026) -- enter a size once,
+               see every option that shares this category's most common
+               unit priced at that size (e.g. Decking + 20 sqm -> Treated
+               pine / Merbau / Composite / Sub-frame only, each with a real
+               price), instead of picking a specific job blind before
+               knowing what anything costs. See estPrimaryUnitGroup(). -->
+          <div id="estPrimaryCompareWrap" style="display:none;">
+            <label class="est-field-label" id="estPrimaryQtyLabel">Size / quantity</label>
+            <input type="text" id="estPrimaryQty" class="est-qty-row-input" oninput="onPrimaryQtyInput()" placeholder="" />
+            <div class="est-hint" id="estPrimaryQtyHint"></div>
+            <div id="estPrimaryOptions" class="est-primary-options"></div>
+          </div>
+
+          <!-- Other services in this category (Sep 2026, relocated from
+               Step 1's old "Add the specific job(s)" picker) -- only tasks
+               NOT in the primary comparison group above (different unit,
+               e.g. Fencing's gates or Decking's stairs/balustrade), so
+               nothing from the old flow becomes unreachable. Multi-select,
+               own qty row per task, same as before. -->
+          <div id="estTierWrap" style="display:none;">
+            <label class="est-field-label" id="estTierWrapLabel">Other services in this category</label>
+            <input type="text" id="estTierQuickMatch" class="est-tier-quickmatch" placeholder="Type what you need, e.g. &quot;replace a power point&quot;" autocomplete="off" oninput="onTierQuickMatch()" />
+            <div class="est-match-line" id="estTierMatchLine"></div>
+            <div class="chiprow-est" id="estSelectedPills"></div>
+            <!-- Full browsable task list -- hidden by request (was reading as
+                 clutter on a category with many tasks). Kept in the DOM, not
+                 deleted, since selection/matching logic (toggleTierSelection,
+                 estFindTaskMatches highlighting) still reads/writes to it. -->
+            <div class="chiprow-est" id="estTierChips" style="display:none;"></div>
+          </div>
 
           <div id="estQtyRows"></div>
           <div id="estRemovalPrompt"></div>
@@ -1926,14 +1958,20 @@
     document.getElementById('estCatResults').classList.remove('show');
     selectedCat = null;
     document.getElementById('estTierWrap').style.display = 'none';
+    document.getElementById('estPrimaryCompareWrap').style.display = 'none';
     document.getElementById('estRefImage').style.display = 'none';
     showEstStep(1);
     document.getElementById('estCategoryInput').focus();
   }
 
+  // Sep 2026 -- Step 1 used to also require picking a specific task
+  // (selectedTierSet.size > 0) before Step 2 unlocked. Now Step 1 is
+  // category-only: picking the specific job moved into Step 2's priced
+  // comparison, since a customer shouldn't have to pick blind before
+  // knowing what anything costs.
   function estStep1Continue() {
     const err = document.getElementById('estStep1Error');
-    if (!selectedCat || selectedTierSet.size === 0) {
+    if (!selectedCat) {
       err.textContent = 'Please choose a service to continue.';
       err.classList.add('show');
       return;
@@ -2070,9 +2108,22 @@
     const task = cat.tasks.find(t => t.name === taskName);
     if (!task) return;
     closeSubCategoryGallery();
-    selectCat(cat);
-    const chipBtn = Array.from(document.querySelectorAll('#estTierChips .chip-est')).find(b => b.textContent.trim() === task.name);
-    if (chipBtn) toggleTierSelection(task, chipBtn);
+    selectCat(cat); // sets estPrimaryGroup and rebuilds the secondary chip row
+    // Select the task directly rather than simulating a chip click -- a
+    // primary-group task (e.g. a specific fence material) no longer has a
+    // chip to find at all, since Step 2's priced comparison cards cover it
+    // instead. Its size isn't known yet from the gallery, so the primary
+    // qty field starts empty; the customer fills it in on Step 2 and
+    // onPrimaryQtyInput() links it back to this pre-selected task.
+    selectedTierSet.set(task.name, task);
+    renderQtyRows();
+    renderSelectedPills();
+    if (estPrimaryGroup && estPrimaryGroup.tasks.some(t => t.name === task.name)) {
+      renderPrimaryOptionCards(null);
+    } else {
+      const chipBtn = Array.from(document.querySelectorAll('#estTierChips .chip-est')).find(b => b.textContent.trim() === task.name);
+      if (chipBtn) chipBtn.classList.add('selected');
+    }
     showEstStep(2);
   }
 
@@ -2608,6 +2659,110 @@
     'Insulation Installation': 'e.g. "ceiling batt insulation", "wall batt insulation", "underfloor insulation"',
   };
 
+  // ============================================================
+  // Priced comparison group (Sep 2026) -- Step 2 now leads with a single
+  // size/quantity field and shows every task sharing the category's most
+  // common unit as its own priced card (e.g. Decking + 20 sqm -> Treated
+  // pine / Merbau / Composite / Sub-frame only), instead of Step 1 making
+  // the customer pick a specific job blind before knowing what anything
+  // costs. Grouping by unit (not by "these are true alternatives") is
+  // deliberate -- there's no rate-card field marking genuine substitutes
+  // (e.g. Painting's Interior/Exterior/Ceiling/Fence all price per m² but
+  // aren't substitutes for each other), and this never misleads since
+  // every card names its own task; the customer just picks the one
+  // matching what they actually need. The removal-companion task (see
+  // CATEGORY_REMOVAL_COMPANION below) is deliberately excluded from this
+  // group even when it shares the same unit -- it's an add-on via its own
+  // prompt (renderRemovalPrompt), not a mutually-exclusive alternative.
+  let estPrimaryGroup = null;
+  function estPrimaryUnitGroup(cat) {
+    const companionName = CATEGORY_REMOVAL_COMPANION[cat.label];
+    const priced = cat.tasks.filter(t => !t.disabled && !t.unavailable && typeof t.rate === 'number' && t.name !== companionName);
+    if (priced.length < 2) return null;
+    const byUnit = {};
+    priced.forEach(t => { (byUnit[t.unit] = byUnit[t.unit] || []).push(t); });
+    let bestUnit = null;
+    Object.keys(byUnit).forEach(unit => { if (!bestUnit || byUnit[unit].length > byUnit[bestUnit].length) bestUnit = unit; });
+    if (!bestUnit || byUnit[bestUnit].length < 2) return null;
+    return { unit: bestUnit, tasks: byUnit[bestUnit] };
+  }
+  // Everything NOT in the primary group -- different unit (Fencing's
+  // gates, Decking's stairs/balustrade) or the removal companion -- stays
+  // reachable via the relocated "Other services in this category" picker,
+  // scoped to just these so nothing shows up in both places.
+  function estSecondaryTasks(cat) {
+    const primaryNames = new Set(estPrimaryGroup ? estPrimaryGroup.tasks.map(t => t.name) : []);
+    const companionName = CATEGORY_REMOVAL_COMPANION[cat.label];
+    return cat.tasks.filter(t => !t.disabled && !primaryNames.has(t.name) && t.name !== companionName);
+  }
+  function renderEstPrimaryCompareBlock(c) {
+    estPrimaryGroup = estPrimaryUnitGroup(c);
+    const wrap = document.getElementById('estPrimaryCompareWrap');
+    document.getElementById('estPrimaryQty').value = '';
+    document.getElementById('estPrimaryOptions').innerHTML = '';
+    if (!estPrimaryGroup) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+    const hint = qtyHintForUnit(estPrimaryGroup.unit);
+    document.getElementById('estPrimaryQtyLabel').textContent = 'Size / quantity (' + hint.label + ')';
+    document.getElementById('estPrimaryQty').placeholder = hint.placeholder;
+    document.getElementById('estPrimaryQtyHint').textContent = hint.hint;
+  }
+  let estPrimaryQtyTimer = null;
+  function onPrimaryQtyInput() {
+    if (estPrimaryQtyTimer) clearTimeout(estPrimaryQtyTimer);
+    estPrimaryQtyTimer = setTimeout(() => {
+      if (!estPrimaryGroup) return;
+      const raw = document.getElementById('estPrimaryQty').value.trim();
+      const qty = raw ? parseQuantity(raw, estPrimaryGroup.unit) : null;
+      // Keep whichever option is already selected in sync with the new
+      // size, so Calculate price always uses the latest number typed here
+      // rather than a stale value from before this edit.
+      const alreadySelected = estPrimaryGroup.tasks.find(t => selectedTierSet.has(t.name));
+      if (alreadySelected) {
+        qtyValues.set(alreadySelected.name, raw);
+        pendingItems = [];
+        document.getElementById('estItemPreview').style.display = 'none';
+        estResetPriceReveal();
+      }
+      renderPrimaryOptionCards(qty);
+    }, 300);
+  }
+  function renderPrimaryOptionCards(qty) {
+    const wrap = document.getElementById('estPrimaryOptions');
+    if (!estPrimaryGroup || !qty) { wrap.innerHTML = ''; return; }
+    wrap.innerHTML = estPrimaryGroup.tasks.map(t => {
+      const rawBase = Math.round(qty * t.rate);
+      const minApplied = !!(t.minJobPrice && rawBase < t.minJobPrice);
+      const base = minApplied ? t.minJobPrice : rawBase;
+      const selected = selectedTierSet.has(t.name);
+      const safeName = t.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      return `
+        <button type="button" class="est-primary-option ${selected ? 'selected' : ''}" onclick="estChoosePrimaryOption('${safeName}')">
+          ${t.photoDataUrl ? `<img src="${t.photoDataUrl}" class="est-primary-option-photo" alt="" />` : ''}
+          <div class="est-primary-option-body">
+            <div class="est-primary-option-name">${escapeHtml(t.name)}</div>
+            ${minApplied ? `<div class="est-primary-option-notes">Minimum job price applies at this size</div>` : ''}
+          </div>
+          <div class="est-primary-option-price">$${base.toLocaleString()}</div>
+          <div class="est-primary-option-check">${selected ? '✓' : ''}</div>
+        </button>`;
+    }).join('');
+  }
+  function estChoosePrimaryOption(taskName) {
+    if (!selectedCat || !estPrimaryGroup) return;
+    const task = estPrimaryGroup.tasks.find(t => t.name === taskName);
+    if (!task) return;
+    // Single-select within the primary group -- two same-unit primary
+    // options can't both apply to the same physical job/footprint.
+    estPrimaryGroup.tasks.forEach(t => { if (t.name !== task.name) { selectedTierSet.delete(t.name); qtyValues.delete(t.name); } });
+    const qtyRaw = document.getElementById('estPrimaryQty').value.trim();
+    selectedTierSet.set(task.name, task);
+    if (qtyRaw) qtyValues.set(task.name, qtyRaw);
+    renderQtyRows();
+    renderSelectedPills();
+    renderPrimaryOptionCards(qtyRaw ? parseQuantity(qtyRaw, estPrimaryGroup.unit) : null);
+  }
+
   function selectCat(c) {
     selectedCat = c;
     selectedTier = null;
@@ -2634,8 +2789,19 @@
     document.getElementById('estSiteFieldsWrap').style.display = skipSiteFields ? 'none' : 'block';
     if (skipSiteFields) { selectedSite = null; selectedAccess = null; }
 
+    // Must run before the secondary picker below -- it sets estPrimaryGroup,
+    // which estSecondaryTasks() reads to exclude whatever's already covered
+    // by the priced comparison cards.
+    renderEstPrimaryCompareBlock(c);
+
+    const secondaryTasks = estSecondaryTasks(c);
     const tierWrap = document.getElementById('estTierWrap');
-    tierWrap.style.display = 'block';
+    // Only shown when there's something left to add beyond the primary
+    // comparison -- e.g. Fencing's gates, Decking's stairs/balustrade.
+    // Small/single-task categories with no primary group fall back to
+    // showing everything here, same as the picker's old full behaviour.
+    tierWrap.style.display = secondaryTasks.length ? 'block' : 'none';
+    document.getElementById('estTierWrapLabel').textContent = estPrimaryGroup ? 'Other services in this category' : 'Choose the specific job';
     const quickMatchInput = document.getElementById('estTierQuickMatch');
     quickMatchInput.value = '';
     quickMatchInput.placeholder = 'Type what you need, ' + (CATEGORY_QUICKMATCH_HINTS[c.label] || 'e.g. "replace a power point"');
@@ -2643,7 +2809,7 @@
     document.getElementById('estTierMatchLine').className = 'est-match-line';
     const chips = document.getElementById('estTierChips');
     chips.innerHTML = '';
-    c.tasks.filter(t => !t.disabled).forEach(t => {
+    secondaryTasks.forEach(t => {
       const btn = document.createElement('button');
       btn.className = 'chip-est';
       if (t.unavailable) {
@@ -2760,7 +2926,7 @@
         estQuickMatchAutoTaskName = null;
         return;
       }
-      const result = estFindTaskMatches(selectedCat.tasks, query);
+      const result = estFindTaskMatches(estSecondaryTasks(selectedCat), query);
       if (result.type === 'single') {
         estSetQuickMatchAutoTask(result.task, parseQuantity(query, result.task.unit));
         return;
@@ -2781,13 +2947,24 @@
   // Adds to the multi-select set rather than replacing it, so typing a
   // second query on top of an already-matched task keeps both selected.
   function estAddMatchedTask(match) {
-    const matchLine = document.getElementById('estTierMatchLine');
     if (!selectedTierSet.has(match.name)) {
       selectedTierSet.set(match.name, match);
       selectedTier = match;
       renderQtyRows();
       renderSelectedPills();
     }
+    // A primary-group match (e.g. Fix Something's AI description matched
+    // straight to "Colorbond fence") has no qty from this flow, so the
+    // comparison cards can't price it yet -- and the secondary section
+    // this confirmation message normally lives in may be hidden entirely
+    // for a category with no secondary tasks. The always-visible Size /
+    // quantity field above is the right prompt instead; nothing more to
+    // confirm here.
+    if (estPrimaryGroup && estPrimaryGroup.tasks.some(t => t.name === match.name)) {
+      renderPrimaryOptionCards(null);
+      return;
+    }
+    const matchLine = document.getElementById('estTierMatchLine');
     matchLine.textContent = `✓ Added "${match.name}"`;
     matchLine.className = 'est-match-line found';
     const chips = document.getElementById('estTierChips');
@@ -2875,7 +3052,7 @@
         body: JSON.stringify({
           taskMatch: true,
           category: selectedCat.label,
-          taskNames: selectedCat.tasks.filter(t => !t.unavailable && !t.disabled).map(t => t.name),
+          taskNames: estSecondaryTasks(selectedCat).filter(t => !t.unavailable).map(t => t.name),
           query,
         }),
       });
@@ -3007,7 +3184,11 @@
       wrap.innerHTML = '<div class="est-hint">Choose one or more options above first</div>';
       return;
     }
-    wrap.innerHTML = Array.from(selectedTierSet.values()).map(t => {
+    // Whichever task is picked from the primary comparison cards already
+    // has its size shown (and editable) up in estPrimaryQty -- no need to
+    // repeat it here as a second, redundant row.
+    const primaryNames = new Set(estPrimaryGroup ? estPrimaryGroup.tasks.map(t => t.name) : []);
+    wrap.innerHTML = Array.from(selectedTierSet.values()).filter(t => !primaryNames.has(t.name)).map(t => {
       const hint = qtyHintForUnit(t.unit);
       const val = qtyValues.get(t.name) || '';
       return `
@@ -3107,15 +3288,21 @@
 
   function calculateSelectedItems() {
     if (!selectedCat || selectedTierSet.size === 0) {
-      const chips = document.getElementById('estTierChips');
-      chips.style.outline = '2px solid #B4232C';
-      chips.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setTimeout(() => { chips.style.outline = 'none'; }, 1600);
+      const target = document.getElementById(estPrimaryGroup ? 'estPrimaryCompareWrap' : 'estTierChips');
+      target.style.outline = '2px solid #B4232C';
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => { target.style.outline = 'none'; }, 1600);
       return;
     }
+    const primaryNames = new Set(estPrimaryGroup ? estPrimaryGroup.tasks.map(t => t.name) : []);
     const items = [];
     for (const t of selectedTierSet.values()) {
-      const input = document.querySelector(`.est-qty-row-input[data-task="${cssEscapeAttr(t.name)}"]`);
+      // The primary-group selection has no qty row of its own (its size
+      // lives in estPrimaryQty) -- fall back to that field for error
+      // highlighting when its quantity is missing/invalid.
+      const input = primaryNames.has(t.name)
+        ? document.getElementById('estPrimaryQty')
+        : document.querySelector(`.est-qty-row-input[data-task="${cssEscapeAttr(t.name)}"]`);
       const qtyRaw = qtyValues.get(t.name) || '';
       const qty = qtyRaw ? parseQuantity(qtyRaw, t.unit) : null;
       if (!qty) { if (input) { input.style.borderColor = '#B4232C'; input.focus(); } return; }
