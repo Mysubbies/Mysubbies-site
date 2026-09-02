@@ -519,10 +519,16 @@
     .cat-head p { display:none; }
     .catgrid-popular { display:flex; overflow-x:auto; gap:12px; padding-bottom:8px; scroll-snap-type:x mandatory; scrollbar-width:none; }
     .catgrid-popular .catcard2 { min-width:132px; max-width:132px; scroll-snap-align:start; border:0; background:transparent; overflow:visible; }
-    .catcard2 .cc-photo { border-radius:18px; aspect-ratio:1; }
-    .catcard2 .cc-body { padding:9px 2px 0; }
-    .catcard2 .cc-name { font-size:12px; text-align:center; }
-    .catcard2 .cc-sub { display:none; }
+    /* Scoped to .catgrid-popular specifically -- this was previously
+       missing (bug found Aug 2026) and silently hid every catcard2's photo
+       radius/name size/subtitle on mobile everywhere the class is reused,
+       not just this small horizontal-scroll preview row -- including the
+       full "Explore all services" grid and the new sub-category gallery,
+       where the price line in cc-sub actually matters. */
+    .catgrid-popular .catcard2 .cc-photo { border-radius:18px; aspect-ratio:1; }
+    .catgrid-popular .catcard2 .cc-body { padding:9px 2px 0; }
+    .catgrid-popular .catcard2 .cc-name { font-size:12px; text-align:center; }
+    .catgrid-popular .catcard2 .cc-sub { display:none; }
     .popular-jobs-section { padding:30px 0; }
     .section-title-row h2 { font-size:20px; }
     .popular-job-grid { display:flex; overflow-x:auto; gap:12px; padding-bottom:8px; scroll-snap-type:x mandatory; scrollbar-width:none; }
