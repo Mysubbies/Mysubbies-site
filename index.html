@@ -1669,6 +1669,33 @@
   }
   const CATEGORIES = getRateCard();
 
+  // Rate card server sync (Aug 2026) -- until now, an admin's price change,
+  // "hold" (disable), or removal in the Rate Card tab only ever updated
+  // that admin's own browser; no customer ever saw it, since the rate card
+  // lived only in localStorage (see supabase/schema_v12_rate_card_sync.sql
+  // and api/rate-card.js). This pulls the real server copy in on load and
+  // mutates CATEGORIES in place (never reassigns it -- every function in
+  // this file already holds a reference to this exact array), so anything
+  // rendered from CATEGORIES after this resolves reflects admin's latest
+  // changes. Still runs mergeRateCardUpdates() against the server result
+  // first, so a brand-new category/task shipped in code but not yet
+  // re-saved by admin from the Rate Card tab still reaches this browser --
+  // same reasoning mergeRateCardUpdates already documents for the
+  // local-only path above.
+  async function hydrateRateCardFromServer() {
+    try {
+      const res = await fetch('/api/rate-card');
+      if (!res.ok) return;
+      const { categories } = await res.json();
+      if (!Array.isArray(categories) || categories.length === 0) return;
+      mergeRateCardUpdates(categories);
+      CATEGORIES.length = 0;
+      categories.forEach(c => CATEGORIES.push(c));
+      localStorage.setItem('mysubbies_ratecard', JSON.stringify(CATEGORIES));
+    } catch (e) { /* offline or first load -- local data still works */ }
+  }
+  hydrateRateCardFromServer();
+
   // Category-slug -> image filename, matches the naming used everywhere
   // under images/categories/ ("Gardening & Lawn Mowing" -> "gardening-lawn-mowing.jpg").
   function categorySlug(label) {

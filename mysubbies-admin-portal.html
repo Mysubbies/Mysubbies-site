@@ -72,6 +72,39 @@
   .row.commission .r { color:var(--warn); }
   .row.payout .r { color:var(--good); font-size:16px; }
   img.jobphoto { width:100%; border-radius:12px; margin-bottom:16px; max-height:200px; object-fit:cover; }
+
+  /* Rate card — Manage Existing (Aug 2026 redesign). 21 categories x ~163
+     tasks always fully expanded was the actual cause of the "messy, hard
+     to operate" feeling (founder report) -- collapsed-by-default category
+     rows fix that; everything below just keeps each open category's
+     content readable rather than a wall of identical input rows. */
+  .rc-cat-list { border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .rc-cat { border-bottom:1px solid var(--line); }
+  .rc-cat:last-child { border-bottom:none; }
+  .rc-cat-head { width:100%; display:flex; align-items:center; gap:10px; padding:13px 16px; background:#fff; border:none; cursor:pointer; text-align:left; font-family:inherit; }
+  .rc-cat-head:hover { background:var(--paper); }
+  .rc-cat-chevron { display:inline-block; color:var(--stone-light); font-size:16px; transition:transform .15s ease; flex-shrink:0; }
+  .rc-cat-open .rc-cat-chevron { transform:rotate(90deg); }
+  .rc-cat-icon { flex-shrink:0; }
+  .rc-cat-name { flex:1; font-size:13.5px; font-weight:700; color:var(--ink); }
+  .rc-cat-count { font-size:11.5px; color:var(--stone); white-space:nowrap; }
+  .rc-cat-body { background:var(--paper); padding:12px 16px 16px; }
+  .rc-task { padding:10px 0; border-top:1px solid var(--line); }
+  .rc-cat-body .rc-task:first-child { border-top:none; padding-top:2px; }
+  .rc-task-held { background:#FDEDEA; margin:0 -16px; padding:10px 16px; border-top-color:#F6D9D2; }
+  .rc-task-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .rc-input { font-size:12.5px; padding:7px 9px; border:1px solid var(--line); border-radius:7px; font-family:inherit; background:#fff; }
+  .rc-input-name { flex:1; min-width:160px; }
+  .rc-input-unit { width:64px; }
+  .rc-input-rate-wrap { display:flex; align-items:center; border:1px solid var(--line); border-radius:7px; background:#fff; overflow:hidden; }
+  .rc-dollar { font-size:12px; color:var(--stone); padding:0 0 0 9px; }
+  .rc-input-rate { width:72px; border:none; border-radius:0; padding:7px 9px 7px 4px; }
+  .rc-held-badge { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--warn); background:#FDEDEA; padding:4px 9px; border-radius:999px; white-space:nowrap; }
+  .rc-hold-btn { font-size:11.5px; font-weight:600; padding:7px 13px; border-radius:999px; border:1px solid var(--line); background:#fff; color:var(--stone); cursor:pointer; white-space:nowrap; }
+  .rc-hold-btn:hover { border-color:var(--stone-light); color:var(--ink); }
+  .rc-notes { width:100%; font-size:11.5px; padding:7px 9px; border:1px solid var(--line); border-radius:7px; font-family:inherit; min-height:44px; resize:vertical; margin-top:6px; background:#fff; color:var(--stone); }
+  .rc-new-task { margin-top:10px; padding:12px; background:#fff; border:1px dashed var(--line); border-radius:10px; }
+  .rc-new-task-label { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--stone); margin-bottom:8px; }
   .msgbox { border:1px solid var(--line); border-radius:14px; padding:16px; margin-top:16px; background:#fff; max-width:520px; }
   .msgbox h3 { font-size:14px; margin-bottom:12px; }
   .msglist { max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
@@ -120,7 +153,7 @@
   // session token (see api/_lib/adminAuth.js) that every admin-only
   // endpoint now verifies before acting.
   function checkAdminAuth() {
-    if (localStorage.getItem('mysubbies_admin_token')) { Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer()]).then(render); return; }
+    if (localStorage.getItem('mysubbies_admin_token')) { Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer()]).then(render); return; }
     document.getElementById('app').innerHTML = `
       <div style="max-width:360px;margin:80px auto 0;background:#fff;border:1px solid var(--line);border-radius:16px;padding:28px;">
         <h1 style="font-size:22px;font-weight:800;margin-bottom:8px;">Admin login</h1>
@@ -136,7 +169,7 @@
       const data = await res.json();
       if (!res.ok) { document.getElementById('adminLoginError').textContent = data.error || 'Incorrect password.'; return; }
       localStorage.setItem('mysubbies_admin_token', data.token);
-      Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer()]).then(render);
+      Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer()]).then(render);
     } catch (e) {
       document.getElementById('adminLoginError').textContent = 'Login failed — check your connection and try again.';
     }
@@ -1135,13 +1168,59 @@
     const stored = localStorage.getItem('mysubbies_ratecard');
     return stored ? JSON.parse(stored) : [];
   }
+  // Pushes to the real server copy (api/rate-card.js) on every save, not
+  // just localStorage -- previously an admin edit here only ever updated
+  // admin's own browser, and no customer ever saw it (see
+  // supabase/schema_v12_rate_card_sync.sql). Every rate-card-mutating
+  // function in this file already funnels through here (editService,
+  // toggleServiceDisabled, CSV upload, bulk update, add task, add
+  // researched services), so this one change point covers all of them.
+  // Fire-and-forget, same non-blocking posture as saveJobs()'s sync call --
+  // a slow/failed push must never stop the admin's own UI from updating.
   function saveRateCard(categories) {
     localStorage.setItem('mysubbies_ratecard', JSON.stringify(categories));
+    adminFetch('/api/rate-card', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ categories }),
+    }).catch(() => {});
+  }
+  // Pulls the server's rate card in on load, so admin sees the latest even
+  // if the last edit happened from a different device/browser. Server
+  // wins on conflict (matches saveRateCard() always pushing admin's own
+  // edits as authoritative) -- this only overwrites localStorage when the
+  // two actually differ, and skips entirely if nothing has ever been
+  // pushed to the server yet (categories: null).
+  async function hydrateRateCardFromServer() {
+    try {
+      const res = await fetch('/api/rate-card');
+      if (!res.ok) return;
+      const { categories } = await res.json();
+      if (!Array.isArray(categories) || categories.length === 0) return;
+      const current = JSON.stringify(getRateCard());
+      if (JSON.stringify(categories) !== current) {
+        localStorage.setItem('mysubbies_ratecard', JSON.stringify(categories));
+        if (tab === 'ratecard') render();
+      }
+    } catch (e) { /* offline or first load -- local data still works */ }
   }
 
   let pendingUploadRows = null;
   let rcMode = 'manage';
   let rcManageSearchQuery = '';
+  // Which categories are expanded in Manage Existing (Aug 2026 redesign) --
+  // 21 categories x ~163 tasks always fully expanded was the actual cause
+  // of the "messy" rate card tab (founder report): every task row rendered
+  // at once, all the time, whether or not it was the one being edited.
+  // Collapsed by default; a category auto-expands while it has search
+  // matches (see rateCardManageHtml) so search still works with zero extra
+  // clicks, and stays manually toggle-able via the header row otherwise.
+  let rcExpandedCategories = new Set();
+  function toggleRcCategory(label) {
+    if (rcExpandedCategories.has(label)) rcExpandedCategories.delete(label);
+    else rcExpandedCategories.add(label);
+    const list = document.getElementById('rcManageList');
+    if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
+  }
   // Re-render on every keystroke rebuilds #rcManageList's innerHTML same as
   // everywhere else in this file, which would normally drop focus/cursor
   // position out from under the input -- restored manually, same pattern
@@ -1770,51 +1849,51 @@
     const totalTasks = categories.reduce((s, c) => s + c.tasks.length, 0);
     return `
       <h1 class="pagetitle">Rate card</h1>
-      <p style="color:var(--stone);font-size:13px;margin-bottom:20px;margin-top:-8px;">${categories.length} categories, ${totalTasks} priced tasks — this feeds the live price estimator directly.</p>
+      <p style="color:var(--stone);font-size:13px;margin-bottom:20px;margin-top:-8px;">${categories.length} categories, ${totalTasks} priced tasks — this feeds the live price estimator directly, and syncs to every customer's browser automatically once saved.</p>
 
-      <div class="detailcard" style="max-width:640px;margin-bottom:20px;">
-        <h3 style="font-size:15px;margin-bottom:8px;">Upload a rate card</h3>
-        <p style="font-size:12.5px;color:var(--stone);margin-bottom:12px;">CSV file with columns: <strong>Category, Task, Unit, Rate, Notes</strong> (Notes optional). This replaces the entire rate card — you'll see a preview before it goes live.</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-outline" onclick="downloadRateCardTemplate()">Download CSV template</button>
-          <button class="btn btn-outline" onclick="document.getElementById('rcFileInput').click()">Upload CSV</button>
-          <input type="file" id="rcFileInput" accept=".csv" style="display:none;" onchange="onRateCardFileSelected(event)" />
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:14px;max-width:920px;">
+        <div class="detailcard" style="max-width:none;">
+          <h3 style="font-size:14px;margin-bottom:6px;">Upload a rate card</h3>
+          <p style="font-size:12px;color:var(--stone);margin-bottom:12px;">CSV columns: <strong>Category, Task, Unit, Rate, Notes</strong>. Replaces the entire card — you'll see a preview first.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;" onclick="downloadRateCardTemplate()">Download template</button>
+            <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;" onclick="document.getElementById('rcFileInput').click()">Upload CSV</button>
+            <input type="file" id="rcFileInput" accept=".csv" style="display:none;" onchange="onRateCardFileSelected(event)" />
+          </div>
+          <div id="rcUploadPreview"></div>
         </div>
-        <div id="rcUploadPreview"></div>
+
+        <div class="detailcard" style="max-width:none;">
+          <h3 style="font-size:14px;margin-bottom:6px;">Minimum booking value</h3>
+          <p style="font-size:12px;color:var(--stone);margin-bottom:12px;">Jobs priced below this won't be bookable. Recommended $149–$199.</p>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <div class="rc-input-rate-wrap"><span class="rc-dollar">$</span><input type="number" id="minBookingValueInput" value="${getMinBookingValue()}" min="0" step="1" class="rc-input-rate" style="width:80px;"></div>
+            <button class="btn btn-black" style="width:auto;padding:8px 16px;font-size:12.5px;" onclick="saveMinBookingValue()">Save</button>
+            <span id="minBookingValueSaved" style="font-size:12px;color:var(--good);display:none;">✓ Saved</span>
+          </div>
+        </div>
       </div>
 
-      <div class="detailcard" style="max-width:640px;margin-bottom:20px;">
-        <h3 style="font-size:15px;margin-bottom:8px;">Minimum booking value</h3>
-        <p style="font-size:12.5px;color:var(--stone);margin-bottom:12px;">Customer jobs priced below this amount won't be bookable — keeps small jobs from going through at a price where the platform economics don't work. Recommended range: $149–$199.</p>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <span style="font-size:13px;color:var(--stone);">$</span>
-          <input type="number" id="minBookingValueInput" value="${getMinBookingValue()}" min="0" step="1" style="width:110px;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
-          <button class="btn btn-black" onclick="saveMinBookingValue()">Save</button>
-          <span id="minBookingValueSaved" style="font-size:12px;color:var(--stone);display:none;">Saved.</span>
+      <div class="detailcard" style="max-width:920px;margin-bottom:14px;">
+        <h3 style="font-size:14px;margin-bottom:6px;">Bulk price update</h3>
+        <p style="font-size:12px;color:var(--stone);margin-bottom:12px;">Apply a percentage change across every rate at once — you'll see exactly what changes before it's applied.</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+          <div class="rc-input-rate-wrap" style="border-color:var(--line);"><input type="number" id="bulkPct" placeholder="3.8" step="0.1" class="rc-input-rate" style="width:70px;padding-left:9px;"><span class="rc-dollar" style="padding:0 9px 0 0;">%</span></div>
+          <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;" onclick="document.getElementById('bulkPct').value=3.8; previewBulkUpdate();">Use current CPI (3.8%)</button>
+          <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;" onclick="previewBulkUpdate()">Preview change</button>
         </div>
-      </div>
-
-      <div class="detailcard" style="max-width:640px;margin-bottom:20px;">
-        <h3 style="font-size:15px;margin-bottom:8px;">Bulk price update</h3>
-        <p style="font-size:12.5px;color:var(--stone);margin-bottom:12px;">Apply a percentage change across every rate at once — useful for an annual CPI adjustment. You'll see exactly what changes before it's applied.</p>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-          <input type="number" id="bulkPct" placeholder="e.g. 3.8" step="0.1" style="width:110px;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
-          <span style="font-size:13px;color:var(--stone);">%</span>
-          <button class="btn btn-outline" onclick="document.getElementById('bulkPct').value=3.8; previewBulkUpdate();">Use current CPI (3.8%)</button>
-          <button class="btn btn-outline" onclick="previewBulkUpdate()">Preview change</button>
-        </div>
-        <div style="font-size:11px;color:var(--stone-light);margin-bottom:10px;">3.8% is the ABS CPI figure for the 12 months to June 2026. Use a negative number to reduce prices.</div>
+        <div style="font-size:11px;color:var(--stone-light);margin-bottom:6px;">3.8% is the ABS CPI figure for the 12 months to June 2026. Use a negative number to reduce prices.</div>
         <div id="bulkPreview"></div>
         <div id="bulkHistory"></div>
       </div>
 
-      <div class="detailcard" style="max-width:640px;">
+      <div class="detailcard" style="max-width:920px;">
         <div class="tabs" style="margin-bottom:16px;">
           <button class="${rcMode==='manage'?'active':''}" onclick="rcMode='manage'; render();">Manage Existing</button>
           <button class="${rcMode==='research'?'active':''}" onclick="rcMode='research'; render();">Research New</button>
         </div>
         ${rcMode === 'manage' ? `
-          <input type="text" id="rcManageSearch" value="${escapeHtml(rcManageSearchQuery)}" oninput="onRcManageSearchInput(this)" placeholder="Search services or categories…" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:14px;font-family:inherit;" />
+          <input type="text" id="rcManageSearch" value="${escapeHtml(rcManageSearchQuery)}" oninput="onRcManageSearchInput(this)" placeholder="🔍 Search services or categories…" style="width:100%;font-size:13px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:14px;font-family:inherit;" />
           <div id="rcManageList">${rateCardManageHtml(categories, rcManageSearchQuery)}</div>
         ` : `
           <p style="font-size:12.5px;color:var(--stone);margin-bottom:10px;">This still opens a real search for you to review — there's no live pricing feed wired up, so nothing is picked without you looking at it first. Enter what you find as a low-high range per sub-category below; the rate added to the card is the average of your range.</p>
@@ -1824,7 +1903,7 @@
           </div>
           <div style="display:flex;gap:8px;margin-bottom:16px;">
             <input type="text" id="researchQuery" placeholder="Category to research (e.g. Pool Fencing)" style="flex:1;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
-            <button class="btn btn-outline" onclick="openResearch()">🔍 Research</button>
+            <button class="btn btn-outline" style="width:auto;padding:9px 16px;" onclick="openResearch()">🔍 Research</button>
           </div>
             <input type="text" id="newSvcCategory" placeholder="Category (e.g. Fencing)" list="rcCatList" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:12px;">
           <datalist id="rcCatList">${categories.map(c => `<option value="${c.label}">`).join('')}</datalist>
@@ -1858,45 +1937,64 @@
       })
       .filter(c => c.tasksWithIdx.length > 0);
     if (q && filtered.length === 0) return `<div class="empty">No services match "${escapeHtml(query)}".</div>`;
-    return filtered.map(c => `
-      <div style="margin-bottom:16px;">
-        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--stone);margin-bottom:6px;">${c.icon || ''} ${c.label}</div>
-        ${c.tasksWithIdx.map(({ t, realIdx }) => `
-          <div style="padding:8px 0;border-top:1px solid var(--paper); ${t.disabled ? 'opacity:0.5;' : ''}">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <input type="text" value="${escapeHtml(t.name)}" onchange="editService('${c.label.replace(/'/g,"\\'")}', ${realIdx}, 'name', this.value)" style="flex:1;min-width:140px;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;" ${t.disabled ? 'disabled' : ''} />
-              <input type="text" value="${escapeHtml(t.unit)}" onchange="editService('${c.label.replace(/'/g,"\\'")}', ${realIdx}, 'unit', this.value)" style="width:60px;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;" ${t.disabled ? 'disabled' : ''} />
-              <span style="font-size:12px;color:var(--stone);">$</span>
-              <input type="number" value="${t.rate === null ? '' : t.rate}" onchange="editService('${c.label.replace(/'/g,"\\'")}', ${realIdx}, 'rate', this.value)" style="width:80px;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;" ${t.disabled ? 'disabled' : ''} />
-              <button onclick="toggleServiceDisabled('${c.label.replace(/'/g,"\\'")}', ${realIdx})" class="btn btn-outline" style="padding:6px 12px;font-size:11.5px;width:auto;">${t.disabled ? 'Enable' : 'Disable'}</button>
+    // A category is open if the admin has toggled it open, if it's mid-add,
+    // or (while searching) simply because it has a match -- search should
+    // never require an extra click to see the result it just found.
+    return `<div class="rc-cat-list">` + filtered.map(c => {
+      const safeLabel = c.label.replace(/'/g, "\\'");
+      const isOpen = q ? true : (rcExpandedCategories.has(c.label) || c.label === rcAddingTaskCat);
+      const disabledCount = c.tasksWithIdx.filter(({ t }) => t.disabled).length;
+      return `
+      <div class="rc-cat ${isOpen ? 'rc-cat-open' : ''}">
+        <button type="button" class="rc-cat-head" onclick="toggleRcCategory('${safeLabel}')">
+          <span class="rc-cat-chevron">›</span>
+          <span class="rc-cat-icon">${c.icon || ''}</span>
+          <span class="rc-cat-name">${escapeHtml(c.label)}</span>
+          <span class="rc-cat-count">${c.tasksWithIdx.length} task${c.tasksWithIdx.length === 1 ? '' : 's'}${disabledCount ? ` · ${disabledCount} held` : ''}</span>
+        </button>
+        ${isOpen ? `
+        <div class="rc-cat-body">
+          ${c.tasksWithIdx.map(({ t, realIdx }) => `
+            <div class="rc-task ${t.disabled ? 'rc-task-held' : ''}">
+              <div class="rc-task-row">
+                <input type="text" value="${escapeHtml(t.name)}" onchange="editService('${safeLabel}', ${realIdx}, 'name', this.value)" class="rc-input rc-input-name" ${t.disabled ? 'disabled' : ''} />
+                <input type="text" value="${escapeHtml(t.unit)}" onchange="editService('${safeLabel}', ${realIdx}, 'unit', this.value)" class="rc-input rc-input-unit" placeholder="unit" ${t.disabled ? 'disabled' : ''} />
+                <div class="rc-input-rate-wrap">
+                  <span class="rc-dollar">$</span>
+                  <input type="number" value="${t.rate === null ? '' : t.rate}" onchange="editService('${safeLabel}', ${realIdx}, 'rate', this.value)" class="rc-input rc-input-rate" ${t.disabled ? 'disabled' : ''} />
+                </div>
+                ${t.disabled ? '<span class="rc-held-badge">Held</span>' : ''}
+                <button onclick="toggleServiceDisabled('${safeLabel}', ${realIdx})" class="rc-hold-btn">${t.disabled ? 'Unhold' : 'Hold'}</button>
+              </div>
+              <textarea onchange="editService('${safeLabel}', ${realIdx}, 'notes', this.value)" placeholder="What's included, materials/spec standards, exclusions — shown to the customer under this task in the estimator." class="rc-notes" ${t.disabled ? 'disabled' : ''}>${escapeHtml(t.notes || '')}</textarea>
             </div>
-            <div style="margin-top:6px;">
-              <label style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--stone-light);display:block;margin-bottom:3px;">Customer-facing details / specs</label>
-              <textarea onchange="editService('${c.label.replace(/'/g,"\\'")}', ${realIdx}, 'notes', this.value)" placeholder="What's included, materials/spec standards, exclusions — shown to the customer under this task in the estimator." style="width:100%;font-size:12px;padding:7px 9px;border:1px solid var(--line);border-radius:6px;font-family:inherit;min-height:52px;resize:vertical;" ${t.disabled ? 'disabled' : ''}>${escapeHtml(t.notes || '')}</textarea>
+          `).join('')}
+          ${c.label === rcAddingTaskCat ? `
+            <div class="rc-new-task">
+              <div class="rc-new-task-label">New task</div>
+              <div class="rc-task-row" style="margin-bottom:8px;">
+                <input type="text" value="${escapeHtml(rcNewTaskDraft.name)}" oninput="rcNewTaskDraft.name=this.value" placeholder="Task name (e.g. Removal of existing tile floor)" class="rc-input rc-input-name" />
+                <input type="text" value="${escapeHtml(rcNewTaskDraft.unit)}" oninput="rcNewTaskDraft.unit=this.value" placeholder="unit" class="rc-input rc-input-unit" />
+                <div class="rc-input-rate-wrap">
+                  <span class="rc-dollar">$</span>
+                  <input type="number" value="${escapeHtml(rcNewTaskDraft.rate)}" oninput="rcNewTaskDraft.rate=this.value" placeholder="Rate" class="rc-input rc-input-rate" />
+                </div>
+              </div>
+              <textarea oninput="rcNewTaskDraft.notes=this.value" placeholder="Customer-facing details / specs (optional)" class="rc-notes" style="margin-bottom:8px;">${escapeHtml(rcNewTaskDraft.notes)}</textarea>
+              <div id="rcNewTaskError"></div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-black" style="width:auto;padding:7px 16px;font-size:12.5px;" onclick="saveNewTask('${safeLabel}')">Add task</button>
+                <button class="btn btn-outline" style="width:auto;padding:7px 16px;font-size:12.5px;" onclick="cancelAddTaskForm()">Cancel</button>
+              </div>
             </div>
-          </div>
-        `).join('')}
-        ${c.label === rcAddingTaskCat ? `
-          <div style="margin-top:8px;padding:10px;background:var(--paper);border-radius:8px;">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--stone);margin-bottom:8px;">New task</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-              <input type="text" value="${escapeHtml(rcNewTaskDraft.name)}" oninput="rcNewTaskDraft.name=this.value" placeholder="Task name (e.g. Removal of existing tile floor)" style="flex:1;min-width:160px;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;" />
-              <input type="text" value="${escapeHtml(rcNewTaskDraft.unit)}" oninput="rcNewTaskDraft.unit=this.value" placeholder="Unit (e.g. m²)" style="width:70px;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;" />
-              <span style="font-size:12px;color:var(--stone);align-self:center;">$</span>
-              <input type="number" value="${escapeHtml(rcNewTaskDraft.rate)}" oninput="rcNewTaskDraft.rate=this.value" placeholder="Rate" style="width:80px;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;" />
-            </div>
-            <textarea oninput="rcNewTaskDraft.notes=this.value" placeholder="Customer-facing details / specs (optional)" style="width:100%;font-size:12px;padding:7px 9px;border:1px solid var(--line);border-radius:6px;font-family:inherit;min-height:44px;resize:vertical;margin-bottom:8px;">${escapeHtml(rcNewTaskDraft.notes)}</textarea>
-            <div id="rcNewTaskError"></div>
-            <div style="display:flex;gap:8px;">
-              <button class="btn btn-black" style="width:auto;padding:6px 14px;font-size:12px;" onclick="saveNewTask('${c.label.replace(/'/g,"\\'")}')">Add task</button>
-              <button class="btn btn-outline" style="width:auto;padding:6px 14px;font-size:12px;" onclick="cancelAddTaskForm()">Cancel</button>
-            </div>
-          </div>
-        ` : `
-          <button class="btn btn-outline" style="width:auto;padding:6px 12px;font-size:11.5px;margin-top:6px;" onclick="openAddTaskForm('${c.label.replace(/'/g,"\\'")}')">+ Add task</button>
-        `}
+          ` : `
+            <button class="btn btn-outline" style="width:auto;padding:7px 14px;font-size:12.5px;margin-top:4px;" onclick="openAddTaskForm('${safeLabel}')">+ Add task</button>
+          `}
+        </div>
+        ` : ''}
       </div>
-    `).join('');
+    `;
+    }).join('') + `</div>`;
   }
 
   function openResearch() {
