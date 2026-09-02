@@ -429,12 +429,6 @@
   .app-hero-copy { padding:18px 0 0; }
   .app-hero-copy h1 { font-size:clamp(42px,5vw,66px); line-height:1.01; max-width:650px; color:var(--black); }
   .app-hero-copy .lede { margin:18px 0 24px; color:var(--stone); font-size:17px; max-width:520px; }
-  .app-upload-card { width:100%; display:flex; align-items:center; gap:18px; padding:22px 24px; border:0; border-radius:20px; color:#fff; background:linear-gradient(130deg,#0d2345,#14213d); text-align:left; cursor:pointer; box-shadow:0 16px 34px rgba(20,33,61,.16); }
-  .app-upload-icon { width:52px; height:52px; display:grid; place-items:center; flex:0 0 auto; }
-  .app-upload-copy { flex:1; }
-  .app-upload-copy strong { display:block; font-size:17px; margin-bottom:2px; }
-  .app-upload-copy span { display:block; font-size:13px; color:rgba(255,255,255,.76); }
-  .app-round-arrow { width:46px; height:46px; border-radius:50%; display:grid; place-items:center; flex:0 0 auto; background:#fff; color:var(--black); font-size:25px; }
   .app-search-card { margin-top:14px; min-height:60px; display:flex; align-items:center; gap:12px; padding:10px 10px 10px 20px; background:#fff; border:1px solid var(--line); border-radius:999px; box-shadow:0 13px 34px rgba(20,33,61,.09); transition:box-shadow .15s ease, border-color .15s ease; }
   .app-search-card:focus-within { border-color:var(--black); box-shadow:0 13px 34px rgba(20,33,61,.14); }
   .app-search-card svg { flex:0 0 auto; color:var(--black); }
@@ -501,8 +495,8 @@
     .app-hero-copy h1 { font-size:clamp(36px,11vw,48px); max-width:66%; text-shadow:0 1px 0 #fff; }
     .app-hero-copy .lede { font-size:14.5px; max-width:62%; margin:13px 0 24px; color:var(--black); }
     .app-hero-photo { display:none; }
-    .app-upload-card,.app-search-card { position:relative; z-index:3; width:100%; }
-    .app-upload-card { margin-top:18px; padding:18px; border-radius:18px; }
+    .bstarter-actions,.app-search-card { position:relative; z-index:3; width:100%; }
+    .bstarter-actions { margin-top:18px; }
     .app-search-card { min-height:56px; padding:8px 8px 8px 16px; gap:8px; }
     .app-search-card svg { width:22px; height:22px; }
     .app-search-input { font-size:14px; min-width:40px; }
@@ -898,11 +892,10 @@
         <h1>Your personal tradie, Get an instant quote.</h1>
         <p class="lede">Book trusted local tradies for home repairs, maintenance, gardening and small outdoor jobs—all in one place.</p>
 
-        <button class="app-upload-card" onclick="heroUploadPhoto()">
-          <span class="app-upload-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7h3l1.5-2h7L17 7h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"/></svg></span>
-          <span class="app-upload-copy"><strong>Upload a photo</strong><span>We’ll identify the job and find the right price</span></span>
-          <span class="app-round-arrow" aria-hidden="true">→</span>
-        </button>
+        <div class="bstarter-actions">
+          <a class="btn btn-black" href="#estimate">Get an estimated price instantly</a>
+          <button class="btn btn-secondary-action" type="button" onclick="heroBrowseServices()">Browse from our services</button>
+        </div>
 
         <div class="app-search-card">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
@@ -2232,15 +2225,11 @@
     } catch (e) { /* non-critical logging, ignore failures */ }
   }
 
-  function heroUploadPhoto() {
-    openFixSomething();
-    // renderFsForm() (called inside openFixSomething) builds the modal
-    // synchronously, so the input already exists here — calling .click()
-    // in the same tick keeps this inside the original click's user-gesture
-    // chain, which iOS Safari requires for the native file picker to open.
-    const galleryInput = document.getElementById('fsPhotoInput');
-    if (galleryInput) galleryInput.click();
-  }
+  // heroUploadPhoto() (the hero's own dedicated "Upload a photo" tile) was
+  // removed Sep 2026 -- founder feedback that it duplicated the Fix
+  // Something modal it opened into (openFixSomething()), which already
+  // offers photo upload itself. Fix Something is still reachable via the
+  // "Other" category card and the mobile tab bar's FAB.
   function heroBrowseServices() {
     const el = document.getElementById('categories');
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
