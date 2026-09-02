@@ -105,6 +105,19 @@
   .rc-notes { width:100%; font-size:11.5px; padding:7px 9px; border:1px solid var(--line); border-radius:7px; font-family:inherit; min-height:44px; resize:vertical; margin-top:6px; background:#fff; color:var(--stone); }
   .rc-new-task { margin-top:10px; padding:12px; background:#fff; border:1px dashed var(--line); border-radius:10px; }
   .rc-new-task-label { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--stone); margin-bottom:8px; }
+  .rc-photo-wrap { position:relative; flex-shrink:0; width:40px; height:40px; }
+  .rc-photo-thumb { width:40px; height:40px; border-radius:8px; object-fit:cover; cursor:pointer; display:block; border:1px solid var(--line); }
+  .rc-photo-add { width:40px; height:40px; border-radius:8px; border:1.5px dashed var(--line); background:#fff; color:var(--stone-light); font-size:15px; cursor:pointer; display:grid; place-items:center; }
+  .rc-photo-add:hover { border-color:var(--stone-light); color:var(--stone); }
+  .rc-photo-remove { position:absolute; top:-6px; right:-6px; width:16px; height:16px; border-radius:50%; border:1px solid var(--line); background:#fff; color:var(--warn); font-size:9px; line-height:1; cursor:pointer; display:grid; place-items:center; padding:0; }
+  /* Explicit Save per row (Aug 2026) -- name/unit/rate/notes used to
+     commit silently on blur; this button is now the only thing that
+     writes anything, and its own enabled/dirty state is the confirmation
+     that there's a real pending change to save. */
+  .rc-save-btn { font-size:11.5px; font-weight:600; padding:7px 13px; border-radius:999px; border:1px solid var(--line); background:#fff; color:var(--stone-light); cursor:not-allowed; white-space:nowrap; }
+  .rc-save-btn:disabled { opacity:.6; }
+  .rc-save-btn.rc-save-dirty { background:var(--black); border-color:var(--black); color:#fff; cursor:pointer; }
+  .rc-saved-msg { font-size:11.5px; font-weight:600; color:var(--good); white-space:nowrap; }
   .msgbox { border:1px solid var(--line); border-radius:14px; padding:16px; margin-top:16px; background:#fff; max-width:520px; }
   .msgbox h3 { font-size:14px; margin-bottom:12px; }
   .msglist { max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
@@ -1221,6 +1234,99 @@
     const list = document.getElementById('rcManageList');
     if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
   }
+
+  // Explicit Save per task row (Aug 2026, founder report) -- name/unit/rate/
+  // notes used to commit on every onchange (blur), with zero visible
+  // confirmation, which read as "there's no save option" even though it
+  // technically auto-saved. Now every field just updates a local draft on
+  // input; nothing is written to the rate card (or pushed to the server --
+  // see saveRateCard()) until Save is clicked. Keyed by category label +
+  // real task index, same realIdx the rest of this file already uses so a
+  // search-narrowed view can never edit the wrong task.
+  let rcTaskDrafts = {};
+  function rcRowId(catLabel, realIdx) { return realIdx + '_' + catLabel.replace(/[^a-zA-Z0-9]/g, ''); }
+  function rcSetTaskDraft(catLabel, realIdx, field, value) {
+    const key = catLabel + '__' + realIdx;
+    if (!rcTaskDrafts[key]) {
+      const cat = getRateCard().find(c => c.label === catLabel);
+      const t = cat && cat.tasks[realIdx];
+      if (!t) return;
+      rcTaskDrafts[key] = { name: t.name, unit: t.unit, rate: t.rate === null ? '' : t.rate, notes: t.notes || '' };
+    }
+    rcTaskDrafts[key][field] = value;
+    const btn = document.getElementById('rcSaveBtn-' + rcRowId(catLabel, realIdx));
+    if (btn) { btn.disabled = false; btn.classList.add('rc-save-dirty'); btn.textContent = 'Save'; }
+  }
+  function saveTaskRow(catLabel, realIdx) {
+    const key = catLabel + '__' + realIdx;
+    const draft = rcTaskDrafts[key];
+    if (!draft) return;
+    const categories = getRateCard();
+    const cat = categories.find(c => c.label === catLabel);
+    if (!cat) return;
+    const task = cat.tasks[realIdx];
+    task.name = draft.name.trim();
+    task.unit = draft.unit.trim();
+    task.rate = draft.rate === '' ? null : Number(draft.rate);
+    task.notes = draft.notes;
+    saveRateCard(categories);
+    delete rcTaskDrafts[key];
+    const rowId = rcRowId(catLabel, realIdx);
+    const list = document.getElementById('rcManageList');
+    if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
+    const savedMsg = document.getElementById('rcSavedMsg-' + rowId);
+    if (savedMsg) { savedMsg.style.display = 'inline'; setTimeout(() => { if (savedMsg) savedMsg.style.display = 'none'; }, 1800); }
+  }
+
+  // Per-task photo upload (Aug 2026) -- e.g. Timber fence vs. Colorbond
+  // fence get their own distinct photo, shown to the customer in the
+  // estimator so a sub-category picker like "which fence?" reads visually,
+  // not just as a list of names. Same base64-data-URI-in-the-record
+  // pattern already used for job/property photos throughout this project
+  // (no real blob storage exists here) -- resized/compressed client-side
+  // before storing, which matters MORE here than for a single job's
+  // photos: this data rides inside the whole rate card blob that gets
+  // synced to Supabase and fetched by every visitor's estimator on every
+  // page load, not just when viewing one job. Applies and saves
+  // immediately (like Hold/Unhold) rather than going through the
+  // name/rate/notes draft above -- picking a photo is already a single
+  // deliberate action, not something to accidentally half-finish.
+  const RC_PHOTO_MAX_WIDTH = 480;
+  const RC_PHOTO_JPEG_QUALITY = 0.72;
+  function onTaskPhotoSelected(catLabel, realIdx, event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, RC_PHOTO_MAX_WIDTH / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        const categories = getRateCard();
+        const cat = categories.find(c => c.label === catLabel);
+        if (!cat) return;
+        cat.tasks[realIdx].photoDataUrl = canvas.toDataURL('image/jpeg', RC_PHOTO_JPEG_QUALITY);
+        saveRateCard(categories);
+        const list = document.getElementById('rcManageList');
+        if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+  function removeTaskPhoto(catLabel, realIdx, event) {
+    if (event) event.stopPropagation();
+    const categories = getRateCard();
+    const cat = categories.find(c => c.label === catLabel);
+    if (!cat) return;
+    delete cat.tasks[realIdx].photoDataUrl;
+    saveRateCard(categories);
+    const list = document.getElementById('rcManageList');
+    if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
+  }
   // Re-render on every keystroke rebuilds #rcManageList's innerHTML same as
   // everywhere else in this file, which would normally drop focus/cursor
   // position out from under the input -- restored manually, same pattern
@@ -1954,21 +2060,40 @@
         </button>
         ${isOpen ? `
         <div class="rc-cat-body">
-          ${c.tasksWithIdx.map(({ t, realIdx }) => `
+          ${c.tasksWithIdx.map(({ t, realIdx }) => {
+            const draft = rcTaskDrafts[c.label + '__' + realIdx];
+            const nameVal = draft ? draft.name : t.name;
+            const unitVal = draft ? draft.unit : t.unit;
+            const rateVal = draft ? draft.rate : (t.rate === null ? '' : t.rate);
+            const notesVal = draft ? draft.notes : (t.notes || '');
+            const rowId = rcRowId(c.label, realIdx);
+            return `
             <div class="rc-task ${t.disabled ? 'rc-task-held' : ''}">
               <div class="rc-task-row">
-                <input type="text" value="${escapeHtml(t.name)}" onchange="editService('${safeLabel}', ${realIdx}, 'name', this.value)" class="rc-input rc-input-name" ${t.disabled ? 'disabled' : ''} />
-                <input type="text" value="${escapeHtml(t.unit)}" onchange="editService('${safeLabel}', ${realIdx}, 'unit', this.value)" class="rc-input rc-input-unit" placeholder="unit" ${t.disabled ? 'disabled' : ''} />
+                <div class="rc-photo-wrap">
+                  ${t.photoDataUrl ? `
+                    <img src="${t.photoDataUrl}" class="rc-photo-thumb" onclick="document.getElementById('rcPhotoInput-${rowId}').click()" title="Change photo" />
+                    <button type="button" class="rc-photo-remove" onclick="removeTaskPhoto('${safeLabel}', ${realIdx}, event)" title="Remove photo">✕</button>
+                  ` : `
+                    <button type="button" class="rc-photo-add" onclick="document.getElementById('rcPhotoInput-${rowId}').click()" title="Add a photo for this task">📷</button>
+                  `}
+                  <input type="file" accept="image/*" id="rcPhotoInput-${rowId}" style="display:none;" onchange="onTaskPhotoSelected('${safeLabel}', ${realIdx}, event)" />
+                </div>
+                <input type="text" value="${escapeHtml(nameVal)}" oninput="rcSetTaskDraft('${safeLabel}', ${realIdx}, 'name', this.value)" class="rc-input rc-input-name" ${t.disabled ? 'disabled' : ''} />
+                <input type="text" value="${escapeHtml(unitVal)}" oninput="rcSetTaskDraft('${safeLabel}', ${realIdx}, 'unit', this.value)" class="rc-input rc-input-unit" placeholder="unit" ${t.disabled ? 'disabled' : ''} />
                 <div class="rc-input-rate-wrap">
                   <span class="rc-dollar">$</span>
-                  <input type="number" value="${t.rate === null ? '' : t.rate}" onchange="editService('${safeLabel}', ${realIdx}, 'rate', this.value)" class="rc-input rc-input-rate" ${t.disabled ? 'disabled' : ''} />
+                  <input type="number" value="${rateVal}" oninput="rcSetTaskDraft('${safeLabel}', ${realIdx}, 'rate', this.value)" class="rc-input rc-input-rate" ${t.disabled ? 'disabled' : ''} />
                 </div>
                 ${t.disabled ? '<span class="rc-held-badge">Held</span>' : ''}
                 <button onclick="toggleServiceDisabled('${safeLabel}', ${realIdx})" class="rc-hold-btn">${t.disabled ? 'Unhold' : 'Hold'}</button>
+                <button id="rcSaveBtn-${rowId}" onclick="saveTaskRow('${safeLabel}', ${realIdx})" class="rc-save-btn" ${draft ? '' : 'disabled'}>Save</button>
+                <span id="rcSavedMsg-${rowId}" class="rc-saved-msg" style="display:none;">✓ Saved</span>
               </div>
-              <textarea onchange="editService('${safeLabel}', ${realIdx}, 'notes', this.value)" placeholder="What's included, materials/spec standards, exclusions — shown to the customer under this task in the estimator." class="rc-notes" ${t.disabled ? 'disabled' : ''}>${escapeHtml(t.notes || '')}</textarea>
+              <textarea oninput="rcSetTaskDraft('${safeLabel}', ${realIdx}, 'notes', this.value)" placeholder="What's included, materials/spec standards, exclusions — shown to the customer under this task in the estimator." class="rc-notes" ${t.disabled ? 'disabled' : ''}>${escapeHtml(notesVal)}</textarea>
             </div>
-          `).join('')}
+          `;
+          }).join('')}
           ${c.label === rcAddingTaskCat ? `
             <div class="rc-new-task">
               <div class="rc-new-task-label">New task</div>

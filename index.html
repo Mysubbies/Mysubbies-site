@@ -166,8 +166,9 @@
   .est-ambiguous-option { display:flex; justify-content:space-between; align-items:center; gap:10px; width:100%; text-align:left; background:#fff; border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:6px; cursor:pointer; font-size:13.5px; font-family:inherit; color:var(--ink); }
   .est-ambiguous-option:last-child { margin-bottom:0; }
   .est-ambiguous-option:hover { border-color:var(--ink); }
-  .est-ambiguous-name { font-weight:600; }
+  .est-ambiguous-name { font-weight:600; flex:1; }
   .est-ambiguous-price { color:var(--stone); font-size:12.5px; white-space:nowrap; flex-shrink:0; }
+  .est-ambiguous-thumb { width:36px; height:36px; border-radius:7px; object-fit:cover; flex-shrink:0; }
   .est-removal-prompt { border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin:12px 0; background:var(--paper); }
   .est-removal-prompt-text { font-size:13px; margin-bottom:10px; }
   .est-removal-prompt-text strong { color:var(--ink); }
@@ -179,6 +180,8 @@
   .est-tier-quickmatch:focus { border-color:var(--black); }
   .chip-est { font-size:12.5px; font-weight:500; padding:8px 13px; border-radius:999px; border:1.5px solid var(--line); background:#fff; cursor:pointer; color:var(--ink); }
   .chip-est.selected { border-color: var(--black); background: var(--black); color:#fff; }
+  .chip-est-photo { display:inline-flex; align-items:center; gap:8px; padding:5px 14px 5px 5px; }
+  .chip-est-thumb { width:28px; height:28px; border-radius:50%; object-fit:cover; flex-shrink:0; }
   #estCartWrap { margin-bottom: 4px; }
   .cart-item { background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:8px; }
   .cart-item-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
@@ -2560,7 +2563,23 @@
         btn.title = t.unavailReason;
         btn.textContent = `${t.name} \u2014 not available`;
       } else {
-        btn.textContent = t.name;
+        // Per-task photo (Aug 2026) -- e.g. Timber paling fence vs.
+        // Colorbond fence get their own distinct thumbnail, set from the
+        // admin Rate Card tab, so options that sound similar in a text
+        // list are actually easy to tell apart at a glance.
+        if (t.photoDataUrl) {
+          btn.classList.add('chip-est-photo');
+          const img = document.createElement('img');
+          img.src = t.photoDataUrl;
+          img.className = 'chip-est-thumb';
+          img.alt = '';
+          btn.appendChild(img);
+          const label = document.createElement('span');
+          label.textContent = t.name;
+          btn.appendChild(label);
+        } else {
+          btn.textContent = t.name;
+        }
         // Toggle, not radio \u2014 customers can pick several tasks from this
         // category at once (e.g. Deck stairs + Balustrade), each priced
         // individually via its own quantity row in estQtyRows.
@@ -2735,6 +2754,7 @@
       }
       const safeName = t.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       return `<button type="button" class="est-ambiguous-option" onclick="estPickAmbiguousMatch('${safeName}')">
+        ${t.photoDataUrl ? `<img src="${t.photoDataUrl}" class="est-ambiguous-thumb" alt="" />` : ''}
         <span class="est-ambiguous-name">${escapeHtml(t.name)}</span>
         <span class="est-ambiguous-price">${priceLabel}</span>
       </button>`;
