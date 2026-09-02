@@ -107,6 +107,15 @@
   .rc-delete-btn { font-size:11.5px; font-weight:600; padding:7px 13px; border-radius:999px; border:1px solid #F6D9D2; background:#fff; color:var(--warn); cursor:pointer; white-space:nowrap; }
   .rc-delete-btn:hover { background:#FDEDEA; border-color:var(--warn); }
   .rc-notes { width:100%; font-size:11.5px; padding:7px 9px; border:1px solid var(--line); border-radius:7px; font-family:inherit; min-height:44px; resize:vertical; margin-top:6px; background:#fff; color:var(--stone); }
+  /* Minimum charge (Sep 2026) -- minJobPrice already existed on nearly
+     every task in the underlying data (the estimator has floored prices
+     against it since the small-jobs pivot) but had no admin UI at all --
+     it was only ever set by editing DEFAULT_CATEGORIES in code. This is
+     its own labelled row (not crammed into the compact rate/unit row
+     above) since it's real money data, not a minor field. */
+  .rc-min-row { display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .rc-min-label { font-size:11.5px; font-weight:600; color:var(--stone); white-space:nowrap; }
+  .rc-min-hint { font-size:11px; color:var(--stone-light); }
   .rc-new-task { margin-top:10px; padding:12px; background:#fff; border:1px dashed var(--line); border-radius:10px; }
   .rc-new-task-label { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--stone); margin-bottom:8px; }
   .rc-photo-wrap { position:relative; flex-shrink:0; width:40px; height:40px; }
@@ -1255,7 +1264,7 @@
       const cat = getRateCard().find(c => c.label === catLabel);
       const t = cat && cat.tasks[realIdx];
       if (!t) return;
-      rcTaskDrafts[key] = { name: t.name, unit: t.unit, rate: t.rate === null ? '' : t.rate, notes: t.notes || '' };
+      rcTaskDrafts[key] = { name: t.name, unit: t.unit, rate: t.rate === null ? '' : t.rate, minJobPrice: t.minJobPrice == null ? '' : t.minJobPrice, notes: t.notes || '' };
     }
     rcTaskDrafts[key][field] = value;
     const btn = document.getElementById('rcSaveBtn-' + rcRowId(catLabel, realIdx));
@@ -1272,6 +1281,7 @@
     task.name = draft.name.trim();
     task.unit = draft.unit.trim();
     task.rate = draft.rate === '' ? null : Number(draft.rate);
+    task.minJobPrice = draft.minJobPrice === '' ? null : Number(draft.minJobPrice);
     task.notes = draft.notes;
     saveRateCard(categories);
     delete rcTaskDrafts[key];
@@ -1351,10 +1361,10 @@
   // of existing tile floor" under Flooring). This is the lighter-weight path
   // for that case, scoped to one category at a time from Manage Existing.
   let rcAddingTaskCat = null;
-  let rcNewTaskDraft = { name: '', unit: '', rate: '', notes: '' };
+  let rcNewTaskDraft = { name: '', unit: '', rate: '', minJobPrice: '', notes: '' };
   function openAddTaskForm(catLabel) {
     rcAddingTaskCat = catLabel;
-    rcNewTaskDraft = { name: '', unit: '', rate: '', notes: '' };
+    rcNewTaskDraft = { name: '', unit: '', rate: '', minJobPrice: '', notes: '' };
     const list = document.getElementById('rcManageList');
     if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
   }
@@ -1386,15 +1396,16 @@
       if (errBox) errBox.innerHTML = `<div class="error" style="margin-top:6px;">"${escapeHtml(name)}" already exists in this category — edit that row instead, or use a different name.</div>`;
       return;
     }
+    const minJobPrice = rcNewTaskDraft.minJobPrice === '' ? null : Number(rcNewTaskDraft.minJobPrice);
     if (existing && existing.deleted) {
       existing.deleted = false; existing.disabled = false; existing.unavailable = false;
-      existing.unit = unit; existing.rate = rate; existing.notes = rcNewTaskDraft.notes.trim();
+      existing.unit = unit; existing.rate = rate; existing.minJobPrice = minJobPrice; existing.notes = rcNewTaskDraft.notes.trim();
     } else {
-      cat.tasks.push({ name, unit, rate, notes: rcNewTaskDraft.notes.trim() });
+      cat.tasks.push({ name, unit, rate, minJobPrice, notes: rcNewTaskDraft.notes.trim() });
     }
     saveRateCard(categories);
     rcAddingTaskCat = null;
-    rcNewTaskDraft = { name: '', unit: '', rate: '', notes: '' };
+    rcNewTaskDraft = { name: '', unit: '', rate: '', minJobPrice: '', notes: '' };
     const list = document.getElementById('rcManageList');
     if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
   }
@@ -2091,6 +2102,7 @@
             const nameVal = draft ? draft.name : t.name;
             const unitVal = draft ? draft.unit : t.unit;
             const rateVal = draft ? draft.rate : (t.rate === null ? '' : t.rate);
+            const minJobPriceVal = draft ? draft.minJobPrice : (t.minJobPrice == null ? '' : t.minJobPrice);
             const notesVal = draft ? draft.notes : (t.notes || '');
             const rowId = rcRowId(c.label, realIdx);
             return `
@@ -2117,6 +2129,14 @@
                 <button id="rcSaveBtn-${rowId}" onclick="saveTaskRow('${safeLabel}', ${realIdx})" class="rc-save-btn" ${draft ? '' : 'disabled'}>Save</button>
                 <span id="rcSavedMsg-${rowId}" class="rc-saved-msg" style="display:none;">✓ Saved</span>
               </div>
+              <div class="rc-min-row">
+                <span class="rc-min-label">Minimum charge</span>
+                <div class="rc-input-rate-wrap">
+                  <span class="rc-dollar">$</span>
+                  <input type="number" value="${minJobPriceVal}" oninput="rcSetTaskDraft('${safeLabel}', ${realIdx}, 'minJobPrice', this.value)" class="rc-input rc-input-rate" placeholder="none" ${t.disabled ? 'disabled' : ''} />
+                </div>
+                <span class="rc-min-hint">Floor price for this task, even on a tiny job — leave blank for none</span>
+              </div>
               <textarea oninput="rcSetTaskDraft('${safeLabel}', ${realIdx}, 'notes', this.value)" placeholder="What's included, materials/spec standards, exclusions — shown to the customer under this task in the estimator." class="rc-notes" ${t.disabled ? 'disabled' : ''}>${escapeHtml(notesVal)}</textarea>
             </div>
           `;
@@ -2131,6 +2151,14 @@
                   <span class="rc-dollar">$</span>
                   <input type="number" value="${escapeHtml(rcNewTaskDraft.rate)}" oninput="rcNewTaskDraft.rate=this.value" placeholder="Rate" class="rc-input rc-input-rate" />
                 </div>
+              </div>
+              <div class="rc-min-row" style="margin-bottom:8px;">
+                <span class="rc-min-label">Minimum charge</span>
+                <div class="rc-input-rate-wrap">
+                  <span class="rc-dollar">$</span>
+                  <input type="number" value="${escapeHtml(rcNewTaskDraft.minJobPrice)}" oninput="rcNewTaskDraft.minJobPrice=this.value" placeholder="none" class="rc-input rc-input-rate" />
+                </div>
+                <span class="rc-min-hint">Optional — leave blank for none</span>
               </div>
               <textarea oninput="rcNewTaskDraft.notes=this.value" placeholder="Customer-facing details / specs (optional)" class="rc-notes" style="margin-bottom:8px;">${escapeHtml(rcNewTaskDraft.notes)}</textarea>
               <div id="rcNewTaskError"></div>
