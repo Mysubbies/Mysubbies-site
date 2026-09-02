@@ -413,11 +413,13 @@
   .app-upload-copy strong { display:block; font-size:17px; margin-bottom:2px; }
   .app-upload-copy span { display:block; font-size:13px; color:rgba(255,255,255,.76); }
   .app-round-arrow { width:46px; height:46px; border-radius:50%; display:grid; place-items:center; flex:0 0 auto; background:#fff; color:var(--black); font-size:25px; }
-  .app-search-card { margin-top:14px; min-height:84px; display:flex; align-items:center; gap:16px; padding:18px 20px; background:#fff; border:1px solid var(--line); border-radius:18px; box-shadow:0 13px 34px rgba(20,33,61,.09); }
+  .app-search-card { margin-top:14px; min-height:60px; display:flex; align-items:center; gap:12px; padding:10px 10px 10px 20px; background:#fff; border:1px solid var(--line); border-radius:999px; box-shadow:0 13px 34px rgba(20,33,61,.09); transition:box-shadow .15s ease, border-color .15s ease; }
+  .app-search-card:focus-within { border-color:var(--black); box-shadow:0 13px 34px rgba(20,33,61,.14); }
   .app-search-card svg { flex:0 0 auto; color:var(--black); }
-  .app-search-input { flex:1; min-width:0; border:0; outline:0; resize:none; font:600 15px/1.4 'Plus Jakarta Sans',sans-serif; color:var(--ink); background:transparent; }
-  .app-search-input::placeholder { color:#777f8e; font-weight:500; }
-  .app-search-go { width:44px; height:44px; border-radius:50%; border:1px solid var(--line); background:#fff; color:var(--black); font-size:23px; cursor:pointer; }
+  .app-search-input { flex:1 1 auto; min-width:60px; width:100%; border:0; outline:0; resize:none; padding:8px 0; font:600 15px/1.4 'Plus Jakarta Sans',sans-serif; color:var(--ink); background:transparent; }
+  .app-search-input::placeholder { color:#6b7280; font-weight:500; }
+  .app-search-go { flex:0 0 auto; width:44px; height:44px; border-radius:50%; border:0; background:var(--black); color:#fff; font-size:20px; cursor:pointer; display:grid; place-items:center; transition:background .15s ease; }
+  .app-search-go:hover { background:var(--primary-light); }
   .app-search-status { min-height:18px; margin:8px 4px 0; font-size:12px; color:var(--stone); }
   .app-hero-photo { min-height:485px; border-radius:28px; overflow:hidden; position:relative; background:#edf0ea; visibility:hidden; }
   .app-hero-photo img { width:100%; height:100%; object-fit:cover; object-position:center; }
@@ -479,7 +481,10 @@
     .app-hero-photo { display:none; }
     .app-upload-card,.app-search-card { position:relative; z-index:3; width:100%; }
     .app-upload-card { margin-top:18px; padding:18px; border-radius:18px; }
-    .app-search-card { min-height:78px; }
+    .app-search-card { min-height:56px; padding:8px 8px 8px 16px; gap:8px; }
+    .app-search-card svg { width:22px; height:22px; }
+    .app-search-input { font-size:14px; min-width:40px; }
+    .app-search-go { width:38px; height:38px; font-size:18px; }
     .app-trust-row { margin-top:22px; overflow-x:auto; grid-template-columns:repeat(5,minmax(92px,1fr)); scrollbar-width:none; }
     .app-trust-item { padding:14px 7px; font-size:10.5px; }
     .house-health-band { padding:18px 0 26px; }
@@ -851,7 +856,7 @@
 
         <div class="app-search-card">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-          <textarea class="app-search-input" id="bstarterInput" rows="2" placeholder="Search a service — e.g. leaking tap, fence repair, painting"></textarea>
+          <textarea class="app-search-input" id="bstarterInput" rows="1" placeholder="Search a service — e.g. leaking tap, fence repair, painting"></textarea>
           <button class="app-search-go" onclick="heroSubmitDescribe()" aria-label="Search">→</button>
         </div>
         <div class="app-search-status" id="bstarterStatus"></div>
