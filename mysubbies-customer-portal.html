@@ -92,6 +92,11 @@
   .badge-rejected { background:#FDEDEA; color:var(--warn); }
   .backbtn { font-size:13px; color:var(--stone); background:none; border:none; cursor:pointer; margin-bottom:16px; display:flex; align-items:center; gap:4px; }
   .detailcard { background:#fff; border:1px solid var(--line); border-radius:16px; padding:22px; }
+  /* .box is used throughout this file's JS (payment-history total-paid
+     card, etc.) but was never actually defined here -- same bug just found
+     and fixed in mysubbies-contractor-portal.html (commit f16da29), where
+     every .box was rendering with zero border/padding/background. */
+  .box { border:1px solid var(--line); border-radius:14px; padding:16px; background:#fff; box-shadow:0 3px 12px rgba(20,33,61,0.05); }
   .row { display:flex; justify-content:space-between; font-size:14px; padding:9px 0; border-top:1px solid var(--paper); }
   .row:first-child { border-top:none; }
   .row .l { color:var(--stone); }
