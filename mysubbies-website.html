@@ -2119,7 +2119,7 @@
   function heroCategoryStartingPrice(categoryLabel) {
     const cat = CATEGORIES.find(c => c.label === categoryLabel);
     if (!cat || !cat.tasks || !cat.tasks.length) return null;
-    const available = cat.tasks.filter(t => !t.unavailable && typeof t.rate === 'number');
+    const available = cat.tasks.filter(t => !t.unavailable && !t.disabled && typeof t.rate === 'number');
     if (!available.length) return null;
     const cheapest = available.reduce((min, t) => (t.rate < min.rate ? t : min), available[0]);
     return { rate: cheapest.rate, unit: cheapest.unit || null };

@@ -88,6 +88,8 @@
   .rc-cat-icon { flex-shrink:0; }
   .rc-cat-name { flex:1; font-size:13.5px; font-weight:700; color:var(--ink); }
   .rc-cat-count { font-size:11.5px; color:var(--stone); white-space:nowrap; }
+  .rc-cat-delete-btn { flex-shrink:0; font-size:11.5px; font-weight:600; padding:6px 12px; border-radius:999px; border:1px solid #F6D9D2; background:#fff; color:var(--warn); cursor:pointer; white-space:nowrap; }
+  .rc-cat-delete-btn:hover { background:#FDEDEA; border-color:var(--warn); }
   .rc-cat-body { background:var(--paper); padding:12px 16px 16px; }
   .rc-task { padding:10px 0; border-top:1px solid var(--line); }
   .rc-cat-body .rc-task:first-child { border-top:none; padding-top:2px; }
@@ -102,6 +104,8 @@
   .rc-held-badge { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--warn); background:#FDEDEA; padding:4px 9px; border-radius:999px; white-space:nowrap; }
   .rc-hold-btn { font-size:11.5px; font-weight:600; padding:7px 13px; border-radius:999px; border:1px solid var(--line); background:#fff; color:var(--stone); cursor:pointer; white-space:nowrap; }
   .rc-hold-btn:hover { border-color:var(--stone-light); color:var(--ink); }
+  .rc-delete-btn { font-size:11.5px; font-weight:600; padding:7px 13px; border-radius:999px; border:1px solid #F6D9D2; background:#fff; color:var(--warn); cursor:pointer; white-space:nowrap; }
+  .rc-delete-btn:hover { background:#FDEDEA; border-color:var(--warn); }
   .rc-notes { width:100%; font-size:11.5px; padding:7px 9px; border:1px solid var(--line); border-radius:7px; font-family:inherit; min-height:44px; resize:vertical; margin-top:6px; background:#fff; color:var(--stone); }
   .rc-new-task { margin-top:10px; padding:12px; background:#fff; border:1px dashed var(--line); border-radius:10px; }
   .rc-new-task-label { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--stone); margin-bottom:8px; }
@@ -1371,7 +1375,23 @@
     const categories = getRateCard();
     const cat = categories.find(c => c.label === catLabel);
     if (!cat) return;
-    cat.tasks.push({ name, unit, rate, notes: rcNewTaskDraft.notes.trim() });
+    // Guard against the exact duplicate-task pattern the founder reported
+    // (Aug 2026): this used to push blindly, so re-adding a task under a
+    // name that already existed silently created a second row instead of
+    // updating or reviving it. A tombstoned (deleted) match is revived --
+    // clearly what re-adding it means -- rather than left buried while a
+    // fresh duplicate is created next to it.
+    const existing = cat.tasks.find(t => t.name.trim().toLowerCase() === name.toLowerCase());
+    if (existing && !existing.deleted) {
+      if (errBox) errBox.innerHTML = `<div class="error" style="margin-top:6px;">"${escapeHtml(name)}" already exists in this category — edit that row instead, or use a different name.</div>`;
+      return;
+    }
+    if (existing && existing.deleted) {
+      existing.deleted = false; existing.disabled = false; existing.unavailable = false;
+      existing.unit = unit; existing.rate = rate; existing.notes = rcNewTaskDraft.notes.trim();
+    } else {
+      cat.tasks.push({ name, unit, rate, notes: rcNewTaskDraft.notes.trim() });
+    }
     saveRateCard(categories);
     rcAddingTaskCat = null;
     rcNewTaskDraft = { name: '', unit: '', rate: '', notes: '' };
@@ -2032,9 +2052,14 @@
   // filtered list, or a search-narrowed view would silently edit the wrong
   // task.
   function rateCardManageHtml(categories, query) {
+    // Deleted categories/tasks stay in the underlying array as tombstones
+    // (see deleteCategory/deleteTask below) so the customer-side additive
+    // merge never resurrects them -- they're filtered out of the admin's
+    // own view right here, so a delete reads as a real removal, not a hide.
+    categories = categories.filter(c => !c.deleted);
     if (categories.length === 0) return '<div class="empty">No rate card loaded yet. Visit the live site once to initialize it from the defaults, upload a CSV above, or add your first service via Research New.</div>';
     const q = (query || '').trim().toLowerCase();
-    const withRealIdx = categories.map(c => ({ ...c, tasksWithIdx: c.tasks.map((t, realIdx) => ({ t, realIdx })) }));
+    const withRealIdx = categories.map(c => ({ ...c, tasksWithIdx: c.tasks.map((t, realIdx) => ({ t, realIdx })).filter(({ t }) => !t.deleted) }));
     const filtered = !q ? withRealIdx : withRealIdx
       .map(c => {
         const catMatches = c.label.toLowerCase().includes(q);
@@ -2052,12 +2077,13 @@
       const disabledCount = c.tasksWithIdx.filter(({ t }) => t.disabled).length;
       return `
       <div class="rc-cat ${isOpen ? 'rc-cat-open' : ''}">
-        <button type="button" class="rc-cat-head" onclick="toggleRcCategory('${safeLabel}')">
+        <div class="rc-cat-head" onclick="toggleRcCategory('${safeLabel}')">
           <span class="rc-cat-chevron">›</span>
           <span class="rc-cat-icon">${c.icon || ''}</span>
           <span class="rc-cat-name">${escapeHtml(c.label)}</span>
           <span class="rc-cat-count">${c.tasksWithIdx.length} task${c.tasksWithIdx.length === 1 ? '' : 's'}${disabledCount ? ` · ${disabledCount} held` : ''}</span>
-        </button>
+          <button type="button" class="rc-cat-delete-btn" onclick="deleteCategory('${safeLabel}', event)" title="Permanently delete this whole category">Delete category</button>
+        </div>
         ${isOpen ? `
         <div class="rc-cat-body">
           ${c.tasksWithIdx.map(({ t, realIdx }) => {
@@ -2087,6 +2113,7 @@
                 </div>
                 ${t.disabled ? '<span class="rc-held-badge">Held</span>' : ''}
                 <button onclick="toggleServiceDisabled('${safeLabel}', ${realIdx})" class="rc-hold-btn">${t.disabled ? 'Unhold' : 'Hold'}</button>
+                <button onclick="deleteTask('${safeLabel}', ${realIdx}, event)" class="rc-delete-btn" title="Permanently delete this task">Delete</button>
                 <button id="rcSaveBtn-${rowId}" onclick="saveTaskRow('${safeLabel}', ${realIdx})" class="rc-save-btn" ${draft ? '' : 'disabled'}>Save</button>
                 <span id="rcSavedMsg-${rowId}" class="rc-saved-msg" style="display:none;">✓ Saved</span>
               </div>
@@ -2190,11 +2217,33 @@
     const categories = getRateCard();
     let cat = categories.find(c => c.label.toLowerCase() === category.toLowerCase());
     if (!cat) { cat = { label: category, icon: '🔧', tasks: [] }; categories.push(cat); }
-    validRows.forEach(r => cat.tasks.push({ name: r.task.trim(), unit: r.unit.trim(), rate: researchRowAvg(r), notes: r.notes.trim() }));
+    // Same duplicate guard as saveNewTask() -- this used to push every row
+    // blindly, which is the other real path (besides the quick "+Add task"
+    // form) that could create the duplicate tasks the founder reported.
+    // Revive a tombstoned match, skip an already-active match (report it
+    // rather than silently overwrite a price an admin may have since edited).
+    let addedCount = 0, revivedCount = 0, skippedCount = 0;
+    validRows.forEach(r => {
+      const name = r.task.trim();
+      const existing = cat.tasks.find(t => t.name.trim().toLowerCase() === name.toLowerCase());
+      if (existing && !existing.deleted) { skippedCount++; return; }
+      if (existing && existing.deleted) {
+        existing.deleted = false; existing.disabled = false; existing.unavailable = false;
+        existing.unit = r.unit.trim(); existing.rate = researchRowAvg(r); existing.notes = r.notes.trim();
+        revivedCount++;
+      } else {
+        cat.tasks.push({ name, unit: r.unit.trim(), rate: researchRowAvg(r), notes: r.notes.trim() });
+        addedCount++;
+      }
+    });
     saveRateCard(categories);
 
     researchRows = [{ task: '', unit: '', low: '', high: '', notes: '' }, { task: '', unit: '', low: '', high: '', notes: '' }, { task: '', unit: '', low: '', high: '', notes: '' }];
-    errBox.innerHTML = `<div class="note" style="margin-top:10px;">✓ Added ${validRows.length} service${validRows.length === 1 ? '' : 's'} to ${escapeHtml(category)}.</div>`;
+    const parts = [];
+    if (addedCount) parts.push(`added ${addedCount} new`);
+    if (revivedCount) parts.push(`restored ${revivedCount} previously-deleted`);
+    if (skippedCount) parts.push(`skipped ${skippedCount} already in the rate card`);
+    errBox.innerHTML = `<div class="note" style="margin-top:10px;">✓ ${parts.join(', ')} — ${escapeHtml(category)}.</div>`;
     document.getElementById('researchRowsWrap').innerHTML = researchRowsHtml();
   }
 
@@ -2214,6 +2263,51 @@
     cat.tasks[taskIdx].disabled = !cat.tasks[taskIdx].disabled;
     saveRateCard(categories);
     render();
+  }
+
+  // Permanent delete (Aug 2026, founder report of duplicate categories/tasks
+  // piling up) -- distinct from Hold, which just hides a task from customers
+  // while keeping it re-enablable. This is a soft delete: the task/category
+  // stays in the array with deleted:true rather than being spliced out,
+  // because mysubbies-website.html's mergeRateCardUpdates() only skips
+  // re-adding a DEFAULT_CATEGORIES entry when it can already find a
+  // same-named one in the stored data -- splicing it out would make that
+  // lookup fail and silently resurrect it on every visitor's next load.
+  // Also sets disabled+unavailable so every existing customer-facing filter
+  // (all of which already check one or both of those flags) treats it as
+  // fully gone with zero changes needed on that side. rateCardManageHtml()
+  // filters deleted:true out of admin's own view, so it reads as a real
+  // removal here too.
+  function deleteTask(catLabel, realIdx, event) {
+    if (event) event.stopPropagation();
+    const categories = getRateCard();
+    const cat = categories.find(c => c.label === catLabel);
+    if (!cat) return;
+    const task = cat.tasks[realIdx];
+    if (!task) return;
+    if (!confirm(`Permanently delete "${task.name}" from ${catLabel}?\n\nCustomers will no longer see this task. This can't be undone from here (Hold is reversible, Delete isn't).`)) return;
+    task.deleted = true;
+    task.disabled = true;
+    task.unavailable = true;
+    delete rcTaskDrafts[catLabel + '__' + realIdx];
+    saveRateCard(categories);
+    const list = document.getElementById('rcManageList');
+    if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
+  }
+
+  function deleteCategory(catLabel, event) {
+    if (event) event.stopPropagation(); // don't also toggle the accordion open/closed
+    const categories = getRateCard();
+    const cat = categories.find(c => c.label === catLabel);
+    if (!cat) return;
+    const activeCount = cat.tasks.filter(t => !t.deleted).length;
+    if (!confirm(`Permanently delete the entire "${catLabel}" category and all ${activeCount} task${activeCount === 1 ? '' : 's'} in it?\n\nCustomers will no longer see this category. This can't be undone.`)) return;
+    cat.deleted = true;
+    cat.tasks.forEach(t => { t.disabled = true; t.unavailable = true; });
+    rcExpandedCategories.delete(catLabel);
+    saveRateCard(categories);
+    const list = document.getElementById('rcManageList');
+    if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
   }
 
   function getBulkHistory() { return JSON.parse(localStorage.getItem('mysubbies_ratecard_bulklog') || '[]'); }
