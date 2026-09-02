@@ -314,6 +314,25 @@
 
   .welcome-splash { position:fixed; inset:0; z-index:500; overflow-y:auto; transition:opacity .35s ease, visibility .35s ease; }
   .welcome-splash.hide { opacity:0; visibility:hidden; pointer-events:none; }
+
+  /* Sub-category gallery (Aug 2026) -- same full-screen-takeover pattern as
+     .welcome-splash above, one z-index below it (the two never show at
+     once in practice, but this keeps the splash on top if they ever did). */
+  .subcat-overlay { position:fixed; inset:0; z-index:450; background:var(--paper); overflow-y:auto; transition:opacity .25s ease, visibility .25s ease; }
+  .subcat-overlay.hide { opacity:0; visibility:hidden; pointer-events:none; }
+  .subcat-header { position:sticky; top:0; background:#fff; border-bottom:1px solid var(--line); padding:16px 24px; z-index:2; }
+  .subcat-back { background:none; border:none; font-size:14px; font-weight:600; color:var(--ink); cursor:pointer; display:inline-flex; align-items:center; gap:6px; padding:4px 0; font-family:inherit; }
+  .subcat-back:hover { color:var(--black); }
+  .subcat-inner { max-width:1080px; margin:0 auto; padding:32px 24px 60px; }
+  .subcat-titleblock { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+  .subcat-icon { font-size:28px; line-height:1; }
+  .subcat-titleblock h2 { font-size:26px; color:var(--black); }
+  .subcat-lede { color:var(--stone); font-size:14.5px; margin-bottom:28px; max-width:60ch; }
+  @media (max-width:860px) {
+    .subcat-header { padding:14px 18px; }
+    .subcat-inner { padding:22px 18px 50px; }
+    .subcat-titleblock h2 { font-size:21px; }
+  }
   /* The source photo has empty wall on its left third and the people
      grouped in the right two-thirds — bias the crop rightward so the
      people land centered in the viewport instead of the wall. */
@@ -770,6 +789,28 @@
     <button class="btn btn-ghost-onblack welcome-enter-now" onclick="dismissWelcomeSplash(null)">Enter now</button>
   </div>
 </div>
+
+<!-- Sub-category gallery (Aug 2026) -- clicking a category used to jump
+     straight into the text-search step of the estimator. This opens a
+     dedicated full-screen gallery of that category's real sub-services
+     first (e.g. Timber paling fence vs. Colorbond fence, each with its own
+     photo from the admin Rate Card tab), so picking the right one is
+     visual, not a guess from a name. Selecting a tile skips straight to
+     estimator Step 2 with that service already chosen -- see
+     selectSubCategoryAndGoToStep2() in the script below. -->
+<div class="subcat-overlay hide" id="subCatGallery">
+  <div class="subcat-header">
+    <button type="button" class="subcat-back" onclick="closeSubCategoryGallery()">← Back to categories</button>
+  </div>
+  <div class="subcat-inner">
+    <div class="subcat-titleblock">
+      <span class="subcat-icon" id="subCatIcon"></span>
+      <h2 id="subCatTitle"></h2>
+    </div>
+    <p class="subcat-lede">Choose the option that matches your job — you'll get a real price on the next step.</p>
+    <div class="catgrid-all" id="subCatGrid"></div>
+  </div>
+</div>
 <script>
   // Runs immediately (before the rest of the page renders) so a returning
   // visitor within the same browser session doesn't see the splash flash
@@ -900,30 +941,30 @@
       <p>Pick a service to get an instant, estimated price — or explore the full list of 31 categories.</p>
     </div>
     <div class="catgrid-popular">
-      <button class="catcard2" data-category="Handyman" onclick="goToEstimatorWithCategory('Handyman')">
+      <button class="catcard2" data-category="Handyman" onclick="openSubCategoryGallery('Handyman')">
         <img class="cc-photo" src="images/categories/handyman.jpg" alt="Handyman with a tool belt" loading="lazy" />
         <div class="cc-body"><div class="cc-name">Repairs &amp; Handyman</div>
         <div class="cc-sub">General repairs, installations and small jobs</div></div>
       </button>
-      <button class="catcard2" data-category="Plumbing" onclick="goToEstimatorWithCategory('Plumbing')">
+      <button class="catcard2" data-category="Plumbing" onclick="openSubCategoryGallery('Plumbing')">
         <img class="cc-photo" src="images/categories/plumbing.jpg" alt="Plumber working on pipes" loading="lazy" />
         <div class="cc-body"><div class="cc-name">Plumbing</div><div class="cc-sub">Taps, blockages, hot water systems</div></div>
       </button>
-      <button class="catcard2" data-category="Electrical" onclick="goToEstimatorWithCategory('Electrical')">
+      <button class="catcard2" data-category="Electrical" onclick="openSubCategoryGallery('Electrical')">
         <img class="cc-photo" src="images/categories/electrical.jpg" alt="Electrician installing wiring" loading="lazy" />
         <div class="cc-body"><div class="cc-name">Electrical</div><div class="cc-sub">Power points, lighting, safety switches</div></div>
       </button>
-      <button class="catcard2" data-category="Gardening &amp; Lawn Mowing" onclick="goToEstimatorWithCategory('Gardening &amp; Lawn Mowing')">
+      <button class="catcard2" data-category="Gardening &amp; Lawn Mowing" onclick="openSubCategoryGallery('Gardening &amp; Lawn Mowing')">
         <img class="cc-photo" src="images/categories/gardening-lawn-mowing.jpg" alt="Landscaper mowing a lawn" loading="lazy" />
         <div class="cc-body"><div class="cc-name">Outdoor &amp; Landscaping</div>
         <div class="cc-sub">Lawn mowing, tidy-ups, hedges</div></div>
       </button>
-      <button class="catcard2" data-category="Fencing" onclick="goToEstimatorWithCategory('Fencing')">
+      <button class="catcard2" data-category="Fencing" onclick="openSubCategoryGallery('Fencing')">
         <img class="cc-photo" src="images/categories/fencing.jpg" alt="Workers building a timber fence" loading="lazy" />
         <div class="cc-body"><div class="cc-name">Fencing &amp; Gates</div>
         <div class="cc-sub">Timber, Colorbond, aluminium</div></div>
       </button>
-      <button class="catcard2" data-category="Cleaning" onclick="goToEstimatorWithCategory('Cleaning')">
+      <button class="catcard2" data-category="Cleaning" onclick="openSubCategoryGallery('Cleaning')">
         <img class="cc-photo" src="images/categories/cleaning.jpg" alt="Cleaner vacuuming a living room" loading="lazy" />
         <div class="cc-body"><div class="cc-name">Cleaning &amp; Maintenance</div><div class="cc-sub">Bond cleans, regular cleans, windows</div></div>
       </button>
@@ -1728,7 +1769,7 @@
       const photoHtml = CATEGORY_FALLBACK_ICON[slug]
         ? `<div class="cc-photo cc-photo-fallback cc-icon-sm cat-${slug}" style="aspect-ratio:4/3;width:100%;">${CATEGORY_FALLBACK_ICON[slug]}</div>`
         : `<img class="cc-photo" src="images/categories/${slug}.jpg" alt="${escapeHtml(c.label)}" loading="lazy" />`;
-      return `<button class="catcard2" onclick="goToEstimatorWithCategory('${c.label.replace(/'/g, "\\'")}')">
+      return `<button class="catcard2" onclick="openSubCategoryGallery('${c.label.replace(/'/g, "\\'")}')">
         ${photoHtml}
         <div class="cc-body"><div class="cc-name">${escapeHtml(c.label)}</div>
         <div class="cc-sub">${escapeHtml(subtitle)}</div></div>
@@ -1980,6 +2021,60 @@
         if (input) { input.value = prefillQuery; onTierQuickMatch(); }
       }
     }, 350);
+  }
+
+  // Sub-category gallery (Aug 2026) -- category tiles now open this instead
+  // of jumping straight into the estimator's text-search step. Reuses the
+  // exact catcard2/cc-photo/cc-body visual language the main category grid
+  // already uses (renderFullCategoryGrid above), so this reads as the same
+  // product, not a bolted-on new screen.
+  function subCatTileHtml(cat, t) {
+    const priceLabel = t.rate != null ? `From $${Number(t.rate).toLocaleString()}${t.unit ? '/' + escapeHtml(t.unit) : ''}` : 'Get a price';
+    const photoHtml = t.photoDataUrl
+      ? `<img class="cc-photo" src="${t.photoDataUrl}" alt="${escapeHtml(t.name)}" loading="lazy" />`
+      : `<div class="cc-photo cc-photo-fallback" style="font-size:34px;">${cat.icon || ''}</div>`;
+    const safeName = t.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const safeCat = cat.label.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return `<button type="button" class="catcard2" onclick="selectSubCategoryAndGoToStep2('${safeCat}', '${safeName}')">
+      ${photoHtml}
+      <div class="cc-body"><div class="cc-name">${escapeHtml(t.name)}</div>
+      <div class="cc-sub">${priceLabel}</div></div>
+    </button>`;
+  }
+  function openSubCategoryGallery(label) {
+    const cat = CATEGORIES.find(c => c.label === label);
+    if (!cat) return;
+    const tasks = (cat.tasks || []).filter(t => !t.disabled && !t.unavailable);
+    // Nothing to actually browse (e.g. a brand-new category with one task,
+    // or none yet) -- fall back to the direct flow rather than show an
+    // empty or single-tile "gallery" that's really just an extra click.
+    if (tasks.length <= 1) { goToEstimatorWithCategory(label); return; }
+    document.getElementById('subCatIcon').textContent = cat.icon || '';
+    document.getElementById('subCatTitle').textContent = cat.label;
+    document.getElementById('subCatGrid').innerHTML = tasks.map(t => subCatTileHtml(cat, t)).join('');
+    document.getElementById('subCatGallery').classList.remove('hide');
+    document.getElementById('subCatGallery').scrollTop = 0;
+    document.body.style.overflow = 'hidden';
+  }
+  function closeSubCategoryGallery() {
+    document.getElementById('subCatGallery').classList.add('hide');
+    document.body.style.overflow = '';
+  }
+  // Picking a tile already answers everything Step 1 exists to ask (which
+  // category, which specific service) -- this reuses selectCat() for all
+  // its other side effects (site-fields visibility, category input,
+  // resetting stale selections) so it stays in sync with the normal flow,
+  // then selects this one task and jumps straight to Step 2 for size/photos.
+  function selectSubCategoryAndGoToStep2(catLabel, taskName) {
+    const cat = CATEGORIES.find(c => c.label === catLabel);
+    if (!cat) return;
+    const task = cat.tasks.find(t => t.name === taskName);
+    if (!task) return;
+    closeSubCategoryGallery();
+    selectCat(cat);
+    const chipBtn = Array.from(document.querySelectorAll('#estTierChips .chip-est')).find(b => b.textContent.trim() === task.name);
+    if (chipBtn) toggleTierSelection(task, chipBtn);
+    showEstStep(2);
   }
 
   // Hero booking-starter (item 3) — "Describe your job" is AI-reactive: it
