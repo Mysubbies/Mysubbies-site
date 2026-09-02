@@ -8,6 +8,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://js.stripe.com/v3/"></script>
+<!-- Payment Receipt / Statement of Account export (Sep 2026) -- same
+     libraries and same duplicated-per-file pattern as
+     mysubbies-contractor-portal.html's copy; see that file's header
+     comment for why these are CDN scripts, not npm deps. -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root {
     /* Navy/gold reskin (Aug 2026), Stage 3 -- see mysubbies-website.html's :root. */
@@ -174,6 +181,15 @@
     .prop-health-ring { width:72px; height:72px; }
     .home-grid { grid-template-columns:repeat(2,1fr); }
   }
+  /* Download menus (Sep 2026) -- Statement of Account / per-job Payment
+     Receipt in PDF, CSV and Excel. Same markup/behaviour as the identical
+     block in mysubbies-contractor-portal.html (duplicated per this
+     project's no-shared-file convention). */
+  .dl-menu-wrap { position:relative; display:inline-block; }
+  .dl-menu { position:absolute; top:calc(100% + 6px); right:0; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 10px 28px rgba(20,33,61,0.15); padding:6px; z-index:30; min-width:180px; display:none; }
+  .dl-menu.show { display:block; }
+  .dl-menu button { display:block; width:100%; text-align:left; padding:9px 12px; border-radius:8px; border:none; background:none; font-size:13px; font-family:inherit; cursor:pointer; color:var(--ink); }
+  .dl-menu button:hover { background:var(--paper); }
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
@@ -484,11 +500,163 @@
   // api/job-payment-schedule.js endpoint the per-job detail view already
   // uses, once per job. No new backend endpoint -- this is the one that
   // already returns the real, backend-calculated milestone amounts/status.
+  // ============================================================
+  // Downloads -- Payment Receipt (per job, PDF) and Statement of Account
+  // (all jobs, PDF/CSV/Excel). Duplicated verbatim from
+  // mysubbies-contractor-portal.html's identical block (self-contained
+  // convention, no shared JS file) — see that file's comments for why
+  // these are labeled "Payment Receipt", not "Tax Invoice".
+  // ============================================================
+  let dlMenuOpenFor = null;
+  function toCsv(rows, columns) {
+    const esc = v => {
+      const s = v == null ? '' : String(v);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const header = columns.map(c => esc(c.label)).join(',');
+    const body = rows.map(r => columns.map(c => esc(r[c.key])).join(',')).join('\n');
+    return header + '\n' + body;
+  }
+  function downloadCsv(filename, csv) {
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  function downloadXlsx(filename, rows, columns) {
+    const sheetRows = rows.map(r => {
+      const o = {};
+      columns.forEach(c => { o[c.label] = r[c.key]; });
+      return o;
+    });
+    const ws = XLSX.utils.json_to_sheet(sheetRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    XLSX.writeFile(wb, filename);
+  }
+  function fmtCents(c) { return '$' + ((c || 0) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  const STATEMENT_COLUMNS = [
+    { key: 'jobNumber', label: 'Job #' }, { key: 'category', label: 'Category' }, { key: 'suburb', label: 'Suburb' },
+    { key: 'stage', label: 'Stage' }, { key: 'amount', label: 'Amount' }, { key: 'status', label: 'Status' }, { key: 'paidAt', label: 'Paid On' },
+  ];
+  function statementRows(jobsWithMilestones) {
+    const rows = [];
+    jobsWithMilestones.forEach(j => {
+      (j.milestones || []).forEach(m => {
+        rows.push({
+          jobNumber: j.jobNumber != null ? '#' + j.jobNumber : j.jobId,
+          category: j.category || '', suburb: j.suburb || '', stage: m.label || m.milestone_type || '',
+          amount: fmtCents(m.amount_cents), status: m.status === 'paid' ? 'Paid' : 'Pending',
+          paidAt: m.paid_at ? new Date(m.paid_at).toLocaleDateString('en-AU') : '',
+        });
+      });
+    });
+    return rows;
+  }
+  async function downloadStatement(format) {
+    dlMenuOpenFor = null;
+    const menuHost = document.getElementById('paymentHistoryDlMenu');
+    if (menuHost) menuHost.innerHTML = downloadMenuHtml();
+    showToast('Preparing your statement…');
+    try {
+      const email = getCurrentCustomerEmail();
+      const res = await fetch('/api/job-payment-schedule?all=1&customerEmail=' + encodeURIComponent(email));
+      if (!res.ok) throw new Error('fetch failed');
+      const data = await res.json();
+      const jobsWithMilestones = data.jobs || [];
+      const rows = statementRows(jobsWithMilestones);
+      if (rows.length === 0) { showToast('No payments to include yet.'); return; }
+      if (format === 'csv') {
+        downloadCsv('mysubbies-statement-of-account.csv', toCsv(rows, STATEMENT_COLUMNS));
+      } else if (format === 'xlsx') {
+        downloadXlsx('mysubbies-statement-of-account.xlsx', rows, STATEMENT_COLUMNS);
+      } else if (format === 'pdf') {
+        const totalCents = jobsWithMilestones.reduce((s, j) => s + (j.milestones || []).filter(m => m.status === 'paid').reduce((s2, m) => s2 + (m.amount_cents || 0), 0), 0);
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.setFontSize(16); doc.text('MySubbies', 14, 18);
+        doc.setFontSize(11); doc.text('Statement of Account', 14, 26);
+        doc.setFontSize(9); doc.setTextColor(120);
+        doc.text(`Generated ${new Date().toLocaleDateString('en-AU')} · ${email || ''}`, 14, 32);
+        doc.autoTable({
+          startY: 38, head: [STATEMENT_COLUMNS.map(c => c.label)],
+          body: rows.map(r => STATEMENT_COLUMNS.map(c => r[c.key])),
+          styles: { fontSize: 8 }, headStyles: { fillColor: [20, 33, 61] },
+        });
+        const finalY = doc.lastAutoTable.finalY || 40;
+        doc.setFontSize(11); doc.setTextColor(0);
+        doc.text(`Total paid: ${fmtCents(totalCents)}`, 14, finalY + 10);
+        doc.setFontSize(8); doc.setTextColor(150);
+        doc.text('This is a payment record, not a tax invoice.', 14, finalY + 18);
+        doc.save('mysubbies-statement-of-account.pdf');
+      }
+    } catch (e) { showToast('Could not prepare the statement — try again.'); }
+  }
+  async function downloadReceiptForJob(jobId) {
+    showToast('Preparing receipt…');
+    try {
+      const res = await fetch('/api/job-payment-schedule?jobId=' + encodeURIComponent(jobId));
+      if (!res.ok) throw new Error('fetch failed');
+      const data = await res.json();
+      const job = getJobs().find(j => j.id === jobId) || {};
+      const milestones = data.milestones || [];
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(16); doc.text('MySubbies', 14, 18);
+      doc.setFontSize(11); doc.text('Payment Receipt', 14, 26);
+      doc.setFontSize(9); doc.setTextColor(90);
+      doc.text(`Job ${job.jobNumber != null ? '#' + job.jobNumber : jobId}${job.category ? ' — ' + job.category : ''}`, 14, 34);
+      doc.text(`${job.suburb || ''}${job.address ? ' — ' + job.address : ''}`, 14, 40);
+      doc.text(`Customer: ${job.customerName || '—'}    Contractor: ${job.contractor || '—'}`, 14, 46);
+      const rows = milestones.map(m => [
+        m.label || m.milestone_type || '', fmtCents(m.amount_cents),
+        m.status === 'paid' ? 'Paid' : 'Pending', m.paid_at ? new Date(m.paid_at).toLocaleDateString('en-AU') : '—',
+      ]);
+      doc.autoTable({
+        startY: 54, head: [['Stage', 'Amount', 'Status', 'Paid On']], body: rows,
+        styles: { fontSize: 9 }, headStyles: { fillColor: [20, 33, 61] },
+      });
+      const finalY = doc.lastAutoTable.finalY || 60;
+      const totalPaidCents = milestones.filter(m => m.status === 'paid').reduce((s, m) => s + (m.amount_cents || 0), 0);
+      doc.setFontSize(11); doc.setTextColor(0);
+      doc.text(`Total paid: ${fmtCents(totalPaidCents)}`, 14, finalY + 10);
+      doc.setFontSize(8); doc.setTextColor(150);
+      doc.text('This is a payment record, not a tax invoice.', 14, finalY + 18);
+      doc.save(`mysubbies-receipt-${job.jobNumber || jobId}.pdf`);
+    } catch (e) { showToast('Could not prepare the receipt — try again.'); }
+  }
+  function toggleDlMenu() {
+    dlMenuOpenFor = dlMenuOpenFor ? null : 'statement';
+    const menuHost = document.getElementById('paymentHistoryDlMenu');
+    if (menuHost) menuHost.innerHTML = downloadMenuHtml();
+  }
+  function downloadMenuHtml() {
+    return `
+      <div class="dl-menu-wrap">
+        <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;" onclick="event.stopPropagation(); toggleDlMenu()">Download Statement ▾</button>
+        <div class="dl-menu ${dlMenuOpenFor ? 'show' : ''}">
+          <button onclick="downloadStatement('pdf')">PDF</button>
+          <button onclick="downloadStatement('csv')">CSV</button>
+          <button onclick="downloadStatement('xlsx')">Excel</button>
+        </div>
+      </div>`;
+  }
+  document.addEventListener('click', (e) => {
+    if (dlMenuOpenFor && !e.target.closest('.dl-menu-wrap')) {
+      dlMenuOpenFor = null;
+      const menuHost = document.getElementById('paymentHistoryDlMenu');
+      if (menuHost) menuHost.innerHTML = downloadMenuHtml();
+    }
+  });
+
   async function renderPaymentHistory(email) {
     const jobs = getJobs().filter(j => j.customerEmail === email && j.contractor);
     app.innerHTML = `
       <button class="backbtn" onclick="closePaymentHistory()">← Back to my jobs</button>
       <h1 class="pagetitle">Payment history</h1>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;" id="paymentHistoryDlMenu">${downloadMenuHtml()}</div>
       <p class="pagesub">Every payment made across your jobs.</p>
       <div id="paymentHistoryList"><div class="note">Loading…</div></div>
     `;
@@ -510,15 +678,18 @@
       const paidCents = milestones.filter(m => m.status === 'paid').reduce((s, m) => s + m.amount_cents, 0);
       grandTotalPaidCents += paidCents;
       html += `
-        <button class="jobcard" style="text-align:left;" onclick="selectedJobId='${job.id}'; showingPaymentHistory=false; render();">
-          <div class="jobtitle">${escapeHtml(job.category)}</div>
-          <div class="jobmeta" style="margin-bottom:8px;">📍 ${escapeHtml(job.suburb)}</div>
-          ${milestones.map(m => `
-            <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;color:${m.status === 'paid' ? 'var(--good)' : 'var(--stone)'};">
-              <span>${m.status === 'paid' ? '✓' : '○'} ${escapeHtml(m.label)}</span>
-              <span>$${(m.amount_cents / 100).toLocaleString()}${m.status === 'paid' ? '' : ' (pending)'}</span>
-            </div>`).join('')}
-        </button>`;
+        <div class="jobcard" style="display:block;">
+          <button style="all:unset;cursor:pointer;display:block;width:100%;text-align:left;" onclick="selectedJobId='${job.id}'; showingPaymentHistory=false; render();">
+            <div class="jobtitle">${escapeHtml(job.category)}</div>
+            <div class="jobmeta" style="margin-bottom:8px;">📍 ${escapeHtml(job.suburb)}</div>
+            ${milestones.map(m => `
+              <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;color:${m.status === 'paid' ? 'var(--good)' : 'var(--stone)'};">
+                <span>${m.status === 'paid' ? '✓' : '○'} ${escapeHtml(m.label)}</span>
+                <span>$${(m.amount_cents / 100).toLocaleString()}${m.status === 'paid' ? '' : ' (pending)'}</span>
+              </div>`).join('')}
+          </button>
+          <button class="btn btn-outline" style="width:auto;padding:6px 12px;font-size:11.5px;margin-top:8px;" onclick="downloadReceiptForJob('${job.id}')">Download receipt</button>
+        </div>`;
     });
 
     if (!html) { wrap.innerHTML = '<div class="empty">No payments yet.</div>'; return; }

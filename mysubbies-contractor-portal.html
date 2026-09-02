@@ -7,6 +7,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- Payment Receipt / Statement of Account export (Sep 2026) -- first PDF/
+     Excel libraries in this codebase, loaded the same CDN-script way
+     Supabase-js already is (no build step exists to npm-install these
+     into a bundle). jsPDF + autotable for PDF, SheetJS for real .xlsx
+     (not a CSV renamed .xls). -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root {
     /* Navy/gold reskin (Aug 2026), Stage 2 -- see CLAUDE.md and
@@ -103,6 +111,56 @@
   .msgmeta { font-size:10px; color:var(--stone-light); margin-bottom:2px; }
   .msginput { display:flex; gap:8px; }
   .msginput input { margin-bottom:0; flex:1; }
+
+  /* Profile bar + visual pass (Sep 2026) -- founder feedback that this
+     dashboard "doesn't look very clean" next to the customer/admin portals,
+     which already got the navy/gold shadow-card treatment. Two things
+     found while fixing this: .box was used everywhere (earnings tiles,
+     payout card, referral card, rating box) but never actually DEFINED
+     anywhere in this file's CSS -- every one of those was rendering with
+     zero border/padding/background. That alone explains a lot of the
+     "unclean" read. Fixed here, plus a subtle shadow/radius pass on the
+     existing flat jobcard/detailcard/table so the whole dashboard reads as
+     one consistent, deliberate product rather than a bolted-together set
+     of screens. */
+  .box { border:1px solid var(--line); border-radius:14px; padding:16px; background:#fff; box-shadow:0 3px 12px rgba(20,33,61,0.05); }
+  .jobcard { border-radius:16px; box-shadow:0 3px 12px rgba(20,33,61,0.05); }
+  .jobcard:hover { box-shadow:0 6px 18px rgba(20,33,61,0.10); }
+  .detailcard { border-radius:18px; box-shadow:0 3px 12px rgba(20,33,61,0.05); }
+  table.jobstable, .msgbox { box-shadow:0 3px 12px rgba(20,33,61,0.05); }
+  /* Profile summary bar -- shown above the tabs on every tab (the "main
+     page when contractor signs in" ask), not just a buried Earnings-tab
+     number. Reuses the navy-gradient avatar language the customer portal's
+     Property hero already established, scaled down to a persistent strip
+     rather than a full banner (this shows on every tab, not one view). */
+  .ctr-profile-bar { display:flex; align-items:center; gap:14px; background:#fff; border:1px solid var(--line); border-radius:18px; padding:16px 18px; margin-bottom:16px; box-shadow:0 6px 20px rgba(20,33,61,0.08); }
+  .ctr-profile-avatar { width:52px; height:52px; border-radius:50%; flex-shrink:0; background:linear-gradient(135deg, var(--black), var(--primary-light)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:800; overflow:hidden; }
+  .ctr-profile-avatar img { width:100%; height:100%; object-fit:cover; }
+  .ctr-profile-info { flex:1; min-width:0; cursor:pointer; }
+  .ctr-profile-name { font-size:15.5px; font-weight:800; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ctr-profile-meta { font-size:12px; color:var(--stone); margin-top:2px; }
+  .ctr-profile-meta .stars { color:var(--accent-dark); }
+  .ctr-payout-pill { font-size:10.5px; font-weight:700; padding:5px 11px; border-radius:999px; white-space:nowrap; flex-shrink:0; cursor:pointer; border:none; font-family:inherit; }
+  .ctr-payout-pill.good { background:#EAF5EE; color:var(--good); }
+  .ctr-payout-pill.warn { background:var(--accent-pale); color:var(--accent-dark); }
+  /* My Profile tab */
+  .ctr-profile-section { background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px 20px; margin-bottom:14px; box-shadow:0 3px 12px rgba(20,33,61,0.05); }
+  .ctr-profile-section h3 { font-size:13.5px; font-weight:700; margin-bottom:12px; }
+  .ctr-field-label { font-size:12px; font-weight:600; color:var(--stone); margin-bottom:5px; display:block; }
+  input.ctr-input { margin-bottom:12px; }
+  .ctr-field-readonly { font-size:14px; padding:12px 14px; background:var(--paper); border-radius:10px; color:var(--stone); margin-bottom:4px; }
+  .ctr-field-note { font-size:11px; color:var(--stone-light); margin-bottom:12px; }
+  .ctr-avatar-edit-wrap { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .ctr-avatar-edit { width:60px; height:60px; border-radius:50%; background:var(--paper); display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:800; color:var(--stone); overflow:hidden; flex-shrink:0; }
+  .ctr-avatar-edit img { width:100%; height:100%; object-fit:cover; }
+  /* Download menus (Sep 2026) -- Statement of Account / per-job Payment
+     Receipt in PDF, CSV and Excel, reusing the exact toCsv/downloadCsv
+     pattern already proven in mysubbies-admin-portal.html. */
+  .dl-menu-wrap { position:relative; display:inline-block; }
+  .dl-menu { position:absolute; top:calc(100% + 6px); right:0; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 10px 28px rgba(20,33,61,0.15); padding:6px; z-index:30; min-width:180px; display:none; }
+  .dl-menu.show { display:block; }
+  .dl-menu button { display:block; width:100%; text-align:left; padding:9px 12px; border-radius:8px; border:none; background:none; font-size:13px; font-family:inherit; cursor:pointer; color:var(--ink); }
+  .dl-menu button:hover { background:var(--paper); }
 </style>
 <!-- Own manifest (not the shared one) so a contractor who "Add to Home
      Screen"s from THIS page gets an install shortcut whose start_url is
@@ -388,6 +446,17 @@
   // create-connect-onboarding-link.js. null = not yet fetched.
   let connectOnboardingStatus = null;
   let connectOnboardingLoading = false;
+  // My Profile tab (Sep 2026) -- self-service edit of details that were
+  // previously frozen at signup forever. myProfileDrafts holds in-progress
+  // edits keyed by field name, committed only on explicit Save (same
+  // draft-then-Save pattern established for the admin rate card UI this
+  // session, not silent auto-save on blur).
+  let myProfileData = null;
+  let myProfileLoading = false;
+  let myProfileDrafts = {};
+  let showingEmailChange = false;
+  let dlMenuOpenFor = null; // which "Download ▾" menu is open, one at a time
+  let statementCache = null; // { customer|contractor: [...] } loaded lazily per Download click
   const app = document.getElementById('app');
 
   // General-purpose "Contact MySubbies" inquiry (Aug 2026) -- not tied to
@@ -571,6 +640,50 @@
     return `<input type="text" id="jobSearchInput" value="${escapeHtml(jobSearchQuery)}" oninput="onJobSearchInput(this)" placeholder="Search by suburb, category or job details…" style="width:100%;font-size:14px;padding:11px 14px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:14px;font-family:inherit;" />`;
   }
 
+  // Shared rating math (Sep 2026) -- the only rating source that has ever
+  // existed here is job.customerRating on this contractor's own completed
+  // jobs (already cross-device correct since jobs sync to Supabase); the
+  // real `ratings` table + contractors.average_rating column exist in the
+  // schema but nothing writes to them yet, a known separate gap. Factored
+  // out so the always-visible profile bar, the My Profile tab, and the
+  // Earnings tab all show the exact same number instead of three
+  // independently-computed copies.
+  function computeContractorRatingStats(completedJobs) {
+    const rated = completedJobs.filter(j => j.customerRating);
+    const avg = rated.length ? (rated.reduce((s, j) => s + j.customerRating, 0) / rated.length) : null;
+    return { avg, count: rated.length, reviews: rated.filter(j => j.customerReview).map(j => ({ stars: j.customerRating, text: j.customerReview, job: j })) };
+  }
+  function starsHtml(avg) {
+    if (avg == null) return '<span style="color:var(--stone-light);">No ratings yet</span>';
+    const rounded = Math.round(avg);
+    return `<span class="stars">${'★'.repeat(rounded)}${'☆'.repeat(5 - rounded)}</span> ${avg.toFixed(1)}`;
+  }
+
+  // Profile bar (Sep 2026) -- shown above the tabs on EVERY tab, the
+  // literal "give contractors profile and rating at the main page when
+  // contractor signs in" ask, not buried one click into Earnings. Clicking
+  // it (or the payout pill) jumps straight to My Profile. Payout status is
+  // fetched lazily on first render since it's a network call -- shows a
+  // neutral state until that resolves rather than blocking the bar.
+  function ctrProfileBarHtml(name, myJobsCompleted) {
+    if (myProfileData === null && !myProfileLoading) loadMyProfile();
+    if (connectOnboardingStatus === null && !connectOnboardingLoading) loadConnectOnboardingStatus();
+    const { avg, count } = computeContractorRatingStats(myJobsCompleted);
+    const photo = myProfileData && myProfileData.profilePhoto;
+    const initial = (name || '?').trim().charAt(0).toUpperCase();
+    const payoutOk = connectOnboardingStatus === 'complete';
+    const payoutLabel = connectOnboardingStatus === null ? 'Loading…' : (payoutOk ? '✓ Payments set up' : 'Payment setup needed');
+    return `
+      <div class="ctr-profile-bar">
+        <div class="ctr-profile-avatar">${photo ? `<img src="${photo}" alt="" />` : initial}</div>
+        <div class="ctr-profile-info" onclick="tab='profile'; render();">
+          <div class="ctr-profile-name">${escapeHtml(name)}</div>
+          <div class="ctr-profile-meta">${starsHtml(avg)}${count ? ` (${count} review${count===1?'':'s'})` : ''} · ${myJobsCompleted.length} job${myJobsCompleted.length===1?'':'s'} completed</div>
+        </div>
+        <button class="ctr-payout-pill ${payoutOk ? 'good' : 'warn'}" onclick="tab='profile'; render();">${payoutLabel}</button>
+      </div>`;
+  }
+
   function render() {
     const name = getContractorName();
     if (!name) { renderLogin(); return; }
@@ -598,6 +711,7 @@
 
     app.innerHTML = `
       <div class="whoami">Logged in as <strong>${name}</strong> <a onclick="logout()">Log out</a> · <a onclick="openInquiryForm()">Contact MySubbies</a></div>
+      ${ctrProfileBarHtml(name, myJobsCompleted)}
       <div id="inquiryFormWrap"></div>
       ${(() => {
         const myApp = getApplications().find(a => a.business === name);
@@ -620,16 +734,15 @@
         <button class="${tab==='feed'?'active':''}" onclick="tab='feed'; render();">Job Feed ${feedJobs.length ? '('+feedJobs.length+')' : ''}</button>
         <button class="${tab==='myjobs'?'active':''}" onclick="tab='myjobs'; render();">My Jobs ${myJobs.length ? '('+myJobs.length+')' : ''}</button>
         <button class="${tab==='earnings'?'active':''}" onclick="tab='earnings'; render();">Earnings</button>
+        <button class="${tab==='profile'?'active':''}" onclick="tab='profile'; render();">My Profile</button>
         <button class="${tab==='messages'?'active':''}" onclick="tab='messages'; render();">Messages ${adminMessages.filter(m => !m.read_at).length ? '('+adminMessages.filter(m => !m.read_at).length+')' : ''}</button>
       </div>
     `;
 
     if (tab === 'earnings') {
-      if (connectOnboardingStatus === null && !connectOnboardingLoading) loadConnectOnboardingStatus();
       const completed = myJobsCompleted;
       const totalEarned = completed.reduce((s, j) => s + Math.round((j.basePrice || 0) * 0.75), 0);
-      const rated = completed.filter(j => j.customerRating);
-      const avgRating = rated.length ? (rated.reduce((s, j) => s + j.customerRating, 0) / rated.length).toFixed(1) : null;
+      const { avg: avgRating, count: ratedCount } = computeContractorRatingStats(completed);
       app.innerHTML += `
         <h1 class="pagetitle">Earnings</h1>
         ${payoutSetupCardHtml()}
@@ -637,25 +750,32 @@
           <div class="box"><div style="font-size:22px;font-weight:800;">$${totalEarned.toLocaleString()}</div><div class="jobmeta">Total earned</div></div>
           <div class="box"><div style="font-size:22px;font-weight:800;">${completed.length}</div><div class="jobmeta">Jobs completed</div></div>
         </div>
-        ${avgRating ? `<div class="box" style="margin-bottom:20px;"><div style="font-size:18px;font-weight:800;">${'★'.repeat(Math.round(avgRating))}${'☆'.repeat(5-Math.round(avgRating))} ${avgRating}</div><div class="jobmeta">Average rating (${rated.length} review${rated.length===1?'':'s'})</div></div>` : `<p class="note">No ratings yet — they'll show here once customers rate completed jobs.</p>`}
+        <div class="box" style="margin-bottom:20px;"><div style="font-size:18px;font-weight:800;">${starsHtml(avgRating)}</div><div class="jobmeta">Average rating${ratedCount ? ` (${ratedCount} review${ratedCount===1?'':'s'})` : ''}</div></div>
         ${completed.length === 0 ? '<div class="empty">No completed jobs yet.</div>' : `
+          <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">${downloadMenuHtml('statement-contractor', 'Statement of Account')}</div>
           <table class="jobstable">
-            <thead><tr><th>Job</th><th>Suburb</th><th>Payout</th><th>Rating</th></tr></thead>
+            <thead><tr><th>Job</th><th>Suburb</th><th>Payout</th><th>Rating</th><th></th></tr></thead>
             <tbody>
               ${completed.map(j => {
                 const titleDetail = j.items && j.items.length === 1 ? j.items[0].taskName : j.category;
                 return `
-                <tr class="jobrow" onclick="openEarningsDetail('${j.id}')">
-                  <td><strong>${escapeHtml(titleDetail)}</strong></td>
-                  <td>${escapeHtml(j.suburb)}</td>
-                  <td>$${Math.round((j.basePrice||0)*0.75).toLocaleString()}</td>
-                  <td>${j.customerRating ? `${'★'.repeat(j.customerRating)}${'☆'.repeat(5-j.customerRating)}` : '<span style="color:var(--stone-light);">Not yet rated</span>'}</td>
+                <tr class="jobrow">
+                  <td onclick="openEarningsDetail('${j.id}')"><strong>${escapeHtml(titleDetail)}</strong></td>
+                  <td onclick="openEarningsDetail('${j.id}')">${escapeHtml(j.suburb)}</td>
+                  <td onclick="openEarningsDetail('${j.id}')">$${Math.round((j.basePrice||0)*0.75).toLocaleString()}</td>
+                  <td onclick="openEarningsDetail('${j.id}')">${j.customerRating ? `${'★'.repeat(j.customerRating)}${'☆'.repeat(5-j.customerRating)}` : '<span style="color:var(--stone-light);">Not yet rated</span>'}</td>
+                  <td><button class="btn btn-outline" style="width:auto;padding:6px 12px;font-size:11.5px;" onclick="event.stopPropagation(); downloadReceiptForJob('${j.id}', 'contractor')">Receipt</button></td>
                 </tr>`;
               }).join('')}
             </tbody>
           </table>
         `}
       `;
+      return;
+    }
+
+    if (tab === 'profile') {
+      app.innerHTML += renderMyProfileTabHtml(name);
       return;
     }
 
@@ -978,6 +1098,319 @@
       <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="startConnectOnboarding()" ${connectOnboardingLoading ? 'disabled' : ''}>${connectOnboardingLoading ? 'Loading…' : (isPending ? 'Continue setup →' : 'Set up payments →')}</button>
     </div>`;
   }
+
+  // ============================================================
+  // My Profile tab (Sep 2026) -- self-service edit of details that were
+  // previously frozen at signup forever, backed by api/contractor-profile.js.
+  // ============================================================
+  async function getContractorAccessToken() {
+    if (!sb) return null;
+    try {
+      const { data } = await sb.auth.getSession();
+      return (data && data.session && data.session.access_token) || null;
+    } catch (e) { return null; }
+  }
+  async function loadMyProfile() {
+    myProfileLoading = true;
+    const email = localStorage.getItem('mysubbies_contractor_email');
+    try {
+      const res = await fetch('/api/contractor-profile?email=' + encodeURIComponent(email));
+      myProfileData = res.ok ? await res.json() : {};
+    } catch (e) { myProfileData = {}; }
+    myProfileLoading = false;
+    render();
+  }
+  function ctrDraft(field, fallback) {
+    return Object.prototype.hasOwnProperty.call(myProfileDrafts, field) ? myProfileDrafts[field] : (fallback || '');
+  }
+  function onCtrProfileFieldInput(field, value) { myProfileDrafts[field] = value; }
+  async function saveMyProfileDetails() {
+    const email = localStorage.getItem('mysubbies_contractor_email');
+    const accessToken = await getContractorAccessToken();
+    if (!accessToken) { showToast('Please log out and back in, then try again.'); return; }
+    const body = { email, accessToken };
+    ['phone', 'businessName', 'contactName', 'licence', 'insurer'].forEach(f => {
+      if (Object.prototype.hasOwnProperty.call(myProfileDrafts, f)) body[f] = myProfileDrafts[f];
+    });
+    try {
+      const res = await fetch('/api/contractor-profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || 'Could not save — try again.'); return; }
+      if (body.businessName) localStorage.setItem('mysubbies_contractor_name', body.businessName);
+      myProfileDrafts = {};
+      showToast('Profile updated');
+      await loadMyProfile();
+    } catch (e) { showToast('Could not save — check your connection.'); }
+  }
+  function onCtrProfilePhotoSelected(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const email = localStorage.getItem('mysubbies_contractor_email');
+      const accessToken = await getContractorAccessToken();
+      if (!accessToken) { showToast('Please log out and back in, then try again.'); return; }
+      try {
+        const res = await fetch('/api/contractor-profile', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, accessToken, profilePhoto: e.target.result }),
+        });
+        if (!res.ok) { showToast('Could not update photo.'); return; }
+        showToast('Photo updated');
+        await loadMyProfile();
+      } catch (err) { showToast('Could not update photo.'); }
+    };
+    reader.readAsDataURL(file);
+  }
+  function openChangeEmailForm() { showingEmailChange = true; render(); }
+  function closeChangeEmailForm() { showingEmailChange = false; render(); }
+  async function submitEmailChange() {
+    const newEmail = document.getElementById('ctrNewEmail').value.trim().toLowerCase();
+    const errBox = document.getElementById('ctrEmailError');
+    if (!newEmail || !newEmail.includes('@')) { errBox.textContent = 'Enter a valid email address.'; return; }
+    const email = localStorage.getItem('mysubbies_contractor_email');
+    const accessToken = await getContractorAccessToken();
+    if (!accessToken) { errBox.textContent = 'Please log out and back in, then try again.'; return; }
+    try {
+      const res = await fetch('/api/contractor-profile', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'changeEmail', email, accessToken, newEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) { errBox.textContent = data.error || 'Could not change email.'; return; }
+      localStorage.setItem('mysubbies_contractor_email', newEmail);
+      showingEmailChange = false;
+      showToast('Email updated — use your new email next time you log in.');
+      await loadMyProfile();
+    } catch (e) { errBox.textContent = 'Could not change email — check your connection.'; }
+  }
+  function renderMyProfileTabHtml(name) {
+    if (myProfileData === null) return `<h1 class="pagetitle">My Profile</h1><p class="note">Loading…</p>`;
+    const p = myProfileData || {};
+    const jobs = getJobs();
+    const hiddenJobIds = getHiddenJobIds(name);
+    const completed = jobs.filter(j => j.contractor === name && !hiddenJobIds.has(j.id) && j.status === 'completed');
+    const { avg, count, reviews } = computeContractorRatingStats(completed);
+    const photo = p.profilePhoto;
+    return `
+      <h1 class="pagetitle">My Profile</h1>
+      <p class="pagesub">Your details, rating and payment setup.</p>
+
+      <div class="ctr-profile-section">
+        <h3>Rating</h3>
+        <div style="font-size:20px;font-weight:800;margin-bottom:4px;">${starsHtml(avg)}</div>
+        <div class="jobmeta" style="margin-bottom:${reviews.length ? '12px' : '0'};">${count ? `From ${count} review${count===1?'':'s'} on completed jobs` : 'Ratings appear here once customers rate a completed job.'}</div>
+        ${reviews.filter(r => r.text).slice(0, 5).map(r => `
+          <div style="border-top:1px solid var(--paper);padding-top:8px;margin-top:8px;">
+            <div style="font-size:13px;">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</div>
+            <div style="font-size:12.5px;color:var(--stone);margin-top:2px;">"${escapeHtml(r.text)}"</div>
+          </div>`).join('')}
+      </div>
+
+      ${payoutSetupCardHtml()}
+
+      <div class="ctr-profile-section">
+        <h3>Profile photo</h3>
+        <div class="ctr-avatar-edit-wrap">
+          <div class="ctr-avatar-edit">${photo ? `<img src="${photo}" alt="" />` : (name || '?').charAt(0).toUpperCase()}</div>
+          <div>
+            <input type="file" id="ctrPhotoInput" accept="image/*" style="display:none;" onchange="onCtrProfilePhotoSelected(event)" />
+            <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="document.getElementById('ctrPhotoInput').click()">Change photo</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ctr-profile-section">
+        <h3>Contact details</h3>
+        <label class="ctr-field-label">Business name</label>
+        <input type="text" class="ctr-input" value="${escapeHtml(ctrDraft('businessName', p.businessName))}" oninput="onCtrProfileFieldInput('businessName', this.value)" />
+        <label class="ctr-field-label">Contact name</label>
+        <input type="text" class="ctr-input" value="${escapeHtml(ctrDraft('contactName', p.contactName))}" oninput="onCtrProfileFieldInput('contactName', this.value)" />
+        <label class="ctr-field-label">Phone</label>
+        <input type="text" class="ctr-input" value="${escapeHtml(ctrDraft('phone', p.phone))}" oninput="onCtrProfileFieldInput('phone', this.value)" />
+        <label class="ctr-field-label">Email</label>
+        <div class="ctr-field-readonly">${escapeHtml(p.email || '')}</div>
+        ${showingEmailChange ? `
+          <div style="margin-bottom:12px;">
+            <input type="email" id="ctrNewEmail" placeholder="New email address" style="margin-bottom:8px;" />
+            <div id="ctrEmailError" style="color:var(--warn);font-size:12.5px;margin-bottom:8px;"></div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-black" style="width:auto;padding:8px 14px;font-size:12px;" onclick="submitEmailChange()">Save new email</button>
+              <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="closeChangeEmailForm()">Cancel</button>
+            </div>
+          </div>` : `<div class="ctr-field-note"><a onclick="openChangeEmailForm()" style="text-decoration:underline;cursor:pointer;">Change email</a> — you'll use the new one to log in next time.</div>`}
+        <label class="ctr-field-label">Licence number</label>
+        <input type="text" class="ctr-input" placeholder="e.g. electrical/plumbing licence" value="${escapeHtml(ctrDraft('licence', p.licence))}" oninput="onCtrProfileFieldInput('licence', this.value)" />
+        <label class="ctr-field-label">Public liability insurer</label>
+        <input type="text" class="ctr-input" value="${escapeHtml(ctrDraft('insurer', p.insurer))}" oninput="onCtrProfileFieldInput('insurer', this.value)" />
+        <label class="ctr-field-label">ABN</label>
+        <div class="ctr-field-readonly">${escapeHtml(p.abn || '')}</div>
+        <label class="ctr-field-label">ACN</label>
+        <div class="ctr-field-readonly">${escapeHtml(p.acn || '')}</div>
+        <div class="ctr-field-note">ABN/ACN are verified for identity checks — contact MySubbies to update them.</div>
+        <label class="ctr-field-label">Approved trades</label>
+        <div class="ctr-field-readonly">${(p.categories || []).map(c => escapeHtml(c)).join(', ') || '—'}</div>
+        <div class="ctr-field-note">To add or change your approved trades, contact MySubbies.</div>
+        <button class="btn btn-black" style="width:auto;padding:10px 20px;font-size:13px;margin-top:6px;" onclick="saveMyProfileDetails()">Save changes</button>
+      </div>
+    `;
+  }
+
+  // ============================================================
+  // Downloads -- Payment Receipt (per job, PDF) and Statement of Account
+  // (all jobs, PDF/CSV/Excel). toCsv/downloadCsv copied verbatim from the
+  // proven mysubbies-admin-portal.html implementation; downloadXlsx and the
+  // PDF builders are new (Sep 2026), first use of jsPDF/SheetJS in this repo.
+  // Labeled "Payment Receipt" throughout, not "Tax Invoice" -- no GST or
+  // invoice-numbering logic exists anywhere in this codebase, so claiming
+  // ATO-compliant tax-invoice status would be inaccurate.
+  // ============================================================
+  function toCsv(rows, columns) {
+    const esc = v => {
+      const s = v == null ? '' : String(v);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const header = columns.map(c => esc(c.label)).join(',');
+    const body = rows.map(r => columns.map(c => esc(r[c.key])).join(',')).join('\n');
+    return header + '\n' + body;
+  }
+  function downloadCsv(filename, csv) {
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  function downloadXlsx(filename, rows, columns) {
+    const sheetRows = rows.map(r => {
+      const o = {};
+      columns.forEach(c => { o[c.label] = r[c.key]; });
+      return o;
+    });
+    const ws = XLSX.utils.json_to_sheet(sheetRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    XLSX.writeFile(wb, filename);
+  }
+  function fmtCents(c) { return '$' + ((c || 0) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  const STATEMENT_COLUMNS = [
+    { key: 'jobNumber', label: 'Job #' }, { key: 'category', label: 'Category' }, { key: 'suburb', label: 'Suburb' },
+    { key: 'stage', label: 'Stage' }, { key: 'amount', label: 'Amount' }, { key: 'status', label: 'Status' }, { key: 'paidAt', label: 'Paid On' },
+  ];
+  function statementRows(jobsWithMilestones, forRole) {
+    const rows = [];
+    jobsWithMilestones.forEach(j => {
+      (j.milestones || []).forEach(m => {
+        const amountCents = forRole === 'contractor' ? Math.round((m.amount_cents || 0) * 0.75) : (m.amount_cents || 0);
+        rows.push({
+          jobNumber: j.jobNumber != null ? '#' + j.jobNumber : j.jobId,
+          category: j.category || '', suburb: j.suburb || '', stage: m.label || m.milestone_type || '',
+          amount: fmtCents(amountCents), status: m.status === 'paid' ? 'Paid' : 'Pending',
+          paidAt: m.paid_at ? new Date(m.paid_at).toLocaleDateString('en-AU') : '',
+        });
+      });
+    });
+    return rows;
+  }
+  async function loadStatementJobs(forRole) {
+    const email = localStorage.getItem(forRole === 'contractor' ? 'mysubbies_contractor_email' : 'mysubbies_customer_email');
+    const param = forRole === 'contractor' ? 'contractorEmail' : 'customerEmail';
+    const res = await fetch(`/api/job-payment-schedule?all=1&${param}=` + encodeURIComponent(email));
+    if (!res.ok) throw new Error('fetch failed');
+    const data = await res.json();
+    return data.jobs || [];
+  }
+  async function downloadStatement(format, forRole) {
+    dlMenuOpenFor = null; render();
+    showToast('Preparing your statement…');
+    try {
+      const jobsWithMilestones = await loadStatementJobs(forRole);
+      const rows = statementRows(jobsWithMilestones, forRole);
+      if (rows.length === 0) { showToast('No payments to include yet.'); return; }
+      const label = forRole === 'contractor' ? 'mysubbies-earnings-statement' : 'mysubbies-statement-of-account';
+      if (format === 'csv') {
+        downloadCsv(label + '.csv', toCsv(rows, STATEMENT_COLUMNS));
+      } else if (format === 'xlsx') {
+        downloadXlsx(label + '.xlsx', rows, STATEMENT_COLUMNS);
+      } else if (format === 'pdf') {
+        const totalCents = jobsWithMilestones.reduce((s, j) => s + (j.milestones || []).filter(m => m.status === 'paid').reduce((s2, m) => s2 + Math.round((m.amount_cents || 0) * (forRole === 'contractor' ? 0.75 : 1)), 0), 0);
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.setFontSize(16); doc.text('MySubbies', 14, 18);
+        doc.setFontSize(11); doc.text(forRole === 'contractor' ? 'Earnings Statement' : 'Statement of Account', 14, 26);
+        doc.setFontSize(9); doc.setTextColor(120);
+        doc.text(`Generated ${new Date().toLocaleDateString('en-AU')} · ${localStorage.getItem(forRole === 'contractor' ? 'mysubbies_contractor_email' : 'mysubbies_customer_email') || ''}`, 14, 32);
+        doc.autoTable({
+          startY: 38, head: [STATEMENT_COLUMNS.map(c => c.label)],
+          body: rows.map(r => STATEMENT_COLUMNS.map(c => r[c.key])),
+          styles: { fontSize: 8 }, headStyles: { fillColor: [20, 33, 61] },
+        });
+        const finalY = doc.lastAutoTable.finalY || 40;
+        doc.setFontSize(11); doc.setTextColor(0);
+        doc.text(`Total ${forRole === 'contractor' ? 'paid out' : 'paid'}: ${fmtCents(totalCents)}`, 14, finalY + 10);
+        doc.setFontSize(8); doc.setTextColor(150);
+        doc.text('This is a payment record, not a tax invoice.', 14, finalY + 18);
+        doc.save(label + '.pdf');
+      }
+    } catch (e) { showToast('Could not prepare the statement — try again.'); }
+  }
+  async function downloadReceiptForJob(jobId, forRole) {
+    showToast('Preparing receipt…');
+    try {
+      const res = await fetch('/api/job-payment-schedule?jobId=' + encodeURIComponent(jobId));
+      if (!res.ok) throw new Error('fetch failed');
+      const data = await res.json();
+      const jobs = getJobs();
+      const job = jobs.find(j => j.id === jobId) || {};
+      const milestones = data.milestones || [];
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(16); doc.text('MySubbies', 14, 18);
+      doc.setFontSize(11); doc.text('Payment Receipt', 14, 26);
+      doc.setFontSize(9); doc.setTextColor(90);
+      const titleDetail = job.items && job.items.length === 1 ? job.items[0].taskName : job.category;
+      doc.text(`Job ${job.jobNumber != null ? '#' + job.jobNumber : jobId}${titleDetail ? ' — ' + titleDetail : ''}`, 14, 34);
+      doc.text(`${job.suburb || ''}${job.address ? ' — ' + job.address : ''}`, 14, 40);
+      doc.text(`Customer: ${job.customerName || '—'}    Contractor: ${job.contractor || '—'}`, 14, 46);
+      const rows = milestones.map(m => [
+        m.label || m.milestone_type || '',
+        fmtCents(forRole === 'contractor' ? Math.round((m.amount_cents || 0) * 0.75) : (m.amount_cents || 0)),
+        m.status === 'paid' ? 'Paid' : 'Pending',
+        m.paid_at ? new Date(m.paid_at).toLocaleDateString('en-AU') : '—',
+      ]);
+      doc.autoTable({
+        startY: 54, head: [['Stage', 'Amount', 'Status', 'Paid On']], body: rows,
+        styles: { fontSize: 9 }, headStyles: { fillColor: [20, 33, 61] },
+      });
+      const finalY = doc.lastAutoTable.finalY || 60;
+      const totalPaidCents = milestones.filter(m => m.status === 'paid').reduce((s, m) => s + Math.round((m.amount_cents || 0) * (forRole === 'contractor' ? 0.75 : 1)), 0);
+      doc.setFontSize(11); doc.setTextColor(0);
+      doc.text(`Total paid: ${fmtCents(totalPaidCents)}`, 14, finalY + 10);
+      doc.setFontSize(8); doc.setTextColor(150);
+      doc.text('This is a payment record, not a tax invoice.', 14, finalY + 18);
+      doc.save(`mysubbies-receipt-${job.jobNumber || jobId}.pdf`);
+    } catch (e) { showToast('Could not prepare the receipt — try again.'); }
+  }
+  function toggleDlMenu(id) {
+    dlMenuOpenFor = dlMenuOpenFor === id ? null : id;
+    render();
+  }
+  function downloadMenuHtml(id, label) {
+    const forRole = id.includes('contractor') ? 'contractor' : 'customer';
+    return `
+      <div class="dl-menu-wrap">
+        <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;" onclick="event.stopPropagation(); toggleDlMenu('${id}')">Download ${label} ▾</button>
+        <div class="dl-menu ${dlMenuOpenFor === id ? 'show' : ''}">
+          <button onclick="downloadStatement('pdf', '${forRole}')">PDF</button>
+          <button onclick="downloadStatement('csv', '${forRole}')">CSV</button>
+          <button onclick="downloadStatement('xlsx', '${forRole}')">Excel</button>
+        </div>
+      </div>`;
+  }
+  document.addEventListener('click', (e) => {
+    if (dlMenuOpenFor && !e.target.closest('.dl-menu-wrap')) { dlMenuOpenFor = null; render(); }
+  });
 
   function openEarningsDetail(jobId) {
     selectedEarningsJobId = jobId;

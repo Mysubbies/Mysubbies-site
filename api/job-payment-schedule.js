@@ -4,6 +4,13 @@
 // GET  /api/job-payment-schedule?category=X&priceCents=Y
 //        -> a PREVIEW resolution, no jobId yet and nothing persisted — used
 //           by the booking flow to show the schedule before the job exists.
+// GET  /api/job-payment-schedule?all=1&customerEmail=X  (or contractorEmail=X)
+//        -> every job's latest schedule + milestones for that email in one
+//           call (Aug 2026, for the Statement of Account export) — avoids an
+//           N+1 loop of the single-jobId branch above across every job an
+//           account has. Ungated, same posture as the customerEmail/
+//           contractorEmail branches of get-jobs.js — a portal reading its
+//           own logged-in user's data.
 // POST /api/job-payment-schedule  { action: 'accept', jobId, customerId, termsVersion }
 //        -> records the customer's explicit "I have reviewed and agree..."
 //           acceptance. IP/user-agent are read server-side from the request
@@ -16,7 +23,49 @@ module.exports = async (req, res) => {
 
   if (req.method === 'GET') {
     try {
-      const { jobId, category, priceCents } = req.query || {};
+      const { jobId, category, priceCents, all, customerEmail, contractorEmail } = req.query || {};
+
+      if (all && (customerEmail || contractorEmail)) {
+        const email = String(customerEmail || contractorEmail).toLowerCase();
+        const emailCol = customerEmail ? 'customer_email' : 'contractor_email';
+        const { data: jobs, error: jobsErr } = await supabase
+          .from('jobs').select('id, full_record, job_number').eq(emailCol, email)
+          .not('full_record', 'is', null).limit(500);
+        if (jobsErr) throw jobsErr;
+        if (!jobs || jobs.length === 0) { res.status(200).json({ jobs: [] }); return; }
+
+        const jobIds = jobs.map(j => j.id);
+        const { data: schedules, error: schedErr } = await supabase
+          .from('job_payment_schedules').select('*').in('job_id', jobIds).order('version', { ascending: false });
+        if (schedErr) throw schedErr;
+        const latestScheduleByJob = {};
+        (schedules || []).forEach(s => { if (!latestScheduleByJob[s.job_id]) latestScheduleByJob[s.job_id] = s; });
+        const scheduleIds = Object.values(latestScheduleByJob).map(s => s.id);
+
+        let milestonesBySchedule = {};
+        if (scheduleIds.length) {
+          const { data: milestones, error: mErr } = await supabase
+            .from('payment_milestones').select('*').in('job_payment_schedule_id', scheduleIds).order('milestone_index');
+          if (mErr) throw mErr;
+          (milestones || []).forEach(m => {
+            (milestonesBySchedule[m.job_payment_schedule_id] = milestonesBySchedule[m.job_payment_schedule_id] || []).push(m);
+          });
+        }
+
+        const result = jobs.map(j => {
+          const fr = j.full_record || {};
+          const schedule = latestScheduleByJob[j.id];
+          const milestones = schedule ? (milestonesBySchedule[schedule.id] || []) : [];
+          return {
+            jobId: j.id, jobNumber: j.job_number,
+            category: fr.category || null, suburb: fr.suburb || null, address: fr.address || null,
+            customerName: fr.customerName || null, contractor: fr.contractor || null,
+            createdAt: fr.createdAt || null, milestones,
+          };
+        });
+        res.status(200).json({ jobs: result });
+        return;
+      }
 
       if (jobId) {
         const { data: schedule, error } = await supabase
