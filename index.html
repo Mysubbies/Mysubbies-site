@@ -120,7 +120,6 @@
   .hero { background: var(--white); padding: 40px 0 24px; }
   @media (max-width: 720px) { .hero { padding: 24px 0 16px; } }
   #categories { padding-top: 24px; padding-bottom: 48px; }
-  #get-quote { padding-top: 0; }
   .hero-grid { display:grid; grid-template-columns: 1fr 0.9fr; gap:56px; align-items:start; }
   @media (max-width: 980px) { .hero-grid { grid-template-columns:1fr; } }
   .personal-tradie-tag { font-size:15px; font-weight:800; color:var(--black); margin-bottom:10px; letter-spacing:-0.01em; }
@@ -905,8 +904,143 @@
         <h1>Your personal tradie, Get an instant quote.</h1>
         <p class="lede">Book trusted local tradies for home repairs, maintenance, gardening and small outdoor jobs—all in one place.</p>
 
+        <!-- Estimator (Sep 2026) -- moved here from its own section further
+             down the page (was <section id="get-quote">) so the actual
+             "get a price" action sits right under the headline instead of
+             needing a jump-to-it button, which is now removed since it'd
+             just point at itself. -->
+        <div class="estimator" id="estimate">
+          <div class="estimator-label">Get an estimated price instantly</div>
+
+          <div class="est-progress">
+            <div class="est-progress-bar"><div class="est-progress-bar-fill" id="estProgressFill" style="width:50%;"></div></div>
+            <div class="est-progress-label" id="estProgressLabel">Step 1 of 2</div>
+          </div>
+
+          <!-- STEP 1 — What needs doing? -->
+          <div class="est-step active" data-step="1">
+            <div class="est-step-title">What needs doing?</div>
+            <div class="est-step-sub">Select a service, or describe the job / upload a photo above and we'll match it.</div>
+
+              <label class="est-field-label">What do you need done?</label>
+              <div class="estimator-search-wrap">
+                <input type="text" id="estCategoryInput" placeholder="e.g. decking, electrical, tiling…" autocomplete="off" oninput="onCatSearch()" />
+                <div class="estimator-search-results" id="estCatResults"></div>
+              </div>
+
+              <div id="estRefImage" style="display:none;margin-bottom:14px;"></div>
+
+            <div class="est-field-error" id="estStep1Error"></div>
+            <div class="est-step-nav"><button class="btn btn-black" onclick="estStep1Continue()">Continue →</button></div>
+          </div>
+
+          <!-- STEP 2 — Tell us about the job, then get your price. Merged Aug 2026 -->
+          <!-- from 3 steps down to 2: the old separate "Review & get your price" step's -->
+          <!-- reveal click just re-showed a total the customer could already see live in -->
+          <!-- the cart above it, after a fake "calculating" delay -- founder feedback was -->
+          <!-- that this read as broken/redundant, not reassuring. The price now appears -->
+          <!-- instantly on this same step once required fields are filled in. -->
+          <div class="est-step" data-step="2">
+            <div class="est-step-title">Tell us about the job</div>
+            <div class="est-step-sub">Suburb, size or quantity, site conditions, access, timing and photos.</div>
+
+              <!-- Primary priced comparison (Sep 2026) -- enter a size once,
+                   see every option that shares this category's most common
+                   unit priced at that size (e.g. Decking + 20 sqm -> Treated
+                   pine / Merbau / Composite / Sub-frame only, each with a real
+                   price), instead of picking a specific job blind before
+                   knowing what anything costs. See estPrimaryUnitGroup(). -->
+              <div id="estPrimaryCompareWrap" style="display:none;">
+                <label class="est-field-label" id="estPrimaryQtyLabel">Size / quantity</label>
+                <input type="text" id="estPrimaryQty" class="est-qty-row-input" oninput="onPrimaryQtyInput()" placeholder="" />
+                <div class="est-hint" id="estPrimaryQtyHint"></div>
+                <div id="estPrimaryOptions" class="est-primary-options"></div>
+              </div>
+
+              <!-- Other services in this category (Sep 2026, relocated from
+                   Step 1's old "Add the specific job(s)" picker) -- only tasks
+                   NOT in the primary comparison group above (different unit,
+                   e.g. Fencing's gates or Decking's stairs/balustrade), so
+                   nothing from the old flow becomes unreachable. Multi-select,
+                   own qty row per task, same as before. -->
+              <div id="estTierWrap" style="display:none;">
+                <label class="est-field-label" id="estTierWrapLabel">Other services in this category</label>
+                <input type="text" id="estTierQuickMatch" class="est-tier-quickmatch" placeholder="Type what you need, e.g. &quot;replace a power point&quot;" autocomplete="off" oninput="onTierQuickMatch()" />
+                <div class="est-match-line" id="estTierMatchLine"></div>
+                <div class="chiprow-est" id="estSelectedPills"></div>
+                <!-- Full browsable task list -- hidden by request (was reading as
+                     clutter on a category with many tasks). Kept in the DOM, not
+                     deleted, since selection/matching logic (toggleTierSelection,
+                     estFindTaskMatches highlighting) still reads/writes to it. -->
+                <div class="chiprow-est" id="estTierChips" style="display:none;"></div>
+              </div>
+
+              <div id="estQtyRows"></div>
+              <div id="estRemovalPrompt"></div>
+              <button class="btn btn-outline btn-full" onclick="calculateSelectedItems()" style="margin-top:4px;">Calculate price</button>
+
+              <div id="estItemPreview" style="display:none;"></div>
+
+              <div id="estCartWrap" style="display:none;">
+                <label class="est-field-label">Your job so far</label>
+                <div id="estCartList"></div>
+                <div class="est-cart-total" id="estCartTotal"></div>
+                <div class="est-bundle-note" id="estBundleNote" style="display:none;"></div>
+                <button class="btn btn-outline btn-full" onclick="estAddAnotherService()" style="margin-top:10px;">+ Add another service</button>
+              </div>
+
+              <label class="est-field-label">Suburb</label>
+              <input type="text" id="estSuburb" placeholder="e.g. Brunswick" />
+              <div class="est-hint">MySubbies currently operates in Melbourne, Victoria only — we'll be launching in other states as we grow.</div>
+
+              <div id="estQuestionsWrap"></div>
+
+              <div id="estSiteFieldsWrap">
+                <label class="est-field-label">What's currently on the site?</label>
+                <input type="text" id="estSiteText" placeholder="e.g. existing grass, old decking to remove, easy access from the street…" oninput="selectedSite = this.value" />
+
+                <label class="est-field-label">Site access</label>
+                <div class="chiprow-est" id="estAccessChips"></div>
+              </div>
+
+              <label class="est-field-label">How urgent is this job?</label>
+              <input type="text" id="estUrgencyText" placeholder="e.g. ASAP, within 2 weeks, no rush" oninput="selectedUrgency = this.value" />
+
+              <label class="est-field-label">Add photos (optional)</label>
+              <p class="est-photo-note">Uploading photos helps us confirm that the selected service and assumptions match your property. Your displayed price remains subject to the stated scope, exclusions and site assumptions. No variation can be charged without your approval.</p>
+              <input type="file" id="estPhotoInput" accept="image/*" multiple style="display:none;" onchange="onPhotoSelected(event)" />
+              <input type="file" id="estPhotoCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="onPhotoSelected(event)" />
+              <div class="est-photo-drop-row">
+                <div class="est-photo-drop" onclick="document.getElementById('estPhotoCameraInput').click()">
+                  <span>📷 Take a photo</span>
+                </div>
+                <div class="est-photo-drop" onclick="document.getElementById('estPhotoInput').click()">
+                  <span>🖼️ Choose from gallery</span>
+                </div>
+              </div>
+              <div class="est-photo-count" id="estPhotoCount"></div>
+              <div class="est-photo-grid" id="estPhotoGrid"></div>
+
+            <div class="est-field-error" id="estStep2Error"></div>
+
+            <div id="estReviewSummary" style="display:none;"></div>
+
+            <div class="estimator-result" id="estResult">
+              <div>
+                <div class="price" id="estPrice">$0</div>
+                <div class="price-sub" id="estPriceSub">GST inclusive · tentative</div>
+              </div>
+            </div>
+            <div class="estimator-note" id="estResultNote" style="display:none;">Real prices are matched instantly against our live Melbourne rate card — this is a preview, no account needed. Final pricing remains subject to scope, assumptions and site conditions.</div>
+
+            <div class="est-step-nav">
+              <button class="btn btn-back" onclick="estGoBack()">← Back</button>
+              <button class="btn btn-black" onclick="estContinueBooking()">Continue booking →</button>
+            </div>
+          </div>
+        </div>
+
         <div class="bstarter-actions">
-          <a class="btn btn-black" href="#estimate">Get an estimated price instantly</a>
           <button class="btn btn-secondary-action" type="button" onclick="heroBrowseServices()">Browse from our services</button>
         </div>
 
@@ -1029,141 +1163,6 @@
         <img src="images/categories/concreting.jpg" alt="Small concrete job" loading="lazy">
         <div class="popular-job-body"><h3>Small Concrete Job</h3><div class="popular-job-meta">Tell us what needs doing</div><div class="popular-job-price"><strong>Get price</strong></div><button class="btn" onclick="goToEstimatorWithCategory('Concreting')">Get price</button></div>
       </article>
-    </div>
-  </div>
-</section>
-
-<section id="get-quote">
-  <div class="wrap" style="max-width:700px;">
-    <div class="estimator" id="estimate">
-      <div class="estimator-label">Get an estimated price instantly</div>
-
-      <div class="est-progress">
-        <div class="est-progress-bar"><div class="est-progress-bar-fill" id="estProgressFill" style="width:50%;"></div></div>
-        <div class="est-progress-label" id="estProgressLabel">Step 1 of 2</div>
-      </div>
-
-      <!-- STEP 1 — What needs doing? -->
-      <div class="est-step active" data-step="1">
-        <div class="est-step-title">What needs doing?</div>
-        <div class="est-step-sub">Select a service, or describe the job / upload a photo above and we'll match it.</div>
-
-          <label class="est-field-label">What do you need done?</label>
-          <div class="estimator-search-wrap">
-            <input type="text" id="estCategoryInput" placeholder="e.g. decking, electrical, tiling…" autocomplete="off" oninput="onCatSearch()" />
-            <div class="estimator-search-results" id="estCatResults"></div>
-          </div>
-
-          <div id="estRefImage" style="display:none;margin-bottom:14px;"></div>
-
-        <div class="est-field-error" id="estStep1Error"></div>
-        <div class="est-step-nav"><button class="btn btn-black" onclick="estStep1Continue()">Continue →</button></div>
-      </div>
-
-      <!-- STEP 2 — Tell us about the job, then get your price. Merged Aug 2026 -->
-      <!-- from 3 steps down to 2: the old separate "Review & get your price" step's -->
-      <!-- reveal click just re-showed a total the customer could already see live in -->
-      <!-- the cart above it, after a fake "calculating" delay -- founder feedback was -->
-      <!-- that this read as broken/redundant, not reassuring. The price now appears -->
-      <!-- instantly on this same step once required fields are filled in. -->
-      <div class="est-step" data-step="2">
-        <div class="est-step-title">Tell us about the job</div>
-        <div class="est-step-sub">Suburb, size or quantity, site conditions, access, timing and photos.</div>
-
-          <!-- Primary priced comparison (Sep 2026) -- enter a size once,
-               see every option that shares this category's most common
-               unit priced at that size (e.g. Decking + 20 sqm -> Treated
-               pine / Merbau / Composite / Sub-frame only, each with a real
-               price), instead of picking a specific job blind before
-               knowing what anything costs. See estPrimaryUnitGroup(). -->
-          <div id="estPrimaryCompareWrap" style="display:none;">
-            <label class="est-field-label" id="estPrimaryQtyLabel">Size / quantity</label>
-            <input type="text" id="estPrimaryQty" class="est-qty-row-input" oninput="onPrimaryQtyInput()" placeholder="" />
-            <div class="est-hint" id="estPrimaryQtyHint"></div>
-            <div id="estPrimaryOptions" class="est-primary-options"></div>
-          </div>
-
-          <!-- Other services in this category (Sep 2026, relocated from
-               Step 1's old "Add the specific job(s)" picker) -- only tasks
-               NOT in the primary comparison group above (different unit,
-               e.g. Fencing's gates or Decking's stairs/balustrade), so
-               nothing from the old flow becomes unreachable. Multi-select,
-               own qty row per task, same as before. -->
-          <div id="estTierWrap" style="display:none;">
-            <label class="est-field-label" id="estTierWrapLabel">Other services in this category</label>
-            <input type="text" id="estTierQuickMatch" class="est-tier-quickmatch" placeholder="Type what you need, e.g. &quot;replace a power point&quot;" autocomplete="off" oninput="onTierQuickMatch()" />
-            <div class="est-match-line" id="estTierMatchLine"></div>
-            <div class="chiprow-est" id="estSelectedPills"></div>
-            <!-- Full browsable task list -- hidden by request (was reading as
-                 clutter on a category with many tasks). Kept in the DOM, not
-                 deleted, since selection/matching logic (toggleTierSelection,
-                 estFindTaskMatches highlighting) still reads/writes to it. -->
-            <div class="chiprow-est" id="estTierChips" style="display:none;"></div>
-          </div>
-
-          <div id="estQtyRows"></div>
-          <div id="estRemovalPrompt"></div>
-          <button class="btn btn-outline btn-full" onclick="calculateSelectedItems()" style="margin-top:4px;">Calculate price</button>
-
-          <div id="estItemPreview" style="display:none;"></div>
-
-          <div id="estCartWrap" style="display:none;">
-            <label class="est-field-label">Your job so far</label>
-            <div id="estCartList"></div>
-            <div class="est-cart-total" id="estCartTotal"></div>
-            <div class="est-bundle-note" id="estBundleNote" style="display:none;"></div>
-            <button class="btn btn-outline btn-full" onclick="estAddAnotherService()" style="margin-top:10px;">+ Add another service</button>
-          </div>
-
-          <label class="est-field-label">Suburb</label>
-          <input type="text" id="estSuburb" placeholder="e.g. Brunswick" />
-          <div class="est-hint">MySubbies currently operates in Melbourne, Victoria only — we'll be launching in other states as we grow.</div>
-
-          <div id="estQuestionsWrap"></div>
-
-          <div id="estSiteFieldsWrap">
-            <label class="est-field-label">What's currently on the site?</label>
-            <input type="text" id="estSiteText" placeholder="e.g. existing grass, old decking to remove, easy access from the street…" oninput="selectedSite = this.value" />
-
-            <label class="est-field-label">Site access</label>
-            <div class="chiprow-est" id="estAccessChips"></div>
-          </div>
-
-          <label class="est-field-label">How urgent is this job?</label>
-          <input type="text" id="estUrgencyText" placeholder="e.g. ASAP, within 2 weeks, no rush" oninput="selectedUrgency = this.value" />
-
-          <label class="est-field-label">Add photos (optional)</label>
-          <p class="est-photo-note">Uploading photos helps us confirm that the selected service and assumptions match your property. Your displayed price remains subject to the stated scope, exclusions and site assumptions. No variation can be charged without your approval.</p>
-          <input type="file" id="estPhotoInput" accept="image/*" multiple style="display:none;" onchange="onPhotoSelected(event)" />
-          <input type="file" id="estPhotoCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="onPhotoSelected(event)" />
-          <div class="est-photo-drop-row">
-            <div class="est-photo-drop" onclick="document.getElementById('estPhotoCameraInput').click()">
-              <span>📷 Take a photo</span>
-            </div>
-            <div class="est-photo-drop" onclick="document.getElementById('estPhotoInput').click()">
-              <span>🖼️ Choose from gallery</span>
-            </div>
-          </div>
-          <div class="est-photo-count" id="estPhotoCount"></div>
-          <div class="est-photo-grid" id="estPhotoGrid"></div>
-
-        <div class="est-field-error" id="estStep2Error"></div>
-
-        <div id="estReviewSummary" style="display:none;"></div>
-
-        <div class="estimator-result" id="estResult">
-          <div>
-            <div class="price" id="estPrice">$0</div>
-            <div class="price-sub" id="estPriceSub">GST inclusive · tentative</div>
-          </div>
-        </div>
-        <div class="estimator-note" id="estResultNote" style="display:none;">Real prices are matched instantly against our live Melbourne rate card — this is a preview, no account needed. Final pricing remains subject to scope, assumptions and site conditions.</div>
-
-        <div class="est-step-nav">
-          <button class="btn btn-back" onclick="estGoBack()">← Back</button>
-          <button class="btn btn-black" onclick="estContinueBooking()">Continue booking →</button>
-        </div>
-      </div>
     </div>
   </div>
 </section>
