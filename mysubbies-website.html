@@ -441,14 +441,6 @@
   .app-hero-copy { padding:18px 0 0; }
   .app-hero-copy h1 { font-size:clamp(42px,5vw,66px); line-height:1.01; max-width:650px; color:var(--black); }
   .app-hero-copy .lede { margin:18px 0 24px; color:var(--stone); font-size:17px; max-width:520px; }
-  .app-search-card { margin-top:14px; min-height:60px; display:flex; align-items:center; gap:12px; padding:10px 10px 10px 20px; background:#fff; border:1px solid var(--line); border-radius:999px; box-shadow:0 13px 34px rgba(20,33,61,.09); transition:box-shadow .15s ease, border-color .15s ease; }
-  .app-search-card:focus-within { border-color:var(--black); box-shadow:0 13px 34px rgba(20,33,61,.14); }
-  .app-search-card svg { flex:0 0 auto; color:var(--black); }
-  .app-search-input { flex:1 1 auto; min-width:60px; width:100%; border:0; outline:0; resize:none; padding:8px 0; font:600 15px/1.4 'Plus Jakarta Sans',sans-serif; color:var(--ink); background:transparent; }
-  .app-search-input::placeholder { color:#6b7280; font-weight:500; }
-  .app-search-go { flex:0 0 auto; width:44px; height:44px; border-radius:50%; border:0; background:var(--black); color:#fff; font-size:20px; cursor:pointer; display:grid; place-items:center; transition:background .15s ease; }
-  .app-search-go:hover { background:var(--primary-light); }
-  .app-search-status { min-height:18px; margin:8px 4px 0; font-size:12px; color:var(--stone); }
   .app-hero-photo { min-height:485px; border-radius:28px; overflow:hidden; position:relative; background:#edf0ea; visibility:hidden; }
   .app-hero-photo img { width:100%; height:100%; object-fit:cover; object-position:center; }
   .app-trust-row { display:grid; grid-template-columns:repeat(5,1fr); margin-top:28px; border:1px solid var(--line); border-radius:18px; background:rgba(248,249,251,.96); overflow:hidden; }
@@ -507,12 +499,7 @@
     .app-hero-copy h1 { font-size:clamp(36px,11vw,48px); max-width:66%; text-shadow:0 1px 0 #fff; }
     .app-hero-copy .lede { font-size:14.5px; max-width:62%; margin:13px 0 24px; color:var(--black); }
     .app-hero-photo { display:none; }
-    .bstarter-actions,.app-search-card { position:relative; z-index:3; width:100%; }
-    .bstarter-actions { margin-top:18px; }
-    .app-search-card { min-height:56px; padding:8px 8px 8px 16px; gap:8px; }
-    .app-search-card svg { width:22px; height:22px; }
-    .app-search-input { font-size:14px; min-width:40px; }
-    .app-search-go { width:38px; height:38px; font-size:18px; }
+    .bstarter-actions { position:relative; z-index:3; width:100%; margin-top:18px; }
     .app-trust-row { margin-top:22px; overflow-x:auto; grid-template-columns:repeat(5,minmax(92px,1fr)); scrollbar-width:none; }
     .app-trust-item { padding:14px 7px; font-size:10.5px; }
     .house-health-band { padding:18px 0 26px; }
@@ -560,27 +547,6 @@
   .bstarter-actions { display:flex; flex-direction:column; gap:10px; margin-top:14px; }
   .bstarter-actions .btn { padding:13px 16px; font-size:13.5px; }
   .bstarter-actions .btn-secondary-action { background:#fff; color:var(--ink); border:1.5px solid var(--line); }
-  .bstarter-photo-btn { width:100%; }
-  .bstarter-actions-row2 { display:flex; gap:10px; }
-  .bstarter-actions-row2 .btn { flex:1; min-width:0; }
-  .bstarter-trust { font-size:12px; color:var(--stone); margin-top:14px; display:flex; align-items:center; gap:6px; }
-  .bstarter-trust svg { flex-shrink:0; }
-  .bstarter-thinking { font-size:12.5px; color:var(--stone); margin-top:14px; display:flex; align-items:center; gap:8px; }
-  .bstarter-thinking::before { content:''; width:12px; height:12px; border-radius:50%; border:2px solid var(--line); border-top-color:var(--stone); animation:bstarterSpin 0.7s linear infinite; flex-shrink:0; }
-  @keyframes bstarterSpin { to { transform:rotate(360deg); } }
-  .bstarter-suggest { background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:16px 18px; margin-top:14px; }
-  .bstarter-suggest-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--stone); margin-bottom:5px; }
-  .bstarter-suggest-cat { font-size:16px; font-weight:800; color:var(--black); }
-  .bstarter-suggest-price { font-size:13.5px; color:var(--ink); margin-top:6px; font-weight:600; }
-  .bstarter-suggest-trade { font-size:12px; color:var(--stone); margin-top:3px; }
-  .bstarter-suggest-work { margin:10px 0 0; padding-left:18px; font-size:12.5px; color:var(--ink); line-height:1.6; }
-  .bstarter-suggest-visit { margin-top:10px; padding:9px 12px; background:#FFF6E5; border:1px solid #F0DBA6; border-radius:8px; font-size:12px; color:#8A6D2E; line-height:1.5; }
-  .bstarter-suggest-text { font-size:13.5px; color:var(--ink); line-height:1.5; }
-  .bstarter-suggest-q { font-size:13px; font-weight:600; color:var(--ink); margin-top:14px; margin-bottom:10px; }
-  .bstarter-suggest-actions { display:flex; gap:10px; }
-  .bstarter-suggest-actions .btn { flex:1; padding:12px 14px; font-size:13px; }
-  .bstarter-suggest-actions .btn-secondary-action { background:#fff; color:var(--ink); border:1.5px solid var(--line); }
-  @media (prefers-reduced-motion: reduce) { .bstarter-thinking::before { animation:none; } }
   .hero-photo-wrap { position:relative; border-radius:24px; overflow:hidden; height:100%; min-height:320px; background:var(--paper); }
   .hero-photo-wrap img { width:100%; height:100%; object-fit:cover; object-position: center 20%; }
   @media (max-width:980px) { .hero-photo-wrap { order:-1; height:auto; min-height:0; aspect-ratio:16/10; } }
@@ -837,9 +803,8 @@
     document.getElementById('welcomeSplash').classList.add('hide');
     setTimeout(() => {
       if (destination === 'quote') {
-        const el = document.getElementById('bstarterInput') || document.getElementById('estimate');
+        const el = document.getElementById('estimate');
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        if (document.getElementById('bstarterInput')) document.getElementById('bstarterInput').focus();
       } else if (destination === 'browse') {
         const el = document.getElementById('categories');
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1043,13 +1008,6 @@
         <div class="bstarter-actions">
           <button class="btn btn-secondary-action" type="button" onclick="heroBrowseServices()">Browse from our services</button>
         </div>
-
-        <div class="app-search-card">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-          <textarea class="app-search-input" id="bstarterInput" rows="1" placeholder="Search a service — e.g. leaking tap, fence repair, painting"></textarea>
-          <button class="app-search-go" onclick="heroSubmitDescribe()" aria-label="Search">→</button>
-        </div>
-        <div class="app-search-status" id="bstarterStatus"></div>
       </div>
     </div>
 
@@ -2124,155 +2082,6 @@
       if (chipBtn) chipBtn.classList.add('selected');
     }
     showEstStep(2);
-  }
-
-  // Hero booking-starter (item 3) — "Describe your job" is AI-reactive: it
-  // calls the same /api/classify-job endpoint Fix Something already uses
-  // (text-only here, no photo) to suggest a likely trade/problem, shows an
-  // explicit "does this look right?" confirmation, and only on confirmation
-  // hands off into the real rate-card estimator via continueToEstimatorFromFs.
-  // Never invents a price itself. Only fires on an explicit Submit click —
-  // heroClassifyToken still guards against a slower, stale response landing
-  // after a newer submit has already superseded it.
-  let heroClassifyToken = 0;
-  let heroLastSuggestion = null;
-
-  // Rate-card category label -> the tradesperson noun customers actually
-  // think in ("Plumbing" -> "Plumber"), used only for the hero's recommendation
-  // copy. Falls back to "<category> Specialist" for anything not listed here
-  // (e.g. a category the admin adds later via the rate-card research tool).
-  const TRADE_ROLE_NAMES = {
-    'Fencing': 'Fencing Contractor', 'Pergola': 'Pergola Builder', 'Decking': 'Decking Contractor',
-    'Grass Installation': 'Turf Installer', 'Retaining Wall': 'Retaining Wall Contractor',
-    'Concreting': 'Concreter', 'Gardening & Lawn Mowing': 'Gardener', 'Tree Pruning & Removal': 'Arborist',
-    'Painting': 'Painter', 'Rendering': 'Renderer', 'Cabinetry': 'Cabinet Maker', 'Stonemason': 'Stonemason',
-    'Flooring': 'Flooring Contractor', 'Earth Works': 'Earthworks Contractor', 'Demolition': 'Demolition Contractor',
-    'Skip Bins': 'Skip Bin Provider', 'Cleaning': 'Cleaner', 'Tiling': 'Tiler', 'Tiled Roof Repair': 'Roofer',
-    'Electrical': 'Electrician', 'Plumbing': 'Plumber', 'Handyman': 'Handyman',
-    'Property Maintenance': 'Maintenance Technician', 'Small Outdoor & Construction Repairs': 'Repairs Specialist',
-  };
-  function heroTradeRoleName(category) {
-    return TRADE_ROLE_NAMES[category] || `${category} Specialist`;
-  }
-
-  // Real "starts from $X" teaser sourced from the actual founder-priced rate
-  // card (CATEGORIES, same data the estimator prices against) — never an
-  // AI-invented number. Uses the cheapest available (non-disabled) task in
-  // the matched category as the floor price shown in the hero card.
-  function heroCategoryStartingPrice(categoryLabel) {
-    const cat = CATEGORIES.find(c => c.label === categoryLabel);
-    if (!cat || !cat.tasks || !cat.tasks.length) return null;
-    const available = cat.tasks.filter(t => !t.unavailable && !t.disabled && typeof t.rate === 'number');
-    if (!available.length) return null;
-    const cheapest = available.reduce((min, t) => (t.rate < min.rate ? t : min), available[0]);
-    return { rate: cheapest.rate, unit: cheapest.unit || null };
-  }
-
-  // Classification only ever fires on an explicit Submit click — no
-  // debounced/live search while typing, so the AI isn't guessing mid-sentence.
-  function heroSubmitDescribe() {
-    heroClassifyDescription();
-  }
-
-  async function heroClassifyDescription() {
-    const input = document.getElementById('bstarterInput');
-    const val = input.value.trim();
-    const status = document.getElementById('bstarterStatus');
-    if (!val) { input.focus(); return; }
-
-    const myToken = ++heroClassifyToken;
-    status.innerHTML = `<div class="bstarter-thinking">Working out what this needs…</div>`;
-
-    try {
-      const res = await fetch('/api/classify-job', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: val, images: [] }),
-      });
-      const data = await res.json();
-      if (myToken !== heroClassifyToken) return;
-      renderHeroSuggestion(data, val);
-    } catch (err) {
-      if (myToken !== heroClassifyToken) return;
-      status.innerHTML = `<div class="bstarter-suggest"><div class="bstarter-suggest-text">Couldn't reach the AI right now — try again, or browse services below.</div></div>`;
-    }
-  }
-
-  function renderHeroSuggestion(data, description) {
-    const status = document.getElementById('bstarterStatus');
-    logHeroSuggestionRequest(data, description);
-
-    if (data.manualReviewRequired) {
-      heroLastSuggestion = null;
-      status.innerHTML = `
-        <div class="bstarter-suggest">
-          <div class="bstarter-suggest-text">${escapeHtml(data.reason || "We couldn't quite pin that down — try adding a bit more detail, or browse services below.")}</div>
-        </div>`;
-      return;
-    }
-
-    heroLastSuggestion = { category: data.category, likelyService: data.likelyService || '', description: description || '' };
-    const role = heroTradeRoleName(data.category);
-    const startingPrice = heroCategoryStartingPrice(data.category);
-    const priceLine = startingPrice
-      ? `We can definitely help — ${escapeHtml(data.category)} starts from $${startingPrice.rate}${startingPrice.unit ? '/' + escapeHtml(startingPrice.unit) : ''}.`
-      : `We can definitely help with that.`;
-    const workList = (data.likelyWork || []).slice(0, 3).map(w => `<li>${escapeHtml(w)}</li>`).join('');
-    // Regulated trades / anything the AI flagged a compliance note on still
-    // get a real recommendation + book option rather than being blocked —
-    // just with a tentative-price caveat, since the exact scope needs a
-    // contractor to confirm on site before it's locked in.
-    const siteVisitNote = data.needsSiteVisit
-      ? `<div class="bstarter-suggest-visit">⚠ Tentative price — a contractor will confirm the final price on site.${data.complianceNote ? ' ' + escapeHtml(data.complianceNote) : ''}</div>`
-      : '';
-    status.innerHTML = `
-      <div class="bstarter-suggest">
-        <div class="bstarter-suggest-label">This job needs</div>
-        <div class="bstarter-suggest-cat">A ${escapeHtml(role)}</div>
-        <div class="bstarter-suggest-price">${priceLine}</div>
-        <div class="bstarter-suggest-trade">${escapeHtml(data.likelyService || data.category)} · AI match confidence ${Math.round(data.confidence || 0)}%</div>
-        ${workList ? `<ul class="bstarter-suggest-work">${workList}</ul>` : ''}
-        ${siteVisitNote}
-        <div class="bstarter-suggest-q">Would you like to book the job?</div>
-        <div class="bstarter-suggest-actions">
-          <button class="btn btn-black" onclick="heroConfirmSuggestion()">Book ${escapeHtml(role)} now →</button>
-          <button class="btn btn-secondary-action" onclick="heroRejectSuggestion()">Not quite</button>
-        </div>
-      </div>`;
-  }
-
-  function heroConfirmSuggestion() {
-    if (!heroLastSuggestion) return;
-    const status = document.getElementById('bstarterStatus');
-    if (status) status.innerHTML = '';
-    continueToEstimatorFromFs(heroLastSuggestion.category, heroLastSuggestion.likelyService, heroLastSuggestion.description);
-  }
-
-  function heroRejectSuggestion() {
-    heroLastSuggestion = null;
-    const status = document.getElementById('bstarterStatus');
-    if (status) status.innerHTML = '';
-    const input = document.getElementById('bstarterInput');
-    input.focus();
-  }
-
-  // Same non-critical logging pattern as logFixSomethingRequest, kept
-  // separate so it always logs photoCount:0 (the hero input never takes
-  // photos) instead of depending on Fix Something's fsImages state.
-  function logHeroSuggestionRequest(result, description) {
-    try {
-      const key = 'mysubbies_fix_something_requests';
-      const existing = JSON.parse(localStorage.getItem(key) || '[]');
-      existing.push({
-        id: 'hero_' + Date.now(),
-        source: 'hero',
-        description: description || null,
-        photoCount: 0,
-        result,
-        createdAt: new Date().toISOString(),
-      });
-      localStorage.setItem(key, JSON.stringify(existing));
-    } catch (e) { /* non-critical logging, ignore failures */ }
   }
 
   // heroUploadPhoto() (the hero's own dedicated "Upload a photo" tile) was
