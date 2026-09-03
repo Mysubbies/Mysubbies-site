@@ -1257,14 +1257,59 @@
   }
 
   // ============================================================
-  // Downloads -- Payment Receipt (per job, PDF) and Statement of Account
-  // (all jobs, PDF/CSV/Excel). toCsv/downloadCsv copied verbatim from the
-  // proven mysubbies-admin-portal.html implementation; downloadXlsx and the
-  // PDF builders are new (Sep 2026), first use of jsPDF/SheetJS in this repo.
-  // Labeled "Payment Receipt" throughout, not "Tax Invoice" -- no GST or
-  // invoice-numbering logic exists anywhere in this codebase, so claiming
-  // ATO-compliant tax-invoice status would be inaccurate.
+  // Downloads -- Payment Receipt (per job, PDF) and Payment/Earnings
+  // Statement (all jobs, PDF/CSV/Excel). toCsv/downloadCsv copied verbatim
+  // from the proven mysubbies-admin-portal.html implementation.
+  // Deliberately kept as "Payment Receipt"/"Earnings Statement", never
+  // "Tax Invoice" -- unlike mysubbies-customer-portal.html's version (where
+  // Mysubbies genuinely is the GST-registered seller of record to the
+  // customer), Mysubbies is not the buyer of a contractor's services here.
+  // A contractor invoicing Mysubbies for their own GST-registered supply --
+  // or Mysubbies issuing a Recipient-Created Tax Invoice on their behalf --
+  // both require a real business/legal arrangement this codebase doesn't
+  // have. These documents report what was actually paid out, styled with
+  // the same letterhead/branding system for visual consistency.
   // ============================================================
+  const MYSUBBIES_ABN = '74 640 998 992';
+  const MYSUBBIES_LEGAL_NAME = 'Mysubbies Group Pty Ltd';
+  const MYSUBBIES_LOCATION = 'Melbourne, VIC';
+  const PDF_NAVY = [20, 33, 61];
+  const PDF_PAPER = [247, 247, 245];
+  function pdfLetterhead(doc, { docType, docRef, dateStr }) {
+    doc.setFillColor(...PDF_NAVY); doc.rect(0, 0, 210, 34, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
+    doc.text('MySubbies', 14, 16);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(200, 206, 220);
+    doc.text(`${MYSUBBIES_LEGAL_NAME}  ·  ABN ${MYSUBBIES_ABN}  ·  ${MYSUBBIES_LOCATION}`, 14, 23);
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text(docType, 196, 15, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(200, 206, 220);
+    if (docRef) doc.text(docRef, 196, 21, { align: 'right' });
+    doc.text(`Issued ${dateStr}`, 196, 27, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+  }
+  function pdfFooter(doc, noteLine) {
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      const h = doc.internal.pageSize.getHeight();
+      doc.setDrawColor(230, 230, 227); doc.setLineWidth(0.2);
+      doc.line(14, h - 18, 196, h - 18);
+      doc.setFontSize(7.5); doc.setTextColor(140, 140, 138);
+      doc.text(`${MYSUBBIES_LEGAL_NAME} · ABN ${MYSUBBIES_ABN} · ${MYSUBBIES_LOCATION}`, 14, h - 12);
+      doc.text(noteLine, 14, h - 8);
+      doc.text(`Page ${i} of ${pageCount}`, 196, h - 8, { align: 'right' });
+    }
+  }
+  function pdfSimpleTotalBox(doc, y, totalCents, totalLabel) {
+    const boxX = 130, boxW = 66;
+    doc.setDrawColor(220, 220, 217); doc.line(boxX, y, boxX + boxW, y);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.setTextColor(20, 33, 61);
+    doc.text(totalLabel, boxX, y + 8);
+    doc.text(fmtCents(totalCents), boxX + boxW, y + 8, { align: 'right' });
+    doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal');
+    return y + 15;
+  }
   function toCsv(rows, columns) {
     const esc = v => {
       const s = v == null ? '' : String(v);
@@ -1337,20 +1382,24 @@
         const totalCents = jobsWithMilestones.reduce((s, j) => s + (j.milestones || []).filter(m => m.status === 'paid').reduce((s2, m) => s2 + Math.round((m.amount_cents || 0) * (forRole === 'contractor' ? 0.75 : 1)), 0), 0);
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.setFontSize(16); doc.text('MySubbies', 14, 18);
-        doc.setFontSize(11); doc.text(forRole === 'contractor' ? 'Earnings Statement' : 'Statement of Account', 14, 26);
-        doc.setFontSize(9); doc.setTextColor(120);
-        doc.text(`Generated ${new Date().toLocaleDateString('en-AU')} · ${localStorage.getItem(forRole === 'contractor' ? 'mysubbies_contractor_email' : 'mysubbies_customer_email') || ''}`, 14, 32);
+        const docType = forRole === 'contractor' ? 'EARNINGS STATEMENT' : 'STATEMENT OF ACCOUNT';
+        pdfLetterhead(doc, { docType, docRef: null, dateStr: new Date().toLocaleDateString('en-AU') });
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(140);
+        doc.text(forRole === 'contractor' ? 'CONTRACTOR' : 'ACCOUNT HOLDER', 14, 46);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(20, 20, 20);
+        doc.text(localStorage.getItem(forRole === 'contractor' ? 'mysubbies_contractor_email' : 'mysubbies_customer_email') || '—', 14, 52);
         doc.autoTable({
-          startY: 38, head: [STATEMENT_COLUMNS.map(c => c.label)],
+          startY: 62, head: [STATEMENT_COLUMNS.map(c => c.label)],
           body: rows.map(r => STATEMENT_COLUMNS.map(c => r[c.key])),
-          styles: { fontSize: 8 }, headStyles: { fillColor: [20, 33, 61] },
+          styles: { fontSize: 8, cellPadding: 3.5 }, headStyles: { fillColor: PDF_NAVY, textColor: 255, fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: PDF_PAPER },
+          columnStyles: { 4: { halign: 'right' }, 5: { halign: 'center' } },
+          theme: 'grid',
         });
-        const finalY = doc.lastAutoTable.finalY || 40;
-        doc.setFontSize(11); doc.setTextColor(0);
-        doc.text(`Total ${forRole === 'contractor' ? 'paid out' : 'paid'}: ${fmtCents(totalCents)}`, 14, finalY + 10);
-        doc.setFontSize(8); doc.setTextColor(150);
-        doc.text('This is a payment record, not a tax invoice.', 14, finalY + 18);
+        let finalY = doc.lastAutoTable.finalY || 66;
+        if (finalY > 260) { doc.addPage(); finalY = 20; }
+        pdfSimpleTotalBox(doc, finalY + 12, totalCents, forRole === 'contractor' ? 'Total paid out' : 'Total paid');
+        pdfFooter(doc, 'This is a payment record, not a tax invoice.');
         doc.save(label + '.pdf');
       }
     } catch (e) { showToast('Could not prepare the statement — try again.'); }
@@ -1366,13 +1415,22 @@
       const milestones = data.milestones || [];
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
-      doc.setFontSize(16); doc.text('MySubbies', 14, 18);
-      doc.setFontSize(11); doc.text('Payment Receipt', 14, 26);
-      doc.setFontSize(9); doc.setTextColor(90);
+      const jobRef = job.jobNumber != null ? 'Job #' + job.jobNumber : jobId;
+      pdfLetterhead(doc, { docType: 'PAYMENT RECEIPT', docRef: jobRef, dateStr: new Date().toLocaleDateString('en-AU') });
+
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(140);
+      doc.text('PAID TO', 14, 46);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(20, 20, 20);
+      doc.text(job.contractor || '—', 14, 52);
+
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(140);
+      doc.text('JOB', 120, 46);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(20, 20, 20);
       const titleDetail = job.items && job.items.length === 1 ? job.items[0].taskName : job.category;
-      doc.text(`Job ${job.jobNumber != null ? '#' + job.jobNumber : jobId}${titleDetail ? ' — ' + titleDetail : ''}`, 14, 34);
-      doc.text(`${job.suburb || ''}${job.address ? ' — ' + job.address : ''}`, 14, 40);
-      doc.text(`Customer: ${job.customerName || '—'}    Contractor: ${job.contractor || '—'}`, 14, 46);
+      doc.text(titleDetail || job.category || '—', 120, 52);
+      doc.setFontSize(9); doc.setTextColor(110);
+      doc.text(`${job.suburb || ''}${job.address ? ' — ' + job.address : ''}`, 120, 57);
+
       const rows = milestones.map(m => [
         m.label || m.milestone_type || '',
         fmtCents(forRole === 'contractor' ? Math.round((m.amount_cents || 0) * 0.75) : (m.amount_cents || 0)),
@@ -1380,15 +1438,16 @@
         m.paid_at ? new Date(m.paid_at).toLocaleDateString('en-AU') : '—',
       ]);
       doc.autoTable({
-        startY: 54, head: [['Stage', 'Amount', 'Status', 'Paid On']], body: rows,
-        styles: { fontSize: 9 }, headStyles: { fillColor: [20, 33, 61] },
+        startY: 66, head: [['Stage', 'Amount', 'Status', 'Paid On']], body: rows,
+        styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: PDF_NAVY, textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: PDF_PAPER },
+        columnStyles: { 1: { halign: 'right' }, 2: { halign: 'center' } },
+        theme: 'grid',
       });
-      const finalY = doc.lastAutoTable.finalY || 60;
+      const finalY = doc.lastAutoTable.finalY || 70;
       const totalPaidCents = milestones.filter(m => m.status === 'paid').reduce((s, m) => s + Math.round((m.amount_cents || 0) * (forRole === 'contractor' ? 0.75 : 1)), 0);
-      doc.setFontSize(11); doc.setTextColor(0);
-      doc.text(`Total paid: ${fmtCents(totalPaidCents)}`, 14, finalY + 10);
-      doc.setFontSize(8); doc.setTextColor(150);
-      doc.text('This is a payment record, not a tax invoice.', 14, finalY + 18);
+      pdfSimpleTotalBox(doc, finalY + 12, totalPaidCents, 'Total paid');
+      pdfFooter(doc, 'This is a payment record, not a tax invoice.');
       doc.save(`mysubbies-receipt-${job.jobNumber || jobId}.pdf`);
     } catch (e) { showToast('Could not prepare the receipt — try again.'); }
   }
