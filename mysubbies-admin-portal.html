@@ -1203,8 +1203,29 @@
   // researched services), so this one change point covers all of them.
   // Fire-and-forget, same non-blocking posture as saveJobs()'s sync call --
   // a slow/failed push must never stop the admin's own UI from updating.
+  // Sep 2026 -- localStorage.setItem throws (QuotaExceededError) once the
+  // rate card's photos push its JSON past this browser's per-origin quota
+  // (~5MB in most browsers; 82 photos already pushed this rate card to
+  // ~4.4MB, so it's right at the edge). That throw used to happen BEFORE
+  // the server push below and BEFORE the caller's re-render, so a photo
+  // upload (or any edit) past the quota silently never reached the server
+  // AND never showed in the UI -- looked exactly like "photos disappear on
+  // upload". Now: local caching failure doesn't block the server push
+  // (Supabase has no such limit), and it's wrapped so it can never abort
+  // this function. Every call site also now re-renders from the
+  // `categories` object it already has in hand rather than reading back
+  // through localStorage, so a stale/failed local cache can no longer make
+  // an admin's own just-made edit look reverted.
   function saveRateCard(categories) {
-    localStorage.setItem('mysubbies_ratecard', JSON.stringify(categories));
+    try {
+      localStorage.setItem('mysubbies_ratecard', JSON.stringify(categories));
+    } catch (e) {
+      console.error('localStorage quota exceeded saving rate card (photos are the main size driver):', e);
+      if (!window.__rcQuotaWarned) {
+        window.__rcQuotaWarned = true;
+        showToast("Saved to the server, but this browser's local cache is full (too many photos) — reload the page if the rate card looks out of date.");
+      }
+    }
     adminFetch('/api/rate-card', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ categories }),
@@ -1224,8 +1245,16 @@
       if (!Array.isArray(categories) || categories.length === 0) return;
       const current = JSON.stringify(getRateCard());
       if (JSON.stringify(categories) !== current) {
-        localStorage.setItem('mysubbies_ratecard', JSON.stringify(categories));
-        if (tab === 'ratecard') render();
+        // Local caching and re-rendering are independent -- a quota failure
+        // on the (likely large, photo-heavy) local write must not also
+        // skip showing the fresh server data that was just fetched (see
+        // saveRateCard()'s comment for the same class of bug this fixes).
+        try { localStorage.setItem('mysubbies_ratecard', JSON.stringify(categories)); } catch (e) { /* local cache full -- server copy below still renders */ }
+        if (tab === 'ratecard') {
+          const list = document.getElementById('rcManageList');
+          if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
+          else render();
+        }
       }
     } catch (e) { /* offline or first load -- local data still works */ }
   }
@@ -1287,7 +1316,7 @@
     delete rcTaskDrafts[key];
     const rowId = rcRowId(catLabel, realIdx);
     const list = document.getElementById('rcManageList');
-    if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
+    if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
     const savedMsg = document.getElementById('rcSavedMsg-' + rowId);
     if (savedMsg) { savedMsg.style.display = 'inline'; setTimeout(() => { if (savedMsg) savedMsg.style.display = 'none'; }, 1800); }
   }
@@ -1305,8 +1334,16 @@
   // immediately (like Hold/Unhold) rather than going through the
   // name/rate/notes draft above -- picking a photo is already a single
   // deliberate action, not something to accidentally half-finish.
-  const RC_PHOTO_MAX_WIDTH = 480;
-  const RC_PHOTO_JPEG_QUALITY = 0.72;
+  // Sep 2026 -- lowered from 480/0.72: with 82 photos already uploaded, the
+  // synced rate card blob had grown to ~4.4MB, right at the edge of (and
+  // now past) the ~5MB localStorage-per-origin quota most browsers enforce
+  // -- see saveRateCard()'s comment for what that broke (photo uploads
+  // silently failing to save). These tiles render small (chip thumbnails,
+  // sub-category gallery cards) so 320px/0.6 is still plenty sharp while
+  // roughly halving the size of every new photo, buying real headroom
+  // before this happens again. Does not touch photos already uploaded.
+  const RC_PHOTO_MAX_WIDTH = 320;
+  const RC_PHOTO_JPEG_QUALITY = 0.6;
   function onTaskPhotoSelected(catLabel, realIdx, event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
@@ -1325,7 +1362,7 @@
         cat.tasks[realIdx].photoDataUrl = canvas.toDataURL('image/jpeg', RC_PHOTO_JPEG_QUALITY);
         saveRateCard(categories);
         const list = document.getElementById('rcManageList');
-        if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
+        if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
       };
       img.src = e.target.result;
     };
@@ -1339,7 +1376,7 @@
     delete cat.tasks[realIdx].photoDataUrl;
     saveRateCard(categories);
     const list = document.getElementById('rcManageList');
-    if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
+    if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
   }
   // Re-render on every keystroke rebuilds #rcManageList's innerHTML same as
   // everywhere else in this file, which would normally drop focus/cursor
@@ -1407,7 +1444,7 @@
     rcAddingTaskCat = null;
     rcNewTaskDraft = { name: '', unit: '', rate: '', minJobPrice: '', notes: '' };
     const list = document.getElementById('rcManageList');
-    if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
+    if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
   }
 
   // Section 5 of the small-jobs brief: a configurable floor so a job never
@@ -2290,7 +2327,12 @@
     if (!cat) return;
     cat.tasks[taskIdx].disabled = !cat.tasks[taskIdx].disabled;
     saveRateCard(categories);
-    render();
+    // Targeted refresh from the in-memory categories object, same as every
+    // other rate-card mutator in this file -- a full render() would re-read
+    // via getRateCard() (localStorage), which can be stale if the local
+    // cache write in saveRateCard() failed (see its comment).
+    const list = document.getElementById('rcManageList');
+    if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
   }
 
   // Permanent delete (Aug 2026, founder report of duplicate categories/tasks
@@ -2320,7 +2362,7 @@
     delete rcTaskDrafts[catLabel + '__' + realIdx];
     saveRateCard(categories);
     const list = document.getElementById('rcManageList');
-    if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
+    if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
   }
 
   function deleteCategory(catLabel, event) {
@@ -2335,7 +2377,7 @@
     rcExpandedCategories.delete(catLabel);
     saveRateCard(categories);
     const list = document.getElementById('rcManageList');
-    if (list) list.innerHTML = rateCardManageHtml(getRateCard(), rcManageSearchQuery);
+    if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
   }
 
   function getBulkHistory() { return JSON.parse(localStorage.getItem('mysubbies_ratecard_bulklog') || '[]'); }
