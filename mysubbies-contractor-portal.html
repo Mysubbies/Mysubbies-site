@@ -523,17 +523,29 @@
   const app = document.getElementById('app');
 
   // General-purpose "Contact MySubbies" inquiry (Aug 2026) -- not tied to
-  // any specific job. Same localStorage-log pattern used elsewhere in this
-  // codebase (mysubbies_disputes etc.). Each inquiry holds a `messages`
-  // thread (not just a single message) so admin can actually reply and the
-  // contractor can keep the conversation going -- the original version
-  // only had a "Mark resolved" button on the admin side with no way to
-  // respond, which founder feedback flagged as a real gap. Attachments
-  // stored as data URIs in the record itself, same as job photos already are.
+  // any specific job. Each inquiry holds a `messages` thread (not just a
+  // single message) so admin can actually reply and the contractor can
+  // keep the conversation going. Attachments stored as data URIs in the
+  // record itself, same as job photos already are.
+  //
+  // Sep 2026 (pre-launch audit) -- this used to be 100% localStorage-only,
+  // so a contractor's submission never reached admin on any device. Now
+  // backed by a real table (api/support.js,
+  // supabase/schema_v14_disputes_inquiries.sql); localStorage stays as an
+  // offline-first cache kept fresh by hydrateInquiriesFromServer().
   let inquiryAttachments = [];
   let showingNewInquiry = false;
   function getInquiries() { return JSON.parse(localStorage.getItem('mysubbies_inquiries') || '[]'); }
   function saveInquiries(inq) { localStorage.setItem('mysubbies_inquiries', JSON.stringify(inq)); }
+  async function hydrateInquiriesFromServer(email) {
+    if (!email) return;
+    try {
+      const res = await fetch('/api/support?entity=inquiries&role=contractor&email=' + encodeURIComponent(email));
+      if (!res.ok) return;
+      const { inquiries } = await res.json();
+      if (Array.isArray(inquiries)) saveInquiries(inquiries);
+    } catch (e) { /* offline -- local cache still works */ }
+  }
 
   function openInquiryForm() {
     showingNewInquiry = false;
@@ -597,16 +609,18 @@
           </div>` : ''}
       </div>`;
   }
-  function replyToInquiry(id, myRole) {
+  async function replyToInquiry(id, myRole) {
     const input = document.getElementById('inquiryReply_' + id);
     const text = input.value.trim();
     if (!text) return;
-    const inquiries = getInquiries();
-    const i = inquiries.find(x => x.id === id);
-    if (!i) return;
-    i.messages = i.messages || [];
-    i.messages.push({ from: myRole, text, createdAt: new Date().toISOString() });
-    saveInquiries(inquiries);
+    const email = localStorage.getItem('mysubbies_contractor_email');
+    try {
+      await fetch('/api/support', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'inquiries', action: 'reply', id, from: myRole, text, email }),
+      });
+    } catch (e) { /* falls through to re-hydrate either way */ }
+    await hydrateInquiriesFromServer(email);
     renderInquiryPanel();
   }
   function onInquiryFileSelected(event) {
@@ -633,7 +647,7 @@
     inquiryAttachments.splice(idx, 1);
     renderInquiryAttachmentList();
   }
-  function submitInquiry() {
+  async function submitInquiry() {
     const input = document.getElementById('inquiryMessage');
     const message = input.value.trim();
     const errBox = document.getElementById('inquiryError');
@@ -645,12 +659,17 @@
     }
     const name = getContractorName();
     const email = localStorage.getItem('mysubbies_contractor_email');
-    const inquiries = getInquiries();
-    inquiries.unshift({
-      id: 'inq_' + Date.now(), role: 'contractor', name, email, status: 'open', createdAt: new Date().toISOString(),
-      messages: [{ from: 'contractor', text: message, attachments: inquiryAttachments, createdAt: new Date().toISOString() }],
-    });
-    saveInquiries(inquiries);
+    try {
+      await fetch('/api/support', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'inquiries', action: 'create', role: 'contractor', name, email, text: message, attachments: inquiryAttachments }),
+      });
+    } catch (e) {
+      errBox.textContent = 'Could not send — please try again.';
+      errBox.style.display = 'block';
+      return;
+    }
+    await hydrateInquiriesFromServer(email);
     showingNewInquiry = false;
     renderInquiryPanel();
   }
@@ -2283,6 +2302,7 @@
   }
 
   Promise.all([hydrateJobsFromServer(), hydrateAdminMessages()]).then(render);
+  hydrateInquiriesFromServer(localStorage.getItem('mysubbies_contractor_email')).then(() => { if (document.getElementById('inquiryFormWrap')) renderInquiryPanel(); });
 </script>
 <script>
 if ('serviceWorker' in navigator) {

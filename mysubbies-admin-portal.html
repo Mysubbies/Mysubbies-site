@@ -245,7 +245,7 @@
   // session token (see api/_lib/adminAuth.js) that every admin-only
   // endpoint now verifies before acting.
   function checkAdminAuth() {
-    if (localStorage.getItem('mysubbies_admin_token')) { Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer()]).then(render); return; }
+    if (localStorage.getItem('mysubbies_admin_token')) { Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer(), hydrateDisputesFromServer(), hydrateInquiriesFromServer()]).then(render); return; }
     document.getElementById('app').innerHTML = `
       <div style="max-width:360px;margin:80px auto 0;background:#fff;border:1px solid var(--line);border-radius:16px;padding:28px;">
         <h1 style="font-size:22px;font-weight:800;margin-bottom:8px;">Admin login</h1>
@@ -815,8 +815,33 @@
     setTimeout(() => { t.style.display = 'none'; }, 2000);
   }
 
+  // Sep 2026 (pre-launch audit) -- disputes/inquiries used to be 100%
+  // localStorage-only in every portal, so a customer/contractor report
+  // never reached admin on any device despite the UI saying it had been
+  // sent. Now backed by real tables (api/support.js,
+  // supabase/schema_v14_disputes_inquiries.sql). localStorage stays as an
+  // offline-first cache (same pattern getJobs()/getApplications() already
+  // use) so every render*Tab() function below is unchanged -- only kept
+  // fresh by hydrateDisputesFromServer()/hydrateInquiriesFromServer() now
+  // instead of being the only copy that ever existed.
   function getDisputes() { return JSON.parse(localStorage.getItem('mysubbies_disputes') || '[]'); }
   function saveDisputes(d) { localStorage.setItem('mysubbies_disputes', JSON.stringify(d)); }
+  async function hydrateDisputesFromServer() {
+    try {
+      const res = await adminFetch('/api/support?entity=disputes&role=admin');
+      if (!res.ok) return;
+      const { disputes } = await res.json();
+      if (Array.isArray(disputes)) saveDisputes(disputes);
+    } catch (e) { /* offline -- local cache still works */ }
+  }
+  async function hydrateInquiriesFromServer() {
+    try {
+      const res = await adminFetch('/api/support?entity=inquiries&role=admin');
+      if (!res.ok) return;
+      const { inquiries } = await res.json();
+      if (Array.isArray(inquiries)) saveInquiries(inquiries);
+    } catch (e) { /* offline -- local cache still works */ }
+  }
 
   function renderDisputesTab(disputes, jobs) {
     if (disputes.length === 0) return '<div class="empty">No disputes reported.</div>';
@@ -841,25 +866,36 @@
       }).join('')}
     `;
   }
-  function resolveDispute(id) {
+  async function resolveDispute(id) {
     const disputes = getDisputes();
     const d = disputes.find(x => x.id === id);
-    d.status = 'resolved';
-    saveDisputes(disputes);
+    if (d) { d.status = 'resolved'; saveDisputes(disputes); render(); }
+    try {
+      await adminFetch('/api/support', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'disputes', action: 'resolve', id }),
+      });
+    } catch (e) {}
+    await hydrateDisputesFromServer();
     render();
   }
 
   // General-purpose "Contact MySubbies" inquiries (Aug 2026) -- customers
   // and contractors can each send a free-form message with attachments
-  // from their own portal, not tied to a specific job. Same
-  // localStorage-log pattern as disputes above.
+  // from their own portal, not tied to a specific job.
   function getInquiries() { return JSON.parse(localStorage.getItem('mysubbies_inquiries') || '[]'); }
   function saveInquiries(inq) { localStorage.setItem('mysubbies_inquiries', JSON.stringify(inq)); }
-  function resolveInquiry(id) {
+  async function resolveInquiry(id) {
     const inquiries = getInquiries();
     const i = inquiries.find(x => x.id === id);
-    i.status = 'resolved';
-    saveInquiries(inquiries);
+    if (i) { i.status = 'resolved'; saveInquiries(inquiries); render(); }
+    try {
+      await adminFetch('/api/support', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'inquiries', action: 'resolve', id }),
+      });
+    } catch (e) {}
+    await hydrateInquiriesFromServer();
     render();
   }
   // Two-way thread (Aug 2026) -- the original version only showed the
@@ -913,23 +949,30 @@
           </div>` : ''}
       </div>`;
   }
-  function replyToInquiry(id, myRole) {
+  async function replyToInquiry(id, myRole) {
     const input = document.getElementById('inquiryReply_' + id);
     const text = input.value.trim();
     if (!text) return;
-    const inquiries = getInquiries();
-    const i = inquiries.find(x => x.id === id);
-    if (!i) return;
-    i.messages = i.messages || [];
-    i.messages.push({ from: myRole, text, createdAt: new Date().toISOString() });
-    saveInquiries(inquiries);
+    try {
+      await adminFetch('/api/support', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'inquiries', action: 'reply', id, from: myRole, text }),
+      });
+    } catch (e) {}
+    await hydrateInquiriesFromServer();
     render();
   }
-  function reopenInquiry(id) {
+  async function reopenInquiry(id) {
     const inquiries = getInquiries();
     const i = inquiries.find(x => x.id === id);
-    i.status = 'open';
-    saveInquiries(inquiries);
+    if (i) { i.status = 'open'; saveInquiries(inquiries); render(); }
+    try {
+      await adminFetch('/api/support', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'inquiries', action: 'reopen', id }),
+      });
+    } catch (e) {}
+    await hydrateInquiriesFromServer();
     render();
   }
 
@@ -3096,7 +3139,7 @@
   async function pollForNewActivity() {
     if (!localStorage.getItem('mysubbies_admin_token')) return; // not logged in yet -- nothing to poll for
     try {
-      await Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer()]);
+      await Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateDisputesFromServer(), hydrateInquiriesFromServer()]);
       const unreadRes = await adminFetch('/api/get-admin-list?type=unread-contractor-messages');
       const unreadData = await unreadRes.json();
       unreadContractorMessageCount = unreadData.contractorCount || 0;

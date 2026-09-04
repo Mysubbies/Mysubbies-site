@@ -408,18 +408,43 @@
   function closePropertyProfile() { showingPropertyProfile = false; render(); }
 
   // General-purpose "Contact MySubbies" inquiry (Aug 2026) -- not tied to
-  // any specific job, unlike Report a problem/Request to cancel. Same
-  // localStorage-log pattern as mysubbies_disputes. Each inquiry holds a
-  // `messages` thread (not just a single message) so admin can actually
-  // reply and the customer can keep the conversation going -- the original
-  // version only had a "Mark resolved" button on the admin side with no
-  // way to respond, which founder feedback flagged as a real gap.
+  // any specific job, unlike Report a problem/Request to cancel. Each
+  // inquiry holds a `messages` thread (not just a single message) so admin
+  // can actually reply and the customer can keep the conversation going.
   // Attachments are stored the same way job photos already are elsewhere
   // in this codebase (data URIs in the record itself).
+  //
+  // Sep 2026 (pre-launch audit) -- this used to be 100% localStorage-only:
+  // a customer's submission never reached admin on any device despite the
+  // UI saying "our team will review this". Now backed by a real table
+  // (api/support.js, supabase/schema_v14_disputes_inquiries.sql).
+  // localStorage stays as an offline-first cache (same pattern getJobs()
+  // already uses) -- getInquiries() still reads it synchronously so
+  // renderInquiryPanel() doesn't need to become async, but it's now kept
+  // fresh by hydrateInquiriesFromServer() on load instead of being the
+  // only copy that ever existed.
   let inquiryAttachments = [];
   let showingNewInquiry = false;
   function getInquiries() { return JSON.parse(localStorage.getItem('mysubbies_inquiries') || '[]'); }
   function saveInquiries(inq) { localStorage.setItem('mysubbies_inquiries', JSON.stringify(inq)); }
+  async function hydrateInquiriesFromServer(email) {
+    if (!email) return;
+    try {
+      const res = await fetch('/api/support?entity=inquiries&role=customer&email=' + encodeURIComponent(email));
+      if (!res.ok) return;
+      const { inquiries } = await res.json();
+      if (Array.isArray(inquiries)) saveInquiries(inquiries);
+    } catch (e) { /* offline -- local cache still works */ }
+  }
+  async function hydrateDisputesFromServer(email) {
+    if (!email) return;
+    try {
+      const res = await fetch('/api/support?entity=disputes&role=customer&email=' + encodeURIComponent(email));
+      if (!res.ok) return;
+      const { disputes } = await res.json();
+      if (Array.isArray(disputes)) localStorage.setItem('mysubbies_disputes', JSON.stringify(disputes));
+    } catch (e) { /* offline -- local cache still works */ }
+  }
 
   function openInquiryForm() {
     showingNewInquiry = false;
@@ -483,16 +508,19 @@
           </div>` : ''}
       </div>`;
   }
-  function replyToInquiry(id, myRole) {
+  async function replyToInquiry(id, myRole) {
     const input = document.getElementById('inquiryReply_' + id);
     const text = input.value.trim();
     if (!text) return;
-    const inquiries = getInquiries();
-    const i = inquiries.find(x => x.id === id);
-    if (!i) return;
-    i.messages = i.messages || [];
-    i.messages.push({ from: myRole, text, createdAt: new Date().toISOString() });
-    saveInquiries(inquiries);
+    const email = getCurrentCustomerEmail();
+    input.disabled = true;
+    try {
+      await fetch('/api/support', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'inquiries', action: 'reply', id, from: myRole, text, email }),
+      });
+    } catch (e) { /* falls through to re-hydrate either way */ }
+    await hydrateInquiriesFromServer(email);
     renderInquiryPanel();
   }
   function onInquiryFileSelected(event) {
@@ -519,7 +547,7 @@
     inquiryAttachments.splice(idx, 1);
     renderInquiryAttachmentList();
   }
-  function submitInquiry() {
+  async function submitInquiry() {
     const input = document.getElementById('inquiryMessage');
     const message = input.value.trim();
     const errBox = document.getElementById('inquiryError');
@@ -532,12 +560,17 @@
     const email = getCurrentCustomerEmail();
     const customers = getCustomers();
     const name = (customers[email] && customers[email].name) || email;
-    const inquiries = getInquiries();
-    inquiries.unshift({
-      id: 'inq_' + Date.now(), role: 'customer', name, email, status: 'open', createdAt: new Date().toISOString(),
-      messages: [{ from: 'customer', text: message, attachments: inquiryAttachments, createdAt: new Date().toISOString() }],
-    });
-    saveInquiries(inquiries);
+    try {
+      await fetch('/api/support', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'inquiries', action: 'create', role: 'customer', name, email, text: message, attachments: inquiryAttachments }),
+      });
+    } catch (e) {
+      errBox.textContent = 'Could not send — please try again.';
+      errBox.style.display = 'block';
+      return;
+    }
+    await hydrateInquiriesFromServer(email);
     showingNewInquiry = false;
     renderInquiryPanel();
   }
@@ -1809,13 +1842,22 @@
         <button class="btn btn-black btn-full" onclick="submitDispute('${selectedJobId}')">Submit report</button>
       </div>`;
   }
-  function submitDispute(jobId) {
+  async function submitDispute(jobId) {
     const reason = document.getElementById('disputeReason').value;
     const details = document.getElementById('disputeDetails').value.trim();
-    const disputes = JSON.parse(localStorage.getItem('mysubbies_disputes') || '[]');
-    disputes.unshift({ id: 'dispute_' + Date.now(), jobId, reason, details, status: 'open', reportedAt: new Date().toISOString(), reportedBy: 'customer' });
-    localStorage.setItem('mysubbies_disputes', JSON.stringify(disputes));
-    document.getElementById('disputeFormWrap').innerHTML = `<div class="note" style="margin-top:12px;">✓ Reported — our team will review this and be in touch.</div>`;
+    const email = getCurrentCustomerEmail();
+    const wrap = document.getElementById('disputeFormWrap');
+    try {
+      const res = await fetch('/api/support', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'disputes', action: 'create', jobId, reason, details, reportedBy: 'customer', reportedByEmail: email }),
+      });
+      if (!res.ok) throw new Error('failed');
+      await hydrateDisputesFromServer(email);
+      wrap.innerHTML = `<div class="note" style="margin-top:12px;">✓ Reported — our team will review this and be in touch.</div>`;
+    } catch (e) {
+      wrap.innerHTML = `<div class="note" style="margin-top:12px;color:var(--warn);">Could not submit — please try again, or email support@mysubbies.com.au.</div>`;
+    }
   }
 
   // Cancel/edit are only offered while a job is still unallocated (status
@@ -2302,6 +2344,7 @@
   showingPropertyProfile = true;
   localStorage.removeItem('mysubbies_open_house_health');
   hydrateJobsFromServer().then(render);
+  { const __email = getCurrentCustomerEmail(); hydrateDisputesFromServer(__email); hydrateInquiriesFromServer(__email).then(() => { if (document.getElementById('inquiryFormWrap')) renderInquiryPanel(); }); }
 </script>
 <script>
 if ('serviceWorker' in navigator) {
