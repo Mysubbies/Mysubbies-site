@@ -125,10 +125,11 @@ module.exports = async (req, res) => {
     if (type === 'new-job-available') {
       const { category, suburb, taskName, items, qty, unit, urgency, access, site, photoThumb, basePrice } = req.body || {};
       if (!category) { res.status(400).json({ error: 'category is required.' }); return; }
-      // Same 75% figure shown everywhere else a contractor sees a job's
+      // Same 82% figure shown everywhere else a contractor sees a job's
       // value (Job Feed's Payout column, My Jobs, earnings) -- never the
-      // gross customer price, which includes Mysubbies' 25% commission.
-      const payout = basePrice != null ? Math.round(Number(basePrice) * 0.75) : null;
+      // gross customer price, which includes Mysubbies' 18% commission
+      // (updated Sept 2026, was 25%/75%).
+      const payout = basePrice != null ? Math.round(Number(basePrice) * 0.82) : null;
 
       const supabase = getSupabase();
       const { data, error } = await supabase

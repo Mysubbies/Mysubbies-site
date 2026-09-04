@@ -865,7 +865,7 @@
 
     if (tab === 'earnings') {
       const completed = myJobsCompleted;
-      const totalEarned = completed.reduce((s, j) => s + Math.round((j.basePrice || 0) * 0.75), 0);
+      const totalEarned = completed.reduce((s, j) => s + Math.round((j.basePrice || 0) * 0.82), 0);
       const { avg: avgRating, count: ratedCount } = computeContractorRatingStats(completed);
       app.innerHTML += `
         <h1 class="pagetitle">Earnings</h1>
@@ -886,7 +886,7 @@
                 <tr class="jobrow">
                   <td onclick="openEarningsDetail('${j.id}')"><strong>${escapeHtml(titleDetail)}</strong></td>
                   <td onclick="openEarningsDetail('${j.id}')">${escapeHtml(j.suburb)}</td>
-                  <td onclick="openEarningsDetail('${j.id}')">$${Math.round((j.basePrice||0)*0.75).toLocaleString()}</td>
+                  <td onclick="openEarningsDetail('${j.id}')">$${Math.round((j.basePrice||0)*0.82).toLocaleString()}</td>
                   <td onclick="openEarningsDetail('${j.id}')">${j.customerRating ? `${'★'.repeat(j.customerRating)}${'☆'.repeat(5-j.customerRating)}` : '<span style="color:var(--stone-light);">Not yet rated</span>'}</td>
                   <td><button class="btn btn-outline" style="width:auto;padding:6px 12px;font-size:11.5px;" onclick="event.stopPropagation(); downloadReceiptForJob('${j.id}', 'contractor')">Receipt</button></td>
                 </tr>`;
@@ -973,7 +973,7 @@
             const titleDetail = j.items && j.items.length === 1 ? j.items[0].taskName
               : j.items && j.items.length > 1 ? j.items.length + ' items'
               : `${j.qty} ${j.unit}`;
-            const payout = Math.round((j.basePrice || 0) * 0.75);
+            const payout = Math.round((j.basePrice || 0) * 0.82);
             return `
               <tr class="jobrow" onclick="selectedJobId='${j.id}'; render();">
                 <td>${j.jobNumber ? '#' + j.jobNumber : '—'}</td>
@@ -1015,7 +1015,7 @@
                 <td>${escapeHtml(j.address || j.suburb)}${j.address ? `<br><span style="color:var(--stone);font-size:12px;">${escapeHtml(j.suburb)}</span>` : ''}</td>
                 <td>${j.customerName ? escapeHtml(j.customerName) : '—'}</td>
                 <td><span class="badge ${JOB_BADGE_CLASS[j.status] || 'badge-feed'}">${JOB_BADGE_LABEL[j.status] || j.status}</span></td>
-                <td>$${Math.round((j.basePrice || 0) * 0.75).toLocaleString()}</td>
+                <td>$${Math.round((j.basePrice || 0) * 0.82).toLocaleString()}</td>
                 <td>${j.status === 'cancelled' ? `<button class="btn btn-outline" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="hideCancelledJob('${j.id}', event)">Remove</button>` : ''}</td>
               </tr>`;
           }).join('')}
@@ -1052,7 +1052,7 @@
     const j = jobs.find(x => x.id === selectedJobId);
     if (!j) { selectedJobId = null; render(); return; }
     const isMine = j.contractor === name;
-    const payout = Math.round(j.basePrice * 0.75);
+    const payout = Math.round(j.basePrice * 0.82);
 
     let actions = '';
     if (!isMine) {
@@ -1096,7 +1096,7 @@
             ${j.items.map(i => `
               <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;">
                 <span>${i.catIcon || ''} ${escapeHtml(i.taskName)} <span style="color:var(--stone);">(${i.qty} ${escapeHtml(i.unit)})</span></span>
-                <span style="font-weight:600;">${i.aiEstimated ? '~' : ''}$${Math.round(i.base * 0.75).toLocaleString()}</span>
+                <span style="font-weight:600;">${i.aiEstimated ? '~' : ''}$${Math.round(i.base * 0.82).toLocaleString()}</span>
               </div>
               ${i.aiEstimated ? `<div style="font-size:11.5px;font-weight:700;color:#D98E14;background:#FDF0D9;border-radius:6px;padding:4px 8px;margin-bottom:4px;">🤖 AI-estimated price — MySubbies will confirm the final price before this is dispatched</div>` : ''}
               ${i.notes ? `<div style="font-size:11.5px;color:var(--stone);margin-bottom:4px;">${escapeHtml(i.notes)}</div>` : ''}
@@ -1169,14 +1169,14 @@
   // claim where materials/completion payouts aren't automated yet, so a
   // dollar figure there would read as a promise the system doesn't
   // enforce. A completed job is different -- by definition every milestone
-  // is already resolved, so showing the real 75% payout per stage is just
+  // is already resolved, so showing the real 82% payout per stage is just
   // reporting what happened, not promising anything.
   // Stripe Connect payout setup (Aug 2026) -- the account itself and the
   // weekly payout cron already existed; this is the first UI ever wired to
   // it. Status: 'not_started' (no row yet) | 'pending' (account created,
   // onboarding unfinished) | 'complete' (Stripe confirmed via the
   // account.updated webhook -- eligible for the weekly auto-transfer of the
-  // deposit's 75% share).
+  // deposit's 82% share).
   async function loadConnectOnboardingStatus() {
     connectOnboardingLoading = true;
     try {
@@ -1479,7 +1479,7 @@
     const rows = [];
     jobsWithMilestones.forEach(j => {
       (j.milestones || []).forEach(m => {
-        const amountCents = forRole === 'contractor' ? Math.round((m.amount_cents || 0) * 0.75) : (m.amount_cents || 0);
+        const amountCents = forRole === 'contractor' ? Math.round((m.amount_cents || 0) * 0.82) : (m.amount_cents || 0);
         rows.push({
           jobNumber: j.jobNumber != null ? '#' + j.jobNumber : j.jobId,
           category: j.category || '', suburb: j.suburb || '', stage: m.label || m.milestone_type || '',
@@ -1511,7 +1511,7 @@
       } else if (format === 'xlsx') {
         downloadXlsx(label + '.xlsx', rows, STATEMENT_COLUMNS);
       } else if (format === 'pdf') {
-        const totalCents = jobsWithMilestones.reduce((s, j) => s + (j.milestones || []).filter(m => m.status === 'paid').reduce((s2, m) => s2 + Math.round((m.amount_cents || 0) * (forRole === 'contractor' ? 0.75 : 1)), 0), 0);
+        const totalCents = jobsWithMilestones.reduce((s, j) => s + (j.milestones || []).filter(m => m.status === 'paid').reduce((s2, m) => s2 + Math.round((m.amount_cents || 0) * (forRole === 'contractor' ? 0.82 : 1)), 0), 0);
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         const docType = forRole === 'contractor' ? 'EARNINGS STATEMENT' : 'STATEMENT OF ACCOUNT';
@@ -1565,7 +1565,7 @@
 
       const rows = milestones.map(m => [
         m.label || m.milestone_type || '',
-        fmtCents(forRole === 'contractor' ? Math.round((m.amount_cents || 0) * 0.75) : (m.amount_cents || 0)),
+        fmtCents(forRole === 'contractor' ? Math.round((m.amount_cents || 0) * 0.82) : (m.amount_cents || 0)),
         m.status === 'paid' ? 'Paid' : 'Pending',
         m.paid_at ? new Date(m.paid_at).toLocaleDateString('en-AU') : '—',
       ]);
@@ -1577,7 +1577,7 @@
         theme: 'grid',
       });
       const finalY = doc.lastAutoTable.finalY || 70;
-      const totalPaidCents = milestones.filter(m => m.status === 'paid').reduce((s, m) => s + Math.round((m.amount_cents || 0) * (forRole === 'contractor' ? 0.75 : 1)), 0);
+      const totalPaidCents = milestones.filter(m => m.status === 'paid').reduce((s, m) => s + Math.round((m.amount_cents || 0) * (forRole === 'contractor' ? 0.82 : 1)), 0);
       pdfSimpleTotalBox(doc, finalY + 12, totalPaidCents, 'Total paid');
       pdfFooter(doc, 'This is a payment record, not a tax invoice.');
       doc.save(`mysubbies-receipt-${job.jobNumber || jobId}.pdf`);
@@ -1638,13 +1638,13 @@
       bodyHtml = '<div class="note">Loading…</div>';
     } else if (earningsJobData.error || !earningsJobData.schedule) {
       bodyHtml = `<div class="note">Could not load the payment breakdown for this job.</div>
-        <div class="row big"><span class="l">Total payout</span><span class="r">$${Math.round((j.basePrice || 0) * 0.75).toLocaleString()}</span></div>`;
+        <div class="row big"><span class="l">Total payout</span><span class="r">$${Math.round((j.basePrice || 0) * 0.82).toLocaleString()}</span></div>`;
     } else {
       const milestones = earningsJobData.milestones || [];
-      const totalPayout = milestones.reduce((s, m) => s + Math.round((m.amount_cents || 0) / 100 * 0.75), 0);
+      const totalPayout = milestones.reduce((s, m) => s + Math.round((m.amount_cents || 0) / 100 * 0.82), 0);
       bodyHtml = `
         ${milestones.map(m => `
-          <div class="row"><span class="l">${escapeHtml(m.label)} (${m.pct}%)</span><span class="r">$${Math.round((m.amount_cents || 0) / 100 * 0.75).toLocaleString()}</span></div>
+          <div class="row"><span class="l">${escapeHtml(m.label)} (${m.pct}%)</span><span class="r">$${Math.round((m.amount_cents || 0) / 100 * 0.82).toLocaleString()}</span></div>
         `).join('')}
         <div class="row big"><span class="l">Total payout</span><span class="r">$${totalPayout.toLocaleString()}</span></div>
       `;
@@ -1682,7 +1682,7 @@
     const stagebar = `<div class="stagebar">${milestones.map(m => `<div class="stage ${m.status === 'paid' ? 'done' : ''}" style="flex:${m.pct};"></div>`).join('')}</div>`;
     // Percentage only, deliberately no dollar figure -- amount_cents is the
     // milestone's share of the CUSTOMER's full price, not the contractor's
-    // payout (75%, and for anything past the deposit, paid out manually by
+    // payout (82%, and for anything past the deposit, paid out manually by
     // AP rather than by an automated split). Showing that number here would
     // read as a payout promise the system doesn't actually enforce.
     const list = `<div style="margin:10px 0;">${milestones.map(m => `

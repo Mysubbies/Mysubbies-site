@@ -1,4 +1,43 @@
-# Mysubbies Group — Project Context
+# Mysubbies Holdings — Project Context
+
+## Platform entity moved to Mysubbies Holdings Pty Ltd (Sept 2026)
+The online platform now runs under **Mysubbies Holdings Pty Ltd, ABN 69 693
+675 268** — moved off the original "Mysubbies Group Pty Ltd" entity
+(ABN 74 640 998 992) by explicit founder decision, for creditor protection
+of the platform business. Every legal page, PDF letterhead (customer tax
+invoice, contractor payment receipt), transactional email footer, and site
+footer now reference the new entity/ABN — grep for "74 640 998 992" or
+"Mysubbies Group" before adding new content that states the entity name,
+since either string being found means it was missed in this migration.
+
+## Real Terms & Conditions and Privacy Policy published (Sept 2026)
+`mysubbies-terms.html` and `mysubbies-privacy-policy.html` now carry the
+founder-supplied, dated/versioned real legal documents (23 Platform Terms
+clauses, 13 Privacy Policy sections) — not the earlier drafted-by-Claude
+placeholder text. `mysubbies-contractor-agreement.html` is still Claude's
+earlier draft, not the founder's supplied Contractor Portal T&C document —
+that supplied document is itself an explicitly unfinished draft (contains
+literal `[INSERT ABN]`/`[INSERT MINIMUM BY CATEGORY]`/`[INSERT CAP]`
+placeholders and a "must be reviewed by an Australian solicitor before
+publication" disclaimer), so it was deliberately not published as-is.
+Don't replace `mysubbies-contractor-agreement.html`'s content without
+either resolving those placeholders or getting explicit founder sign-off
+to publish with them still blank.
+
+## Platform commission changed to 18% (Sept 2026, was 25%)
+Contractor share is now **82%** (was 75%) of whatever pool a given
+percentage-split calculation applies to — the deposit's Stripe Connect
+payout share (`api/weekly-payout.js`), the admin Reports tab's GMV/
+commission/payout figures and per-job commission line
+(`mysubbies-admin-portal.html`), the admin Contractor payouts list
+(`api/get-admin-list.js`'s `type=contractor-payouts` branch), every
+contractor-facing payout figure in `mysubbies-contractor-portal.html`
+(Job Feed payout column, My Jobs, Earnings, milestone/statement views),
+the `new-job-available` notification email's payout figure
+(`api/notify.js`), and the Contractor Agreement's commission clause. If
+you add a new place that computes or states this split, use 18%/82%, not
+25%/75% — grep for `0.75`/`0.25`/`25%`/`75%` near "commission"/"payout" if
+unsure whether you've caught every call site.
 
 ## Customer app shell + House Health (added Aug 26, 2026)
 The public homepage (`index.html` and its mirrored `mysubbies-website.html`)
@@ -19,7 +58,9 @@ interval on the public homepage.
 ## What this is
 A Melbourne renovation/construction marketplace. Uber-style model: customer picks
 a service, gets an instant price, approves it, job is dispatched to one matched
-contractor from a vetted panel — not open bidding. 25% platform commission.
+contractor from a vetted panel — not open bidding. 18% platform commission
+(changed from 25% in Sept 2026 — see the "Platform commission changed to
+18%" note below for every place that split is computed).
 Solo founder, no dev team, built entirely through Claude conversations to date.
 
 ## Real payment backend (added Aug 2026) — deposit only, not fully live yet
@@ -45,7 +86,7 @@ payment/payout state, since that can never live in localStorage.
   Stripe account — there is still no automatic Stripe Connect transfer to
   contractors for materials/frame/completion. Contractors are paid those
   stages manually by Mysubbies AP, by explicit founder direction, until this
-  flow has proven stable. Only the deposit's 75% share flows through the
+  flow has proven stable. Only the deposit's 82% share flows through the
   automated weekly payout batch described below.
 - `paidStages[stageKey]` is set **client-side**, by the customer's own
   browser, immediately after `stripe.confirmCardPayment()` succeeds — not
@@ -63,7 +104,7 @@ payment/payout state, since that can never live in localStorage.
   at once — extending this to bundles is unbuilt follow-up work, not
   forgotten.
 - The weekly payout batch (`api/weekly-payout.js`, Vercel Cron, Mondays
-  01:00 UTC by default) only ever transfers a contractor's 75% share of the
+  01:00 UTC by default) only ever transfers a contractor's 82% share of the
   captured *deposit* — never the full job value, because the platform
   doesn't actually hold the rest of that money yet under this scope.
 - Payout eligibility (matching the founder's explicit requirement): job's

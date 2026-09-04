@@ -132,8 +132,8 @@ module.exports = async (req, res) => {
     // a job with a real job_payment_schedules row is complete when every
     // payment_milestones row for it is 'paid'; an older/bundle job with no
     // schedule row falls back to the same full_record.paymentSchedule vs
-    // paidStages check api/sync-jobs.js already uses. The contractor's 75%
-    // share of an already-transferred deposit (payout_line_items,
+    // paidStages check api/sync-jobs.js already uses. The contractor's 82%
+    // share (18% platform commission, updated Sept 2026) of an already-transferred deposit (payout_line_items,
     // status='transferred') is netted off so the founder doesn't double-pay
     // the slice the weekly Connect cron already sent automatically -- only
     // the deposit is ever auto-paid; materials/frame/completion stages are
@@ -192,7 +192,7 @@ module.exports = async (req, res) => {
         if (!completed) continue;
 
         const email = job.contractor_email;
-        const shareCents = Math.round((job.base_price_cents || 0) * 0.75);
+        const shareCents = Math.round((job.base_price_cents || 0) * 0.82);
         const alreadyPaidCents = transferredByJobId[job.id] || 0;
 
         if (!byContractor[email]) byContractor[email] = { contractorEmail: email, jobs: [], grossOwedCents: 0, alreadyPaidCents: 0 };

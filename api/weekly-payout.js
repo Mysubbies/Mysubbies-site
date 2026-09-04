@@ -15,9 +15,9 @@
 //   - this job has never already been paid out (enforced by a DB unique
 //     index as well as the query below — belt and braces against double-pay)
 //
-// v1 scope: only pays the contractor's 75% share of the DEPOSIT amount —
-// see schema.sql and create-deposit-intent.js for why the full job value
-// isn't in scope yet.
+// v1 scope: only pays the contractor's 82% share of the DEPOSIT amount
+// (18% platform commission, updated Sept 2026) — see schema.sql and
+// create-deposit-intent.js for why the full job value isn't in scope yet.
 const { getStripe, getSupabase } = require('./_lib/clients');
 
 const HOLD_DAYS = 3;
@@ -67,7 +67,7 @@ module.exports = async (req, res) => {
         .maybeSingle();
       if (!connectAccount) { results.push({ jobId: job.id, skipped: 'contractor not onboarded yet' }); continue; }
 
-      const amountCents = Math.round(job.deposit_amount_cents * 0.75);
+      const amountCents = Math.round(job.deposit_amount_cents * 0.82);
 
       try {
         const transfer = await stripe.transfers.create({

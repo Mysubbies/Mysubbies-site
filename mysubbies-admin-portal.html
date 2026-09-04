@@ -631,7 +631,7 @@
     return `
       <div class="detailcard" style="margin-bottom:14px;">
         <h3 style="font-size:15px;margin-bottom:4px;">Contractor payouts (weekly)</h3>
-        <p class="jobmeta" style="margin-bottom:12px;">Completed jobs per contractor. The deposit's 75% share is already sent automatically by the weekly Stripe transfer once a contractor's payout setup is complete — everything else here is still paid manually. "Still owed" already nets that off.</p>
+        <p class="jobmeta" style="margin-bottom:12px;">Completed jobs per contractor. The deposit's 82% share is already sent automatically by the weekly Stripe transfer once a contractor's payout setup is complete — everything else here is still paid manually. "Still owed" already nets that off.</p>
         <div class="row" style="font-weight:700;"><span class="l">Total still owed (manual), all contractors</span><span class="r">$${(totalNet/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
         ${contractorPayoutsData.map(c => `
           <div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px;">
@@ -647,7 +647,7 @@
             </div>
             ${expandedPayoutContractor === c.contractorEmail ? `
               <div style="margin-top:8px;font-size:12px;">
-                <div class="row"><span class="l">Gross owed (75% of all completed jobs)</span><span class="r">$${(c.grossOwedCents/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
+                <div class="row"><span class="l">Gross owed (82% of all completed jobs)</span><span class="r">$${(c.grossOwedCents/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
                 <div class="row"><span class="l">Already sent automatically (deposit transfers)</span><span class="r">$${(c.alreadyPaidCents/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
                 <table style="width:100%;border-collapse:collapse;margin-top:8px;">
                   <thead><tr>
@@ -655,7 +655,7 @@
                     <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">Job</th>
                     <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">Suburb</th>
                     <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">Completed</th>
-                    <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">Share (75%)</th>
+                    <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">Share (82%)</th>
                     <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">Already sent</th>
                   </tr></thead>
                   <tbody>
@@ -1014,7 +1014,7 @@
     // them here overstated commission and gross job value with money that
     // was never collected (founder feedback, Aug 2026).
     const billableJobs = jobs.filter(j => j.status !== 'cancelled');
-    const commission = billableJobs.reduce((s, j) => s + Math.round((j.basePrice || 0) * 0.25), 0);
+    const commission = billableJobs.reduce((s, j) => s + Math.round((j.basePrice || 0) * 0.18), 0);
     const gmv = billableJobs.reduce((s, j) => s + (j.basePrice || 0), 0);
     const applications = getApplications();
     const pendingCount = applications.filter(a => a.status === 'pending').length;
@@ -1196,7 +1196,7 @@
     // anything -- gross job value, commission and payout are all computed
     // off billable (non-cancelled) jobs only (founder feedback, Aug 2026).
     const gmv = jobs.filter(j => j.status !== 'cancelled').reduce((s, j) => s + (j.basePrice || 0), 0);
-    const commission = Math.round(gmv * 0.25);
+    const commission = Math.round(gmv * 0.18);
     const payout = gmv - commission;
     const completedJobs = jobs.filter(j => j.status === 'completed');
     const completedGmv = completedJobs.reduce((s, j) => s + (j.basePrice || 0), 0);
@@ -1256,8 +1256,8 @@
       <div class="detailcard" style="margin-bottom:14px;">
         <h3 style="font-size:15px;margin-bottom:12px;">Finance</h3>
         <div class="row"><span class="l">Gross merchandise value (all jobs)</span><span class="r">$${gmv.toLocaleString()}</span></div>
-        <div class="row"><span class="l">Platform commission (25%)</span><span class="r">$${commission.toLocaleString()}</span></div>
-        <div class="row"><span class="l">Contractor payout (75%)</span><span class="r">$${payout.toLocaleString()}</span></div>
+        <div class="row"><span class="l">Platform commission (18%)</span><span class="r">$${commission.toLocaleString()}</span></div>
+        <div class="row"><span class="l">Contractor payout (82%)</span><span class="r">$${payout.toLocaleString()}</span></div>
         <div class="row"><span class="l">Completed jobs value</span><span class="r">$${completedGmv.toLocaleString()} (${completedJobs.length} jobs)</span></div>
         <div class="row"><span class="l">Average job value</span><span class="r">$${jobs.length ? Math.round(gmv / jobs.length).toLocaleString() : 0}</span></div>
       </div>
@@ -2975,7 +2975,7 @@
     const jobs = getJobs();
     const j = jobs.find(x => x.id === selectedJobId);
     if (!j) { selectedJobId = null; render(); return; }
-    const commission = Math.round((j.basePrice || 0) * 0.25);
+    const commission = Math.round((j.basePrice || 0) * 0.18);
     const payout = (j.basePrice || 0) - commission;
 
     app.innerHTML = `
@@ -3009,7 +3009,7 @@
         <div class="row"><span class="l">On site / access</span><span class="r">${escapeHtml(j.site || '—')} ${j.access ? '· ' + escapeHtml(j.access) : ''}</span></div>
         ${j.urgency ? `<div class="row"><span class="l">Urgency</span><span class="r">${escapeHtml(j.urgency)}</span></div>` : ''}
         <div class="row"><span class="l">Total job value</span><span class="r">$${(j.basePrice || 0).toLocaleString()}</span></div>
-        <div class="row commission"><span class="l">Platform commission (25%)</span><span class="r">$${commission.toLocaleString()}</span></div>
+        <div class="row commission"><span class="l">Platform commission (18%)</span><span class="r">$${commission.toLocaleString()}</span></div>
         <div class="row payout"><span class="l">Contractor payout</span><span class="r">$${payout.toLocaleString()}</span></div>
 
         ${j.status === 'cancellation_requested' ? `

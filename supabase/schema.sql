@@ -4,7 +4,8 @@
 -- Stripe. Materials/frame/completion stages stay as today's manual tick-off
 -- in the contractor portal (localStorage) until a later phase moves them to
 -- Stripe too. The weekly payout batch therefore only ever transfers a
--- contractor's 75% share of the DEPOSIT amount that was actually captured
+-- contractor's 82% share (18% platform commission, updated Sept 2026,
+-- was 25%/75%) of the DEPOSIT amount that was actually captured
 -- — never the full job value, because the platform doesn't actually hold
 -- the rest of that money yet. Widening this is future work, not a bug.
 --
@@ -69,7 +70,7 @@ create table if not exists payout_line_items (
   batch_id uuid not null references payout_batches(id),
   job_id text not null references jobs(id),
   contractor_email text not null,
-  amount_cents bigint not null, -- contractor's 75% share of the captured deposit
+  amount_cents bigint not null, -- contractor's 82% share of the captured deposit (18% commission)
   stripe_transfer_id text,
   status text not null default 'pending'
     check (status in ('pending', 'transferred', 'failed')),
