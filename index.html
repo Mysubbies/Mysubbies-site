@@ -2022,8 +2022,8 @@
   // product, not a bolted-on new screen.
   function subCatTileHtml(cat, t) {
     const priceLabel = t.rate != null ? `From $${Number(t.rate).toLocaleString()}${t.unit ? '/' + escapeHtml(t.unit) : ''}` : 'Get a price';
-    const photoHtml = t.photoDataUrl
-      ? `<img class="cc-photo" src="${t.photoDataUrl}" alt="${escapeHtml(t.name)}" loading="lazy" />`
+    const photoHtml = (t.photoUrl || t.photoDataUrl)
+      ? `<img class="cc-photo" src="${t.photoUrl || t.photoDataUrl}" alt="${escapeHtml(t.name)}" loading="lazy" />`
       : `<div class="cc-photo cc-photo-fallback" style="font-size:34px;">${cat.icon || ''}</div>`;
     const safeName = t.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     const safeCat = cat.label.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -2544,7 +2544,7 @@
       const safeName = t.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       return `
         <button type="button" class="est-primary-option ${selected ? 'selected' : ''}" onclick="estChoosePrimaryOption('${safeName}')">
-          ${t.photoDataUrl ? `<img src="${t.photoDataUrl}" class="est-primary-option-photo" alt="" />` : ''}
+          ${(t.photoUrl || t.photoDataUrl) ? `<img src="${t.photoUrl || t.photoDataUrl}" class="est-primary-option-photo" alt="" />` : ''}
           <div class="est-primary-option-body">
             <div class="est-primary-option-name">${escapeHtml(t.name)}</div>
             ${minApplied ? `<div class="est-primary-option-notes">Minimum job price applies at this size</div>` : ''}
@@ -2629,10 +2629,10 @@
         // Colorbond fence get their own distinct thumbnail, set from the
         // admin Rate Card tab, so options that sound similar in a text
         // list are actually easy to tell apart at a glance.
-        if (t.photoDataUrl) {
+        if (t.photoUrl || t.photoDataUrl) {
           btn.classList.add('chip-est-photo');
           const img = document.createElement('img');
-          img.src = t.photoDataUrl;
+          img.src = t.photoUrl || t.photoDataUrl;
           img.className = 'chip-est-thumb';
           img.alt = '';
           btn.appendChild(img);
@@ -2827,7 +2827,7 @@
       }
       const safeName = t.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       return `<button type="button" class="est-ambiguous-option" onclick="estPickAmbiguousMatch('${safeName}')">
-        ${t.photoDataUrl ? `<img src="${t.photoDataUrl}" class="est-ambiguous-thumb" alt="" />` : ''}
+        ${(t.photoUrl || t.photoDataUrl) ? `<img src="${t.photoUrl || t.photoDataUrl}" class="est-ambiguous-thumb" alt="" />` : ''}
         <span class="est-ambiguous-name">${escapeHtml(t.name)}</span>
         <span class="est-ambiguous-price">${priceLabel}</span>
       </button>`;

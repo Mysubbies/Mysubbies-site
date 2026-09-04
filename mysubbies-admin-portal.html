@@ -1344,25 +1344,49 @@
   // before this happens again. Does not touch photos already uploaded.
   const RC_PHOTO_MAX_WIDTH = 320;
   const RC_PHOTO_JPEG_QUALITY = 0.6;
+  // Sep 2026 -- photos now upload to Supabase Storage (/api/rate-card,
+  // action:'upload-photo') and the task keeps only a short `photoUrl`
+  // string, not the base64 image itself. See rate-card.js's header comment
+  // for why: embedding photos directly in the rate card blob meant every
+  // one added to the size of the WHOLE blob saveRateCard() re-sends on
+  // every edit, and that blob hit Vercel's ~4.3MB request-body ceiling at
+  // ~83 photos -- every save past that point silently 413'd (swallowed by
+  // saveRateCard()'s .catch(() => {})), so a new photo looked like it
+  // saved in the admin's own browser but never reached the server or any
+  // customer. A URL removes that ceiling entirely.
   function onTaskPhotoSelected(catLabel, realIdx, event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         const scale = Math.min(1, RC_PHOTO_MAX_WIDTH / img.width);
         const canvas = document.createElement('canvas');
         canvas.width = Math.round(img.width * scale);
         canvas.height = Math.round(img.height * scale);
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', RC_PHOTO_JPEG_QUALITY);
         const categories = getRateCard();
         const cat = categories.find(c => c.label === catLabel);
         if (!cat) return;
-        cat.tasks[realIdx].photoDataUrl = canvas.toDataURL('image/jpeg', RC_PHOTO_JPEG_QUALITY);
-        saveRateCard(categories);
-        const list = document.getElementById('rcManageList');
-        if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
+        const task = cat.tasks[realIdx];
+        showToast('Uploading photo…');
+        try {
+          const res = await adminFetch('/api/rate-card', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'upload-photo', dataUrl, catLabel, taskName: task.name }),
+          });
+          if (!res.ok) throw new Error('upload failed');
+          const { url } = await res.json();
+          task.photoUrl = url;
+          delete task.photoDataUrl;
+          saveRateCard(categories);
+          const list = document.getElementById('rcManageList');
+          if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
+        } catch (err) {
+          showToast('Could not upload the photo — try again.');
+        }
       };
       img.src = e.target.result;
     };
@@ -1373,10 +1397,32 @@
     const categories = getRateCard();
     const cat = categories.find(c => c.label === catLabel);
     if (!cat) return;
+    delete cat.tasks[realIdx].photoUrl;
     delete cat.tasks[realIdx].photoDataUrl;
     saveRateCard(categories);
     const list = document.getElementById('rcManageList');
     if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
+  }
+  // One-time migration for photos uploaded before the Storage switch above
+  // -- converts every remaining embedded photoDataUrl into a Storage
+  // upload + photoUrl, entirely server-side (see rate-card.js's
+  // migrate-photos action), so it isn't subject to the request-body limit
+  // it's fixing. Safe to click more than once -- already-migrated tasks
+  // (photoUrl already set) are skipped server-side.
+  async function migrateRateCardPhotos() {
+    showToast('Migrating photos to cloud storage — this may take a minute…');
+    try {
+      const res = await adminFetch('/api/rate-card', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'migrate-photos' }),
+      });
+      if (!res.ok) throw new Error('migrate failed');
+      const { migrated } = await res.json();
+      showToast(migrated > 0 ? `Migrated ${migrated} photo(s) to cloud storage.` : 'No photos needed migrating.');
+      await hydrateRateCardFromServer();
+    } catch (err) {
+      showToast('Could not migrate photos — try again.');
+    }
   }
   // Re-render on every keystroke rebuilds #rcManageList's innerHTML same as
   // everywhere else in this file, which would normally drop focus/cursor
@@ -2067,6 +2113,12 @@
           <button class="${rcMode==='research'?'active':''}" onclick="rcMode='research'; render();">Research New</button>
         </div>
         ${rcMode === 'manage' ? `
+          ${categories.some(c => (c.tasks || []).some(t => t.photoDataUrl)) ? `
+            <div class="box" style="background:#fff8ea;border-color:#f0dba0;margin-bottom:14px;">
+              <div style="font-size:12.5px;margin-bottom:8px;"><strong>Some task photos are still stored the old way</strong> and count toward the save-size limit that was blocking new uploads. Click once to move them to cloud storage — existing photos and prices aren't changed, this only fixes how they're stored.</div>
+              <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;" onclick="migrateRateCardPhotos()">Migrate photos to cloud storage</button>
+            </div>
+          ` : ''}
           <input type="text" id="rcManageSearch" value="${escapeHtml(rcManageSearchQuery)}" oninput="onRcManageSearchInput(this)" placeholder="🔍 Search services or categories…" style="width:100%;font-size:13px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:14px;font-family:inherit;" />
           <div id="rcManageList">${rateCardManageHtml(categories, rcManageSearchQuery)}</div>
         ` : `
@@ -2146,8 +2198,8 @@
             <div class="rc-task ${t.disabled ? 'rc-task-held' : ''}">
               <div class="rc-task-row">
                 <div class="rc-photo-wrap">
-                  ${t.photoDataUrl ? `
-                    <img src="${t.photoDataUrl}" class="rc-photo-thumb" onclick="document.getElementById('rcPhotoInput-${rowId}').click()" title="Change photo" />
+                  ${(t.photoUrl || t.photoDataUrl) ? `
+                    <img src="${t.photoUrl || t.photoDataUrl}" class="rc-photo-thumb" onclick="document.getElementById('rcPhotoInput-${rowId}').click()" title="Change photo" />
                     <button type="button" class="rc-photo-remove" onclick="removeTaskPhoto('${safeLabel}', ${realIdx}, event)" title="Remove photo">✕</button>
                   ` : `
                     <button type="button" class="rc-photo-add" onclick="document.getElementById('rcPhotoInput-${rowId}').click()" title="Add a photo for this task">📷</button>
