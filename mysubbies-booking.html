@@ -581,7 +581,7 @@
           type: 'new-job-available', category: job.category, suburb: job.suburb, taskName,
           items: (job.items || []).map(i => ({ taskName: i.taskName, qty: i.qty, unit: i.unit })),
           qty: job.qty, unit: job.unit, urgency: job.urgency, access: job.access, site: job.site,
-          photoThumb,
+          photoThumb, basePrice: job.basePrice,
         }),
       }).catch(() => {});
     });

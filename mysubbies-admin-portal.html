@@ -159,6 +159,27 @@
   .msginput input { flex:1; font-family:'Plus Jakarta Sans',sans-serif; font-size:13px; border:1.5px solid var(--line); border-radius:8px; padding:9px 12px; }
   .reassign { display:flex; gap:8px; margin-top:16px; }
   .reassign input { flex:1; font-family:'Plus Jakarta Sans',sans-serif; font-size:13px; border:1.5px solid var(--line); border-radius:8px; padding:9px 12px; }
+  /* Mobile bottom tab bar (Sep 2026) -- same pattern as
+     mysubbies-website.html's .mobile-tabbar (own copy per this project's
+     self-contained-page convention). Admin has 9 top tabs, too many for a
+     5-item bottom bar -- these are the 5 most time-sensitive for a quick
+     mobile check (jobs, pending applications, unread messages, open
+     disputes, reports); the rest stay reachable from the existing top-tab
+     row, which is still visible/scrollable above this. */
+  .mobile-tabbar { display:none; }
+  @media (max-width:860px) {
+    .mobile-tabbar {
+      display:flex; position:fixed; left:0; right:0; bottom:0; z-index:70;
+      background:#fff; border-top:1px solid var(--line);
+      padding:8px 4px calc(10px + env(safe-area-inset-bottom));
+      box-shadow:0 -4px 16px rgba(0,0,0,0.06);
+    }
+    .tab-item { position:relative; flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--stone); font-size:9.5px; font-weight:700; background:none; border:none; cursor:pointer; font-family:inherit; padding-top:2px; }
+    .tab-item.active { color:var(--black); }
+    .tab-item svg { flex-shrink:0; }
+    .tab-item .notif-badge { top:-4px; right:16px; }
+    body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  }
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
@@ -187,6 +208,32 @@
 <div id="notifPanel" class="notif-panel" style="display:none;"></div>
 
 <div class="wrap" id="app"></div>
+
+<nav class="mobile-tabbar" aria-label="Primary">
+  <button class="tab-item" id="mtOverview" onclick="tab='overview'; render();">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+    All Jobs
+  </button>
+  <button class="tab-item" id="mtApplications" onclick="tab='applications'; render();">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Applications
+    <span class="notif-badge" id="mtApplicationsBadge" style="display:none;"></span>
+  </button>
+  <button class="tab-item" id="mtMessages" onclick="tab='messages'; render();">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+    Messages
+    <span class="notif-badge" id="mtMessagesBadge" style="display:none;"></span>
+  </button>
+  <button class="tab-item" id="mtDisputes" onclick="tab='disputes'; render();">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    Disputes
+    <span class="notif-badge" id="mtDisputesBadge" style="display:none;"></span>
+  </button>
+  <button class="tab-item" id="mtReports" onclick="tab='reports'; render();">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Reports
+  </button>
+</nav>
 
 <script>
   // Real server-side auth (Aug 2026) -- the password used to be a hardcoded
@@ -881,7 +928,38 @@
     render();
   }
 
-  function render() {
+  // Mobile bottom tab bar (Sep 2026) -- lives outside #app, so it's never
+  // touched by the innerHTML rewrites every render*() function below
+  // already does. Wrapping the real render logic (renamed renderInner)
+  // rather than editing render()'s early-return branch is the safe way to
+  // keep the active-tab highlight and badge counts in sync without
+  // touching the many existing call sites that already call render().
+  function render() { renderInner(); updateMobileTabbar(); }
+  function updateMobileTabbar() {
+    const nav = document.querySelector('.mobile-tabbar');
+    if (!nav) return;
+    if (!localStorage.getItem('mysubbies_admin_token')) { nav.style.display = 'none'; return; }
+    nav.style.display = '';
+    ['mtOverview', 'mtApplications', 'mtMessages', 'mtDisputes', 'mtReports'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('active');
+    });
+    const activeId = { overview: 'mtOverview', applications: 'mtApplications', messages: 'mtMessages', disputes: 'mtDisputes', reports: 'mtReports' }[tab];
+    if (activeId) { const el = document.getElementById(activeId); if (el) el.classList.add('active'); }
+
+    const pendingCount = getApplications().filter(a => a.status === 'pending').length;
+    const openDisputeCount = getDisputes().filter(d => d.status === 'open').length;
+    const setBadge = (id, count) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (count > 0) { el.textContent = count > 9 ? '9+' : count; el.style.display = 'flex'; }
+      else el.style.display = 'none';
+    };
+    setBadge('mtApplicationsBadge', pendingCount);
+    setBadge('mtMessagesBadge', unreadContractorMessageCount || 0);
+    setBadge('mtDisputesBadge', openDisputeCount);
+  }
+  function renderInner() {
     if (selectedJobId) { renderDetail(); return; }
     const jobs = getJobs();
     // Cancelled jobs never actually earn MySubbies anything -- counting

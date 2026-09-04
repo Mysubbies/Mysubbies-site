@@ -77,7 +77,7 @@ module.exports = async (req, res) => {
     const { type } = req.body || {};
 
     if (type === 'job-assigned') {
-      const { customerEmail, category, suburb, address, contractorName, jobId, items, qty, unit, urgency } = req.body || {};
+      const { customerEmail, category, suburb, address, contractorName, jobId, items, qty, unit, urgency, basePrice } = req.body || {};
       if (!customerEmail || !category) { res.status(400).json({ error: 'customerEmail and category are required.' }); return; }
       await sendEmail({
         to: customerEmail,
@@ -90,6 +90,7 @@ module.exports = async (req, res) => {
             { label: 'Quantity', value: itemsSummaryHtml(items, qty, unit) },
             { label: 'Address', value: address ? escapeHtml(address) : (suburb ? escapeHtml(suburb) : '') },
             { label: 'Urgency', value: urgency ? escapeHtml(urgency) : '' },
+            { label: 'Price', value: basePrice != null ? `$${Number(basePrice).toLocaleString()}` : '' },
             { label: 'Contractor', value: contractorName ? escapeHtml(contractorName) : '' },
           ])}
           <p>You can message them directly and track progress any time in My Jobs.</p>
@@ -122,8 +123,12 @@ module.exports = async (req, res) => {
     }
 
     if (type === 'new-job-available') {
-      const { category, suburb, taskName, items, qty, unit, urgency, access, site, photoThumb } = req.body || {};
+      const { category, suburb, taskName, items, qty, unit, urgency, access, site, photoThumb, basePrice } = req.body || {};
       if (!category) { res.status(400).json({ error: 'category is required.' }); return; }
+      // Same 75% figure shown everywhere else a contractor sees a job's
+      // value (Job Feed's Payout column, My Jobs, earnings) -- never the
+      // gross customer price, which includes Mysubbies' 25% commission.
+      const payout = basePrice != null ? Math.round(Number(basePrice) * 0.75) : null;
 
       const supabase = getSupabase();
       const { data, error } = await supabase
@@ -150,6 +155,7 @@ module.exports = async (req, res) => {
           { label: 'Quantity', value: itemsSummaryHtml(items, qty, unit) },
           { label: 'Suburb', value: suburb ? escapeHtml(suburb) : '' },
           { label: 'Urgency', value: urgency ? escapeHtml(urgency) : '' },
+          { label: 'Payout', value: payout != null ? `<strong>$${payout.toLocaleString()}</strong>` : '' },
           { label: 'Site access', value: access ? escapeHtml(access) : '' },
           { label: 'Site notes', value: site ? escapeHtml(site) : '' },
         ])}

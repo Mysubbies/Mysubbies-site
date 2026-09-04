@@ -58,6 +58,29 @@
   .notif-item-body { font-size:12px; color:var(--stone); line-height:1.4; }
   .notif-item-time { font-size:10.5px; color:var(--stone-light); margin-top:4px; }
   .notif-empty { padding:26px 14px; text-align:center; font-size:12.5px; color:var(--stone-light); }
+  /* Mobile bottom tab bar (Sep 2026) -- same markup/behavior as
+     mysubbies-website.html's .mobile-tabbar (own copy per this project's
+     self-contained-page convention). Founder feedback: the homepage's bar
+     was disappearing the moment a customer tapped into My Jobs, since this
+     page never had its own copy -- it now does, so the bar stays put
+     across the whole customer app shell, not just the homepage. */
+  .mobile-tabbar { display:none; }
+  @media (max-width:860px) {
+    .mobile-tabbar {
+      display:flex; position:fixed; left:0; right:0; bottom:0; z-index:70;
+      background:#fff; border-top:1px solid var(--line);
+      padding:8px 6px calc(10px + env(safe-area-inset-bottom));
+      box-shadow:0 -4px 16px rgba(0,0,0,0.06);
+    }
+    .tab-item { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--stone); font-size:10px; font-weight:700; background:none; border:none; cursor:pointer; font-family:inherit; padding-top:2px; text-decoration:none; }
+    .tab-item.active { color:var(--black); }
+    .tab-item svg { flex-shrink:0; }
+    .tab-fab { position:relative; top:-14px; }
+    .tab-fab .fab-circle { width:48px; height:48px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; box-shadow:0 8px 16px rgba(245,166,35,.45); margin-bottom:2px; }
+    .tab-fab .fab-circle svg { color:var(--black); }
+    .tab-fab span { color:var(--ink); }
+    body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  }
   .wrap { max-width:640px; margin:0 auto; padding:32px 24px 80px; }
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 20px; border-radius:999px; font-size:14px; font-weight:600; cursor:pointer; border:none; }
   .btn-black { background:var(--black); color:#fff; }
@@ -241,6 +264,29 @@
 <div id="notifPanel" class="notif-panel" style="display:none;"></div>
 
 <div class="wrap" id="app"></div>
+
+<nav class="mobile-tabbar" aria-label="Primary">
+  <a class="tab-item" href="mysubbies-website.html">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+    Home
+  </a>
+  <button class="tab-item" id="mtBookings" onclick="selectedJobId=null; showingPaymentHistory=false; closePropertyProfile();">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+    Bookings
+  </button>
+  <a class="tab-item tab-fab" href="mysubbies-website.html#estimate">
+    <span class="fab-circle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>
+    New Job
+  </a>
+  <button class="tab-item" id="mtHouseHealth" onclick="selectedJobId=null; showingPaymentHistory=false; openPropertyProfile();">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="m9 15 2 2 4-5"/></svg>
+    House Health
+  </button>
+  <button class="tab-item" id="mtAccount" onclick="selectedJobId=null; showingPaymentHistory=false; closePropertyProfile();">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+    Account
+  </button>
+</nav>
 
 <footer class="sitefoot">
   <div class="footgrid">
@@ -1287,7 +1333,25 @@
     window.location.href = 'mysubbies-website.html#estimate';
   }
 
-  function render() {
+  // Mobile bottom tab bar (Sep 2026) -- lives outside #app, so it's never
+  // touched by the innerHTML rewrites every render*() function below
+  // already does. Wrapping the real render logic (renamed renderInner)
+  // rather than editing every one of render()'s early-return branches
+  // individually is the safe way to keep the active-tab highlight in sync
+  // without touching the many existing call sites that already call
+  // render().
+  function render() { renderInner(); updateMobileTabbar(); }
+  function updateMobileTabbar() {
+    const nav = document.querySelector('.mobile-tabbar');
+    if (!nav) return;
+    if (!getCurrentCustomerEmail()) { nav.style.display = 'none'; return; }
+    nav.style.display = '';
+    const bookingsEl = document.getElementById('mtBookings');
+    const houseHealthEl = document.getElementById('mtHouseHealth');
+    if (bookingsEl) bookingsEl.classList.toggle('active', !showingPropertyProfile);
+    if (houseHealthEl) houseHealthEl.classList.toggle('active', !!showingPropertyProfile);
+  }
+  function renderInner() {
     const email = getCurrentCustomerEmail();
     if (!email) { renderLogin(); return; }
     if (selectedJobId) { renderDetail(email); return; }

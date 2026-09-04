@@ -52,6 +52,25 @@
   .notif-panel-header { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-bottom:1px solid var(--paper); font-size:13px; font-weight:700; position:sticky; top:0; background:#fff; }
   .notif-panel-header a { font-size:11.5px; font-weight:600; color:var(--stone); cursor:pointer; text-decoration:underline; }
   .notif-item { display:block; width:100%; text-align:left; padding:11px 14px; border:none; border-bottom:1px solid var(--paper); background:none; cursor:pointer; font-family:inherit; }
+  /* Mobile bottom tab bar (Sep 2026) -- same pattern as
+     mysubbies-website.html's .mobile-tabbar (own copy per this project's
+     self-contained-page convention), mapped onto this portal's real 5 top
+     tabs instead of inventing new destinations. Gated at the same 860px
+     breakpoint used everywhere else in this codebase for mobile-only UI. */
+  .mobile-tabbar { display:none; }
+  @media (max-width:860px) {
+    .mobile-tabbar {
+      display:flex; position:fixed; left:0; right:0; bottom:0; z-index:70;
+      background:#fff; border-top:1px solid var(--line);
+      padding:8px 4px calc(10px + env(safe-area-inset-bottom));
+      box-shadow:0 -4px 16px rgba(0,0,0,0.06);
+    }
+    .tab-item { position:relative; flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--stone); font-size:9.5px; font-weight:700; background:none; border:none; cursor:pointer; font-family:inherit; padding-top:2px; }
+    .tab-item.active { color:var(--black); }
+    .tab-item svg { flex-shrink:0; }
+    .tab-item .notif-badge { top:-4px; right:16px; }
+    body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  }
   .notif-item:hover { background:var(--paper); }
   .notif-item.unread { background:#fbf6ea; }
   .notif-item-title { font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:2px; }
@@ -261,6 +280,32 @@
 <div id="notifPanel" class="notif-panel" style="display:none;"></div>
 
 <div class="wrap" id="app"></div>
+
+<nav class="mobile-tabbar" aria-label="Primary">
+  <button class="tab-item" id="mtFeed" onclick="tab='feed'; render();">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+    Job Feed
+    <span class="notif-badge" id="mtFeedBadge" style="display:none;"></span>
+  </button>
+  <button class="tab-item" id="mtMyJobs" onclick="tab='myjobs'; render();">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+    My Jobs
+    <span class="notif-badge" id="mtMyJobsBadge" style="display:none;"></span>
+  </button>
+  <button class="tab-item" id="mtEarnings" onclick="tab='earnings'; render();">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+    Earnings
+  </button>
+  <button class="tab-item" id="mtProfile" onclick="tab='profile'; render();">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+    Profile
+  </button>
+  <button class="tab-item" id="mtMessages" onclick="tab='messages'; render();">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+    Messages
+    <span class="notif-badge" id="mtMessagesBadge" style="display:none;"></span>
+  </button>
+</nav>
 
 <script>
   function getJobs() { return JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]'); }
@@ -702,7 +747,45 @@
       </div>`;
   }
 
-  function render() {
+  // Mobile bottom tab bar (Sep 2026) -- lives outside #app (see the nav
+  // markup above), so it's never touched by the innerHTML rewrites every
+  // render*() function below already does. Wrapping the real render logic
+  // (renamed renderInner) rather than editing every one of render()'s
+  // early-return branches individually is the safe way to keep this in
+  // sync with the current tab/badge counts without touching the many
+  // existing call sites that already call render().
+  function render() { renderInner(); updateMobileTabbar(); }
+  function updateMobileTabbar() {
+    const nav = document.querySelector('.mobile-tabbar');
+    if (!nav) return;
+    const name = getContractorName();
+    if (!name) { nav.style.display = 'none'; return; }
+    nav.style.display = '';
+    ['mtFeed', 'mtMyJobs', 'mtEarnings', 'mtProfile', 'mtMessages'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('active');
+    });
+    const activeId = { feed: 'mtFeed', myjobs: 'mtMyJobs', earnings: 'mtEarnings', profile: 'mtProfile', messages: 'mtMessages' }[tab];
+    if (activeId) { const el = document.getElementById(activeId); if (el) el.classList.add('active'); }
+
+    const jobs = getJobs();
+    const myTrades = (getApplications().find(a => a.business === name) || {}).trades;
+    const feedCount = jobs.filter(j => j.status === 'feed' && (!myTrades || !myTrades.length || myTrades.includes(j.category))).length;
+    const hiddenJobIds = getHiddenJobIds(name);
+    const myJobsCount = jobs.filter(j => j.contractor === name && !hiddenJobIds.has(j.id) && !['completed', 'cancelled'].includes(j.status)).length;
+    const unreadMsgCount = adminMessages.filter(m => m.sender_role === 'admin' && !m.read_at).length;
+
+    const setBadge = (id, count) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (count > 0) { el.textContent = count > 9 ? '9+' : count; el.style.display = 'flex'; }
+      else el.style.display = 'none';
+    };
+    setBadge('mtFeedBadge', feedCount);
+    setBadge('mtMyJobsBadge', myJobsCount);
+    setBadge('mtMessagesBadge', unreadMsgCount);
+  }
+  function renderInner() {
     const name = getContractorName();
     if (!name) { renderLogin(); return; }
 
@@ -1950,6 +2033,7 @@
         type: 'job-assigned', customerEmail: j.customerEmail, category: j.category, suburb: j.suburb, address: j.address,
         contractorName: j.contractor, jobId: j.id,
         items: (j.items || []).map(i => ({ taskName: i.taskName, qty: i.qty, unit: i.unit })), qty: j.qty, unit: j.unit, urgency: j.urgency,
+        basePrice: j.basePrice,
       }) }).catch(() => {});
     }
     render();

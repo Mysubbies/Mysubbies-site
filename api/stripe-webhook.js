@@ -176,7 +176,8 @@ module.exports = async (req, res) => {
                   { label: 'Quantity', value: itemsSummaryHtml(record.items, record.qty, record.unit) },
                   { label: 'Address', value: record.address ? escapeHtml(record.address) : escapeHtml(record.suburb) },
                   { label: 'Urgency', value: record.urgency ? escapeHtml(record.urgency) : '' },
-                  { label: 'Deposit paid', value: `$${(intent.amount / 100).toLocaleString()}` },
+                  { label: 'Total job price', value: record.basePrice != null ? `$${Number(record.basePrice).toLocaleString()}` : '' },
+                  { label: 'Deposit paid', value: `<strong>$${(intent.amount / 100).toLocaleString()}</strong>` },
                 ])}
                 <p>We'll email you again once a contractor accepts. You can track everything, message your contractor, and see payment stages any time in My Jobs.</p>
                 ${emailButton('Open My Jobs →', 'https://mysubbies-site.vercel.app/mysubbies-customer-portal.html')}
