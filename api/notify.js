@@ -1,5 +1,5 @@
 // POST /api/notify
-// Body: { type: 'job-assigned' | 'stage-requested' | 'new-job-available' | 'contractor-application-submitted', ...type-specific fields }
+// Body: { type: 'job-assigned' | 'stage-requested' | 'new-job-available' | 'contractor-application-submitted' | 'job-message', ...type-specific fields }
 //
 // Combines what were separate notify-job-assigned.js / notify-stage-requested.js
 // endpoints into one file — Vercel's Hobby plan caps a deployment at 12
@@ -31,6 +31,16 @@ const { sendEmail, wrapEmail } = require('./_lib/email');
 const { getSupabase } = require('./_lib/clients');
 
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || 'accounts@mysubbies.com.au';
+
+// Message text and sender names below are real user input (typed by a
+// customer or contractor into the job message thread), interpolated into
+// an HTML email -- same "any place rendering another user's free text via
+// innerHTML must escape it" rule CLAUDE.md documents for the client-side
+// portals, just on the server side here since this is the one place that
+// builds HTML for user-supplied message content outside a browser.
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
@@ -101,6 +111,39 @@ module.exports = async (req, res) => {
       })));
 
       res.status(200).json({ sent: true, notified: matches.length });
+      return;
+    }
+
+    // job-message: { toEmail, toRole, fromName, category, jobNumber, text }
+    // Fired from both mysubbies-customer-portal.html's and
+    // mysubbies-contractor-portal.html's sendMsg() right after saveJobs(),
+    // whenever either side sends a message in the job's customer-facing
+    // thread (j.messages) -- not the separate private admin thread. Added
+    // Sep 2026: until this existed, the only "notification" for a new
+    // message was a desktop Notification that only fired while the
+    // recipient's tab happened to be open (see checkForNewMessages() in
+    // both portals) -- nothing reached a closed tab, a different device,
+    // or a phone. This is the part of that gap email can actually close;
+    // toRole picks which portal the "reply" link points at.
+    if (type === 'job-message') {
+      const { toEmail, toRole, fromName, category, jobNumber, text } = req.body || {};
+      if (!toEmail || !toRole || !text) { res.status(400).json({ error: 'toEmail, toRole and text are required.' }); return; }
+      const portalUrl = toRole === 'contractor'
+        ? 'https://mysubbies-site.vercel.app/mysubbies-contractor-portal.html'
+        : 'https://mysubbies-site.vercel.app/mysubbies-customer-portal.html';
+      const jobLabel = jobNumber != null ? `Job #${jobNumber}` : (category || 'your job');
+      const senderLabel = fromName ? escapeHtml(fromName) : (toRole === 'contractor' ? 'The customer' : 'Your contractor');
+      await sendEmail({
+        to: toEmail,
+        subject: `New message on ${jobLabel}${category ? ` (${category})` : ''}`,
+        html: wrapEmail(`
+          <h2 style="margin-top:0;">You have a new message</h2>
+          <p><strong>${senderLabel}</strong> sent a message on ${jobLabel}:</p>
+          <p style="background:#f7f7f5;border-radius:8px;padding:12px 14px;color:#333;">"${escapeHtml(String(text).slice(0, 400))}"</p>
+          <p><a href="${portalUrl}">Reply in the app →</a></p>
+        `),
+      });
+      res.status(200).json({ sent: true });
       return;
     }
 

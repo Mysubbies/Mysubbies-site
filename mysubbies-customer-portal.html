@@ -1191,7 +1191,7 @@
           ${jobs.map(j => `
             <tr class="jobrow" onclick="selectedJobId='${j.id}'; render();">
               <td data-label="#">${j.jobNumber ? '#' + j.jobNumber : '—'}</td>
-              <td data-label="Job"><strong>${escapeHtml(j.category)}</strong>${j.items && j.items.length > 1 ? `<br><span style="color:var(--stone);font-size:12px;">${j.items.length} items</span>` : ''}</td>
+              <td data-label="Job"><strong>${escapeHtml(j.category)}</strong>${jobHasUnreadMessage(j) ? ` <span style="color:var(--warn);font-size:9px;vertical-align:middle;" title="New message">●</span>` : ''}${j.items && j.items.length > 1 ? `<br><span style="color:var(--stone);font-size:12px;">${j.items.length} items</span>` : ''}</td>
               <td data-label="Suburb">${escapeHtml(j.suburb)}</td>
               <td data-label="Contractor">${j.contractor ? escapeHtml(j.contractor) : '—'}</td>
               <td data-label="Status"><span class="badge ${JOB_BADGE_CLASS[j.status] || 'badge-feed'}">${JOB_BADGE_LABEL[j.status] || j.status}</span></td>
@@ -1393,6 +1393,7 @@
       </div>
     `;
     renderMessages(j);
+    markJobMessagesSeen(j.id);
     wireNotifyButton();
     if (j.contractor && !['cancellation_requested', 'cancelled'].includes(j.status)) renderMilestoneSection(j.id);
   }
@@ -1936,6 +1937,12 @@
     j.messages = j.messages || [];
     j.messages.push({ id: 'm_' + Date.now(), from: 'customer', authorName: 'You', text, createdAt: new Date().toISOString() });
     saveJobs(jobs);
+    if (j.contractorEmail) {
+      fetch('/api/notify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'job-message', toEmail: j.contractorEmail, toRole: 'contractor', fromName: j.customerName, category: j.category, jobNumber: j.jobNumber, text }),
+      }).catch(() => {});
+    }
     input.value = '';
     renderDetail(getCurrentCustomerEmail());
   }
@@ -2074,6 +2081,32 @@
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification('MySubbies', { body: text });
     }
+  }
+  // Persistent (localStorage-backed) unread-message tracking, separate
+  // from lastMsgCount below -- that one only detects a message arriving
+  // while this tab is open (to fire a desktop Notification) and resets on
+  // reload. This one survives reload/tab-close, so a job with a new
+  // contractor message keeps showing a dot in My Jobs until the customer
+  // actually opens it, not just until they refresh. Same-device only (no
+  // server-side read-state exists) -- real notification-across-devices is
+  // what the email sent from sendMsg() (see api/notify.js's job-message
+  // type) is for.
+  function getMsgSeenMap() {
+    try { return JSON.parse(localStorage.getItem('mysubbies_customer_msg_seen') || '{}'); } catch (e) { return {}; }
+  }
+  function markJobMessagesSeen(jobId) {
+    const j = getJobs().find(x => x.id === jobId);
+    if (!j) return;
+    const map = getMsgSeenMap();
+    map[jobId] = (j.messages || []).length;
+    try { localStorage.setItem('mysubbies_customer_msg_seen', JSON.stringify(map)); } catch (e) { /* non-critical */ }
+  }
+  function jobHasUnreadMessage(j) {
+    const msgs = j.messages || [];
+    if (!msgs.length) return false;
+    const last = msgs[msgs.length - 1];
+    if (last.from === 'customer') return false;
+    return msgs.length > (getMsgSeenMap()[j.id] || 0);
   }
   let lastMsgCount = {};
   function checkForNewMessages() {

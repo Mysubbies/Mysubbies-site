@@ -873,15 +873,22 @@
   function myJobsTableHtml(jobs) {
     return `
       <table class="jobstable">
-        <thead><tr><th>#</th><th>Job</th><th>Suburb</th><th>Customer</th><th>Status</th><th>Payout</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>Job</th><th>Site address</th><th>Customer</th><th>Status</th><th>Payout</th><th></th></tr></thead>
         <tbody>
           ${jobs.map(j => {
             const titleDetail = j.items && j.items.length === 1 ? j.items[0].taskName : j.category;
+            // Once accepted (this table is My Jobs only, never the pre-accept
+            // feed), the customer's full site address is already on the job
+            // record -- show it directly here instead of just the suburb, so
+            // a contractor scanning their job list doesn't have to open each
+            // one (or message the customer) just to find out where to go.
+            // Falls back to suburb only for the rare job with no address on
+            // file (older jobs, or a customer account that never had one set).
             return `
               <tr class="jobrow" onclick="selectedJobId='${j.id}'; render();">
                 <td>${j.jobNumber ? '#' + j.jobNumber : '—'}</td>
-                <td><strong>${escapeHtml(titleDetail)}</strong>${j.items && j.items.length > 1 ? `<br><span style="color:var(--stone);font-size:12px;">${j.items.length} items</span>` : ''}</td>
-                <td>${escapeHtml(j.suburb)}</td>
+                <td><strong>${escapeHtml(titleDetail)}</strong>${jobHasUnreadMessage(j) ? ` <span style="color:var(--warn);font-size:9px;vertical-align:middle;" title="New message">●</span>` : ''}${j.items && j.items.length > 1 ? `<br><span style="color:var(--stone);font-size:12px;">${j.items.length} items</span>` : ''}</td>
+                <td>${escapeHtml(j.address || j.suburb)}${j.address ? `<br><span style="color:var(--stone);font-size:12px;">${escapeHtml(j.suburb)}</span>` : ''}</td>
                 <td>${j.customerName ? escapeHtml(j.customerName) : '—'}</td>
                 <td><span class="badge ${JOB_BADGE_CLASS[j.status] || 'badge-feed'}">${JOB_BADGE_LABEL[j.status] || j.status}</span></td>
                 <td>$${Math.round((j.basePrice || 0) * 0.75).toLocaleString()}</td>
@@ -1020,6 +1027,7 @@
     if (isMine) {
       renderThread(j, 'messages', 'msgListCustomer', 'contractor');
       renderThread(j, 'internalMessages', 'msgListAdmin', 'contractor');
+      markJobMessagesSeen(j.id);
       wireNotifyButton();
       renderMilestoneClaimSection(j.id);
     }
@@ -1756,6 +1764,12 @@
     j[key] = j[key] || [];
     j[key].push({ id: 'm_' + Date.now(), from: 'contractor', authorName: getContractorName(), text, createdAt: new Date().toISOString() });
     saveJobs(jobs);
+    if (key === 'messages' && j.customerEmail) {
+      fetch('/api/notify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'job-message', toEmail: j.customerEmail, toRole: 'customer', fromName: getContractorName(), category: j.category, jobNumber: j.jobNumber, text }),
+      }).catch(() => {});
+    }
     input.value = '';
     renderDetail(getContractorName());
   }
@@ -1773,6 +1787,34 @@
     if ('Notification' in window && Notification.permission === 'granted') new Notification('MySubbies', { body: text });
   }
   let lastMsgCounts = {};
+  // Persistent (localStorage-backed) unread-message tracking for the
+  // customer-facing thread only (not the private admin thread, which
+  // already has its own real read-state via admin_contractor_messages).
+  // Separate from lastMsgCounts below -- that one only detects a message
+  // arriving while this tab is open (to fire a desktop Notification) and
+  // resets on reload; this one survives reload/tab-close so a job with a
+  // new customer message keeps showing a dot in My Jobs until the
+  // contractor actually opens it. Same-device only (no server-side
+  // read-state exists) -- real notification-across-devices is what the
+  // email sent from sendMsg() (see api/notify.js's job-message type) is
+  // for.
+  function getMsgSeenMap() {
+    try { return JSON.parse(localStorage.getItem('mysubbies_contractor_msg_seen') || '{}'); } catch (e) { return {}; }
+  }
+  function markJobMessagesSeen(jobId) {
+    const j = getJobs().find(x => x.id === jobId);
+    if (!j) return;
+    const map = getMsgSeenMap();
+    map[jobId] = (j.messages || []).length;
+    try { localStorage.setItem('mysubbies_contractor_msg_seen', JSON.stringify(map)); } catch (e) { /* non-critical */ }
+  }
+  function jobHasUnreadMessage(j) {
+    const msgs = j.messages || [];
+    if (!msgs.length) return false;
+    const last = msgs[msgs.length - 1];
+    if (last.from === 'contractor') return false;
+    return msgs.length > (getMsgSeenMap()[j.id] || 0);
+  }
   function checkForNewMessages() {
     const contractorName = getContractorName();
     if (!contractorName) return;
