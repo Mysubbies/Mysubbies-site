@@ -253,6 +253,11 @@
         <div id="adminLoginError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
         <button onclick="adminLogin()" style="width:100%;background:var(--black);color:#fff;border:none;border-radius:999px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;">Log in →</button>
       </div>`;
+    // checkAdminAuth() renders the login form directly (not through
+    // render()/renderInner()), so updateMobileTabbar() never runs on this
+    // path -- without this call the bottom tab bar was left showing (and
+    // its tabs non-functional) on top of the login screen.
+    updateMobileTabbar();
   }
   async function adminLogin() {
     const val = document.getElementById('adminPasswordInput').value;
