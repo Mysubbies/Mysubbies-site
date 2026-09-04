@@ -301,14 +301,24 @@
       if (customers[email]) { showError('An account with this email already exists — log in instead.'); return; }
 
       const referralCode = (name.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'FRND') + Math.floor(1000 + Math.random() * 9000);
-      const referredBy = Object.values(customers).some(c => c.referralCode === referralInput) ? referralInput : null;
+      // Sep 2026 -- referredBy used to only "count" if the referrer's own
+      // record happened to already be cached in THIS browser's localStorage
+      // (Object.values(customers).some(...)), which silently failed for the
+      // completely normal case of a new customer on a new device using a
+      // code from a friend they'd never shared a browser with. Now just
+      // stores whatever code was entered, verbatim, on the real customers
+      // row -- the referral-credit system (granted once this customer's
+      // first deposit succeeds, see api/stripe-webhook.js) is what actually
+      // validates it's a real code server-side, where every customer's
+      // record is visible regardless of device.
+      const referredBy = referralInput || null;
 
       let customerDbId = null;
       if (sb) {
         const { data, error } = await sb.auth.signUp({ email, password });
         if (error) { showError(error.message); return; }
         if (data.user) {
-          const { data: inserted } = await sb.from('customers').insert({ auth_user_id: data.user.id, email, name, phone }).select().single();
+          const { data: inserted } = await sb.from('customers').insert({ auth_user_id: data.user.id, email, name, phone, referral_code: referralCode, referred_by: referredBy }).select().single();
           customerDbId = inserted?.id || null;
         }
       }
@@ -380,13 +390,32 @@
       return;
     }
 
+    // Referral credit preview (Sep 2026, "Give $50, Get $50") -- a pure
+    // display check so the deposit amount shown here matches what
+    // api/create-deposit-intent.js will actually charge (it independently
+    // re-checks and applies the real discount server-side at payment time
+    // -- this is never the source of truth, just so the number on screen
+    // isn't a surprise). Best-effort: if this fails, the page still works,
+    // it just won't show a credit that does still apply at payment time.
+    let creditCents = 0;
+    if (customer.email) {
+      try {
+        const creditRes = await fetch(`/api/create-deposit-intent?email=${encodeURIComponent(customer.email)}`);
+        if (creditRes.ok) { const creditData = await creditRes.json(); creditCents = creditData.creditCents || 0; }
+      } catch (e) { /* no credit shown -- still applied correctly at payment time if one exists */ }
+    }
+
     const depositMilestone = preview.milestones.find(m => m.milestone_type === 'deposit') || preview.milestones[0];
-    const depositAmount = depositMilestone.amount_cents / 100;
+    const rawDepositCents = depositMilestone.amount_cents;
+    const appliedCreditCents = Math.min(creditCents, Math.max(0, rawDepositCents - 100));
+    const depositAmount = (rawDepositCents - appliedCreditCents) / 100;
     const isPendingAdminSchedule = preview.status === 'pending_admin_schedule';
 
     const scheduleRowsHtml = preview.milestones.map(m => `
       <div class="row"><span class="l">${m.label} (${m.pct}%)</span><span class="r">$${(m.amount_cents / 100).toLocaleString()}</span></div>
-    `).join('');
+    `).join('') + (appliedCreditCents > 0 ? `
+      <div class="row" style="color:var(--good);"><span class="l">Referral credit</span><span class="r">−$${(appliedCreditCents / 100).toLocaleString()}</span></div>
+    ` : '');
 
     app.innerHTML = `
       <h1 class="pagetitle">Review your payment schedule</h1>
@@ -460,6 +489,7 @@
           basePriceCents: Math.round(pending.catBase * 100),
           accepted: true,
           customerId: pending.customer.customerDbId || null,
+          customerEmail: pending.customer.email || null,
           termsVersion: PAYMENT_TERMS_VERSION,
         }),
       });

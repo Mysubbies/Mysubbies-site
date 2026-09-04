@@ -1408,12 +1408,13 @@
       <div id="inquiryFormWrap"></div>
       ${notifyBannerHtml()}
       <div class="box" style="margin-bottom:16px;">
-        <div style="font-size:13px;font-weight:600;margin-bottom:4px;">Refer a friend</div>
-        <div style="font-size:12px;color:var(--stone);margin-bottom:8px;">Share your code — ${referredCount} friend${referredCount===1?'':'s'} referred so far.</div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px;">Give $50, get $50</div>
+        <div style="font-size:12px;color:var(--stone);margin-bottom:8px;">Share your code — when a friend books their first job, you both get a $50 credit toward your next booking.</div>
         <div style="display:flex;gap:8px;align-items:center;">
           <code style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;flex:1;">${myAccount.referralCode || '—'}</code>
           <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="copyReferralCode('${myAccount.referralCode || ''}')">Copy</button>
         </div>
+        <div id="referralCreditLine" style="margin-top:10px;font-size:12.5px;color:var(--stone);">Checking your referral credit…</div>
         <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
           <div style="font-size:12px;color:var(--stone);">Just want to share the app itself?</div>
           <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;flex-shrink:0;" onclick="shareAppWithFriend()">Share app link</button>
@@ -1447,6 +1448,28 @@
       }
     }
     wireNotifyButton();
+    renderReferralCreditLine(email);
+  }
+
+  // Sep 2026, "Give $50, Get $50" -- shows the customer's real, currently
+  // available referral credit balance (api/create-deposit-intent.js's GET
+  // handler, the same one the booking-review screen previews against),
+  // not just the code + a locally-cached referral count. Fetched
+  // separately from the main render() so a slow/failed check never blocks
+  // the rest of the page from showing.
+  async function renderReferralCreditLine(email) {
+    const el = document.getElementById('referralCreditLine');
+    if (!el || !email) return;
+    try {
+      const res = await fetch('/api/create-deposit-intent?email=' + encodeURIComponent(email));
+      if (!res.ok) throw new Error('failed');
+      const { creditCents } = await res.json();
+      el.textContent = creditCents > 0
+        ? `You have $${(creditCents / 100).toLocaleString()} in referral credit — it'll be applied automatically on your next deposit.`
+        : 'No referral credit available right now.';
+    } catch (e) {
+      el.textContent = '';
+    }
   }
 
   function renderDetail(email) {

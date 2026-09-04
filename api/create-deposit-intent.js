@@ -16,11 +16,33 @@
 const { getStripe, getSupabase } = require('./_lib/clients');
 const { resolveScheduleForJob, ScheduleValidationError } = require('./_lib/paymentSchedule');
 
+// GET ?email=... -- referral-credit preview (Sep 2026, "Give $50, Get
+// $50"), read by mysubbies-booking.html's payment-schedule review screen
+// so the deposit amount shown BEFORE payment matches what will actually
+// be charged. Ungated, same posture as every other self-service "read my
+// own data" endpoint in this project -- returns only a dollar figure, no
+// PII.
+async function handleCreditPreview(req, res) {
+  try {
+    const { email } = req.query || {};
+    if (!email) { res.status(400).json({ error: 'email is required.' }); return; }
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('customer_credits').select('amount_cents').eq('customer_email', email).eq('status', 'available');
+    if (error) throw error;
+    const creditCents = (data || []).reduce((s, c) => s + c.amount_cents, 0);
+    res.status(200).json({ creditCents });
+  } catch (err) {
+    console.error('create-deposit-intent credit preview error:', err);
+    res.status(500).json({ error: 'Could not check for a referral credit.' });
+  }
+}
+
 module.exports = async (req, res) => {
+  if (req.method === 'GET') { await handleCreditPreview(req, res); return; }
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
   try {
-    const { jobId, category, suburb, contractorEmail, basePriceCents, accepted, customerId, termsVersion } = req.body || {};
+    const { jobId, category, suburb, contractorEmail, basePriceCents, accepted, customerId, customerEmail, termsVersion } = req.body || {};
     if (!jobId || !category || !basePriceCents) {
       res.status(400).json({ error: 'jobId, category and basePriceCents are required.' });
       return;
@@ -40,6 +62,41 @@ module.exports = async (req, res) => {
 
       const resolved = await resolveScheduleForJob(supabase, category, basePriceCents);
       const depositMilestone = resolved.milestones.find(m => m.milestone_type === 'deposit') || resolved.milestones[0];
+
+      // Referral credit (Sep 2026, "Give $50, Get $50") -- applied once,
+      // right here, the first time this job's schedule is ever created
+      // (this whole `if (!schedule)` branch only runs once per job).
+      // Mutates depositMilestone.amount_cents in place before it's used
+      // for both the jobs row and the milestone rows below, so everything
+      // downstream (the actual Stripe charge, the stored schedule,
+      // "Payment history" later) reflects the discounted amount
+      // consistently -- there's no separate "discount line" to keep in
+      // sync elsewhere. Only ever applies a credit in full (never
+      // partial -- customer_credits has no partial-amount tracking), and
+      // never reduces the charge below $1 (Stripe's practical minimum).
+      // Best-effort: a lookup failure here must never block the booking
+      // itself, it just means the discount doesn't apply this time.
+      if (customerEmail) {
+        try {
+          const { data: credits } = await supabase.from('customer_credits').select('*')
+            .eq('customer_email', customerEmail).eq('status', 'available').order('created_at', { ascending: true });
+          if (credits && credits.length) {
+            const cap = Math.max(0, depositMilestone.amount_cents - 100);
+            let remaining = cap, appliedCents = 0;
+            const usedIds = [];
+            for (const credit of credits) {
+              if (credit.amount_cents > remaining) continue;
+              remaining -= credit.amount_cents;
+              appliedCents += credit.amount_cents;
+              usedIds.push(credit.id);
+            }
+            if (usedIds.length) {
+              depositMilestone.amount_cents -= appliedCents;
+              await supabase.from('customer_credits').update({ status: 'used', used_at: new Date().toISOString(), used_job_id: jobId }).in('id', usedIds);
+            }
+          }
+        } catch (creditErr) { console.error('referral credit lookup failed (continuing without discount):', creditErr); }
+      }
 
       if (!job) {
         const { data: inserted, error: insertError } = await supabase

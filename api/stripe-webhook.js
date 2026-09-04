@@ -190,6 +190,56 @@ module.exports = async (req, res) => {
             });
           }
         } catch (emailErr) { console.error('payment confirmation email failed:', emailErr); }
+
+        // Referral credit grant (Sep 2026, "Give $50, Get $50") -- fires
+        // once, the very first time a customer's OWN deposit ever
+        // succeeds, never on a later job, so a referral can't be farmed
+        // by booking repeatedly. Deliberately its own try/catch, separate
+        // from the confirmation email above -- this must never affect the
+        // payment outcome or the booking confirmation the customer is
+        // waiting on. Both sides of a successful referral get a $50
+        // credit usable on their own NEXT deposit (see
+        // api/create-deposit-intent.js's discount-application block) --
+        // kept entirely separate from the money that just moved on THIS
+        // job, so it can never under/over-charge the deposit that
+        // actually succeeded.
+        if (stage === 'deposit') {
+          try {
+            const { data: refJobRow } = await supabase.from('jobs').select('customer_email').eq('id', jobId).maybeSingle();
+            const refereeEmail = refJobRow && refJobRow.customer_email;
+            if (refereeEmail) {
+              const { count: priorDeposits } = await supabase.from('jobs').select('id', { count: 'exact', head: true })
+                .eq('customer_email', refereeEmail).eq('status', 'deposit_paid');
+              if (priorDeposits === 1) { // this deposit is the only one on record -- first ever for this customer
+                const { data: refereeRow } = await supabase.from('customers').select('referred_by').eq('email', refereeEmail).maybeSingle();
+                const referredByCode = refereeRow && refereeRow.referred_by;
+                if (referredByCode) {
+                  const { data: referrerRow } = await supabase.from('customers').select('email').eq('referral_code', referredByCode).maybeSingle();
+                  const referrerEmail = referrerRow && referrerRow.email;
+                  if (referrerEmail && referrerEmail !== refereeEmail) {
+                    await supabase.from('customer_credits').insert([
+                      { customer_email: referrerEmail, amount_cents: 5000, source: 'referral_referrer', related_email: refereeEmail },
+                      { customer_email: refereeEmail, amount_cents: 5000, source: 'referral_referee', related_email: referrerEmail },
+                    ]);
+                    const creditEmailHtml = (intro) => wrapEmail(`
+                      <h2 style="margin-top:0;">You've earned a $50 credit!</h2>
+                      <p>${intro} It's automatically applied to your next booking's deposit — nothing to do but book.</p>
+                      ${emailButton('Book your next job →', 'https://mysubbies-site.vercel.app/mysubbies-website.html#estimate')}
+                    `);
+                    await Promise.allSettled([
+                      sendEmail({ to: referrerEmail, subject: "You've earned a $50 MySubbies credit", html: creditEmailHtml('Your referral just booked their first job.') }),
+                      sendEmail({ to: refereeEmail, subject: "You've earned a $50 MySubbies credit", html: creditEmailHtml("Thanks for using a friend's referral code.") }),
+                      supabase.from('notifications').insert([
+                        { recipient_role: 'customer', recipient_email: referrerEmail, event_type: 'referral-credit', title: 'You earned a $50 credit', body: 'Your referral just booked their first job — the credit is ready on your next booking.' },
+                        { recipient_role: 'customer', recipient_email: refereeEmail, event_type: 'referral-credit', title: 'You earned a $50 credit', body: "Thanks for using a friend's referral code — the credit is ready on your next booking." },
+                      ]),
+                    ]);
+                  }
+                }
+              }
+            }
+          } catch (creditErr) { console.error('referral credit grant failed:', creditErr); }
+        }
       }
     } else if (event.type === 'account.updated') {
       const account = event.data.object;
