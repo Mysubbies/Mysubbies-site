@@ -109,6 +109,17 @@ module.exports = async (req, res) => {
             html: wrapEmail(`<h2 style="margin-top:0;">Your contractor submitted progress</h2><p>Your contractor has submitted evidence for <strong>${milestone.label}</strong> on your ${jobRow.category} job. Review it in <a href="https://mysubbies-site.vercel.app/mysubbies-customer-portal.html">My Jobs</a> to approve and pay, or raise an issue.</p>`),
           });
         } catch (e) { /* email is best-effort */ }
+        // In-app notification-center row (supabase/schema_v13_notifications.sql),
+        // read by the bell icon/panel in the customer portal -- best-effort,
+        // own try/catch, same reasoning as the email above: this must never
+        // fail a claim that has already been recorded.
+        try {
+          await supabase.from('notifications').insert({
+            recipient_role: 'customer', recipient_email: jobRow.customer_email, event_type: 'milestone-claimed',
+            title: 'Milestone ready for review', body: `Your contractor submitted evidence for "${milestone.label}" on your ${jobRow.category} job.`,
+            link_job_id: jobId,
+          });
+        } catch (e) { console.error('notification insert error:', e); }
       }
 
       res.status(200).json({ milestone: updated });

@@ -33,6 +33,23 @@
   .navlink-refresh:hover { color:var(--black); }
   .navlink-refresh svg.spinning { animation:navlink-refresh-spin 0.8s linear infinite; }
   @keyframes navlink-refresh-spin { to { transform:rotate(360deg); } }
+  /* Notification bell + panel (Sep 2026) -- see mysubbies-customer-portal.html
+     for the matching implementation/comments (self-contained convention,
+     no shared JS/CSS file). Admin's GET/markRead calls go through
+     adminFetch since this role's feed is bearer-token gated. */
+  .navlink-bell { display:flex; align-items:center; cursor:pointer; color:var(--stone); position:relative; }
+  .navlink-bell:hover { color:var(--black); }
+  .notif-badge { position:absolute; top:-5px; right:-7px; min-width:15px; height:15px; padding:0 3px; border-radius:999px; background:var(--warn); color:#fff; font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center; line-height:1; }
+  .notif-panel { position:fixed; top:68px; right:16px; width:320px; max-width:calc(100vw - 32px); max-height:70vh; overflow-y:auto; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 10px 32px rgba(0,0,0,.14); z-index:80; }
+  .notif-panel-header { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-bottom:1px solid var(--paper); font-size:13px; font-weight:700; position:sticky; top:0; background:#fff; }
+  .notif-panel-header a { font-size:11.5px; font-weight:600; color:var(--stone); cursor:pointer; text-decoration:underline; }
+  .notif-item { display:block; width:100%; text-align:left; padding:11px 14px; border:none; border-bottom:1px solid var(--paper); background:none; cursor:pointer; font-family:inherit; }
+  .notif-item:hover { background:var(--paper); }
+  .notif-item.unread { background:#fbf6ea; }
+  .notif-item-title { font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:2px; }
+  .notif-item-body { font-size:12px; color:var(--stone); line-height:1.4; }
+  .notif-item-time { font-size:10.5px; color:var(--stone-light); margin-top:4px; }
+  .notif-empty { padding:26px 14px; text-align:center; font-size:12.5px; color:var(--stone-light); }
   .wrap { max-width:880px; margin:0 auto; padding:32px 24px 80px; }
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 18px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; border:none; }
   .btn-black { background:var(--black); color:#fff; }
@@ -160,12 +177,14 @@
       <div class="logo-word">My<span class="gold">Subbies</span></div>
     </div>
     <div class="navlinks">
+      <a class="navlink-bell" onclick="toggleNotifPanel()" title="Notifications"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notifBadge" class="notif-badge" style="display:none;"></span></a>
       <a class="navlink-refresh" id="refreshLink" onclick="manualRefresh()" title="Refresh"><svg id="refreshIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></a>
       <a class="current" href="mysubbies-admin-portal.html">Admin</a>
       <a onclick="adminLogout()" style="cursor:pointer;">Log out</a>
     </div>
   </div>
 </header>
+<div id="notifPanel" class="notif-panel" style="display:none;"></div>
 
 <div class="wrap" id="app"></div>
 
@@ -3030,6 +3049,87 @@
   }
   setInterval(pollForNewActivity, 25000);
   pollForNewActivity();
+
+  // ---- Notification center (bell icon + panel, Sep 2026) ----
+  // See mysubbies-customer-portal.html for the matching implementation and
+  // comments (self-contained convention, no shared JS file). Separate from
+  // pollForNewActivity() above -- that one aggregates several existing
+  // localStorage/API sources into one "action required" count + desktop
+  // popup; this one is the real persistent inbox (api/notifications.js,
+  // supabase/schema_v13_notifications.sql) a bell icon reads. Admin's
+  // GET/markRead calls go through adminFetch since this role's feed is
+  // bearer-token gated (role=admin has no email to scope by).
+  let notifPanelOpen = false;
+  let notifItems = [];
+  let notifUnreadCount = 0;
+  async function pollNotifications() {
+    if (!localStorage.getItem('mysubbies_admin_token')) return;
+    try {
+      const res = await adminFetch('/api/notifications?role=admin');
+      if (!res.ok) return;
+      const data = await res.json();
+      notifItems = data.notifications || [];
+      notifUnreadCount = data.unreadCount || 0;
+      renderNotifBadge();
+      if (notifPanelOpen) renderNotifPanel();
+    } catch (e) { /* offline -- badge just stays as last known */ }
+  }
+  function renderNotifBadge() {
+    const badge = document.getElementById('notifBadge');
+    if (!badge) return;
+    if (notifUnreadCount > 0) { badge.textContent = notifUnreadCount > 9 ? '9+' : notifUnreadCount; badge.style.display = 'flex'; }
+    else { badge.style.display = 'none'; }
+  }
+  function toggleNotifPanel() {
+    notifPanelOpen = !notifPanelOpen;
+    const panel = document.getElementById('notifPanel');
+    if (!panel) return;
+    if (notifPanelOpen) { panel.style.display = 'block'; renderNotifPanel(); }
+    else { panel.style.display = 'none'; }
+  }
+  function renderNotifPanel() {
+    const panel = document.getElementById('notifPanel');
+    if (!panel) return;
+    panel.innerHTML = `
+      <div class="notif-panel-header">
+        <span>Notifications</span>
+        ${notifUnreadCount > 0 ? `<a onclick="markAllNotifsRead()">Mark all read</a>` : ''}
+      </div>
+      ${notifItems.length === 0 ? `<div class="notif-empty">No notifications yet.</div>` : notifItems.map(n => `
+        <button type="button" class="notif-item ${!n.readAt ? 'unread' : ''}" onclick="openNotif('${n.id}', '${n.eventType}', ${n.linkJobId ? `'${n.linkJobId}'` : 'null'})">
+          <div class="notif-item-title">${escapeHtml(n.title)}</div>
+          <div class="notif-item-body">${escapeHtml(n.body)}</div>
+          <div class="notif-item-time">${new Date(n.createdAt).toLocaleString('en-AU')}</div>
+        </button>
+      `).join('')}
+    `;
+  }
+  function markAllNotifsRead() {
+    adminFetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'markAllRead', role: 'admin' }) }).catch(() => {});
+    const now = new Date().toISOString();
+    notifItems.forEach(n => { n.readAt = n.readAt || now; });
+    notifUnreadCount = 0;
+    renderNotifBadge();
+    renderNotifPanel();
+  }
+  function openNotif(id, eventType, jobId) {
+    adminFetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'markRead', id, role: 'admin' }) }).catch(() => {});
+    const item = notifItems.find(n => n.id === id);
+    if (item && !item.readAt) { item.readAt = new Date().toISOString(); notifUnreadCount = Math.max(0, notifUnreadCount - 1); }
+    renderNotifBadge();
+    toggleNotifPanel();
+    if (jobId) { selectedJobId = jobId; render(); }
+    else if (eventType === 'contractor-application-submitted') { tab = 'applications'; render(); }
+  }
+  document.addEventListener('click', (e) => {
+    if (notifPanelOpen && !e.target.closest('.notif-panel') && !e.target.closest('.navlink-bell')) {
+      notifPanelOpen = false;
+      const p = document.getElementById('notifPanel');
+      if (p) p.style.display = 'none';
+    }
+  });
+  setInterval(pollNotifications, 25000);
+  pollNotifications();
 
   // Approved contractors first (and ones covering this job's category
   // floated to the top), so reassigning is a pick-from-list action instead

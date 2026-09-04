@@ -42,6 +42,19 @@ function escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// In-app notification-center row (supabase/schema_v13_notifications.sql),
+// written alongside the email each branch below already sends — this is
+// the in-app half of the same notification, read by the bell icon/panel
+// in each portal (api/notifications.js). Deliberately best-effort and
+// isolated in its own try/catch at each call site: a bell-icon row
+// failing to write must never break the email or the underlying action
+// that's actually being notified about.
+async function writeNotification(rows) {
+  try {
+    await getSupabase().from('notifications').insert(rows);
+  } catch (e) { console.error('notification insert error:', e); }
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
@@ -49,7 +62,7 @@ module.exports = async (req, res) => {
     const { type } = req.body || {};
 
     if (type === 'job-assigned') {
-      const { customerEmail, category, suburb, contractorName } = req.body || {};
+      const { customerEmail, category, suburb, contractorName, jobId } = req.body || {};
       if (!customerEmail || !category) { res.status(400).json({ error: 'customerEmail and category are required.' }); return; }
       await sendEmail({
         to: customerEmail,
@@ -59,6 +72,11 @@ module.exports = async (req, res) => {
           <p>${contractorName ? `<strong>${contractorName}</strong> has` : 'A vetted contractor has'} accepted your <strong>${category}</strong> job${suburb ? ` in <strong>${suburb}</strong>` : ''}.</p>
           <p>You can message them directly and track progress any time in <a href="https://mysubbies-site.vercel.app/mysubbies-customer-portal.html">My Jobs</a>.</p>
         `),
+      });
+      await writeNotification({
+        recipient_role: 'customer', recipient_email: customerEmail, event_type: 'job-assigned',
+        title: 'Contractor matched', body: `${contractorName || 'A contractor'} accepted your ${category} job${suburb ? ' in ' + suburb : ''}.`,
+        link_job_id: jobId || null,
       });
       res.status(200).json({ sent: true });
       return;
@@ -109,6 +127,12 @@ module.exports = async (req, res) => {
           <p><a href="https://mysubbies-site.vercel.app/mysubbies-contractor-portal.html">Open Job Feed →</a></p>
         `),
       })));
+      if (matches.length) {
+        await writeNotification(matches.map(a => ({
+          recipient_role: 'contractor', recipient_email: a.email, event_type: 'new-job-available',
+          title: 'New job available', body: `${taskName || category}${suburb ? ' in ' + suburb : ''} — no lead fees, first to accept gets it.`,
+        })));
+      }
 
       res.status(200).json({ sent: true, notified: matches.length });
       return;
@@ -126,13 +150,14 @@ module.exports = async (req, res) => {
     // or a phone. This is the part of that gap email can actually close;
     // toRole picks which portal the "reply" link points at.
     if (type === 'job-message') {
-      const { toEmail, toRole, fromName, category, jobNumber, text } = req.body || {};
+      const { toEmail, toRole, fromName, category, jobNumber, jobId, text } = req.body || {};
       if (!toEmail || !toRole || !text) { res.status(400).json({ error: 'toEmail, toRole and text are required.' }); return; }
       const portalUrl = toRole === 'contractor'
         ? 'https://mysubbies-site.vercel.app/mysubbies-contractor-portal.html'
         : 'https://mysubbies-site.vercel.app/mysubbies-customer-portal.html';
       const jobLabel = jobNumber != null ? `Job #${jobNumber}` : (category || 'your job');
-      const senderLabel = fromName ? escapeHtml(fromName) : (toRole === 'contractor' ? 'The customer' : 'Your contractor');
+      const senderPlain = fromName || (toRole === 'contractor' ? 'The customer' : 'Your contractor');
+      const senderLabel = escapeHtml(senderPlain);
       await sendEmail({
         to: toEmail,
         subject: `New message on ${jobLabel}${category ? ` (${category})` : ''}`,
@@ -142,6 +167,11 @@ module.exports = async (req, res) => {
           <p style="background:#f7f7f5;border-radius:8px;padding:12px 14px;color:#333;">"${escapeHtml(String(text).slice(0, 400))}"</p>
           <p><a href="${portalUrl}">Reply in the app →</a></p>
         `),
+      });
+      await writeNotification({
+        recipient_role: toRole, recipient_email: toEmail, event_type: 'job-message',
+        title: `New message from ${senderPlain}`, body: String(text).slice(0, 300),
+        link_job_id: jobId || null,
       });
       res.status(200).json({ sent: true });
       return;
@@ -159,6 +189,10 @@ module.exports = async (req, res) => {
           <p>Email: ${email}${phone ? `<br>Phone: ${phone}` : ''}${Array.isArray(trades) && trades.length ? `<br>Trades: ${trades.join(', ')}` : ''}</p>
           <p><a href="https://mysubbies-site.vercel.app/mysubbies-admin-portal.html">Review in Applications →</a></p>
         `),
+      });
+      await writeNotification({
+        recipient_role: 'admin', event_type: 'contractor-application-submitted',
+        title: 'New contractor application', body: `${business}${contact ? ' (' + contact + ')' : ''} applied to join the panel.`,
       });
       res.status(200).json({ sent: true });
       return;

@@ -40,6 +40,24 @@
   .navlink-refresh:hover { color:var(--black); }
   .navlink-refresh svg.spinning { animation:navlink-refresh-spin 0.8s linear infinite; }
   @keyframes navlink-refresh-spin { to { transform:rotate(360deg); } }
+  /* Notification bell + panel (Sep 2026) -- a real, persistent notification
+     center backed by supabase/schema_v13_notifications.sql, replacing the
+     old "desktop popup only while this tab is open" as the primary in-app
+     signal. .notif-panel is position:fixed (not absolute off .navwrap) so
+     it doesn't depend on the header's own positioning context. */
+  .navlink-bell { display:flex; align-items:center; cursor:pointer; color:var(--stone); position:relative; }
+  .navlink-bell:hover { color:var(--black); }
+  .notif-badge { position:absolute; top:-5px; right:-7px; min-width:15px; height:15px; padding:0 3px; border-radius:999px; background:var(--warn); color:#fff; font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center; line-height:1; }
+  .notif-panel { position:fixed; top:68px; right:16px; width:320px; max-width:calc(100vw - 32px); max-height:70vh; overflow-y:auto; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 10px 32px rgba(0,0,0,.14); z-index:80; }
+  .notif-panel-header { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-bottom:1px solid var(--paper); font-size:13px; font-weight:700; position:sticky; top:0; background:#fff; }
+  .notif-panel-header a { font-size:11.5px; font-weight:600; color:var(--stone); cursor:pointer; text-decoration:underline; }
+  .notif-item { display:block; width:100%; text-align:left; padding:11px 14px; border:none; border-bottom:1px solid var(--paper); background:none; cursor:pointer; font-family:inherit; }
+  .notif-item:hover { background:var(--paper); }
+  .notif-item.unread { background:#fbf6ea; }
+  .notif-item-title { font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:2px; }
+  .notif-item-body { font-size:12px; color:var(--stone); line-height:1.4; }
+  .notif-item-time { font-size:10.5px; color:var(--stone-light); margin-top:4px; }
+  .notif-empty { padding:26px 14px; text-align:center; font-size:12.5px; color:var(--stone-light); }
   .wrap { max-width:640px; margin:0 auto; padding:32px 24px 80px; }
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 20px; border-radius:999px; font-size:14px; font-weight:600; cursor:pointer; border:none; }
   .btn-black { background:var(--black); color:#fff; }
@@ -213,12 +231,14 @@
       <div class="logo-word">My<span class="gold">Subbies</span></div>
     </a>
     <div class="navlinks">
+      <a class="navlink-bell" onclick="toggleNotifPanel()" title="Notifications"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notifBadge" class="notif-badge" style="display:none;"></span></a>
       <a class="navlink-refresh" id="refreshLink" onclick="manualRefresh()" title="Refresh"><svg id="refreshIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></a>
       <a href="mysubbies-website.html">Site</a>
       <a class="current" href="mysubbies-customer-portal.html">My Jobs</a>
     </div>
   </div>
 </header>
+<div id="notifPanel" class="notif-panel" style="display:none;"></div>
 
 <div class="wrap" id="app"></div>
 
@@ -1940,7 +1960,7 @@
     if (j.contractorEmail) {
       fetch('/api/notify', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'job-message', toEmail: j.contractorEmail, toRole: 'contractor', fromName: j.customerName, category: j.category, jobNumber: j.jobNumber, text }),
+        body: JSON.stringify({ type: 'job-message', toEmail: j.contractorEmail, toRole: 'contractor', fromName: j.customerName, category: j.category, jobNumber: j.jobNumber, jobId: j.id, text }),
       }).catch(() => {});
     }
     input.value = '';
@@ -2123,6 +2143,89 @@
   }
   window.addEventListener('storage', (e) => { if (e.key === 'mysubbies_jobs') { checkForNewMessages(); render(); } });
   setInterval(checkForNewMessages, 3000);
+
+  // ---- Notification center (bell icon + panel, Sep 2026) ----
+  // Persistent and cross-device (api/notifications.js, backed by
+  // supabase/schema_v13_notifications.sql), unlike checkForNewMessages()
+  // above which only fires a transient desktop popup while this exact tab
+  // is open. Polled every 25s -- a real network call, so this is a much
+  // lighter cadence than the local-only 3s loop above.
+  let notifPanelOpen = false;
+  let notifItems = [];
+  let notifUnreadCount = 0;
+  async function pollNotifications() {
+    const email = getCurrentCustomerEmail();
+    if (!email) return;
+    try {
+      const res = await fetch('/api/notifications?role=customer&email=' + encodeURIComponent(email));
+      if (!res.ok) return;
+      const data = await res.json();
+      notifItems = data.notifications || [];
+      notifUnreadCount = data.unreadCount || 0;
+      renderNotifBadge();
+      if (notifPanelOpen) renderNotifPanel();
+    } catch (e) { /* offline -- badge just stays as last known */ }
+  }
+  function renderNotifBadge() {
+    const badge = document.getElementById('notifBadge');
+    if (!badge) return;
+    if (notifUnreadCount > 0) { badge.textContent = notifUnreadCount > 9 ? '9+' : notifUnreadCount; badge.style.display = 'flex'; }
+    else { badge.style.display = 'none'; }
+  }
+  function toggleNotifPanel() {
+    notifPanelOpen = !notifPanelOpen;
+    const panel = document.getElementById('notifPanel');
+    if (!panel) return;
+    if (notifPanelOpen) { panel.style.display = 'block'; renderNotifPanel(); }
+    else { panel.style.display = 'none'; }
+  }
+  function renderNotifPanel() {
+    const panel = document.getElementById('notifPanel');
+    if (!panel) return;
+    panel.innerHTML = `
+      <div class="notif-panel-header">
+        <span>Notifications</span>
+        ${notifUnreadCount > 0 ? `<a onclick="markAllNotifsRead()">Mark all read</a>` : ''}
+      </div>
+      ${notifItems.length === 0 ? `<div class="notif-empty">No notifications yet.</div>` : notifItems.map(n => `
+        <button type="button" class="notif-item ${!n.readAt ? 'unread' : ''}" onclick="openNotif('${n.id}', ${n.linkJobId ? `'${n.linkJobId}'` : 'null'})">
+          <div class="notif-item-title">${escapeHtml(n.title)}</div>
+          <div class="notif-item-body">${escapeHtml(n.body)}</div>
+          <div class="notif-item-time">${new Date(n.createdAt).toLocaleString('en-AU')}</div>
+        </button>
+      `).join('')}
+    `;
+  }
+  function markAllNotifsRead() {
+    const email = getCurrentCustomerEmail();
+    if (!email) return;
+    fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'markAllRead', role: 'customer', email }) }).catch(() => {});
+    const now = new Date().toISOString();
+    notifItems.forEach(n => { n.readAt = n.readAt || now; });
+    notifUnreadCount = 0;
+    renderNotifBadge();
+    renderNotifPanel();
+  }
+  function openNotif(id, jobId) {
+    const email = getCurrentCustomerEmail();
+    if (email) {
+      fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'markRead', id, role: 'customer', email }) }).catch(() => {});
+    }
+    const item = notifItems.find(n => n.id === id);
+    if (item && !item.readAt) { item.readAt = new Date().toISOString(); notifUnreadCount = Math.max(0, notifUnreadCount - 1); }
+    renderNotifBadge();
+    toggleNotifPanel();
+    if (jobId) { selectedJobId = jobId; showingPaymentHistory = false; showingPropertyProfile = false; render(); }
+  }
+  document.addEventListener('click', (e) => {
+    if (notifPanelOpen && !e.target.closest('.notif-panel') && !e.target.closest('.navlink-bell')) {
+      notifPanelOpen = false;
+      const p = document.getElementById('notifPanel');
+      if (p) p.style.display = 'none';
+    }
+  });
+  pollNotifications();
+  setInterval(pollNotifications, 25000);
 
   // House Health is now the default landing view for "My Jobs" (founder
   // request, Aug 2026 — feels more personalized than a flat job list).
