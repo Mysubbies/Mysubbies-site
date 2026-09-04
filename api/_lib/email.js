@@ -53,7 +53,7 @@ function wrapEmail(bodyHtml) {
           ${bodyHtml}
         </div>
       </div>
-      <p style="font-size:11px;color:#9CA3AF;text-align:center;margin:18px 0 0;">Mysubbies Group Pty Ltd · ABN 74 640 998 992 · Melbourne, VIC</p>
+      <p style="font-size:11px;color:#9CA3AF;text-align:center;margin:18px 0 0;">Mysubbies Holdings Pty Ltd · ABN 69 693 675 268 · Melbourne, VIC</p>
     </div>`;
 }
 

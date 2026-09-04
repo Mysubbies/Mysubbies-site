@@ -332,7 +332,7 @@
   </div>
   <div class="footbottom">
     <span>© 2026 MySubbies group. Melbourne, VIC.</span>
-    <span>ABN 74 640 998 992 · Prices shown are GST inclusive</span>
+    <span>ABN 69 693 675 268 · Prices shown are GST inclusive</span>
   </div>
 </footer>
 
@@ -624,8 +624,8 @@
   // reference reuses the job's own real, already-unique job number rather
   // than inventing a separate sequential invoice-number system.
   // ============================================================
-  const MYSUBBIES_ABN = '74 640 998 992';
-  const MYSUBBIES_LEGAL_NAME = 'Mysubbies Group Pty Ltd';
+  const MYSUBBIES_ABN = '69 693 675 268';
+  const MYSUBBIES_LEGAL_NAME = 'Mysubbies Holdings Pty Ltd';
   const MYSUBBIES_LOCATION = 'Melbourne, VIC';
   const PDF_NAVY = [20, 33, 61];
   const PDF_PAPER = [247, 247, 245];
@@ -805,7 +805,7 @@
       const finalY = doc.lastAutoTable.finalY || 70;
       const totalPaidCents = milestones.filter(m => m.status === 'paid').reduce((s, m) => s + (m.amount_cents || 0), 0);
       pdfTotalsBox(doc, finalY + 12, gstBreakdown(totalPaidCents), 'Total paid (inc. GST)');
-      pdfFooter(doc, 'Tax invoice issued by Mysubbies Group Pty Ltd for services facilitated via the MySubbies platform.');
+      pdfFooter(doc, 'Tax invoice issued by Mysubbies Holdings Pty Ltd for services facilitated via the MySubbies platform.');
       doc.save(`mysubbies-tax-invoice-${job.jobNumber || jobId}.pdf`);
     } catch (e) { showToast('Could not prepare the invoice — try again.'); }
   }
