@@ -1354,43 +1354,70 @@
   // saveRateCard()'s .catch(() => {})), so a new photo looked like it
   // saved in the admin's own browser but never reached the server or any
   // customer. A URL removes that ceiling entirely.
+  //
+  // Sep 2026 -- uploading to Storage means each photo now waits on a real
+  // network round trip before getRateCard()/saveRateCard() run. Picking
+  // several photos back-to-back used to let two of those round trips
+  // overlap: the second upload would read its own (now-stale) snapshot of
+  // the rate card before the first upload's save had landed, then
+  // overwrite the server with that stale snapshot once its own upload
+  // finished -- silently discarding the first photo, no error, because
+  // each individual request succeeded on its own. rcPhotoUploadQueue
+  // forces every upload (across every task) through one at a time, so a
+  // save can never start until the previous one has fully finished and
+  // its result is reflected in the next upload's getRateCard() read.
+  let rcPhotoUploadQueue = Promise.resolve();
   function onTaskPhotoSelected(catLabel, realIdx, event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = async () => {
-        const scale = Math.min(1, RC_PHOTO_MAX_WIDTH / img.width);
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', RC_PHOTO_JPEG_QUALITY);
-        const categories = getRateCard();
-        const cat = categories.find(c => c.label === catLabel);
-        if (!cat) return;
-        const task = cat.tasks[realIdx];
-        showToast('Uploading photo…');
-        try {
-          const res = await adminFetch('/api/rate-card', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'upload-photo', dataUrl, catLabel, taskName: task.name }),
-          });
-          if (!res.ok) throw new Error('upload failed');
-          const { url } = await res.json();
-          task.photoUrl = url;
-          delete task.photoDataUrl;
-          saveRateCard(categories);
-          const list = document.getElementById('rcManageList');
-          if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
-        } catch (err) {
-          showToast('Could not upload the photo — try again.');
-        }
+    event.target.value = '';
+    rcPhotoUploadQueue = rcPhotoUploadQueue.then(() => uploadTaskPhoto(catLabel, realIdx, file)).catch(() => {});
+  }
+  function readAndResizePhoto(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, RC_PHOTO_MAX_WIDTH / img.width);
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', RC_PHOTO_JPEG_QUALITY));
+        };
+        img.onerror = () => reject(new Error('Could not read image.'));
+        img.src = e.target.result;
       };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
+      reader.onerror = () => reject(new Error('Could not read file.'));
+      reader.readAsDataURL(file);
+    });
+  }
+  async function uploadTaskPhoto(catLabel, realIdx, file) {
+    try {
+      const dataUrl = await readAndResizePhoto(file);
+      const taskName = (getRateCard().find(c => c.label === catLabel) || {}).tasks?.[realIdx]?.name || '';
+      showToast('Uploading photo…');
+      const res = await adminFetch('/api/rate-card', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'upload-photo', dataUrl, catLabel, taskName }),
+      });
+      if (!res.ok) throw new Error('upload failed');
+      const { url } = await res.json();
+      // Re-read here, right before mutating/saving, not earlier -- this is
+      // what keeps the queue's serialization actually effective (see
+      // rcPhotoUploadQueue's comment above).
+      const categories = getRateCard();
+      const cat = categories.find(c => c.label === catLabel);
+      if (!cat) return;
+      cat.tasks[realIdx].photoUrl = url;
+      delete cat.tasks[realIdx].photoDataUrl;
+      saveRateCard(categories);
+      const list = document.getElementById('rcManageList');
+      if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
+    } catch (err) {
+      showToast('Could not upload a photo — try again.');
+    }
   }
   function removeTaskPhoto(catLabel, realIdx, event) {
     if (event) event.stopPropagation();
@@ -2113,12 +2140,14 @@
           <button class="${rcMode==='research'?'active':''}" onclick="rcMode='research'; render();">Research New</button>
         </div>
         ${rcMode === 'manage' ? `
-          ${categories.some(c => (c.tasks || []).some(t => t.photoDataUrl)) ? `
-            <div class="box" style="background:#fff8ea;border-color:#f0dba0;margin-bottom:14px;">
-              <div style="font-size:12.5px;margin-bottom:8px;"><strong>Some task photos are still stored the old way</strong> and count toward the save-size limit that was blocking new uploads. Click once to move them to cloud storage — existing photos and prices aren't changed, this only fixes how they're stored.</div>
-              <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;" onclick="migrateRateCardPhotos()">Migrate photos to cloud storage</button>
+          <div class="box" style="background:#fff8ea;border-color:#f0dba0;margin-bottom:14px;">
+            <div style="font-size:12.5px;margin-bottom:8px;">
+              ${categories.some(c => (c.tasks || []).some(t => t.photoDataUrl))
+                ? `<strong>Some task photos are still stored the old way</strong> and count toward the save-size limit that was blocking new uploads. Click to move them to cloud storage — existing photos and prices aren't changed, this only fixes how they're stored.`
+                : `All task photos are on cloud storage — nothing needs migrating right now. Safe to click any time (e.g. after uploading a batch of new photos) to double-check.`}
             </div>
-          ` : ''}
+            <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;" onclick="migrateRateCardPhotos()">Migrate photos to cloud storage</button>
+          </div>
           <input type="text" id="rcManageSearch" value="${escapeHtml(rcManageSearchQuery)}" oninput="onRcManageSearchInput(this)" placeholder="🔍 Search services or categories…" style="width:100%;font-size:13px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:14px;font-family:inherit;" />
           <div id="rcManageList">${rateCardManageHtml(categories, rcManageSearchQuery)}</div>
         ` : `
