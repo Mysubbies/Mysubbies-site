@@ -15,7 +15,19 @@
 // can never do this directly — Stripe's signed event is the sole source of
 // truth, verified below before anything touches the database.
 const { getStripe, getSupabase } = require('./_lib/clients');
-const { sendEmail, wrapEmail } = require('./_lib/email');
+const { sendEmail, wrapEmail, escapeHtml, emailDetailsTable, emailButton } = require('./_lib/email');
+
+// Same "Task — qty unit" summary line used by api/notify.js's job-assigned
+// and new-job-available emails, duplicated here rather than imported --
+// this file has no other dependency on notify.js and importing just this
+// one helper isn't worth the cross-file coupling for one small function.
+function itemsSummaryHtml(items, qty, unit) {
+  if (Array.isArray(items) && items.length) {
+    return items.map(i => `${escapeHtml(i.taskName || '')} — ${i.qty ?? ''} ${escapeHtml(i.unit || '')}`.trim()).join('<br>');
+  }
+  if (qty != null) return `${qty} ${escapeHtml(unit || '')}`.trim();
+  return '';
+}
 
 // Vercel must NOT pre-parse the body — Stripe's signature is computed over
 // the exact raw bytes, and JSON.parse+reserialize would break verification.
@@ -142,17 +154,37 @@ module.exports = async (req, res) => {
           const record = jobRow && jobRow.full_record;
           if (jobRow && jobRow.customer_email && record) {
             const isDeposit = stage === 'deposit';
+            // Sep 2026 -- a real job-details table (quantity, urgency,
+            // address) instead of one line of prose, built from whatever
+            // the customer actually entered in the estimator (record is
+            // the job's full client-side record, synced verbatim). No
+            // photo here on purpose -- record.photoDataUrl is the
+            // customer's raw, unresized upload (no client-side resize
+            // step exists for it, unlike new-job-available's photoThumb
+            // in mysubbies-booking.html), and this is the customer's own
+            // photo -- they already know what they submitted, so the
+            // real substance for this email is the booking details, not
+            // re-showing them their own image.
             await sendEmail({
               to: jobRow.customer_email,
               subject: isDeposit ? `Booking confirmed — ${record.category} in ${record.suburb}` : `Payment received — ${stage} stage, ${record.category}`,
               html: wrapEmail(isDeposit ? `
                 <h2 style="margin-top:0;">Your job is booked!</h2>
-                <p>Thanks, ${record.customerName || 'there'} — your deposit has been received and <strong>${record.category}</strong> in <strong>${record.suburb}</strong> is now live on the contractor board.</p>
-                <p>We'll email you again once a contractor accepts. You can track everything, message your contractor, and see payment stages any time in <a href="https://mysubbies-site.vercel.app/mysubbies-customer-portal.html">My Jobs</a>.</p>
+                <p>Thanks, ${escapeHtml(record.customerName || 'there')} — your deposit has been received and <strong>${escapeHtml(record.category)}</strong> in <strong>${escapeHtml(record.suburb)}</strong> is now live on the contractor board.</p>
+                ${emailDetailsTable([
+                  { label: 'Job', value: escapeHtml(record.category) },
+                  { label: 'Quantity', value: itemsSummaryHtml(record.items, record.qty, record.unit) },
+                  { label: 'Address', value: record.address ? escapeHtml(record.address) : escapeHtml(record.suburb) },
+                  { label: 'Urgency', value: record.urgency ? escapeHtml(record.urgency) : '' },
+                  { label: 'Deposit paid', value: `$${(intent.amount / 100).toLocaleString()}` },
+                ])}
+                <p>We'll email you again once a contractor accepts. You can track everything, message your contractor, and see payment stages any time in My Jobs.</p>
+                ${emailButton('Open My Jobs →', 'https://mysubbies-site.vercel.app/mysubbies-customer-portal.html')}
               ` : `
                 <h2 style="margin-top:0;">Payment received</h2>
-                <p>Your <strong>${stage}</strong> stage payment for <strong>${record.category}</strong> in <strong>${record.suburb}</strong> has gone through — $${(intent.amount / 100).toLocaleString()}.</p>
-                <p>Track progress any time in <a href="https://mysubbies-site.vercel.app/mysubbies-customer-portal.html">My Jobs</a>.</p>
+                <p>Your <strong>${escapeHtml(stage)}</strong> stage payment for <strong>${escapeHtml(record.category)}</strong> in <strong>${escapeHtml(record.suburb)}</strong> has gone through — $${(intent.amount / 100).toLocaleString()}.</p>
+                <p>Track progress any time in My Jobs.</p>
+                ${emailButton('Open My Jobs →', 'https://mysubbies-site.vercel.app/mysubbies-customer-portal.html')}
               `),
             });
           }

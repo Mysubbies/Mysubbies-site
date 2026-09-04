@@ -479,6 +479,28 @@
     }
   }
 
+  // Resizes a data-URI image client-side (canvas), same technique already
+  // used for rate-card task photos in mysubbies-admin-portal.html -- used
+  // here to shrink a customer's job photo down to an email-safe thumbnail
+  // before it goes into the new-job-available notification (see that
+  // call site below for why raw uploads can't go straight into an email
+  // that fans out to multiple contractors).
+  function resizeImageDataUrl(dataUrl, maxWidth, quality) {
+    return new Promise((resolve) => {
+      if (!dataUrl) { resolve(null); return; }
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    });
+  }
   function createJob(customer, paymentInfo) {
     const jobs = getJobs();
     const items = quote.items || [];
@@ -542,14 +564,25 @@
     // an email hiccup, same posture as every other /api/notify call in
     // this codebase. Added Aug 2026: until this existed, a contractor had
     // no way to learn a new job existed except opening the portal and
-    // checking the Job Feed tab themselves.
-    createdJobs.forEach(job => {
+    // checking the Job Feed tab themselves. Sep 2026: now sends the real
+    // job details (quantity, urgency, access/site notes) plus a small
+    // resized photo thumbnail when the customer attached one -- resized
+    // client-side here (never the raw upload, see resizeImageDataUrl())
+    // since this fans out to every matching contractor and the raw photo
+    // could be several MB.
+    createdJobs.forEach(async (job) => {
       const taskName = job.items && job.items.length === 1 ? job.items[0].taskName
         : job.items && job.items.length > 1 ? job.items.length + ' items'
         : null;
+      const photoThumb = await resizeImageDataUrl(job.photoDataUrl, 480, 0.6);
       fetch('/api/notify', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'new-job-available', category: job.category, suburb: job.suburb, taskName }),
+        body: JSON.stringify({
+          type: 'new-job-available', category: job.category, suburb: job.suburb, taskName,
+          items: (job.items || []).map(i => ({ taskName: i.taskName, qty: i.qty, unit: i.unit })),
+          qty: job.qty, unit: job.unit, urgency: job.urgency, access: job.access, site: job.site,
+          photoThumb,
+        }),
       }).catch(() => {});
     });
 

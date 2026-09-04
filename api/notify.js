@@ -7,18 +7,30 @@
 // every new one-off endpoint. Splitting by `type` in the body keeps the
 // same behavior without spending a function slot per notification kind.
 //
-// job-assigned: { customerEmail, category, suburb, contractorName } — fired
-//   from mysubbies-contractor-portal.html's acceptJob().
+// job-assigned: { customerEmail, category, suburb, address, contractorName,
+//   jobId, items, qty, unit, urgency } — fired from
+//   mysubbies-contractor-portal.html's acceptJob(). Sep 2026: now shows a
+//   real job-details table (quantity, address, urgency), not just one line
+//   of prose, using whatever the customer entered in the estimator.
 // stage-requested: { customerEmail, category, stageLabel } — fired from
 //   mysubbies-contractor-portal.html's requestStageApproval().
-// new-job-available: { category, suburb, taskName } — fired from
+// new-job-available: { category, suburb, taskName, items, qty, unit,
+//   urgency, access, site, photoThumb } — fired from
 //   mysubbies-booking.html once a job is created. Added Aug 2026: until
 //   this existed, a contractor had NO way to learn a new job existed
 //   except opening the portal and checking the Job Feed tab themselves —
 //   no email, SMS or push of any kind. Looks up matching contractors
 //   itself (same trade-match rule the Job Feed already filters by --
 //   approved status + trades array includes this category) rather than
-//   trusting a client-supplied recipient list.
+//   trusting a client-supplied recipient list. Sep 2026: now includes a
+//   details table (quantity, urgency, access/site notes) and a photo when
+//   the customer attached one -- suburb only, not the full street address,
+//   which stays hidden from contractors until they actually accept (same
+//   boundary as the Job Feed / job detail page). photoThumb is a small
+//   client-resized JPEG (see resizeImageDataUrl() in
+//   mysubbies-booking.html), never the customer's raw upload — this fans
+//   out to every matching contractor, so keeping it small at the source
+//   matters here more than almost anywhere else in this codebase.
 // contractor-application-submitted: { business, contact, email, phone,
 //   trades } — fired from mysubbies-contractor-signup.html once a new
 //   application is saved. Added Aug 2026: until this existed, admin had
@@ -27,19 +39,22 @@
 //   new-job-available had for contractors, just on the admin side.
 //   ADMIN_NOTIFY_EMAIL is optional; defaults to the site's own published
 //   contact address so this works with zero extra Vercel config.
-const { sendEmail, wrapEmail } = require('./_lib/email');
+const { sendEmail, wrapEmail, escapeHtml, emailDetailsTable, emailButton, emailPhoto } = require('./_lib/email');
 const { getSupabase } = require('./_lib/clients');
 
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || 'accounts@mysubbies.com.au';
 
-// Message text and sender names below are real user input (typed by a
-// customer or contractor into the job message thread), interpolated into
-// an HTML email -- same "any place rendering another user's free text via
-// innerHTML must escape it" rule CLAUDE.md documents for the client-side
-// portals, just on the server side here since this is the one place that
-// builds HTML for user-supplied message content outside a browser.
-function escapeHtml(s) {
-  return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// A clean "Task — qty unit" line (or one per line for a multi-item job),
+// shared by job-assigned and new-job-available so a recipient sees the
+// actual scope of the job, not just its category name. Falls back to the
+// top-level qty/unit a single-item job already carries when no items
+// array was sent.
+function itemsSummaryHtml(items, qty, unit) {
+  if (Array.isArray(items) && items.length) {
+    return items.map(i => `${escapeHtml(i.taskName || '')} — ${i.qty ?? ''} ${escapeHtml(i.unit || '')}`.trim()).join('<br>');
+  }
+  if (qty != null) return `${qty} ${escapeHtml(unit || '')}`.trim();
+  return '';
 }
 
 // In-app notification-center row (supabase/schema_v13_notifications.sql),
@@ -62,15 +77,23 @@ module.exports = async (req, res) => {
     const { type } = req.body || {};
 
     if (type === 'job-assigned') {
-      const { customerEmail, category, suburb, contractorName, jobId } = req.body || {};
+      const { customerEmail, category, suburb, address, contractorName, jobId, items, qty, unit, urgency } = req.body || {};
       if (!customerEmail || !category) { res.status(400).json({ error: 'customerEmail and category are required.' }); return; }
       await sendEmail({
         to: customerEmail,
         subject: `A contractor has been matched to your ${category} job`,
         html: wrapEmail(`
           <h2 style="margin-top:0;">Good news — you're matched!</h2>
-          <p>${contractorName ? `<strong>${contractorName}</strong> has` : 'A vetted contractor has'} accepted your <strong>${category}</strong> job${suburb ? ` in <strong>${suburb}</strong>` : ''}.</p>
-          <p>You can message them directly and track progress any time in <a href="https://mysubbies-site.vercel.app/mysubbies-customer-portal.html">My Jobs</a>.</p>
+          <p>${contractorName ? `<strong>${escapeHtml(contractorName)}</strong> has` : 'A vetted contractor has'} accepted your <strong>${escapeHtml(category)}</strong> job${suburb ? ` in <strong>${escapeHtml(suburb)}</strong>` : ''}.</p>
+          ${emailDetailsTable([
+            { label: 'Job', value: escapeHtml(category) },
+            { label: 'Quantity', value: itemsSummaryHtml(items, qty, unit) },
+            { label: 'Address', value: address ? escapeHtml(address) : (suburb ? escapeHtml(suburb) : '') },
+            { label: 'Urgency', value: urgency ? escapeHtml(urgency) : '' },
+            { label: 'Contractor', value: contractorName ? escapeHtml(contractorName) : '' },
+          ])}
+          <p>You can message them directly and track progress any time in My Jobs.</p>
+          ${emailButton('Open My Jobs →', 'https://mysubbies-site.vercel.app/mysubbies-customer-portal.html')}
         `),
       });
       await writeNotification({
@@ -99,7 +122,7 @@ module.exports = async (req, res) => {
     }
 
     if (type === 'new-job-available') {
-      const { category, suburb, taskName } = req.body || {};
+      const { category, suburb, taskName, items, qty, unit, urgency, access, site, photoThumb } = req.body || {};
       if (!category) { res.status(400).json({ error: 'category is required.' }); return; }
 
       const supabase = getSupabase();
@@ -118,14 +141,25 @@ module.exports = async (req, res) => {
         .map(r => r.full_application)
         .filter(a => a && a.status === 'approved' && Array.isArray(a.trades) && a.trades.includes(category) && a.email);
 
+      const emailBody = `
+        <h2 style="margin-top:0;">A new job just came in</h2>
+        <p>A customer needs <strong>${escapeHtml(taskName || category)}</strong>${suburb ? ` in <strong>${escapeHtml(suburb)}</strong>` : ''}. No lead fees, no bidding — first to accept gets it.</p>
+        ${emailPhoto(photoThumb)}
+        ${emailDetailsTable([
+          { label: 'Job', value: escapeHtml(taskName || category) },
+          { label: 'Quantity', value: itemsSummaryHtml(items, qty, unit) },
+          { label: 'Suburb', value: suburb ? escapeHtml(suburb) : '' },
+          { label: 'Urgency', value: urgency ? escapeHtml(urgency) : '' },
+          { label: 'Site access', value: access ? escapeHtml(access) : '' },
+          { label: 'Site notes', value: site ? escapeHtml(site) : '' },
+        ])}
+        <p style="font-size:12px;color:#6B7280;">Full address is shown once you accept.</p>
+        ${emailButton('Open Job Feed →', 'https://mysubbies-site.vercel.app/mysubbies-contractor-portal.html')}
+      `;
       await Promise.all(matches.map(a => sendEmail({
         to: a.email,
         subject: `New ${category} job available${suburb ? ` in ${suburb}` : ''}`,
-        html: wrapEmail(`
-          <h2 style="margin-top:0;">A new job just came in</h2>
-          <p>A customer needs <strong>${taskName || category}</strong>${suburb ? ` in <strong>${suburb}</strong>` : ''}. No lead fees, no bidding — first to accept gets it.</p>
-          <p><a href="https://mysubbies-site.vercel.app/mysubbies-contractor-portal.html">Open Job Feed →</a></p>
-        `),
+        html: wrapEmail(emailBody),
       })));
       if (matches.length) {
         await writeNotification(matches.map(a => ({
@@ -164,8 +198,8 @@ module.exports = async (req, res) => {
         html: wrapEmail(`
           <h2 style="margin-top:0;">You have a new message</h2>
           <p><strong>${senderLabel}</strong> sent a message on ${jobLabel}:</p>
-          <p style="background:#f7f7f5;border-radius:8px;padding:12px 14px;color:#333;">"${escapeHtml(String(text).slice(0, 400))}"</p>
-          <p><a href="${portalUrl}">Reply in the app →</a></p>
+          <p style="background:#F7F7F5;border-radius:8px;padding:12px 14px;color:#333;">"${escapeHtml(String(text).slice(0, 400))}"</p>
+          ${emailButton('Reply in the app →', portalUrl)}
         `),
       });
       await writeNotification({
@@ -185,9 +219,15 @@ module.exports = async (req, res) => {
         subject: `New contractor application — ${business}`,
         html: wrapEmail(`
           <h2 style="margin-top:0;">A new contractor application needs review</h2>
-          <p><strong>${business}</strong>${contact ? ` (${contact})` : ''} applied to join the panel.</p>
-          <p>Email: ${email}${phone ? `<br>Phone: ${phone}` : ''}${Array.isArray(trades) && trades.length ? `<br>Trades: ${trades.join(', ')}` : ''}</p>
-          <p><a href="https://mysubbies-site.vercel.app/mysubbies-admin-portal.html">Review in Applications →</a></p>
+          <p><strong>${escapeHtml(business)}</strong> applied to join the panel.</p>
+          ${emailDetailsTable([
+            { label: 'Business', value: escapeHtml(business) },
+            { label: 'Contact', value: contact ? escapeHtml(contact) : '' },
+            { label: 'Email', value: escapeHtml(email) },
+            { label: 'Phone', value: phone ? escapeHtml(phone) : '' },
+            { label: 'Trades', value: Array.isArray(trades) && trades.length ? escapeHtml(trades.join(', ')) : '' },
+          ])}
+          ${emailButton('Review in Applications →', 'https://mysubbies-site.vercel.app/mysubbies-admin-portal.html')}
         `),
       });
       await writeNotification({

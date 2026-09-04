@@ -1946,7 +1946,11 @@
     j.contractorEmail = localStorage.getItem('mysubbies_contractor_email');
     saveJobs(jobs);
     if (j.customerEmail) {
-      fetch('/api/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'job-assigned', customerEmail: j.customerEmail, category: j.category, suburb: j.suburb, contractorName: j.contractor, jobId: j.id }) }).catch(() => {});
+      fetch('/api/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        type: 'job-assigned', customerEmail: j.customerEmail, category: j.category, suburb: j.suburb, address: j.address,
+        contractorName: j.contractor, jobId: j.id,
+        items: (j.items || []).map(i => ({ taskName: i.taskName, qty: i.qty, unit: i.unit })), qty: j.qty, unit: j.unit, urgency: j.urgency,
+      }) }).catch(() => {});
     }
     render();
   }
