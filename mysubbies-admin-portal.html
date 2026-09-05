@@ -107,6 +107,10 @@
   .rc-cat-count { font-size:11.5px; color:var(--stone); white-space:nowrap; }
   .rc-cat-delete-btn { flex-shrink:0; font-size:11.5px; font-weight:600; padding:6px 12px; border-radius:999px; border:1px solid #F6D9D2; background:#fff; color:var(--warn); cursor:pointer; white-space:nowrap; }
   .rc-cat-delete-btn:hover { background:#FDEDEA; border-color:var(--warn); }
+  .rc-cat-popular-btn { flex-shrink:0; font-size:11.5px; font-weight:600; padding:6px 12px; border-radius:999px; border:1px solid var(--line); background:#fff; color:var(--stone); cursor:pointer; white-space:nowrap; }
+  .rc-cat-popular-btn:hover { background:var(--paper); }
+  .rc-cat-popular-on { border-color:#F5D488; background:#FDF6E3; color:#8A6D1D; }
+  .rc-cat-popular-on:hover { background:#FBEDC4; }
   .rc-cat-body { background:var(--paper); padding:12px 16px 16px; }
   .rc-task { padding:10px 0; border-top:1px solid var(--line); }
   .rc-cat-body .rc-task:first-child { border-top:none; padding-top:2px; }
@@ -1351,10 +1355,27 @@
     return categories;
   }
 
+  // Sept 2026: "Popular categories" on the homepage is now admin-controlled
+  // (a c.popular boolean per category, toggled below) instead of a fixed 6
+  // baked into mysubbies-website.html's HTML. The 6 categories that were
+  // already hardcoded there are seeded true here so this tab's checkboxes
+  // reflect what customers already see, the first time this loads after the
+  // change ships -- mirrors mysubbies-website.html's DEFAULT_CATEGORIES
+  // additive merge doing the same seeding on the customer side. Only fills
+  // in categories that have never had this field set (typeof undefined) --
+  // never overwrites an admin's own later on/off choice.
+  const INITIAL_POPULAR_CATEGORIES = ['Handyman', 'Plumbing', 'Electrical', 'Gardening & Lawn Mowing', 'Fencing', 'Cleaning'];
+  function applyPopularDefaults(categories) {
+    (categories || []).forEach(c => {
+      if (typeof c.popular === 'undefined') c.popular = INITIAL_POPULAR_CATEGORIES.includes(c.label);
+    });
+    return categories;
+  }
+
   // --- Rate card storage: same localStorage key the live estimator reads from ---
   function getRateCard() {
     const stored = localStorage.getItem('mysubbies_ratecard');
-    return normalizeUnitCasing(stored ? JSON.parse(stored) : []);
+    return applyPopularDefaults(normalizeUnitCasing(stored ? JSON.parse(stored) : []));
   }
   // Pushes to the real server copy (api/rate-card.js) on every save, not
   // just localStorage -- previously an admin edit here only ever updated
@@ -1406,6 +1427,7 @@
       const { categories } = await res.json();
       if (!Array.isArray(categories) || categories.length === 0) return;
       normalizeUnitCasing(categories);
+      applyPopularDefaults(categories);
       const current = JSON.stringify(getRateCard());
       if (JSON.stringify(categories) !== current) {
         // Local caching and re-rendering are independent -- a quota failure
@@ -2374,6 +2396,7 @@
           <span class="rc-cat-icon">${c.icon || ''}</span>
           <span class="rc-cat-name">${escapeHtml(c.label)}</span>
           <span class="rc-cat-count">${c.tasksWithIdx.length} task${c.tasksWithIdx.length === 1 ? '' : 's'}${disabledCount ? ` · ${disabledCount} held` : ''}</span>
+          <button type="button" class="rc-cat-popular-btn ${c.popular ? 'rc-cat-popular-on' : ''}" onclick="toggleCategoryPopular('${safeLabel}', event)" title="${c.popular ? 'Showing in Popular categories on the homepage' : 'Not shown in Popular categories on the homepage'}">${c.popular ? '★ Popular' : '☆ Popular'}</button>
           <button type="button" class="rc-cat-delete-btn" onclick="deleteCategory('${safeLabel}', event)" title="Permanently delete this whole category">Delete category</button>
         </div>
         ${isOpen ? `
@@ -2563,6 +2586,22 @@
     const task = cat.tasks[taskIdx];
     task[field] = field === 'rate' ? (value === '' ? null : Number(value)) : value;
     saveRateCard(categories);
+  }
+
+  // Admin control for "this week's Popular categories" on the homepage
+  // (Sept 2026) -- toggles c.popular, which renderPopularCategories() in
+  // mysubbies-website.html filters on directly. Same
+  // getRateCard()->mutate->saveRateCard() pattern as every other rate-card
+  // mutator in this file, so it pushes to the real server copy immediately.
+  function toggleCategoryPopular(catLabel, event) {
+    if (event) event.stopPropagation(); // don't also toggle the accordion open/closed
+    const categories = getRateCard();
+    const cat = categories.find(c => c.label === catLabel);
+    if (!cat) return;
+    cat.popular = !cat.popular;
+    saveRateCard(categories);
+    const list = document.getElementById('rcManageList');
+    if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
   }
 
   function toggleServiceDisabled(catLabel, taskIdx) {

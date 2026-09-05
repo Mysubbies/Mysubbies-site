@@ -1089,35 +1089,11 @@
       <h2>Popular categories</h2>
       <p>Pick a service to get an instant, estimated price — or explore the full list of 31 categories.</p>
     </div>
-    <div class="catgrid-popular">
-      <button class="catcard2" data-category="Handyman" onclick="openSubCategoryGallery('Handyman')">
-        <img class="cc-photo" src="images/categories/handyman.jpg" alt="Handyman with a tool belt" loading="lazy" />
-        <div class="cc-body"><div class="cc-name">Repairs &amp; Handyman</div>
-        <div class="cc-sub">General repairs, installations and small jobs</div></div>
-      </button>
-      <button class="catcard2" data-category="Plumbing" onclick="openSubCategoryGallery('Plumbing')">
-        <img class="cc-photo" src="images/categories/plumbing.jpg" alt="Plumber working on pipes" loading="lazy" />
-        <div class="cc-body"><div class="cc-name">Plumbing</div><div class="cc-sub">Taps, blockages, hot water systems</div></div>
-      </button>
-      <button class="catcard2" data-category="Electrical" onclick="openSubCategoryGallery('Electrical')">
-        <img class="cc-photo" src="images/categories/electrical.jpg" alt="Electrician installing wiring" loading="lazy" />
-        <div class="cc-body"><div class="cc-name">Electrical</div><div class="cc-sub">Power points, lighting, safety switches</div></div>
-      </button>
-      <button class="catcard2" data-category="Gardening &amp; Lawn Mowing" onclick="openSubCategoryGallery('Gardening &amp; Lawn Mowing')">
-        <img class="cc-photo" src="images/categories/gardening-lawn-mowing.jpg" alt="Landscaper mowing a lawn" loading="lazy" />
-        <div class="cc-body"><div class="cc-name">Outdoor &amp; Landscaping</div>
-        <div class="cc-sub">Lawn mowing, tidy-ups, hedges</div></div>
-      </button>
-      <button class="catcard2" data-category="Fencing" onclick="openSubCategoryGallery('Fencing')">
-        <img class="cc-photo" src="images/categories/fencing.jpg" alt="Workers building a timber fence" loading="lazy" />
-        <div class="cc-body"><div class="cc-name">Fencing &amp; Gates</div>
-        <div class="cc-sub">Timber, Colorbond, aluminium</div></div>
-      </button>
-      <button class="catcard2" data-category="Cleaning" onclick="openSubCategoryGallery('Cleaning')">
-        <img class="cc-photo" src="images/categories/cleaning.jpg" alt="Cleaner vacuuming a living room" loading="lazy" />
-        <div class="cc-body"><div class="cc-name">Cleaning &amp; Maintenance</div><div class="cc-sub">Bond cleans, regular cleans, windows</div></div>
-      </button>
-    </div>
+    <!-- Populated by renderPopularCategories() from live CATEGORIES data
+         (see main <script> below) -- admin controls which categories show
+         here via a "Popular" toggle in the Rate Card tab, instead of this
+         being a fixed hardcoded set of 6. -->
+    <div class="catgrid-popular" id="catGridPopular"></div>
 
     <button class="btn btn-outline explore-all-btn" id="exploreAllBtn" onclick="toggleAllCategories()" aria-expanded="false" aria-controls="catGridAllWrap">
       Explore all services
@@ -1293,7 +1269,7 @@
   // 24 customer-facing categories. 8 have real material/size tiers; the rest
   // are single flat rates. Threshold + dayRate drive the small-job floor price.
   const DEFAULT_CATEGORIES = [
-    { label:'Fencing', icon:'🚧', tasks:[
+    { label:'Fencing', icon:'🚧', popular:true, tasks:[
       { name:'Timber paling fence — supply & install', unit:'lm', rate:120, notes:'H4 treated timber posts; H3 treated rails/palings. AS/NZS 1604 series. Standard 1.8 m fence height. Excludes excessive slope, rock, retaining work and permits.', minJobPrice:360, typicalRange:'$90–$150', estTime:'~20–25 lm/day (2-person crew)', itemId:'FEN-001', searchTags:['fencing','timber','paling','fence','treated','posts','rails','palings'] },
       { name:'Colorbond fence — supply & install', unit:'lm', rate:150, notes:'Pre-painted steel system (COLORBOND® or equivalent). AS 1397; AS/NZS 2728. Standard 1.8 m proprietary steel system. Footings/post spacing site-specific.', minJobPrice:450, typicalRange:'$120–$190', estTime:'~25–30 lm/day (2-person crew)', itemId:'FEN-002', searchTags:['fencing','colorbond','fence','painted','steel','system','equivalent'] },
       { name:'Aluminium picket fence — supply & install', unit:'lm', rate:250, notes:'Powder-coated aluminium extrusion. AS/NZS 1866; AS 3715. Panel/post sizes to manufacturer wind-load limits and site conditions.', minJobPrice:750, typicalRange:'$180–$350', estTime:'~15–18 lm/day', itemId:'FEN-003', searchTags:['fencing','aluminium','picket','fence','powder','coated','extrusion'] },
@@ -1340,7 +1316,7 @@
       { name:'Concrete driveway', unit:'m²', rate:125, notes:'100–125 mm 25 MPa concrete, SL72/SL82 mesh. AS 1379; AS/NZS 4671. Council crossover, heavy vehicles and poor soil require separate design.', minJobPrice:630, typicalRange:'$95–$170', estTime:'~25 sqm/day', itemId:'CON-005', searchTags:['concreting','concrete','driveway','mesh'] },
       { name:'Excavation & site prep (if not included above)', unit:'m²', rate:45, notes:'Compacted crushed-rock subbase. Rock, contaminated soil and dewatering excluded unless listed.', minJobPrice:400, typicalRange:'$25–$80', estTime:'~40 sqm/day', itemId:'CON-006', searchTags:['concreting','excavation','site','prep','included','above','compacted','crushed','rock','subbase'] },
     ]},
-    { label:'Gardening & Lawn Mowing', icon:'🌿', tasks:[
+    { label:'Gardening & Lawn Mowing', icon:'🌿', popular:true, tasks:[
       { name:'Lawn mowing — small (up to 300 sqm)', unit:'visit', rate:80, notes:'Green-waste removal and edging excluded unless listed.', minJobPrice:120, typicalRange:'$60–$110', estTime:'~30–45 min', itemId:'GLM-001', searchTags:['gardening & lawn mowing','lawn','mowing','small'] },
       { name:'Lawn mowing — medium (300–600 sqm)', unit:'visit', rate:130, notes:'Overgrown grass and hidden debris may require variation.', minJobPrice:130, typicalRange:'$90–$170', estTime:'~45–60 min', itemId:'GLM-002', searchTags:['gardening & lawn mowing','lawn','mowing','medium'] },
       { name:'Lawn mowing — large (600 sqm+)', unit:'visit', rate:220, notes:'Slopes, obstacles and collection/removal may require variation.', minJobPrice:220, typicalRange:'$150–$350', estTime:'~1–1.5 hr', itemId:'GLM-003', searchTags:['gardening & lawn mowing','lawn','mowing','large'] },
@@ -1408,7 +1384,7 @@
       { name:'12 cubic metre bin — standard hire', unit:'bin', rate:1300, notes:'Excess weight and council permit costs are additional.', minJobPrice:1300, typicalRange:'$950–$1,600', estTime:'Standard hire period', itemId:'SKB-006', searchTags:['skip bin','cubic','metre','standard','hire'] },
       { name:'Additional hire day', unit:'day', rate:25, notes:'Subject to availability and maximum term.', minJobPrice:30, typicalRange:'$15–$40', estTime:'-', itemId:'SKB-007', searchTags:['skip bin','additional','hire'] },
     ]},
-    { label:'Cleaning', icon:'🧽', tasks:[
+    { label:'Cleaning', icon:'🧽', popular:true, tasks:[
       { name:'End of lease / bond clean — 1–2 bedroom', unit:'clean', rate:450, notes:'Labelled professional cleaning products. Carpet steam cleaning and exterior windows excluded unless listed. Bond outcome not guaranteed.', minJobPrice:450, typicalRange:'$300–$600', estTime:'~4–6 hr', itemId:'CLN-001', searchTags:['cleaning','lease','bond','clean','bedroom','labelled','professional','cleaning','products'] },
       { name:'End of lease / bond clean — 3–4 bedroom', unit:'clean', rate:750, notes:'Labelled professional cleaning products. High access, mould/biohazards and rubbish removal excluded unless listed.', minJobPrice:750, typicalRange:'$500–$1,000', estTime:'~7–9 hr', itemId:'CLN-002', searchTags:['cleaning','lease','bond','clean','bedroom','labelled','professional','cleaning','products'] },
       { name:'General house clean', unit:'hour', rate:60, notes:'Labelled cleaning products. Deep clean, ovens and exterior glass excluded unless listed.', minJobPrice:150, typicalRange:'$50–$80', estTime:'per hour', itemId:'CLN-003', searchTags:['cleaning','general','house','clean','labelled','cleaning','products'] },
@@ -1429,7 +1405,7 @@
       { name:'Valley iron replacement', unit:'lm', rate:350, notes:'Corrosion-resistant preformed valley flashing. AS 2050; AS/NZS 3500.3 principles. Timber/batten repair and widespread tile replacement excluded.', minJobPrice:1050, typicalRange:'$250–$500', estTime:'~6–8 lm/day', itemId:'TRR-004', searchTags:['tiled roof repair & refurb','valley','iron','replacement','corrosion','resistant','preformed','flashing'] },
       { name:'Gutter replacement', unit:'lm', rate:130, notes:'COLORBOND®/ZINCALUME® or equivalent metal gutter. AS 1397; AS/NZS 3500.3. Fascia repair, downpipes and scaffold excluded unless listed.', minJobPrice:390, typicalRange:'$90–$180', estTime:'~15–20 lm/day', itemId:'TRR-005', searchTags:['tiled roof repair & refurb','gutter','replacement','colorbond','zincalume','equivalent','metal'] },
     ]},
-    { label:'Electrical', icon:'💡', paymentSchedule:[{key:'deposit',label:'Deposit',pct:10},{key:'materials',label:'Before materials ordered',pct:30},{key:'completion',label:'On completion',pct:60}], tasks:[
+    { label:'Electrical', icon:'💡', popular:true, paymentSchedule:[{key:'deposit',label:'Deposit',pct:10},{key:'materials',label:'Before materials ordered',pct:30},{key:'completion',label:'On completion',pct:60}], tasks:[
       { name:'Power point (GPO) — replace like-for-like', unit:'point', rate:180, notes:'Approved 10A GPO with RCM. AS/NZS 3000; AS/NZS 3017. Excludes damaged wiring, wall repair and switchboard work.', minJobPrice:180, typicalRange:'$150–$250', estTime:'20–40 min', itemId:'ELE-001', searchTags:['electrical - small jobs','power','point','replace','approved'] },
       { name:'Power point (GPO) — new installation', unit:'point', rate:280, notes:'Approved 10A double GPO. AS/NZS 3000; AS/NZS 3008. Excludes new circuit, masonry chasing, trenching and asbestos.', minJobPrice:280, typicalRange:'$220–$400', estTime:'1–2 hr', itemId:'ELE-002', searchTags:['electrical - small jobs','power','point','installation','approved','double'] },
       { name:'Single to double power point upgrade', unit:'point', rate:180, notes:'Approved double 10A GPO. AS/NZS 3000/3017. Excludes circuit repair, wall damage and relocation.', minJobPrice:180, typicalRange:'$150–$250', estTime:'20–40 min', itemId:'ELE-003', searchTags:['electrical - small jobs','single','double','power','point','upgrade','approved'] },
@@ -1464,7 +1440,7 @@
       { name:'Switchboard upgrade — up to 4 circuit breakers', unit:'job', rate:1980, notes:'New switchboard/breakers as required. AS/NZS 3000. Includes up to 4 circuit breakers.', minJobPrice:1980, typicalRange:'$1,700–$2,300', estTime:'~4 hr', itemId:'ELE-032', searchTags:['electrical - small jobs','switchboard','upgrade','circuit','breakers','required'] },
       { name:'Additional circuit breaker (switchboard upgrade, beyond 4)', unit:'breaker', rate:385, notes:'Circuit breaker. AS/NZS 3000. Applies only in conjunction with a switchboard upgrade.', minJobPrice:390, typicalRange:'$350–$420', estTime:'~30 min per breaker', itemId:'ELE-033', searchTags:['electrical - small jobs','additional','circuit','breaker','switchboard','upgrade','beyond'] },
     ]},
-    { label:'Plumbing', icon:'🔧', paymentSchedule:[{key:'deposit',label:'Deposit',pct:10},{key:'materials',label:'Before materials ordered',pct:30},{key:'completion',label:'On completion',pct:60}], tasks:[
+    { label:'Plumbing', icon:'🔧', popular:true, paymentSchedule:[{key:'deposit',label:'Deposit',pct:10},{key:'materials',label:'Before materials ordered',pct:30},{key:'completion',label:'On completion',pct:60}], tasks:[
       { name:'Tap washer replacement (single tap)', unit:'tap', rate:190, notes:'WaterMark-certified washer/O-ring. AS/NZS 3500.1. Excludes seized/broken body and ceramic cartridges.', minJobPrice:190, typicalRange:'$150–$260', estTime:'30–45 min', itemId:'PLM-001', searchTags:['plumbing - small jobs','washer','replacement','single','watermark','certified','ring'] },
       { name:'Tap replacement — like-for-like', unit:'tap', rate:290, notes:'WaterMark-certified tap. AS/NZS 3500.1. Excludes benchtop alteration and corroded pipework.', minJobPrice:290, typicalRange:'$220–$400', estTime:'45–90 min', itemId:'PLM-002', searchTags:['plumbing - small jobs','replacement','watermark','certified'] },
       { name:'Mixer tap replacement (kitchen or bathroom)', unit:'tap', rate:330, notes:'WaterMark-certified mixer. AS/NZS 3500.1. Excludes stone cutting and isolation valve replacement.', minJobPrice:330, typicalRange:'$250–$450', estTime:'1–1.5 hr', itemId:'PLM-003', searchTags:['plumbing - small jobs','mixer','replacement','kitchen','bathroom','watermark','certified'] },
@@ -1498,7 +1474,7 @@
       { name:'Gas leak test / make-safe call-out', unit:'hour', rate:350, notes:'AS/NZS 5601.1. Gas smell: customer must follow emergency safety instructions first.', minJobPrice:350, typicalRange:'$280–$550', estTime:'up to 1 hr', itemId:'PLM-031', searchTags:['plumbing - small jobs','leak','test','make','safe','call'] },
       { name:'Rental water-efficiency fixture check', unit:'dwelling', rate:380, notes:'Victorian rental requirements. Minor adjustments only; formal compliance certification excluded.', minJobPrice:380, typicalRange:'$280–$550', estTime:'1.5–2.5 hr', itemId:'PLM-032', searchTags:['plumbing - small jobs','rental','water','efficiency','fixture','check'] },
     ]},
-    { label:'Handyman', icon:'🛠️', isSmallJob:true, tasks:[
+    { label:'Handyman', icon:'🛠️', isSmallJob:true, popular:true, tasks:[
       { name:'General handyman labour', unit:'hour', rate:95, notes:'n/a — materials extra unless supplied. 1-hour minimum call-out applies.', minJobPrice:190, typicalRange:'$75–$120', estTime:'per hour', itemId:'HND-001', searchTags:['handyman - general small jobs','general','handyman','labour','materials','extra','unless','supplied'] },
       { name:'Flat-pack furniture assembly', unit:'item', rate:90, notes:'Complex/multi-piece items may require variation.', minJobPrice:150, typicalRange:'$60–$150', estTime:'~1 hr per item', itemId:'HND-002', searchTags:['handyman - general small jobs','flat','pack','furniture','assembly'] },
       { name:'Shelving / wall-mounted storage installation', unit:'item', rate:110, notes:'Fixings matched to wall type. Wall type/substrate affects fixing method and price.', minJobPrice:150, typicalRange:'$70–$180', estTime:'~1 hr', itemId:'HND-003', searchTags:['handyman - general small jobs','shelving','wall','mounted','storage','installation','fixings','matched','type'] },
@@ -1750,6 +1726,12 @@
       CATEGORIES.length = 0;
       categories.forEach(c => CATEGORIES.push(c));
       localStorage.setItem('mysubbies_ratecard', JSON.stringify(CATEGORIES));
+      // Re-render anything already painted from the local/default copy above
+      // (fired before this fetch resolves) so an admin's server-side Popular
+      // toggle or category change shows up on this same page load, not only
+      // after a second visit.
+      renderFullCategoryGrid();
+      renderPopularCategories();
     } catch (e) { /* offline or first load -- local data still works */ }
   }
   hydrateRateCardFromServer();
@@ -1792,17 +1774,51 @@
     grid.innerHTML = cards;
   }
 
-  // Hides a Popular services card if that category has been fully disabled
-  // in the admin Rate Card tab (mirrors the fix applied to the full grid above).
-  function updatePopularCategoryVisibility() {
-    const enabledLabels = new Set(CATEGORIES.filter(c => (c.tasks || []).some(t => !t.disabled)).map(c => c.label));
-    document.querySelectorAll('.catgrid-popular .catcard2[data-category]').forEach(btn => {
-      btn.style.display = enabledLabels.has(btn.dataset.category) ? '' : 'none';
-    });
+  // Curated display copy for the categories that have carried hand-written
+  // homepage copy since before this became admin-controlled -- kept so
+  // toggling "Popular" on/off in the Rate Card tab doesn't change the
+  // wording customers already see. Any category an admin newly marks
+  // Popular that isn't in this map (e.g. a brand-new category) falls back
+  // to its real label + task names, same derivation renderFullCategoryGrid()
+  // already uses -- never invented copy.
+  const POPULAR_CATEGORY_COPY = {
+    'Handyman': { name: 'Repairs &amp; Handyman', sub: 'General repairs, installations and small jobs' },
+    'Plumbing': { name: 'Plumbing', sub: 'Taps, blockages, hot water systems' },
+    'Electrical': { name: 'Electrical', sub: 'Power points, lighting, safety switches' },
+    'Gardening & Lawn Mowing': { name: 'Outdoor &amp; Landscaping', sub: 'Lawn mowing, tidy-ups, hedges' },
+    'Fencing': { name: 'Fencing &amp; Gates', sub: 'Timber, Colorbond, aluminium' },
+    'Cleaning': { name: 'Cleaning &amp; Maintenance', sub: 'Bond cleans, regular cleans, windows' },
+  };
+
+  // Renders "Popular categories" from live CATEGORIES data, filtered to
+  // c.popular === true -- admin toggles this per category in the Rate Card
+  // tab (see rateCardManageHtml()/toggleCategoryPopular() in
+  // mysubbies-admin-portal.html), so "this week's popular categories" is a
+  // real, server-synced admin choice instead of a fixed 6 baked into this
+  // page's HTML.
+  function renderPopularCategories() {
+    const grid = document.getElementById('catGridPopular');
+    if (!grid) return;
+    const popular = CATEGORIES.filter(c => c.popular && (c.tasks || []).some(t => !t.disabled));
+    grid.innerHTML = popular.map(c => {
+      const slug = categorySlug(c.label);
+      const copy = POPULAR_CATEGORY_COPY[c.label];
+      const enabledTasks = (c.tasks || []).filter(t => !t.disabled);
+      const name = copy ? copy.name : escapeHtml(c.label);
+      const sub = copy ? copy.sub : escapeHtml(enabledTasks.slice(0, 3).map(t => t.name).join(', '));
+      const photoHtml = CATEGORY_FALLBACK_ICON[slug]
+        ? `<div class="cc-photo cc-photo-fallback cc-icon-sm cat-${slug}" style="aspect-ratio:4/3;width:100%;">${CATEGORY_FALLBACK_ICON[slug]}</div>`
+        : `<img class="cc-photo" src="images/categories/${slug}.jpg" alt="${escapeHtml(c.label)}" loading="lazy" />`;
+      return `<button class="catcard2" data-category="${escapeHtml(c.label)}" onclick="openSubCategoryGallery('${c.label.replace(/'/g, "\\'")}')">
+        ${photoHtml}
+        <div class="cc-body"><div class="cc-name">${name}</div>
+        <div class="cc-sub">${sub}</div></div>
+      </button>`;
+    }).join('');
   }
 
   renderFullCategoryGrid();
-  updatePopularCategoryVisibility();
+  renderPopularCategories();
 
   const TARGETED_QUESTIONS = {
     'Decking': [
