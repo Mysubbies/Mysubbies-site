@@ -3300,8 +3300,28 @@
   // A customer's cancellation request on an already-allocated job needs
   // admin sign-off — the contractor is mid-engagement and shouldn't have
   // work pulled out from under them by a self-service button.
-  function approveCancellation(id) {
-    if (!confirm('Approve this cancellation? The job will be marked cancelled and removed from the contractor\'s active jobs.')) return;
+  // Real Stripe refund (Sept 2026) -- 90% of the deposit unless a later
+  // stage (materials onward) has already been paid, in which case the
+  // server takes no automated action and this just tells the admin to
+  // assess the actual cost manually. See api/process-cancellation-refund.js
+  // for the full policy and the server-side eligibility check (never
+  // trusts this client's payment-state read, only uses it to preview the
+  // outcome before confirming).
+  async function approveCancellation(id) {
+    if (!confirm('Approve this cancellation? If no stage beyond the deposit has been paid, 90% of the deposit will be refunded automatically (10% retained as a cancellation fee). The job will be marked cancelled and removed from the contractor\'s active jobs.')) return;
+    try {
+      const resp = await adminFetch('/api/process-cancellation-refund', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'admin-approve-cancellation', jobId: id, adminActorEmail: 'admin' }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) { alert(data.error || 'Could not process this cancellation.'); return; }
+      if (data.caseByCase) {
+        alert('A later payment stage has already been paid on this job -- no automatic refund was issued. Assess the actual cost incurred and process a manual refund via the Stripe dashboard.');
+      } else {
+        alert(`Refunded $${(data.amountCents / 100).toFixed(2)} to the customer.`);
+      }
+    } catch (e) { alert('Could not reach the server to process this cancellation.'); return; }
     const jobs = getJobs();
     const j = jobs.find(x => x.id === id);
     j.status = 'cancelled';

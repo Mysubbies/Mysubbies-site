@@ -1909,13 +1909,33 @@
         </div>
       </div>`;
   }
-  function cancelJob(jobId) {
+  // Real Stripe refund (Sept 2026) -- pre-acceptance cancellation is always
+  // a 100% refund per the founder-confirmed policy, so this is safe to
+  // process immediately without an admin review step. The server
+  // (api/process-cancellation-refund.js) independently re-verifies no
+  // contractor has accepted before refunding anything -- never trusts this
+  // client-side gate alone.
+  async function cancelJob(jobId) {
     const jobs = getJobs();
     const j = jobs.find(x => x.id === jobId);
     if (!j) return;
-    j.status = 'cancelled';
-    saveJobs(jobs);
-    render();
+    const btn = document.querySelector(`button[onclick="cancelJob('${jobId}')"]`);
+    if (btn) { btn.disabled = true; btn.textContent = 'Cancelling…'; }
+    try {
+      const resp = await fetch('/api/process-cancellation-refund', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'customer-self-cancel', jobId, customerEmail: getCurrentCustomerEmail() }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) { alert(data.error || 'Could not cancel this job. Please try again or contact support.'); if (btn) { btn.disabled = false; btn.textContent = 'Yes, cancel job'; } return; }
+      j.status = 'cancelled';
+      saveJobs(jobs);
+      alert(`Job cancelled. $${(data.amountCents / 100).toFixed(2)} has been refunded to your original payment method.`);
+      render();
+    } catch (e) {
+      alert('Could not cancel this job — check your connection and try again.');
+      if (btn) { btn.disabled = false; btn.textContent = 'Yes, cancel job'; }
+    }
   }
 
   // Once a contractor has accepted, cancelling isn't a self-service action
