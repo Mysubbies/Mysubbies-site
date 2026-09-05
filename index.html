@@ -3595,11 +3595,10 @@
   }
   initFixSomethingIfRequested();
 
-  // "Recommended for you" (Sept 2026) -- render the 4 always-on cards
-  // immediately, then fetch property data for a logged-in customer and
-  // re-render with the personalised cards if any apply.
+  // "Recommended for you" (Sept 2026) -- fixed 8-card menu, no page-load
+  // fetch needed (Home Maintenance Due fetches property data lazily, only
+  // when that specific card is opened -- see homePersonaliseMaintenanceOptions()).
   renderRecommendedSection();
-  loadHomepagePropertySignals();
 
   // The header's "Log in" button was a static label that never checked
   // whether a customer session already existed -- so a customer who was
