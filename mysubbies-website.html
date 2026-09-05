@@ -588,6 +588,14 @@
   .catcard2 .cc-body { padding:16px 18px 20px; display:flex; flex-direction:column; gap:6px; }
   .catcard2 .cc-name { font-size:15px; font-weight:700; color:var(--black); }
   .catcard2 .cc-sub { font-size:12.5px; color:var(--stone); line-height:1.4; }
+  /* Recommended-for-you's founder-supplied photos are real 384x512 (3:4)
+     portrait images with the title baked in near the bottom -- Services'
+     4:3 (desktop) / 1:1 (mobile) crops were cutting into that text. #recoGrid
+     is an ID selector so it beats both existing .cc-photo rules' specificity
+     regardless of which media query bucket applies, unlike a same-specificity
+     class override which would need careful source-order (see the
+     .catgrid-popular display bug fixed above). */
+  #recoGrid .catcard2 .cc-photo { aspect-ratio: 3/4; }
   .catgrid-all-wrap { max-height:0; overflow:hidden; transition:max-height .4s ease; }
   .catgrid-all-wrap.open { max-height:20000px; }
   /* Full grid now renders the same large photo-card style as Popular
@@ -1031,6 +1039,23 @@
   </div>
 </section>
 
+<section class="popular-jobs-section" id="popular-jobs">
+  <div class="wrap">
+    <div class="section-title-row">
+      <h2>Recommended for you</h2>
+      <a href="#categories" onclick="viewAllServices()">View all services&nbsp; →</a>
+    </div>
+    <div class="catgrid-popular" id="recoGrid"></div>
+  </div>
+</section>
+
+<div class="fs-modal-overlay" id="pkgModalOverlay">
+  <div class="fs-modal">
+    <button class="fs-modal-close" onclick="closeLifeEventPackage()">✕</button>
+    <div id="pkgModalBody"></div>
+  </div>
+</div>
+
 <section class="house-health-band" id="house-health">
   <div class="wrap">
     <div class="house-health-card">
@@ -1098,23 +1123,6 @@
     </div>
   </div>
 </section>
-
-<section class="popular-jobs-section" id="popular-jobs">
-  <div class="wrap">
-    <div class="section-title-row">
-      <h2>Recommended for you</h2>
-      <a href="#categories" onclick="viewAllServices()">View all services&nbsp; →</a>
-    </div>
-    <div class="catgrid-popular" id="recoGrid"></div>
-  </div>
-</section>
-
-<div class="fs-modal-overlay" id="pkgModalOverlay">
-  <div class="fs-modal">
-    <button class="fs-modal-close" onclick="closeLifeEventPackage()">✕</button>
-    <div id="pkgModalBody"></div>
-  </div>
-</div>
 
 <section id="how">
   <div class="wrap">
@@ -2326,16 +2334,19 @@
   };
 
   // Same catcard2 markup as the "Popular categories" Services cards
-  // (:1048-1085) -- same class, same photo aspect ratio, same grid
-  // (.popular-job-grid already shares .catgrid-popular's exact
-  // grid-template-columns/gap), so the two sections line up as one uniform
-  // system instead of two different card styles.
-  function recoCardHtml(img, alt, title, meta, onclick) {
+  // (:1048-1085) -- same class, same grid (.catgrid-popular), so the two
+  // sections line up as one uniform system instead of two different card
+  // styles. The photo aspect ratio is overridden to 3:4 for this grid only
+  // (#recoGrid .cc-photo, see CSS) to match the founder-supplied images'
+  // real 384x512 portrait dimensions -- Services' 4:3 landscape crop was
+  // cutting into these images' baked-in title text. That baked-in title
+  // means .cc-name is deliberately omitted here (would duplicate it) --
+  // only the supporting sentence renders below the photo.
+  function recoCardHtml(img, alt, meta, onclick) {
     return `
       <button class="catcard2" onclick="${onclick}">
         <img class="cc-photo" src="${img}" alt="${escapeHtml(alt)}" loading="lazy" />
-        <div class="cc-body"><div class="cc-name">${escapeHtml(title)}</div>
-        <div class="cc-sub">${escapeHtml(meta)}</div></div>
+        <div class="cc-body"><div class="cc-sub">${escapeHtml(meta)}</div></div>
       </button>`;
   }
 
@@ -2347,14 +2358,14 @@
     const grid = document.getElementById('recoGrid');
     if (!grid) return;
     grid.innerHTML =
-      recoCardHtml('images/recommended/just-got-the-keys.png', 'Just Got the Keys', 'Just Got the Keys', 'Get the essentials sorted.', "openLifeEventPackage('newHome')") +
-      recoCardHtml('images/recommended/moving-out.png', 'Moving Out', 'Moving Out', 'Leave the property ready without the stress.', "openLifeEventPackage('movingOut')") +
-      recoCardHtml('images/recommended/selling-my-house.png', 'Selling My House', 'Selling My House', 'Small improvements before going to market.', "openLifeEventPackage('selling')") +
-      recoCardHtml('images/recommended/home-maintenance-due.png', 'Home Maintenance Due', 'Home Maintenance Due', 'Keep your property in good shape.', "openLifeEventPackage('homeMaintenance')") +
-      recoCardHtml('images/recommended/improve-my-outdoors.png', 'Improve My Outdoors', 'Improve My Outdoors', 'Upgrade your outdoor space.', "openLifeEventPackage('outdoors')") +
-      recoCardHtml('images/recommended/property-turnover.png', 'Property Turnover', 'Property Turnover', 'Get the property ready for the next tenant.', "openLifeEventPackage('turnover')") +
-      recoCardHtml('images/recommended/urgent-repairs.png', 'Urgent Repairs', 'Urgent Repairs', 'Get help with something that needs attention now.', "openLifeEventPackage('urgentRepairs')") +
-      recoCardHtml('images/recommended/refresh-my-house.png', 'Refresh My House', 'Refresh My House', 'Give your home a fresh new look.', "openLifeEventPackage('refresh')");
+      recoCardHtml('images/recommended/just-got-the-keys.png', 'Just Got the Keys', 'Get the essentials sorted.', "openLifeEventPackage('newHome')") +
+      recoCardHtml('images/recommended/moving-out.png', 'Moving Out', 'Leave the property ready without the stress.', "openLifeEventPackage('movingOut')") +
+      recoCardHtml('images/recommended/selling-my-house.png', 'Selling My House', 'Small improvements before going to market.', "openLifeEventPackage('selling')") +
+      recoCardHtml('images/recommended/home-maintenance-due.png', 'Home Maintenance Due', 'Keep your property in good shape.', "openLifeEventPackage('homeMaintenance')") +
+      recoCardHtml('images/recommended/improve-my-outdoors.png', 'Improve My Outdoors', 'Upgrade your outdoor space.', "openLifeEventPackage('outdoors')") +
+      recoCardHtml('images/recommended/property-turnover.png', 'Property Turnover', 'Get the property ready for the next tenant.', "openLifeEventPackage('turnover')") +
+      recoCardHtml('images/recommended/urgent-repairs.png', 'Urgent Repairs', 'Get help with something that needs attention now.', "openLifeEventPackage('urgentRepairs')") +
+      recoCardHtml('images/recommended/refresh-my-house.png', 'Refresh My House', 'Give your home a fresh new look.', "openLifeEventPackage('refresh')");
   }
 
   function openLifeEventPackage(id) {
