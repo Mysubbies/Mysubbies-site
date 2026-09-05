@@ -1093,37 +1093,19 @@
 <section class="popular-jobs-section" id="popular-jobs">
   <div class="wrap">
     <div class="section-title-row">
-      <h2>Popular small jobs near you</h2>
+      <h2>Recommended for you</h2>
       <a href="#categories" onclick="viewAllServices()">View all services&nbsp; →</a>
     </div>
-    <div class="popular-job-grid">
-      <article class="popular-job-card">
-        <img src="images/categories/fencing.jpg" alt="Timber fence repair" loading="lazy">
-        <div class="popular-job-body"><h3>Fence Repair</h3><div class="popular-job-meta">Repair damaged fencing</div><div class="popular-job-price"><strong>Get price</strong></div><button class="btn" onclick="goToEstimatorWithCategory('Fencing')">Get price</button></div>
-      </article>
-      <article class="popular-job-card">
-        <img src="images/categories/plumbing.jpg" alt="Tap replacement" loading="lazy">
-        <div class="popular-job-body"><h3>Tap Replacement</h3><div class="popular-job-meta">Licensed plumbing service</div><div class="popular-job-price">From<strong>$290</strong></div><button class="btn" onclick="goToEstimatorWithCategory('Plumbing')">Book now</button></div>
-      </article>
-      <article class="popular-job-card">
-        <img src="images/categories/electrical.jpg" alt="Power point replacement" loading="lazy">
-        <div class="popular-job-body"><h3>Power Point Replacement</h3><div class="popular-job-meta">Licensed electrical service</div><div class="popular-job-price">From<strong>$180</strong></div><button class="btn" onclick="goToEstimatorWithCategory('Electrical')">Book now</button></div>
-      </article>
-      <article class="popular-job-card">
-        <img src="images/categories/electrical.jpg" alt="Ceiling fan installation" loading="lazy">
-        <div class="popular-job-body"><h3>Ceiling Fan Installation</h3><div class="popular-job-meta">Using existing wiring</div><div class="popular-job-price">From<strong>$320</strong></div><button class="btn" onclick="goToEstimatorWithCategory('Electrical')">Book now</button></div>
-      </article>
-      <article class="popular-job-card">
-        <img src="images/categories/gardening-lawn-mowing.jpg" alt="Garden and lawn service" loading="lazy">
-        <div class="popular-job-body"><h3>Lawn Mowing</h3><div class="popular-job-meta">Small lawn, up to 300 m²</div><div class="popular-job-price">From<strong>$120</strong></div><button class="btn" onclick="goToEstimatorWithCategory('Gardening &amp; Lawn Mowing')">Book now</button></div>
-      </article>
-      <article class="popular-job-card">
-        <img src="images/categories/concreting.jpg" alt="Small concrete job" loading="lazy">
-        <div class="popular-job-body"><h3>Small Concrete Job</h3><div class="popular-job-meta">Tell us what needs doing</div><div class="popular-job-price"><strong>Get price</strong></div><button class="btn" onclick="goToEstimatorWithCategory('Concreting')">Get price</button></div>
-      </article>
-    </div>
+    <div class="popular-job-grid" id="recoGrid"></div>
   </div>
 </section>
+
+<div class="fs-modal-overlay" id="pkgModalOverlay">
+  <div class="fs-modal">
+    <button class="fs-modal-close" onclick="closeLifeEventPackage()">✕</button>
+    <div id="pkgModalBody"></div>
+  </div>
+</div>
 
 <section id="how">
   <div class="wrap">
@@ -2195,6 +2177,230 @@
 
   function closeFixSomething() {
     document.getElementById('fsModalOverlay').classList.remove('show');
+  }
+
+  // ============================================================
+  // "Recommended for you" (Sept 2026) -- replaces the old static "Popular
+  // small jobs near you" 6-card grid, which wasn't personalised or
+  // location-based despite the name. Founder-approved direction: show the
+  // customer's actual situation (something's broken, moving, new home,
+  // selling) instead of a generic service list -- reads as "this app
+  // understands me," which the old static cards never could.
+  //
+  // Every card here is backed by something real -- no invented health
+  // scores, no fabricated maintenance intervals (see CLAUDE.md's standing
+  // rule on this). "Something Needs Fixing" is pure reuse of the existing
+  // openFixSomething() flow. The three life-event cards open a package
+  // modal that only ever quick-adds a task at its REAL flat rate-card price
+  // (never a guessed quantity for an m²/lm/hour task) and otherwise hands
+  // the customer to the normal estimator (goToEstimatorWithCategory) to
+  // enter their own real size. Property Health / maintenance-due cards only
+  // appear for a logged-in customer with real property data, ported from
+  // mysubbies-customer-portal.html's computePropertyHealth()/
+  // getUpcomingMaintenanceCards() -- kept deliberately identical to that
+  // page's logic (same localStorage sources: mysubbies_jobs,
+  // mysubbies_disputes) so the two independently-computed numbers always
+  // agree. If that scoring logic changes on the portal, mirror the change
+  // here too.
+  const LIFE_EVENT_PACKAGES = {
+    movingOut: {
+      icon: '📦', title: 'Moving Out',
+      blurb: 'Get the property ready in one booking.',
+      quickAdds: [
+        { catLabel: 'Cleaning', taskName: 'End of lease / bond clean — 1–2 bedroom' },
+        { catLabel: 'Cleaning', taskName: 'End of lease / bond clean — 3–4 bedroom' },
+        { catLabel: 'Cleaning', taskName: 'Gutter cleaning' },
+        { catLabel: 'Gardening & Lawn Mowing', taskName: 'Green waste removal' },
+      ],
+      browseCats: ['Gardening & Lawn Mowing', 'Handyman'],
+    },
+    newHome: {
+      icon: '🔑', title: 'Just Got the Keys',
+      blurb: 'Finish your new home, all in one place.',
+      quickAdds: [
+        { catLabel: 'Locksmith', taskName: 'Re-key existing lock' },
+        { catLabel: 'Locksmith', taskName: 'Deadlock supply & install (external door)' },
+        { catLabel: 'Pest Control', taskName: 'General pest treatment (cockroaches, spiders, ants) — internal & external' },
+      ],
+      browseCats: ['Fencing', 'Decking', 'Grass Installation', 'Concreting', 'Pergola'],
+    },
+    selling: {
+      icon: '🏠', title: 'Selling My Home',
+      blurb: 'Get your property market-ready.',
+      quickAdds: [
+        { catLabel: 'Cleaning', taskName: 'Gutter cleaning' },
+      ],
+      browseCats: ['Painting', 'Cleaning', 'Fencing', 'Concreting'],
+    },
+  };
+
+  function recoCardHtml(icon, title, meta, onclick) {
+    return `
+      <article class="popular-job-card">
+        <div class="popular-job-body" style="padding-top:22px;">
+          <div style="font-size:28px;margin-bottom:6px;">${icon}</div>
+          <h3>${escapeHtml(title)}</h3>
+          <div class="popular-job-meta">${escapeHtml(meta)}</div>
+          <button class="btn" onclick="${onclick}">Open →</button>
+        </div>
+      </article>`;
+  }
+
+  let homepagePropertySignals = null; // { health:{score,label,color}, dueCard } once fetched for a logged-in customer
+
+  function renderRecommendedSection() {
+    const grid = document.getElementById('recoGrid');
+    if (!grid) return;
+    let cards = recoCardHtml('🔧', 'Something Needs Fixing', 'Upload a photo, we’ll work it out', 'openFixSomething()');
+    cards += recoCardHtml('📦', 'Moving Out', 'Get the property ready in one booking', "openLifeEventPackage('movingOut')");
+    cards += recoCardHtml('🔑', 'Just Got the Keys', 'Finish your new home', "openLifeEventPackage('newHome')");
+    cards += recoCardHtml('🏠', 'Selling My Home', 'Get it market-ready', "openLifeEventPackage('selling')");
+    if (homepagePropertySignals) {
+      const h = homepagePropertySignals.health;
+      cards += recoCardHtml('🏠', `Property Health — ${h.score}%`, h.label, 'openHouseHealth()');
+      const due = homepagePropertySignals.dueCard;
+      if (due) {
+        cards += recoCardHtml('🌿', due.title, due.sub, `bookMaintenanceFromHomepage('${escapeHtml(due.catLabel)}', '${escapeHtml(due.taskName).replace(/'/g, "\\'")}', '${escapeHtml(due.suburb || '')}')`);
+      }
+    }
+    grid.innerHTML = cards;
+  }
+
+  function normalizeAddressForHealth(addr) {
+    return String(addr || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+
+  // Deliberately identical calculation to mysubbies-customer-portal.html's
+  // getUpcomingMaintenanceCards()/computePropertyHealth() -- same
+  // localStorage sources (mysubbies_jobs, mysubbies_disputes), same
+  // deduction rules, so the number shown here always matches what the
+  // portal itself would show for the same account.
+  function homeUpcomingMowCard(p) {
+    const mow = p.maintenancePreferences && p.maintenancePreferences['Gardening & Lawn Mowing'];
+    if (!mow) return null;
+    const lastMow = (p.history || []).filter(h => h.category === 'Gardening & Lawn Mowing')[0];
+    const sinceDate = lastMow ? new Date(lastMow.completedAt) : new Date(mow.setAt);
+    const dueDate = new Date(sinceDate.getTime() + mow.intervalWeeks * 7 * 24 * 60 * 60 * 1000);
+    if (new Date() < dueDate) return null;
+    const cat = getRateCard().find(c => c.label === 'Gardening & Lawn Mowing');
+    const task = cat && cat.tasks.find(t => t.name === mow.taskName);
+    return {
+      title: 'Lawn mowing due', taskName: mow.taskName, catLabel: 'Gardening & Lawn Mowing',
+      suburb: p.suburb || '',
+      sub: (task ? 'From $' + task.rate + ' · ' : '') + 'Every ' + mow.intervalWeeks + ' weeks',
+    };
+  }
+
+  function homePropertyHealth(p, email) {
+    let score = 100;
+    const disputes = JSON.parse(localStorage.getItem('mysubbies_disputes') || '[]');
+    const jobs = JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]');
+    const jobIdsAtProperty = new Set(jobs.filter(j => j.customerEmail === email && normalizeAddressForHealth(j.address) === normalizeAddressForHealth(p.address)).map(j => j.id));
+    const openDisputeCount = disputes.filter(d => d.status === 'open' && jobIdsAtProperty.has(d.jobId)).length;
+    score -= Math.min(openDisputeCount * 15, 30);
+    if (homeUpcomingMowCard(p)) score -= 10;
+    score = Math.max(0, Math.min(100, score));
+    let label;
+    if (score >= 90) label = 'Excellent';
+    else if (score >= 75) label = 'Good';
+    else if (score >= 60) label = 'Needs Attention';
+    else label = 'Action Recommended';
+    return { score, label };
+  }
+
+  async function loadHomepagePropertySignals() {
+    const email = localStorage.getItem('mysubbies_customer_email');
+    if (!email) return;
+    try {
+      const resp = await fetch('/api/property-profile?customerEmail=' + encodeURIComponent(email));
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const properties = data.properties || [];
+      if (!properties.length) return;
+      // Most-recently-active property (first entry, matching the portal's own ordering).
+      const p = properties[0];
+      homepagePropertySignals = { health: homePropertyHealth(p, email), dueCard: homeUpcomingMowCard(p) };
+      renderRecommendedSection();
+    } catch (e) { /* non-critical -- homepage still works with the 4 base cards */ }
+  }
+
+  // Reuses bookMaintenanceTask()'s exact handoff mechanism from the portal
+  // (mysubbies_rebook_request + redirect to #estimate, re-priced live by
+  // initRebookIfRequested()) -- no need to route through the portal first
+  // since we're already on this page.
+  function bookMaintenanceFromHomepage(catLabel, taskName, suburb) {
+    localStorage.setItem('mysubbies_rebook_request', JSON.stringify({ items: [{ catLabel, taskName, qty: 1 }], suburb: suburb || '' }));
+    window.location.href = '#estimate';
+    window.location.reload();
+  }
+
+  function openLifeEventPackage(id) {
+    const pkg = LIFE_EVENT_PACKAGES[id];
+    if (!pkg) return;
+    document.getElementById('pkgModalOverlay').classList.add('show');
+    renderLifeEventPackage(id);
+  }
+  function closeLifeEventPackage() {
+    document.getElementById('pkgModalOverlay').classList.remove('show');
+  }
+
+  function renderLifeEventPackage(id) {
+    const pkg = LIFE_EVENT_PACKAGES[id];
+    const rateCard = getRateCard();
+    const quickAddRows = pkg.quickAdds.map((qa, i) => {
+      const cat = rateCard.find(c => c.label === qa.catLabel);
+      const task = cat && cat.tasks.find(t => t.name === qa.taskName && !t.disabled && !t.unavailable);
+      if (!task) return ''; // guard: skip silently if admin later disables/removes this task
+      return `
+        <div class="item-preview-row" id="pkgRow_${id}_${i}">
+          <div>
+            <div class="item-preview-name">${escapeHtml(task.name)}</div>
+            <div class="item-preview-meta">${escapeHtml(qa.catLabel)}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="item-preview-price">$${task.rate.toLocaleString()}</div>
+            <button class="btn" style="padding:8px 14px;" onclick="addPackageQuickItem('${escapeHtml(qa.catLabel)}', '${escapeHtml(qa.taskName).replace(/'/g, "\\'")}', 'pkgRow_${id}_${i}')">+ Add</button>
+          </div>
+        </div>`;
+    }).join('<hr style="border:none;border-top:1px solid var(--line);margin:8px 0;">');
+
+    const browseRow = pkg.browseCats.map(cat => `
+      <button class="chip-est" onclick="closeLifeEventPackage(); goToEstimatorWithCategory('${escapeHtml(cat).replace(/'/g, "\\'")}')">${escapeHtml(cat)} →</button>
+    `).join('');
+
+    document.getElementById('pkgModalBody').innerHTML = `
+      <h3>${pkg.icon} ${escapeHtml(pkg.title)}</h3>
+      <div class="sub">${escapeHtml(pkg.blurb)}</div>
+      ${quickAddRows ? `
+        <div style="margin-top:16px;">
+          <div style="font-size:12px;font-weight:700;color:var(--stone);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Common jobs, real prices</div>
+          ${quickAddRows}
+        </div>` : ''}
+      <div style="margin-top:20px;">
+        <div style="font-size:12px;font-weight:700;color:var(--stone);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Also often needed — get a real price for your size</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">${browseRow}</div>
+      </div>
+    `;
+  }
+
+  // Single flat-rate item, qty 1 -- selectCat()/calculateSelectedItems()/
+  // confirmAddItemsToCart() are the exact same functions the estimator's
+  // own multi-select uses, just called here for one pre-known task instead
+  // of whatever's rendered in the step-2 chips. This does leave that
+  // category selected in the estimator afterward (same as if the customer
+  // had picked it themselves) -- the cart itself (the only thing that
+  // actually matters) is never at risk either way.
+  function addPackageQuickItem(catLabel, taskName, rowId) {
+    const cat = getRateCard().find(c => c.label === catLabel);
+    const task = cat && cat.tasks.find(t => t.name === taskName && !t.disabled && !t.unavailable);
+    if (!task) return;
+    selectCat(cat);
+    selectedTierSet.set(task.name, task);
+    qtyValues.set(task.name, '1');
+    calculateSelectedItems();
+    confirmAddItemsToCart();
+    const row = document.getElementById(rowId);
+    if (row) row.innerHTML = `<div class="item-preview-name">✓ Added to your quote — $${task.rate.toLocaleString()}</div>`;
   }
 
   function renderFsForm() {
@@ -3379,6 +3585,12 @@
     openFixSomething();
   }
   initFixSomethingIfRequested();
+
+  // "Recommended for you" (Sept 2026) -- render the 4 always-on cards
+  // immediately, then fetch property data for a logged-in customer and
+  // re-render with the personalised cards if any apply.
+  renderRecommendedSection();
+  loadHomepagePropertySignals();
 
   // The header's "Log in" button was a static label that never checked
   // whether a customer session already existed -- so a customer who was
