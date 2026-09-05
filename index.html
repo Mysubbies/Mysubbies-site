@@ -3445,6 +3445,15 @@
     if (unit === 'm³') return { label: 'm³', placeholder: 'e.g. 10', hint: 'Enter the volume, e.g. 10' };
     if (unit === 'job') return { label: 'flat rate', placeholder: '1', hint: 'This is a flat rate for the job — enter 1 unless you need it more than once' };
     if (unit === 'hour' || unit === 'hr') return { label: unit, placeholder: 'e.g. 2', hint: 'How many hours of work do you need?' };
+    // A "visit" (Gardening's mowing/edging tasks) and a "clean" (Cleaning's
+    // bond cleans) are both really flat-rate-per-booking in practice, same
+    // as 'job' -- "how many visits/cleans do you need" reads oddly when the
+    // real answer is almost always 1, so these borrow 'job'’s clearer framing.
+    if (unit === 'visit') return { label: unit, placeholder: '1', hint: "This is priced per visit — enter 1 unless you're booking more than one" };
+    if (unit === 'clean') return { label: unit, placeholder: '1', hint: 'This is priced per clean — enter 1 unless you need more than one' };
+    // Soil/waste is genuinely counted in truckloads on a real job, so this
+    // is worth being concrete about rather than a bare "how many?".
+    if (unit === 'load' || unit === 'trailer load') return { label: unit, placeholder: 'e.g. 1', hint: 'How many loads do you need removed?' };
     // Generic fallback for every count-based unit (point, switch, tap,
     // window, tree, etc.) -- deliberately doesn't try to restate the unit
     // name here (e.g. "Quantity in point" read oddly, and correctly
