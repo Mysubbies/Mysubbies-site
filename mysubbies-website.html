@@ -2202,35 +2202,117 @@
   // mysubbies_disputes) so the two independently-computed numbers always
   // agree. If that scoring logic changes on the portal, mirror the change
   // here too.
+  // Top-5-options triage menu per card (Sept 2026) -- founder spec, replaces
+  // the earlier "quick-add real item + browse categories" modal. Design
+  // goal per the founder: FAST, SIMPLE, LOW PRESSURE, NO OVERSELLING -- so
+  // this shows NO prices at all, just a short list of real category names.
+  // Every option's catLabel is a real, existing DEFAULT_CATEGORIES label
+  // (never invented) -- clicking one hands the customer to the normal
+  // estimator (goToEstimatorWithCategory) where real pricing happens
+  // exactly as it always has. An option with action:'fixSomething' instead
+  // of catLabel calls the existing AI-triage flow directly -- used only
+  // where no real category exists (Urgent Repairs' "Storm / Property
+  // Damage"). Every card's fallback/photo-helper also calls
+  // openFixSomething() -- the one and only AI-classification entry point in
+  // this codebase, never duplicated.
   const LIFE_EVENT_PACKAGES = {
-    movingOut: {
-      icon: '📦', title: 'Moving Out',
-      blurb: 'Get the property ready in one booking.',
-      quickAdds: [
-        { catLabel: 'Cleaning', taskName: 'End of lease / bond clean — 1–2 bedroom' },
-        { catLabel: 'Cleaning', taskName: 'End of lease / bond clean — 3–4 bedroom' },
-        { catLabel: 'Cleaning', taskName: 'Gutter cleaning' },
-        { catLabel: 'Gardening & Lawn Mowing', taskName: 'Green waste removal' },
-      ],
-      browseCats: ['Gardening & Lawn Mowing', 'Handyman'],
-    },
     newHome: {
-      icon: '🔑', title: 'Just Got the Keys',
-      blurb: 'Finish your new home, all in one place.',
-      quickAdds: [
-        { catLabel: 'Locksmith', taskName: 'Re-key existing lock' },
-        { catLabel: 'Locksmith', taskName: 'Deadlock supply & install (external door)' },
-        { catLabel: 'Pest Control', taskName: 'General pest treatment (cockroaches, spiders, ants) — internal & external' },
+      icon: '🔑', headline: 'Just Got the Keys?', blurb: "Let's get the essentials sorted.",
+      options: [
+        { label: 'Landscaping & Turf', catLabel: 'Grass Installation' },
+        { label: 'Fencing & Side Gates', catLabel: 'Fencing' },
+        { label: 'Concrete & Pathways', catLabel: 'Concreting' },
+        { label: 'Blinds, TV & Home Setup', catLabel: 'Blinds, Curtains & Shutters' },
+        { label: 'Outdoor Lighting & Security', catLabel: 'Electrical' },
       ],
-      browseCats: ['Fencing', 'Decking', 'Grass Installation', 'Concreting', 'Pergola'],
+      somethingElseLabel: 'Something Else',
+      photoHelper: 'Not sure what you need? Show us your new home.',
+    },
+    movingOut: {
+      icon: '📦', headline: 'Moving Out?', blurb: 'Get the property ready without the stress.',
+      options: [
+        { label: 'End-of-Lease Cleaning', catLabel: 'Cleaning' },
+        { label: 'Rubbish & Furniture Removal', catLabel: 'Skip Bins' },
+        { label: 'Wall Patching & Paint Touch-Ups', catLabel: 'Painting' },
+        { label: 'Garden & Lawn Cleanup', catLabel: 'Gardening & Lawn Mowing' },
+        { label: 'Minor Repairs & Handyman', catLabel: 'Handyman' },
+      ],
+      somethingElseLabel: 'Something Else',
+      photoHelper: null,
     },
     selling: {
-      icon: '🏠', title: 'Selling My Home',
-      blurb: 'Get your property market-ready.',
-      quickAdds: [
-        { catLabel: 'Cleaning', taskName: 'Gutter cleaning' },
+      icon: '🏠', headline: 'Selling My House?', blurb: 'Small improvements before going to market.',
+      options: [
+        { label: 'Garden & Street Appeal', catLabel: 'Gardening & Lawn Mowing' },
+        { label: 'Painting & Touch-Ups', catLabel: 'Painting' },
+        { label: 'Deep Cleaning', catLabel: 'Cleaning' },
+        { label: 'Pressure Cleaning', catLabel: 'Cleaning' },
+        { label: 'Minor Repairs', catLabel: 'Handyman' },
       ],
-      browseCats: ['Painting', 'Cleaning', 'Fencing', 'Concreting'],
+      somethingElseLabel: 'Something Else',
+      photoHelper: 'Let MySubbies help identify what may need attention.',
+    },
+    homeMaintenance: {
+      icon: '🛠️', headline: 'Home Maintenance Due', blurb: 'Keep your property in good shape.',
+      options: [
+        { label: 'Gutter & Downpipe Cleaning', catLabel: 'Cleaning' },
+        { label: 'Heating & Cooling Service', catLabel: 'Heating & Cooling' },
+        { label: 'Plumbing Check & Minor Repairs', catLabel: 'Plumbing' },
+        { label: 'Electrical & Smoke Alarm Check', catLabel: 'Electrical' },
+        { label: 'Garden & Exterior Maintenance', catLabel: 'Gardening & Lawn Mowing' },
+      ],
+      somethingElseLabel: 'Check Something Else',
+      photoHelper: null,
+      personalise: true, // see homePersonaliseMaintenanceOptions()
+    },
+    outdoors: {
+      icon: '🌳', headline: 'Improve My Outdoors', blurb: 'What would you like to improve?',
+      options: [
+        { label: 'Landscaping & Garden', catLabel: 'Grass Installation' },
+        { label: 'Decking & Outdoor Living', catLabel: 'Decking' },
+        { label: 'Fencing & Gates', catLabel: 'Fencing' },
+        { label: 'Concrete & Paving', catLabel: 'Concreting' },
+        { label: 'Pergola & Outdoor Cover', catLabel: 'Pergola' },
+      ],
+      somethingElseLabel: 'Something Else',
+      photoHelper: null,
+    },
+    turnover: {
+      icon: '🧹', headline: 'Property Turnover', blurb: 'Get the property ready for the next tenant.',
+      options: [
+        { label: 'Vacate Cleaning', catLabel: 'Cleaning' },
+        { label: 'Painting & Wall Repairs', catLabel: 'Painting' },
+        { label: 'General Maintenance & Handyman', catLabel: 'Handyman' },
+        { label: 'Garden Cleanup', catLabel: 'Gardening & Lawn Mowing' },
+        { label: 'Rubbish Removal', catLabel: 'Skip Bins' },
+      ],
+      somethingElseLabel: 'Something Else',
+      photoHelper: 'Upload Inspection Photos',
+    },
+    urgentRepairs: {
+      icon: '🚨', headline: 'Urgent Repairs', blurb: 'Tell us what needs attention.',
+      safetyNotice: "⚠️ If there's a gas smell, sparking, fire, serious flooding or immediate structural danger, call 000 (or your utility's emergency line) first — this isn't a substitute for emergency services.",
+      options: [
+        { label: 'Water Leak / Plumbing', catLabel: 'Plumbing' },
+        { label: 'Blocked Toilet or Drain', catLabel: 'Plumbing' },
+        { label: 'Electrical Problem', catLabel: 'Electrical' },
+        { label: 'Door, Lock or Gate Problem', catLabel: 'Locksmith' },
+        { label: 'Storm / Property Damage', action: 'fixSomething' },
+      ],
+      somethingElseLabel: 'Something Else Urgently Needs Fixing',
+      photoHelper: 'Upload Photo / Video',
+    },
+    refresh: {
+      icon: '✨', headline: 'Refresh My House', blurb: 'Give your home a fresh new look.',
+      options: [
+        { label: 'Painting & Feature Walls', catLabel: 'Painting' },
+        { label: 'Lighting & Electrical Upgrades', catLabel: 'Electrical' },
+        { label: 'Kitchen Refresh', catLabel: 'Cabinetry' },
+        { label: 'Bathroom Refresh', catLabel: 'Tiling' },
+        { label: 'Deep Cleaning & Exterior Wash', catLabel: 'Cleaning' },
+      ],
+      somethingElseLabel: 'Something Else',
+      photoHelper: null,
     },
   };
 
@@ -2246,161 +2328,74 @@
       </article>`;
   }
 
-  let homepagePropertySignals = null; // { health:{score,label,color}, dueCard } once fetched for a logged-in customer
-
+  // Fixed 8-card menu (Sept 2026) -- founder-specified list, order and copy.
   function renderRecommendedSection() {
     const grid = document.getElementById('recoGrid');
     if (!grid) return;
-    let cards = recoCardHtml('🔧', 'Something Needs Fixing', 'Upload a photo, we’ll work it out', 'openFixSomething()');
-    cards += recoCardHtml('📦', 'Moving Out', 'Get the property ready in one booking', "openLifeEventPackage('movingOut')");
-    cards += recoCardHtml('🔑', 'Just Got the Keys', 'Finish your new home', "openLifeEventPackage('newHome')");
-    cards += recoCardHtml('🏠', 'Selling My Home', 'Get it market-ready', "openLifeEventPackage('selling')");
-    if (homepagePropertySignals) {
-      const h = homepagePropertySignals.health;
-      cards += recoCardHtml('🏠', `Property Health — ${h.score}%`, h.label, 'openHouseHealth()');
-      const due = homepagePropertySignals.dueCard;
-      if (due) {
-        cards += recoCardHtml('🌿', due.title, due.sub, `bookMaintenanceFromHomepage('${escapeHtml(due.catLabel)}', '${escapeHtml(due.taskName).replace(/'/g, "\\'")}', '${escapeHtml(due.suburb || '')}')`);
-      }
-    }
-    grid.innerHTML = cards;
-  }
-
-  function normalizeAddressForHealth(addr) {
-    return String(addr || '').trim().toLowerCase().replace(/\s+/g, ' ');
-  }
-
-  // Deliberately identical calculation to mysubbies-customer-portal.html's
-  // getUpcomingMaintenanceCards()/computePropertyHealth() -- same
-  // localStorage sources (mysubbies_jobs, mysubbies_disputes), same
-  // deduction rules, so the number shown here always matches what the
-  // portal itself would show for the same account.
-  function homeUpcomingMowCard(p) {
-    const mow = p.maintenancePreferences && p.maintenancePreferences['Gardening & Lawn Mowing'];
-    if (!mow) return null;
-    const lastMow = (p.history || []).filter(h => h.category === 'Gardening & Lawn Mowing')[0];
-    const sinceDate = lastMow ? new Date(lastMow.completedAt) : new Date(mow.setAt);
-    const dueDate = new Date(sinceDate.getTime() + mow.intervalWeeks * 7 * 24 * 60 * 60 * 1000);
-    if (new Date() < dueDate) return null;
-    const cat = getRateCard().find(c => c.label === 'Gardening & Lawn Mowing');
-    const task = cat && cat.tasks.find(t => t.name === mow.taskName);
-    return {
-      title: 'Lawn mowing due', taskName: mow.taskName, catLabel: 'Gardening & Lawn Mowing',
-      suburb: p.suburb || '',
-      sub: (task ? 'From $' + task.rate + ' · ' : '') + 'Every ' + mow.intervalWeeks + ' weeks',
-    };
-  }
-
-  function homePropertyHealth(p, email) {
-    let score = 100;
-    const disputes = JSON.parse(localStorage.getItem('mysubbies_disputes') || '[]');
-    const jobs = JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]');
-    const jobIdsAtProperty = new Set(jobs.filter(j => j.customerEmail === email && normalizeAddressForHealth(j.address) === normalizeAddressForHealth(p.address)).map(j => j.id));
-    const openDisputeCount = disputes.filter(d => d.status === 'open' && jobIdsAtProperty.has(d.jobId)).length;
-    score -= Math.min(openDisputeCount * 15, 30);
-    if (homeUpcomingMowCard(p)) score -= 10;
-    score = Math.max(0, Math.min(100, score));
-    let label;
-    if (score >= 90) label = 'Excellent';
-    else if (score >= 75) label = 'Good';
-    else if (score >= 60) label = 'Needs Attention';
-    else label = 'Action Recommended';
-    return { score, label };
-  }
-
-  async function loadHomepagePropertySignals() {
-    const email = localStorage.getItem('mysubbies_customer_email');
-    if (!email) return;
-    try {
-      const resp = await fetch('/api/property-profile?customerEmail=' + encodeURIComponent(email));
-      if (!resp.ok) return;
-      const data = await resp.json();
-      const properties = data.properties || [];
-      if (!properties.length) return;
-      // Most-recently-active property (first entry, matching the portal's own ordering).
-      const p = properties[0];
-      homepagePropertySignals = { health: homePropertyHealth(p, email), dueCard: homeUpcomingMowCard(p) };
-      renderRecommendedSection();
-    } catch (e) { /* non-critical -- homepage still works with the 4 base cards */ }
-  }
-
-  // Reuses bookMaintenanceTask()'s exact handoff mechanism from the portal
-  // (mysubbies_rebook_request + redirect to #estimate, re-priced live by
-  // initRebookIfRequested()) -- no need to route through the portal first
-  // since we're already on this page.
-  function bookMaintenanceFromHomepage(catLabel, taskName, suburb) {
-    localStorage.setItem('mysubbies_rebook_request', JSON.stringify({ items: [{ catLabel, taskName, qty: 1 }], suburb: suburb || '' }));
-    window.location.href = '#estimate';
-    window.location.reload();
+    grid.innerHTML =
+      recoCardHtml('🔑', 'Just Got the Keys', 'Get the essentials sorted.', "openLifeEventPackage('newHome')") +
+      recoCardHtml('📦', 'Moving Out', 'Leave the property ready without the stress.', "openLifeEventPackage('movingOut')") +
+      recoCardHtml('🏠', 'Selling My House', 'Small improvements before going to market.', "openLifeEventPackage('selling')") +
+      recoCardHtml('🛠️', 'Home Maintenance Due', 'Keep your property in good shape.', "openLifeEventPackage('homeMaintenance')") +
+      recoCardHtml('🌳', 'Improve My Outdoors', 'Upgrade your outdoor space.', "openLifeEventPackage('outdoors')") +
+      recoCardHtml('🧹', 'Property Turnover', 'Get the property ready for the next tenant.', "openLifeEventPackage('turnover')") +
+      recoCardHtml('🚨', 'Urgent Repairs', 'Get help with something that needs attention now.', "openLifeEventPackage('urgentRepairs')") +
+      recoCardHtml('✨', 'Refresh My House', 'Give your home a fresh new look.', "openLifeEventPackage('refresh')");
   }
 
   function openLifeEventPackage(id) {
     const pkg = LIFE_EVENT_PACKAGES[id];
     if (!pkg) return;
     document.getElementById('pkgModalOverlay').classList.add('show');
-    renderLifeEventPackage(id);
+    renderLifeEventPackage(id, pkg.options);
+    // Real personalisation only -- reorders options that already have a
+    // completed job at this property to the back of the list (a genuine
+    // "you've already had this done here" signal). Never invents a due
+    // date/badge -- no category in this list has a defined interval to
+    // compute one honestly from. Falls back silently to the plain order
+    // for anonymous visitors or on any fetch failure.
+    if (pkg.personalise) homePersonaliseMaintenanceOptions(id, pkg.options);
   }
   function closeLifeEventPackage() {
     document.getElementById('pkgModalOverlay').classList.remove('show');
   }
 
-  function renderLifeEventPackage(id) {
-    const pkg = LIFE_EVENT_PACKAGES[id];
-    const rateCard = getRateCard();
-    const quickAddRows = pkg.quickAdds.map((qa, i) => {
-      const cat = rateCard.find(c => c.label === qa.catLabel);
-      const task = cat && cat.tasks.find(t => t.name === qa.taskName && !t.disabled && !t.unavailable);
-      if (!task) return ''; // guard: skip silently if admin later disables/removes this task
-      return `
-        <div class="item-preview-row" id="pkgRow_${id}_${i}">
-          <div>
-            <div class="item-preview-name">${escapeHtml(task.name)}</div>
-            <div class="item-preview-meta">${escapeHtml(qa.catLabel)}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <div class="item-preview-price">$${task.rate.toLocaleString()}</div>
-            <button class="btn" style="padding:8px 14px;" onclick="addPackageQuickItem('${escapeHtml(qa.catLabel)}', '${escapeHtml(qa.taskName).replace(/'/g, "\\'")}', 'pkgRow_${id}_${i}')">+ Add</button>
-          </div>
-        </div>`;
-    }).join('<hr style="border:none;border-top:1px solid var(--line);margin:8px 0;">');
+  function lifeEventOptionAction(opt) {
+    return opt.action === 'fixSomething'
+      ? 'closeLifeEventPackage(); openFixSomething();'
+      : `closeLifeEventPackage(); goToEstimatorWithCategory('${escapeHtml(opt.catLabel).replace(/'/g, "\\'")}');`;
+  }
 
-    const browseRow = pkg.browseCats.map(cat => `
-      <button class="chip-est" onclick="closeLifeEventPackage(); goToEstimatorWithCategory('${escapeHtml(cat).replace(/'/g, "\\'")}')">${escapeHtml(cat)} →</button>
+  function renderLifeEventPackage(id, options) {
+    const pkg = LIFE_EVENT_PACKAGES[id];
+    const optionRows = options.map(opt => `
+      <button class="btn" style="width:100%;text-align:left;margin-bottom:8px;background:var(--paper);color:var(--ink);" onclick="${lifeEventOptionAction(opt)}">${escapeHtml(opt.label)}</button>
     `).join('');
 
     document.getElementById('pkgModalBody').innerHTML = `
-      <h3>${pkg.icon} ${escapeHtml(pkg.title)}</h3>
+      <h3>${pkg.icon} ${escapeHtml(pkg.headline)}</h3>
       <div class="sub">${escapeHtml(pkg.blurb)}</div>
-      ${quickAddRows ? `
-        <div style="margin-top:16px;">
-          <div style="font-size:12px;font-weight:700;color:var(--stone);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Common jobs, real prices</div>
-          ${quickAddRows}
-        </div>` : ''}
-      <div style="margin-top:20px;">
-        <div style="font-size:12px;font-weight:700;color:var(--stone);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Also often needed — get a real price for your size</div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;">${browseRow}</div>
-      </div>
+      ${pkg.safetyNotice ? `<div class="item-preview-warning" style="margin:12px 0;">${escapeHtml(pkg.safetyNotice)}</div>` : ''}
+      <div style="margin-top:16px;">${optionRows}</div>
+      <button class="btn btn-outline" style="width:100%;" onclick="closeLifeEventPackage(); openFixSomething();">${escapeHtml(pkg.somethingElseLabel)}</button>
+      ${pkg.photoHelper ? `<div class="sub" style="margin-top:14px;text-align:center;cursor:pointer;text-decoration:underline;" onclick="closeLifeEventPackage(); openFixSomething();">${escapeHtml(pkg.photoHelper)}</div>` : ''}
     `;
   }
 
-  // Single flat-rate item, qty 1 -- selectCat()/calculateSelectedItems()/
-  // confirmAddItemsToCart() are the exact same functions the estimator's
-  // own multi-select uses, just called here for one pre-known task instead
-  // of whatever's rendered in the step-2 chips. This does leave that
-  // category selected in the estimator afterward (same as if the customer
-  // had picked it themselves) -- the cart itself (the only thing that
-  // actually matters) is never at risk either way.
-  function addPackageQuickItem(catLabel, taskName, rowId) {
-    const cat = getRateCard().find(c => c.label === catLabel);
-    const task = cat && cat.tasks.find(t => t.name === taskName && !t.disabled && !t.unavailable);
-    if (!task) return;
-    selectCat(cat);
-    selectedTierSet.set(task.name, task);
-    qtyValues.set(task.name, '1');
-    calculateSelectedItems();
-    confirmAddItemsToCart();
-    const row = document.getElementById(rowId);
-    if (row) row.innerHTML = `<div class="item-preview-name">✓ Added to your quote — $${task.rate.toLocaleString()}</div>`;
+  async function homePersonaliseMaintenanceOptions(id, baseOptions) {
+    const email = localStorage.getItem('mysubbies_customer_email');
+    if (!email) return;
+    try {
+      const resp = await fetch('/api/property-profile?customerEmail=' + encodeURIComponent(email));
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const p = (data.properties || [])[0];
+      if (!p) return;
+      const servicedCats = new Set((p.history || []).map(h => h.category));
+      const reordered = [...baseOptions].sort((a, b) => servicedCats.has(a.catLabel) - servicedCats.has(b.catLabel));
+      // Only re-render if this card is still the one open (customer may have closed/switched by the time this resolves).
+      if (document.getElementById('pkgModalOverlay').classList.contains('show')) renderLifeEventPackage(id, reordered);
+    } catch (e) { /* non-critical -- falls back to the plain order already rendered */ }
   }
 
   function renderFsForm() {
