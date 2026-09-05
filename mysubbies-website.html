@@ -2238,7 +2238,10 @@
         { label: 'Landscaping & Turf', catLabel: 'Grass Installation' },
         { label: 'Fencing & Side Gates', catLabel: 'Fencing' },
         { label: 'Concrete & Pathways', catLabel: 'Concreting' },
-        { label: 'Blinds, TV & Home Setup', catLabel: 'Blinds, Curtains & Shutters' },
+        { label: 'Blinds, TV & Home Setup', subOptions: [
+          { label: 'Blinds & Curtains', catLabel: 'Blinds, Curtains & Shutters' },
+          { label: 'TV Wall Mounting', catLabel: 'Handyman' },
+        ] },
         { label: 'Outdoor Lighting & Security', catLabel: 'Electrical' },
       ],
       somethingElseLabel: 'Something Else',
@@ -2249,7 +2252,10 @@
       options: [
         { label: 'End-of-Lease Cleaning', catLabel: 'Cleaning' },
         { label: 'Rubbish & Furniture Removal', catLabel: 'Skip Bins' },
-        { label: 'Wall Patching & Paint Touch-Ups', catLabel: 'Painting' },
+        { label: 'Wall Patching & Paint Touch-Ups', subOptions: [
+          { label: 'Paint Touch-Ups', catLabel: 'Painting' },
+          { label: 'Wall Repairs & Handyman', catLabel: 'Handyman' },
+        ] },
         { label: 'Garden & Lawn Cleanup', catLabel: 'Gardening & Lawn Mowing' },
         { label: 'Minor Repairs & Handyman', catLabel: 'Handyman' },
       ],
@@ -2275,7 +2281,10 @@
         { label: 'Heating & Cooling Service', catLabel: 'Heating & Cooling' },
         { label: 'Plumbing Check & Minor Repairs', catLabel: 'Plumbing' },
         { label: 'Electrical & Smoke Alarm Check', catLabel: 'Electrical' },
-        { label: 'Garden & Exterior Maintenance', catLabel: 'Gardening & Lawn Mowing' },
+        { label: 'Garden & Exterior Maintenance', subOptions: [
+          { label: 'Garden Maintenance', catLabel: 'Gardening & Lawn Mowing' },
+          { label: 'Exterior Cleaning / Pressure Wash', catLabel: 'Cleaning' },
+        ] },
       ],
       somethingElseLabel: 'Check Something Else',
       photoHelper: null,
@@ -2284,7 +2293,10 @@
     outdoors: {
       icon: '🌳', headline: 'Improve My Outdoors', blurb: 'What would you like to improve?',
       options: [
-        { label: 'Landscaping & Garden', catLabel: 'Grass Installation' },
+        { label: 'Landscaping & Garden', subOptions: [
+          { label: 'Turf & Grass Installation', catLabel: 'Grass Installation' },
+          { label: 'Garden Beds & Landscaping', catLabel: 'Gardening & Lawn Mowing' },
+        ] },
         { label: 'Decking & Outdoor Living', catLabel: 'Decking' },
         { label: 'Fencing & Gates', catLabel: 'Fencing' },
         { label: 'Concrete & Paving', catLabel: 'Concreting' },
@@ -2297,7 +2309,10 @@
       icon: '🧹', headline: 'Property Turnover', blurb: 'Get the property ready for the next tenant.',
       options: [
         { label: 'Vacate Cleaning', catLabel: 'Cleaning' },
-        { label: 'Painting & Wall Repairs', catLabel: 'Painting' },
+        { label: 'Painting & Wall Repairs', subOptions: [
+          { label: 'Painting', catLabel: 'Painting' },
+          { label: 'Wall Repairs & Handyman', catLabel: 'Handyman' },
+        ] },
         { label: 'General Maintenance & Handyman', catLabel: 'Handyman' },
         { label: 'Garden Cleanup', catLabel: 'Gardening & Lawn Mowing' },
         { label: 'Rubbish Removal', catLabel: 'Skip Bins' },
@@ -2323,8 +2338,18 @@
       options: [
         { label: 'Painting & Feature Walls', catLabel: 'Painting' },
         { label: 'Lighting & Electrical Upgrades', catLabel: 'Electrical' },
-        { label: 'Kitchen Refresh', catLabel: 'Cabinetry' },
-        { label: 'Bathroom Refresh', catLabel: 'Tiling' },
+        { label: 'Kitchen Refresh', subOptions: [
+          { label: 'Cabinetry & Benchtops', catLabel: 'Cabinetry' },
+          { label: 'Kitchen Tiling', catLabel: 'Tiling' },
+          { label: 'Kitchen Plumbing — taps & sink', catLabel: 'Plumbing' },
+          { label: 'Kitchen Electrical — downlights & exhaust', catLabel: 'Electrical' },
+        ] },
+        { label: 'Bathroom Refresh', subOptions: [
+          { label: 'Bathroom Tiling', catLabel: 'Tiling' },
+          { label: 'Bathroom Plumbing — taps, toilet, shower', catLabel: 'Plumbing' },
+          { label: 'Bathroom Electrical — exhaust & lighting', catLabel: 'Electrical' },
+          { label: 'Vanity & Cabinetry', catLabel: 'Cabinetry' },
+        ] },
         { label: 'Deep Cleaning & Exterior Wash', catLabel: 'Cleaning' },
       ],
       somethingElseLabel: 'Something Else',
@@ -2384,16 +2409,38 @@
     document.getElementById('pkgModalOverlay').classList.remove('show');
   }
 
-  function lifeEventOptionAction(opt) {
+  // An option is either a direct link (catLabel -> goToEstimatorWithCategory,
+  // or action:'fixSomething') or, for the handful of genuinely multi-trade
+  // concepts (Kitchen Refresh, Garden & Exterior Maintenance, etc.), a
+  // subOptions array -- clicking it shows those 2-4 real categories inline
+  // with a back arrow, instead of guessing which single trade the customer
+  // actually needs. Kept to only the options that really span more than one
+  // trade -- everything else stays a single direct tap.
+  function lifeEventOptionAction(opt, id, idx) {
+    if (opt.subOptions) return `showLifeEventSubOptions('${id}', ${idx})`;
     return opt.action === 'fixSomething'
       ? 'closeLifeEventPackage(); openFixSomething();'
       : `closeLifeEventPackage(); goToEstimatorWithCategory('${escapeHtml(opt.catLabel).replace(/'/g, "\\'")}');`;
   }
 
+  function showLifeEventSubOptions(id, idx) {
+    const pkg = LIFE_EVENT_PACKAGES[id];
+    const opt = pkg.options[idx];
+    const subRows = opt.subOptions.map(sub => `
+      <button class="btn" style="width:100%;text-align:left;margin-bottom:8px;background:var(--paper);color:var(--ink);" onclick="closeLifeEventPackage(); goToEstimatorWithCategory('${escapeHtml(sub.catLabel).replace(/'/g, "\\'")}');">${escapeHtml(sub.label)}</button>
+    `).join('');
+    document.getElementById('pkgModalBody').innerHTML = `
+      <button class="sub" style="background:none;border:none;cursor:pointer;text-decoration:underline;padding:0;margin-bottom:12px;" onclick="renderLifeEventPackage('${id}', LIFE_EVENT_PACKAGES['${id}'].options)">← Back</button>
+      <h3>${pkg.icon} ${escapeHtml(opt.label)}</h3>
+      <div class="sub">Which one matches what you need?</div>
+      <div style="margin-top:16px;">${subRows}</div>
+    `;
+  }
+
   function renderLifeEventPackage(id, options) {
     const pkg = LIFE_EVENT_PACKAGES[id];
-    const optionRows = options.map(opt => `
-      <button class="btn" style="width:100%;text-align:left;margin-bottom:8px;background:var(--paper);color:var(--ink);" onclick="${lifeEventOptionAction(opt)}">${escapeHtml(opt.label)}</button>
+    const optionRows = options.map((opt, idx) => `
+      <button class="btn" style="width:100%;text-align:left;margin-bottom:8px;background:var(--paper);color:var(--ink);" onclick="${lifeEventOptionAction(opt, id, idx)}">${escapeHtml(opt.label)}${opt.subOptions ? ' →' : ''}</button>
     `).join('');
 
     document.getElementById('pkgModalBody').innerHTML = `
