@@ -533,6 +533,15 @@
     .catgrid-popular .catcard2 .cc-body { padding:9px 2px 0; }
     .catgrid-popular .catcard2 .cc-name { font-size:12px; text-align:center; }
     .catgrid-popular .catcard2 .cc-sub { display:none; }
+    /* Recommended-for-you (Sept 2026): stacked 2-per-row grid on mobile,
+       same as "Explore all services" (.catgrid-all's own 720px behavior),
+       not the horizontal-scroll carousel .catgrid-popular otherwise uses
+       here for Services' popular row. #recoGrid is an ID selector so it
+       beats every rule above regardless of source order (same reasoning as
+       the #recoGrid .cc-photo aspect-ratio override further up). */
+    #recoGrid { display:grid; grid-template-columns:repeat(2, 1fr); overflow-x:visible; gap:12px; padding-bottom:0; }
+    #recoGrid.catgrid-popular .catcard2 { min-width:0; max-width:none; scroll-snap-align:none; border:1px solid var(--line); background:#fff; }
+    #recoGrid.catgrid-popular .catcard2 .cc-sub { display:block; }
     .popular-jobs-section { padding:30px 0; }
     .section-title-row h2 { font-size:20px; }
     .popular-job-grid { display:flex; overflow-x:auto; gap:12px; padding-bottom:8px; scroll-snap-type:x mandatory; scrollbar-width:none; }
