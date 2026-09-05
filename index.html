@@ -2340,22 +2340,21 @@
   }
 
   // Fixed 8-card menu (Sept 2026) -- founder-specified list, order and copy.
-  // Each card's photo is the real category image for its first/primary
-  // mapped option (see LIFE_EVENT_PACKAGES above), picked for visual
-  // variety across the row rather than defaulting to the same image twice
-  // in a row.
+  // Founder-supplied custom photos (images/recommended/*.png) already carry
+  // the card title baked into the image itself, replacing the generic
+  // rate-card category stock photos used previously.
   function renderRecommendedSection() {
     const grid = document.getElementById('recoGrid');
     if (!grid) return;
     grid.innerHTML =
-      recoCardHtml('images/categories/grass-installation.jpg', 'Landscaping and turf', 'Just Got the Keys', 'Get the essentials sorted.', "openLifeEventPackage('newHome')") +
-      recoCardHtml('images/categories/cleaning.jpg', 'House cleaning', 'Moving Out', 'Leave the property ready without the stress.', "openLifeEventPackage('movingOut')") +
-      recoCardHtml('images/categories/gardening-lawn-mowing.jpg', 'Garden and lawn care', 'Selling My House', 'Small improvements before going to market.', "openLifeEventPackage('selling')") +
-      recoCardHtml('images/categories/heating-cooling.jpg', 'Heating and cooling', 'Home Maintenance Due', 'Keep your property in good shape.', "openLifeEventPackage('homeMaintenance')") +
-      recoCardHtml('images/categories/decking.jpg', 'Outdoor decking', 'Improve My Outdoors', 'Upgrade your outdoor space.', "openLifeEventPackage('outdoors')") +
-      recoCardHtml('images/categories/handyman.jpg', 'Handyman work', 'Property Turnover', 'Get the property ready for the next tenant.', "openLifeEventPackage('turnover')") +
-      recoCardHtml('images/categories/plumbing.jpg', 'Plumbing repair', 'Urgent Repairs', 'Get help with something that needs attention now.', "openLifeEventPackage('urgentRepairs')") +
-      recoCardHtml('images/categories/painting.jpg', 'Interior painting', 'Refresh My House', 'Give your home a fresh new look.', "openLifeEventPackage('refresh')");
+      recoCardHtml('images/recommended/just-got-the-keys.png', 'Just Got the Keys', 'Just Got the Keys', 'Get the essentials sorted.', "openLifeEventPackage('newHome')") +
+      recoCardHtml('images/recommended/moving-out.png', 'Moving Out', 'Moving Out', 'Leave the property ready without the stress.', "openLifeEventPackage('movingOut')") +
+      recoCardHtml('images/recommended/selling-my-house.png', 'Selling My House', 'Selling My House', 'Small improvements before going to market.', "openLifeEventPackage('selling')") +
+      recoCardHtml('images/recommended/home-maintenance-due.png', 'Home Maintenance Due', 'Home Maintenance Due', 'Keep your property in good shape.', "openLifeEventPackage('homeMaintenance')") +
+      recoCardHtml('images/recommended/improve-my-outdoors.png', 'Improve My Outdoors', 'Improve My Outdoors', 'Upgrade your outdoor space.', "openLifeEventPackage('outdoors')") +
+      recoCardHtml('images/recommended/property-turnover.png', 'Property Turnover', 'Property Turnover', 'Get the property ready for the next tenant.', "openLifeEventPackage('turnover')") +
+      recoCardHtml('images/recommended/urgent-repairs.png', 'Urgent Repairs', 'Urgent Repairs', 'Get help with something that needs attention now.', "openLifeEventPackage('urgentRepairs')") +
+      recoCardHtml('images/recommended/refresh-my-house.png', 'Refresh My House', 'Refresh My House', 'Give your home a fresh new look.', "openLifeEventPackage('refresh')");
   }
 
   function openLifeEventPackage(id) {
