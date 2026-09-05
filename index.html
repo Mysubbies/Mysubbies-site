@@ -3440,20 +3440,39 @@
   }
 
   function qtyHintForUnit(unit) {
-    if (unit === 'm²') return { label: 'm²', placeholder: 'e.g. 24', hint: "Enter the length and width — we'll work out the total area for you" };
-    if (unit === 'lm') return { label: 'lm', placeholder: 'e.g. 12', hint: 'Enter the length, e.g. 12m' };
-    if (unit === 'm³') return { label: 'm³', placeholder: 'e.g. 10', hint: 'Enter the volume, e.g. 10' };
-    if (unit === 'job') return { label: 'flat rate', placeholder: '1', hint: 'This is a flat rate for the job — enter 1 unless you need it more than once' };
-    if (unit === 'hour' || unit === 'hr') return { label: unit, placeholder: 'e.g. 2', hint: 'How many hours of work do you need?' };
+    // Matched case-insensitively via .includes()/.trim() below, not exact
+    // equality against the raw string -- unit is free text an admin can
+    // retype from the Rate Card tab, and live data already has real drift
+    // confirmed (e.g. Gardening's mowing tasks are 'per visit' not 'visit',
+    // 'LM' alongside 'lm', 'Hour' alongside 'hour'/'hr'). Matching on the
+    // meaningful word keeps hint selection correct regardless of that
+    // casing/prefix drift, without needing every admin edit to also update
+    // this function. (Grouping/pricing logic elsewhere, e.g.
+    // estPrimaryUnitGroup and parseQuantity's m² branch, still compares the
+    // raw unit string exactly -- that's a separate, bigger data-consistency
+    // question not addressed here, just the hint text shown to the customer.)
+    const u = String(unit).trim().toLowerCase();
+    // m²/m³ deliberately stay an exact match, not fuzzed like the checks
+    // below -- renderQtyRows()/renderEstPrimaryCompareBlock() only switch to
+    // the split Length x Width fields for the literal 'm²' string, so a
+    // hint here promising "enter the length and width" for some other
+    // spelling (e.g. an ASCII "m2") would show above a single plain field
+    // instead, which is worse than the generic fallback. No such variant is
+    // confirmed to exist in the live rate card today.
+    if (u === 'm²') return { label: unit, placeholder: 'e.g. 24', hint: "Enter the length and width — we'll work out the total area for you" };
+    if (u === 'lm') return { label: unit, placeholder: 'e.g. 12', hint: 'Enter the length, e.g. 12m' };
+    if (u === 'm³') return { label: unit, placeholder: 'e.g. 10', hint: 'Enter the volume, e.g. 10' };
+    if (u === 'job') return { label: 'flat rate', placeholder: '1', hint: 'This is a flat rate for the job — enter 1 unless you need it more than once' };
+    if (u === 'hour' || u === 'hr' || u === 'hrs' || u === 'hours') return { label: unit, placeholder: 'e.g. 2', hint: 'How many hours of work do you need?' };
     // A "visit" (Gardening's mowing/edging tasks) and a "clean" (Cleaning's
     // bond cleans) are both really flat-rate-per-booking in practice, same
     // as 'job' -- "how many visits/cleans do you need" reads oddly when the
     // real answer is almost always 1, so these borrow 'job'’s clearer framing.
-    if (unit === 'visit') return { label: unit, placeholder: '1', hint: "This is priced per visit — enter 1 unless you're booking more than one" };
-    if (unit === 'clean') return { label: unit, placeholder: '1', hint: 'This is priced per clean — enter 1 unless you need more than one' };
+    if (u.includes('visit')) return { label: unit, placeholder: '1', hint: "This is priced per visit — enter 1 unless you're booking more than one" };
+    if (u.includes('clean')) return { label: unit, placeholder: '1', hint: 'This is priced per clean — enter 1 unless you need more than one' };
     // Soil/waste is genuinely counted in truckloads on a real job, so this
     // is worth being concrete about rather than a bare "how many?".
-    if (unit === 'load' || unit === 'trailer load') return { label: unit, placeholder: 'e.g. 1', hint: 'How many loads do you need removed?' };
+    if (u.includes('load')) return { label: unit, placeholder: 'e.g. 1', hint: 'How many loads do you need removed?' };
     // Generic fallback for every count-based unit (point, switch, tap,
     // window, tree, etc.) -- deliberately doesn't try to restate the unit
     // name here (e.g. "Quantity in point" read oddly, and correctly
