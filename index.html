@@ -1789,12 +1789,7 @@
         <div class="cc-sub">${escapeHtml(subtitle)}</div></div>
       </button>`;
     }).join('');
-    const otherCard = `<button class="catcard2" onclick="openFixSomething()">
-        <div class="cc-photo cc-photo-fallback" style="aspect-ratio:4/3;width:100%;background:var(--paper);"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.4 2.3c-.9.4-1.4 1-1.4 1.7v.5"/><path d="M12 17h0"/></svg></div>
-        <div class="cc-body"><div class="cc-name">Other</div>
-        <div class="cc-sub">Not sure which category? Describe it or upload a photo.</div></div>
-      </button>`;
-    grid.innerHTML = cards + otherCard;
+    grid.innerHTML = cards;
   }
 
   // Hides a Popular services card if that category has been fully disabled
