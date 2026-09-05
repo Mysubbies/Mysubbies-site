@@ -1334,10 +1334,27 @@
     `).join('');
   }
 
+  // Sept 2026: normalises unit casing that's drifted through past edits in
+  // this exact tab ("Gate" next to "gate", "Hour" next to "hour", "LM"
+  // next to "lm" -- confirmed live). Mirrors the equivalent fix in
+  // mysubbies-website.html's mergeRateCardUpdates() so the customer-facing
+  // hint/grouping logic and this admin view never disagree about which
+  // casing is canonical. Run here (not just on the customer side) because
+  // this is the one place a save can actually reach the real server copy
+  // (platform_rate_card) -- the next edit+save from this tab, of anything,
+  // carries the correction with it.
+  const UNIT_CASING_FIXES = { 'Gate': 'gate', 'Hour': 'hour', 'LM': 'lm' };
+  function normalizeUnitCasing(categories) {
+    (categories || []).forEach(c => (c.tasks || []).forEach(t => {
+      if (UNIT_CASING_FIXES[t.unit]) t.unit = UNIT_CASING_FIXES[t.unit];
+    }));
+    return categories;
+  }
+
   // --- Rate card storage: same localStorage key the live estimator reads from ---
   function getRateCard() {
     const stored = localStorage.getItem('mysubbies_ratecard');
-    return stored ? JSON.parse(stored) : [];
+    return normalizeUnitCasing(stored ? JSON.parse(stored) : []);
   }
   // Pushes to the real server copy (api/rate-card.js) on every save, not
   // just localStorage -- previously an admin edit here only ever updated
@@ -1388,6 +1405,7 @@
       if (!res.ok) return;
       const { categories } = await res.json();
       if (!Array.isArray(categories) || categories.length === 0) return;
+      normalizeUnitCasing(categories);
       const current = JSON.stringify(getRateCard());
       if (JSON.stringify(categories) !== current) {
         // Local caching and re-rendering are independent -- a quota failure

@@ -1630,6 +1630,24 @@
       const idx = stored.findIndex(c => c.label === 'Appliances');
       if (idx !== -1) { stored.splice(idx, 1); changed = true; }
     }
+    // One-off cleanup (Sept 2026): admin edits from the Rate Card tab had
+    // drifted a handful of tasks' unit casing away from the rest of the
+    // rate card ("Gate" next to "gate", "Hour" next to "hour", "LM" next to
+    // "lm") -- confirmed live via direct inspection, not hypothetical. This
+    // matters beyond cosmetics: qtyHintForUnit() and the primary-comparison
+    // grouping both key off the exact unit string, so an inconsistently
+    // cased task can silently miss the hint/grouping every other task in
+    // its category gets. Runs on every load (cheap -- a few string
+    // comparisons per task) rather than a version-gated one-time pass like
+    // applyOneTimePriceRefresh below, so it self-heals in every browser
+    // that loads the site, not just ones open after this shipped, and
+    // keeps healing if a future admin edit reintroduces the same drift.
+    const UNIT_CASING_FIXES = { 'Gate': 'gate', 'Hour': 'hour', 'LM': 'lm' };
+    stored.forEach(c => {
+      c.tasks.forEach(t => {
+        if (UNIT_CASING_FIXES[t.unit]) { t.unit = UNIT_CASING_FIXES[t.unit]; changed = true; }
+      });
+    });
     DEFAULT_CATEGORIES.forEach(defCat => {
       let storedCat = stored.find(c => c.label === defCat.label);
       if (!storedCat) {
