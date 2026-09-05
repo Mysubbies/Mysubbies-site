@@ -148,6 +148,8 @@
   .est-qty-row .est-field-label { margin-bottom:4px; }
   .est-qty-row .est-field-label .unit { font-weight:400; color:var(--stone); }
   .est-hint { font-size:11px; color: var(--stone-light); margin-top:5px; min-height:14px; }
+  .est-hint.est-lw-total { color:var(--good, #2F7A50); font-weight:700; font-size:12.5px; }
+  .est-lw-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .est-match-line { font-size:12.5px; margin:6px 0 14px; min-height:16px; }
   .est-match-line.found { color: var(--good, #2F7A50); font-weight:600; }
   .est-match-line.none { color: var(--warn); }
@@ -934,6 +936,16 @@
               <div id="estPrimaryCompareWrap" style="display:none;">
                 <label class="est-field-label" id="estPrimaryQtyLabel">Size / quantity</label>
                 <input type="text" id="estPrimaryQty" class="est-qty-row-input" oninput="onPrimaryQtyInput()" placeholder="" />
+                <!-- Sept 2026: for m² tasks, Length x Width replaces the single
+                     free-text field -- people know a space's length and width,
+                     not its total square metres, and typing "6m x 5m" into one
+                     box wasn't obviously supported. Both inputs just combine
+                     into #estPrimaryQty's existing value, so every downstream
+                     calc (parseQuantity, calculateSelectedItems) is unchanged. -->
+                <div id="estPrimaryLW" class="est-lw-row" style="display:none;">
+                  <input type="text" id="estPrimaryLength" class="est-qty-row-input" oninput="onPrimaryLWInput()" placeholder="Length (m)" />
+                  <input type="text" id="estPrimaryWidth" class="est-qty-row-input" oninput="onPrimaryLWInput()" placeholder="Width (m)" />
+                </div>
                 <div class="est-hint" id="estPrimaryQtyHint"></div>
                 <div id="estPrimaryOptions" class="est-primary-options"></div>
               </div>
@@ -2777,13 +2789,40 @@
     estPrimaryGroup = estPrimaryUnitGroup(c);
     const wrap = document.getElementById('estPrimaryCompareWrap');
     document.getElementById('estPrimaryQty').value = '';
+    document.getElementById('estPrimaryLength').value = '';
+    document.getElementById('estPrimaryWidth').value = '';
     document.getElementById('estPrimaryOptions').innerHTML = '';
     if (!estPrimaryGroup) { wrap.style.display = 'none'; return; }
     wrap.style.display = 'block';
+    const isArea = estPrimaryGroup.unit === 'm²';
+    document.getElementById('estPrimaryQty').style.display = isArea ? 'none' : 'block';
+    document.getElementById('estPrimaryLW').style.display = isArea ? 'grid' : 'none';
     const hint = qtyHintForUnit(estPrimaryGroup.unit);
-    document.getElementById('estPrimaryQtyLabel').textContent = 'Size / quantity (' + hint.label + ')';
+    document.getElementById('estPrimaryQtyLabel').textContent = isArea ? 'Size' : 'Size / quantity (' + hint.label + ')';
     document.getElementById('estPrimaryQty').placeholder = hint.placeholder;
     document.getElementById('estPrimaryQtyHint').textContent = hint.hint;
+    document.getElementById('estPrimaryQtyHint').classList.remove('est-lw-total');
+  }
+  // Length x Width for m² primary-group tasks -- combines into
+  // #estPrimaryQty's existing value ("6x5") so onPrimaryQtyInput() and
+  // every downstream calc (parseQuantity already parses this exact format)
+  // work completely unchanged. Shows a live "= 30 m²" readout in the same
+  // hint slot that otherwise holds static instructions, so typing feels
+  // confirmed rather than just accepted.
+  function onPrimaryLWInput() {
+    const l = parseFloat(document.getElementById('estPrimaryLength').value);
+    const w = parseFloat(document.getElementById('estPrimaryWidth').value);
+    const hintEl = document.getElementById('estPrimaryQtyHint');
+    if (l > 0 && w > 0) {
+      document.getElementById('estPrimaryQty').value = l + 'x' + w;
+      hintEl.textContent = '= ' + (l * w).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' m²';
+      hintEl.classList.add('est-lw-total');
+    } else {
+      document.getElementById('estPrimaryQty').value = '';
+      hintEl.textContent = qtyHintForUnit('m²').hint;
+      hintEl.classList.remove('est-lw-total');
+    }
+    onPrimaryQtyInput();
   }
   let estPrimaryQtyTimer = null;
   function onPrimaryQtyInput() {
@@ -3269,6 +3308,27 @@
     wrap.innerHTML = Array.from(selectedTierSet.values()).filter(t => !primaryNames.has(t.name)).map(t => {
       const hint = qtyHintForUnit(t.unit);
       const val = qtyValues.get(t.name) || '';
+      // Sept 2026: m² tasks get the same Length x Width split as the
+      // primary comparison group above, instead of one field expecting
+      // either a raw total or a "6m x 5m" string. Both inputs share
+      // data-task and combine into the exact same "LxW" value qtyValues
+      // already stores -- calculateSelectedItems()/parseQuantity() need no
+      // changes at all.
+      if (t.unit === 'm²') {
+        const dims = val.match(/^(\d+\.?\d*)\s*x\s*(\d+\.?\d*)$/i);
+        const lenVal = dims ? dims[1] : '', widVal = dims ? dims[2] : '';
+        const totalText = dims ? '= ' + (Number(dims[1]) * Number(dims[2])).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' m²' : hint.hint;
+        return `
+          <div class="est-qty-row">
+            <label class="est-field-label">${escapeHtml(t.name)} <span class="unit">(m²)</span></label>
+            <div class="est-lw-row">
+              <input type="text" class="est-qty-row-input" data-task="${escapeHtml(t.name)}" data-dim="len" placeholder="Length (m)" value="${escapeHtml(lenVal)}" oninput="onQtyRowLWInput(this)" />
+              <input type="text" class="est-qty-row-input" data-task="${escapeHtml(t.name)}" data-dim="wid" placeholder="Width (m)" value="${escapeHtml(widVal)}" oninput="onQtyRowLWInput(this)" />
+            </div>
+            <div class="est-hint${dims ? ' est-lw-total' : ''}">${escapeHtml(totalText)}</div>
+          </div>
+        `;
+      }
       return `
         <div class="est-qty-row">
           <label class="est-field-label">${escapeHtml(t.name)} <span class="unit">(${escapeHtml(hint.label)})</span></label>
@@ -3282,6 +3342,29 @@
     document.getElementById('estItemPreview').style.display = 'none';
     estResetPriceReveal();
     renderRemovalPrompt();
+  }
+
+  // Companion to the m² branch in renderQtyRows() above -- combines a
+  // task's Length/Width pair into the same "LxW" string qtyValues has
+  // always stored for m² tasks, so nothing downstream needs to know these
+  // came from two fields instead of one.
+  function onQtyRowLWInput(el) {
+    const taskName = el.dataset.task;
+    const row = el.closest('.est-qty-row');
+    const lenInput = row.querySelector('[data-dim="len"]');
+    const widInput = row.querySelector('[data-dim="wid"]');
+    const totalEl = row.querySelector('.est-hint');
+    const l = parseFloat(lenInput.value), w = parseFloat(widInput.value);
+    el.style.borderColor = '';
+    if (l > 0 && w > 0) {
+      qtyValues.set(taskName, l + 'x' + w);
+      totalEl.textContent = '= ' + (l * w).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' m²';
+      totalEl.classList.add('est-lw-total');
+    } else {
+      qtyValues.delete(taskName);
+      totalEl.textContent = qtyHintForUnit('m²').hint;
+      totalEl.classList.remove('est-lw-total');
+    }
   }
 
   // "Remove the old one?" follow-up (Aug 2026, founder request) — most
@@ -3357,11 +3440,17 @@
   }
 
   function qtyHintForUnit(unit) {
-    if (unit === 'm²') return { label: 'm²', placeholder: 'e.g. 24', hint: 'Enter dimensions like 6m x 5m, or a total m² directly' };
+    if (unit === 'm²') return { label: 'm²', placeholder: 'e.g. 24', hint: "Enter the length and width — we'll work out the total area for you" };
     if (unit === 'lm') return { label: 'lm', placeholder: 'e.g. 12', hint: 'Enter the length, e.g. 12m' };
     if (unit === 'm³') return { label: 'm³', placeholder: 'e.g. 10', hint: 'Enter the volume, e.g. 10' };
     if (unit === 'job') return { label: 'flat rate', placeholder: '1', hint: 'This is a flat rate for the job — enter 1 unless you need it more than once' };
-    return { label: unit, placeholder: unit === 'hr' ? 'e.g. 2' : 'e.g. 1', hint: `Quantity in ${unit}` };
+    if (unit === 'hour' || unit === 'hr') return { label: unit, placeholder: 'e.g. 2', hint: 'How many hours of work do you need?' };
+    // Generic fallback for every count-based unit (point, switch, tap,
+    // window, tree, etc.) -- deliberately doesn't try to restate the unit
+    // name here (e.g. "Quantity in point" read oddly, and correctly
+    // pluralising every unit word in the rate card isn't worth the upkeep).
+    // The row's own label above already names exactly what's being counted.
+    return { label: unit, placeholder: 'e.g. 1', hint: 'How many do you need?' };
   }
 
   function calculateSelectedItems() {
