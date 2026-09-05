@@ -948,6 +948,25 @@
                 </div>
                 <div class="est-hint" id="estPrimaryQtyHint"></div>
                 <div id="estPrimaryOptions" class="est-primary-options"></div>
+
+                <!-- Courier Services "Boxes" custom quoting (Sep 2026) --
+                     replaces the generic size field above for this one
+                     category+unit combination, since a courier price
+                     genuinely depends on where the job is, not just how
+                     much there is. See calculateCourierBoxesPrice(). -->
+                <div id="courierBoxesForm" style="display:none;">
+                  <label class="est-field-label">Number of boxes</label>
+                  <input type="number" min="1" step="1" id="courierNumBoxes" class="est-qty-row-input" placeholder="e.g. 3" oninput="onCourierBoxesFieldChange()" />
+                  <label class="est-field-label" style="margin-top:10px;">Weight per box (kg)</label>
+                  <input type="number" min="0" step="0.5" id="courierWeightPerBox" class="est-qty-row-input" placeholder="e.g. 10" oninput="onCourierBoxesFieldChange()" />
+                  <label class="est-field-label" style="margin-top:10px;">Pickup location</label>
+                  <input type="text" id="courierPickup" class="est-qty-row-input" placeholder="e.g. 123 Smith St, Richmond VIC" oninput="onCourierBoxesFieldChange()" />
+                  <label class="est-field-label" style="margin-top:10px;">Delivery location</label>
+                  <input type="text" id="courierDelivery" class="est-qty-row-input" placeholder="e.g. 45 High St, Geelong VIC" oninput="onCourierBoxesFieldChange()" />
+                  <div class="est-hint">We work out Metro vs Regional pricing automatically from these two addresses.</div>
+                  <button type="button" class="btn btn-outline btn-full" onclick="calculateCourierBoxesPrice()" style="margin-top:10px;">Calculate price</button>
+                  <div id="courierBoxesResult" style="margin-top:10px;"></div>
+                </div>
               </div>
 
               <!-- Other services in this category (Sep 2026, relocated from
@@ -2821,8 +2840,23 @@
     document.getElementById('estPrimaryLength').value = '';
     document.getElementById('estPrimaryWidth').value = '';
     document.getElementById('estPrimaryOptions').innerHTML = '';
+    resetCourierBoxesForm();
     if (!estPrimaryGroup) { wrap.style.display = 'none'; return; }
     wrap.style.display = 'block';
+    // Courier Services' "Box" tasks need real pickup/delivery addresses to
+    // price correctly (Metro vs Regional), not a plain size field -- see
+    // calculateCourierBoxesPrice(). Every other category keeps the generic
+    // flow below unchanged.
+    const isCourierBoxes = c.label === 'Courier Services' && estPrimaryGroup.unit === 'Box';
+    document.getElementById('courierBoxesForm').style.display = isCourierBoxes ? 'block' : 'none';
+    document.getElementById('estPrimaryQtyLabel').style.display = isCourierBoxes ? 'none' : 'block';
+    if (isCourierBoxes) {
+      document.getElementById('estPrimaryQty').style.display = 'none';
+      document.getElementById('estPrimaryLW').style.display = 'none';
+      document.getElementById('estPrimaryQtyHint').style.display = 'none';
+      return;
+    }
+    document.getElementById('estPrimaryQtyHint').style.display = 'block';
     const isArea = estPrimaryGroup.unit === 'm²';
     document.getElementById('estPrimaryQty').style.display = isArea ? 'none' : 'block';
     document.getElementById('estPrimaryLW').style.display = isArea ? 'grid' : 'none';
@@ -2907,6 +2941,84 @@
     renderQtyRows();
     renderSelectedPills();
     renderPrimaryOptionCards(qtyRaw ? parseQuantity(qtyRaw, estPrimaryGroup.unit) : null);
+  }
+
+  // Courier Services "Boxes" custom quoting (Sep 2026) -- number of boxes,
+  // weight per box, and real pickup/delivery addresses instead of a plain
+  // size field, since a courier price genuinely depends on where the job
+  // is, not just how much there is. Metro vs Regional is auto-determined
+  // via api/geocode-distance.js (free OpenStreetMap geocoding + straight-
+  // line distance), not asked as a manual choice -- confirmed with the
+  // founder: Metro = pickup<->delivery distance <=15km; Regional = BOTH
+  // pickup and delivery within 150km of the Melbourne CBD (not of each
+  // other -- two points far from the CBD but close together don't count as
+  // Metro just because they're near each other). A job outside both bands
+  // has no rate card price and isn't booked from here.
+  let courierBoxesResult = null;
+  function resetCourierBoxesForm() {
+    courierBoxesResult = null;
+    ['courierNumBoxes', 'courierWeightPerBox', 'courierPickup', 'courierDelivery'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    const resultEl = document.getElementById('courierBoxesResult');
+    if (resultEl) resultEl.innerHTML = '';
+  }
+  // Any field edit invalidates a previous calculation -- force a fresh
+  // "Calculate price" click rather than silently reusing a stale zone/price
+  // against edited addresses.
+  function onCourierBoxesFieldChange() {
+    if (!courierBoxesResult) return;
+    courierBoxesResult = null;
+    const resultEl = document.getElementById('courierBoxesResult');
+    if (resultEl) resultEl.innerHTML = '';
+    if (estPrimaryGroup) estPrimaryGroup.tasks.forEach(t => { selectedTierSet.delete(t.name); qtyValues.delete(t.name); });
+  }
+  async function calculateCourierBoxesPrice() {
+    const numBoxes = parseInt(document.getElementById('courierNumBoxes').value, 10);
+    const weightPerBox = parseFloat(document.getElementById('courierWeightPerBox').value);
+    const pickup = document.getElementById('courierPickup').value.trim();
+    const delivery = document.getElementById('courierDelivery').value.trim();
+    const resultEl = document.getElementById('courierBoxesResult');
+    if (!numBoxes || numBoxes < 1) { resultEl.innerHTML = '<div class="est-field-error show">Enter how many boxes you need picked up.</div>'; return; }
+    if (!weightPerBox || weightPerBox <= 0) { resultEl.innerHTML = '<div class="est-field-error show">Enter the weight of each box.</div>'; return; }
+    if (!pickup || !delivery) { resultEl.innerHTML = '<div class="est-field-error show">Enter both a pickup and a delivery location.</div>'; return; }
+    resultEl.innerHTML = '<div class="est-hint">Calculating distance…</div>';
+    try {
+      const res = await fetch('/api/geocode-distance', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pickup, delivery }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        resultEl.innerHTML = `<div class="est-field-error show">${escapeHtml(data.error || "Couldn't calculate the distance between these addresses -- please check both and try again.")}</div>`;
+        return;
+      }
+      if (data.zone === 'out_of_range') {
+        resultEl.innerHTML = `<div class="est-field-error show">This delivery is outside our current courier service area (Melbourne metro, or up to 150km from the CBD for both pickup and delivery). Please contact us directly for a custom quote.</div>`;
+        return;
+      }
+      const task = estPrimaryGroup.tasks.find(t => t.name.toLowerCase().includes(data.zone));
+      if (!task) { resultEl.innerHTML = '<div class="est-field-error show">Could not find a matching courier rate -- please contact us.</div>'; return; }
+      const rawBase = Math.round(numBoxes * task.rate);
+      const minApplied = !!(task.minJobPrice && rawBase < task.minJobPrice);
+      const base = minApplied ? task.minJobPrice : rawBase;
+      courierBoxesResult = { task, numBoxes, weightPerBox, pickup, delivery, zone: data.zone, distanceKm: data.pickupToDeliveryKm };
+      estPrimaryGroup.tasks.forEach(t => { selectedTierSet.delete(t.name); qtyValues.delete(t.name); });
+      selectedTierSet.set(task.name, task);
+      qtyValues.set(task.name, String(numBoxes));
+      resultEl.innerHTML = `
+        <div class="est-primary-option selected" style="cursor:default;">
+          <div class="est-primary-option-body">
+            <div class="est-primary-option-name">${escapeHtml(task.name)}</div>
+            <div class="est-primary-option-notes">${data.zone === 'metro' ? 'Metro delivery' : 'Regional delivery'} · pickup to delivery approx ${data.pickupToDeliveryKm}km${minApplied ? ' · Minimum job price applies' : ''}</div>
+          </div>
+          <div class="est-primary-option-price">$${base.toLocaleString()}</div>
+          <div class="est-primary-option-check">✓</div>
+        </div>`;
+    } catch (e) {
+      resultEl.innerHTML = '<div class="est-field-error show">Something went wrong calculating this price -- please try again.</div>';
+    }
   }
 
   function selectCat(c) {
@@ -3533,10 +3645,21 @@
       const rawBase = Math.round(qty * t.rate);
       const minApplied = !!(t.minJobPrice && rawBase < t.minJobPrice);
       const base = minApplied ? t.minJobPrice : rawBase;
+      // Courier "Boxes" jobs need the real pickup/delivery addresses to
+      // reach the contractor -- append them to this item's own notes
+      // (already rendered per-item on every portal that shows job items),
+      // rather than inventing a new field that would need plumbing through
+      // booking/customer/contractor/admin separately.
+      let notes = t.notes || '';
+      if (courierBoxesResult && courierBoxesResult.task.name === t.name) {
+        const r = courierBoxesResult;
+        const courierNote = `Pickup: ${r.pickup} → Delivery: ${r.delivery} (approx ${r.distanceKm}km) · ${r.numBoxes} box${r.numBoxes > 1 ? 'es' : ''} × ${r.weightPerBox}kg each`;
+        notes = notes ? `${notes} | ${courierNote}` : courierNote;
+      }
       items.push({
         catLabel: selectedCat.label, catIcon: selectedCat.icon,
         taskName: t.name, unit: t.unit, qty, base,
-        needsSiteVisit: !!t.needsSiteVisit, notes: t.notes || '',
+        needsSiteVisit: !!t.needsSiteVisit, notes,
         minApplied, minJobPrice: t.minJobPrice,
         aiEstimated: !!t.aiEstimated, typicalRange: t.typicalRange || null,
       });
