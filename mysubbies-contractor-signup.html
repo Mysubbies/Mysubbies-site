@@ -170,7 +170,7 @@
   // applying to new applicants. No general "platform settings" mechanism
   // exists in this codebase yet; this is the deliberately simplest possible
   // toggle rather than building one for a single flag.
-  const FOUNDING_COMMISSION_ENABLED = true;
+  const FOUNDING_COMMISSION_ENABLED = false;
 
   function getApplications() { return JSON.parse(localStorage.getItem('mysubbies_contractor_applications') || '[]'); }
   function escapeHtml(str) {
