@@ -76,8 +76,8 @@
   @media (max-width:520px) { .row2 { grid-template-columns:1fr; } }
   .section-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--stone); margin:28px 0 14px; padding-top:16px; border-top:1px solid var(--line); }
   .section-label:first-of-type { margin-top:0; padding-top:0; border-top:none; }
-  .chiprow { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
-  .chip { font-size:12.5px; font-weight:500; padding:8px 13px; border-radius:999px; border:1.5px solid var(--line); background:#fff; cursor:pointer; color:var(--ink); }
+  .chiprow { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px; margin-bottom:6px; }
+  .chip { font-size:12.5px; font-weight:500; padding:10px 13px; border-radius:999px; border:1.5px solid var(--line); background:#fff; cursor:pointer; color:var(--ink); text-align:center; line-height:1.3; }
   .chip.selected { border-color: var(--black); background: var(--black); color:#fff; }
   .field-note { font-size:11.5px; color:var(--stone-light); margin-top:6px; }
   .btn-outline { background:#fff; color:var(--ink); border:1.5px solid var(--line); width:auto; padding:10px 16px; font-size:13.5px; }
@@ -419,8 +419,16 @@
       <input type="file" id="fProjectPhotoInput" accept="image/*" multiple style="display:none;" onchange="onProjectPhotoSelected(event)" />
       <div id="projectPhotosWrap"><button type="button" class="btn btn-outline" onclick="document.getElementById('fProjectPhotoInput').click()">📷 Add a photo (0/3)</button></div>
 
-      <div class="section-label">Referral</div>
-      <div class="field"><label>Referral code <span class="opt">(optional — from another contractor)</span></label><input type="text" id="fContractorReferral" placeholder="e.g. DECK4821" /></div>
+      <!-- Sep 2026 (founder feedback): the visible "enter a referral code"
+           box read as clutter/unnecessary this early in the program (a
+           brand-new applicant is unlikely to have one to type in) --
+           removed from the form itself. Kept as a hidden field so the
+           contractor portal's existing "share your referral link" feature
+           (mysubbies-contractor-portal.html:491, links here as
+           ?ref=CODE) still silently attributes a referred signup via
+           prefillReferralFromUrl() below -- only the manual-entry box is
+           gone, not the underlying tracking. -->
+      <input type="hidden" id="fContractorReferral" />
 
       <label class="terms" style="margin-top:24px;"><input type="checkbox" id="fTerms" /> I confirm that I am authorised to bind the contractor business identified above. I have read, understood and agree to the MySubbies <a href="mysubbies-contractor-agreement.html" target="_blank" style="text-decoration:underline;">Contractor Portal Terms &amp; Conditions</a> and <a href="mysubbies-privacy-policy.html" target="_blank" style="text-decoration:underline;">Privacy Policy</a>, and each Job Offer I accept.</label>
 
