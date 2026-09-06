@@ -1,30 +1,39 @@
 // POST /api/geocode-distance
-// Body: { pickup: string, delivery: string }
-// Response: { zone: 'metro'|'regional'|'out_of_range', pickupToDeliveryKm, cbdPickupKm, cbdDeliveryKm, pickupResolved, deliveryResolved }
+// Body: { pickup: string, delivery: string,
+//         pickupLat?, pickupLon?, deliveryLat?, deliveryLon? }
+// Response: { zone: 'serviceable'|'out_of_range', pickupToDeliveryKm, pickupResolved, deliveryResolved }
 //
 // Backs the Courier Services "Boxes" quoting flow in mysubbies-website.html
-// (calculateCourierBoxesPrice()). Geocodes both addresses via OpenStreetMap's
-// free Nominatim API (no API key/billing needed -- confirmed with the
-// founder in favour of a paid Google Maps alternative) then classifies the
-// job using straight-line (haversine) distance, not driving distance.
+// (calculateCourierBoxesPrice()). Pricing itself (the distance-banded
+// ladder) lives client-side in courierBoxLadderPrice() -- this endpoint's
+// only job is turning two addresses into a real distance.
 //
-// Zone rule, confirmed directly with the founder (not assumed):
-//   - Metro:    distance BETWEEN pickup and delivery is <=15km.
-//   - Regional: BOTH pickup and delivery are within 150km of the Melbourne
-//               CBD -- this is a separate check from the pickup<->delivery
-//               distance, so two points that are both far from the CBD but
-//               close to each other do NOT count as Metro.
-//   - Anything outside both bands is out_of_range -- there is no rate card
-//     price for it, so no price is shown rather than extrapolating one.
+// Sep 2026 (founder feedback, real address typo caused a false "not
+// found"): when the client already has a precise lat/lon for an address --
+// from a Google Places Autocomplete selection -- it's sent directly via
+// pickupLat/pickupLon/deliveryLat/deliveryLon, skipping geocoding for that
+// side entirely (this is strictly more reliable, since a selected place is
+// guaranteed real, unlike free-text that Nominatim must parse). Plain
+// address text is still geocoded via OpenStreetMap's free Nominatim API
+// (no API key/billing) as a fallback for whenever Places isn't
+// configured/loaded, or the customer typed an address without selecting a
+// suggestion.
+//
+// Serviceability rule (confirmed with the founder): the job is quotable
+// whenever the pickup<->delivery distance is <=150km -- this replaced an
+// earlier two-metric Metro/Regional-from-CBD design; the ladder is keyed
+// entirely off pickup<->delivery distance now, so eligibility uses the same
+// metric as pricing. Anything beyond 150km is out_of_range -- there is no
+// rate card price for it, so no price is shown rather than extrapolating
+// one.
 //
 // Nominatim's usage policy caps free use at ~1 request/second and requires
 // a real identifying User-Agent (set below) -- fine for this app's expected
-// volume, but if courier volume grows significantly this should move to a
-// paid geocoder (Google/Mapbox) or a self-hosted Nominatim instance.
+// volume, and even less relevant once Places Autocomplete is configured
+// (most requests then arrive with coordinates already attached, skipping
+// Nominatim entirely).
 
-const MELBOURNE_CBD = { lat: -37.8136, lon: 144.9631 };
-const METRO_RADIUS_KM = 15;
-const REGIONAL_RADIUS_KM = 150;
+const MAX_SERVICE_KM = 150;
 
 function toRad(deg) { return (deg * Math.PI) / 180; }
 
@@ -50,34 +59,41 @@ async function geocode(address) {
   return { lat: parseFloat(results[0].lat), lon: parseFloat(results[0].lon), displayName: results[0].display_name };
 }
 
+function isFiniteNum(n) { return typeof n === 'number' && Number.isFinite(n); }
+
+// Resolves one side (pickup or delivery) to { lat, lon, displayName } --
+// direct coordinates win when present, otherwise falls back to geocoding
+// the address text.
+async function resolveSide(address, lat, lon) {
+  if (isFiniteNum(lat) && isFiniteNum(lon)) {
+    return { lat, lon, displayName: address || `${lat}, ${lon}` };
+  }
+  return geocode(address);
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
   try {
-    const { pickup, delivery } = req.body || {};
+    const { pickup, delivery, pickupLat, pickupLon, deliveryLat, deliveryLon } = req.body || {};
     if (!pickup || !delivery) {
       res.status(400).json({ error: 'pickup and delivery are required.' });
       return;
     }
 
-    const [pickupGeo, deliveryGeo] = await Promise.all([geocode(pickup), geocode(delivery)]);
+    const [pickupGeo, deliveryGeo] = await Promise.all([
+      resolveSide(pickup, pickupLat, pickupLon),
+      resolveSide(delivery, deliveryLat, deliveryLon),
+    ]);
     if (!pickupGeo) { res.status(422).json({ error: `Couldn't find "${pickup}" — please check the pickup address.` }); return; }
     if (!deliveryGeo) { res.status(422).json({ error: `Couldn't find "${delivery}" — please check the delivery address.` }); return; }
 
     const pickupToDeliveryKm = haversineKm(pickupGeo, deliveryGeo);
-    const cbdPickupKm = haversineKm(MELBOURNE_CBD, pickupGeo);
-    const cbdDeliveryKm = haversineKm(MELBOURNE_CBD, deliveryGeo);
-
-    let zone;
-    if (pickupToDeliveryKm <= METRO_RADIUS_KM) zone = 'metro';
-    else if (cbdPickupKm <= REGIONAL_RADIUS_KM && cbdDeliveryKm <= REGIONAL_RADIUS_KM) zone = 'regional';
-    else zone = 'out_of_range';
+    const zone = pickupToDeliveryKm <= MAX_SERVICE_KM ? 'serviceable' : 'out_of_range';
 
     res.status(200).json({
       zone,
       pickupToDeliveryKm: Math.round(pickupToDeliveryKm * 10) / 10,
-      cbdPickupKm: Math.round(cbdPickupKm * 10) / 10,
-      cbdDeliveryKm: Math.round(cbdDeliveryKm * 10) / 10,
       pickupResolved: pickupGeo.displayName,
       deliveryResolved: deliveryGeo.displayName,
     });

@@ -960,10 +960,10 @@
                   <label class="est-field-label" style="margin-top:10px;">Weight per box (kg)</label>
                   <input type="number" min="0" step="0.5" id="courierWeightPerBox" class="est-qty-row-input" placeholder="e.g. 10" oninput="onCourierBoxesFieldChange()" />
                   <label class="est-field-label" style="margin-top:10px;">Pickup location</label>
-                  <input type="text" id="courierPickup" class="est-qty-row-input" placeholder="e.g. 123 Smith St, Richmond VIC" oninput="onCourierBoxesFieldChange()" />
+                  <input type="text" id="courierPickup" class="est-qty-row-input" placeholder="e.g. 123 Smith St, Richmond VIC" autocomplete="off" oninput="onCourierBoxesFieldChange('courierPickup')" />
                   <label class="est-field-label" style="margin-top:10px;">Delivery location</label>
-                  <input type="text" id="courierDelivery" class="est-qty-row-input" placeholder="e.g. 45 High St, Geelong VIC" oninput="onCourierBoxesFieldChange()" />
-                  <div class="est-hint">We work out Metro vs Regional pricing automatically from these two addresses.</div>
+                  <input type="text" id="courierDelivery" class="est-qty-row-input" placeholder="e.g. 45 High St, Geelong VIC" autocomplete="off" oninput="onCourierBoxesFieldChange('courierDelivery')" />
+                  <div class="est-hint">We work out your delivery price automatically from these two addresses.</div>
                   <button type="button" class="btn btn-outline btn-full" onclick="calculateCourierBoxesPrice()" style="margin-top:10px;">Calculate price</button>
                   <div id="courierBoxesResult" style="margin-top:10px;"></div>
                 </div>
@@ -1279,6 +1279,34 @@
 </nav>
 
 <script>
+  // Sep 2026 -- Google Places Autocomplete for the Courier Services pickup/
+  // delivery fields (founder request, after a real address typo caused a
+  // false "couldn't find this address" on the free geocoder). Publishable/
+  // safe-to-expose client-side key, same posture as STRIPE_PUBLISHABLE_KEY
+  // in mysubbies-booking.html and ABR_GUID in mysubbies-contractor-signup.html
+  // -- restrict it to this site's domains in the Google Cloud Console, don't
+  // rely on secrecy. Replace this with your real key from Google Cloud
+  // Console > APIs & Services > Credentials, with the "Places API" enabled
+  // on that project. Left as the placeholder, the courier form falls all
+  // the way back to plain typed addresses geocoded server-side (see
+  // api/geocode-distance.js) -- a real, working fallback, not a broken state.
+  const GOOGLE_MAPS_API_KEY = 'REPLACE_ME_GOOGLE_MAPS_API_KEY';
+  let googleMapsLoadPromise = null;
+  function loadGoogleMapsPlaces() {
+    if (GOOGLE_MAPS_API_KEY.includes('REPLACE_ME')) return Promise.resolve(false);
+    if (googleMapsLoadPromise) return googleMapsLoadPromise;
+    googleMapsLoadPromise = new Promise((resolve) => {
+      if (window.google && window.google.maps && window.google.maps.places) { resolve(true); return; }
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+      script.async = true;
+      script.onload = () => resolve(!!(window.google && window.google.maps && window.google.maps.places));
+      script.onerror = () => resolve(false);
+      document.head.appendChild(script);
+    });
+    return googleMapsLoadPromise;
+  }
+
   function openHouseHealth() {
     localStorage.setItem('mysubbies_open_house_health', '1');
     window.location.href = 'mysubbies-customer-portal.html#house-health';
@@ -2844,9 +2872,9 @@
     if (!estPrimaryGroup) { wrap.style.display = 'none'; return; }
     wrap.style.display = 'block';
     // Courier Services' "Box" tasks need real pickup/delivery addresses to
-    // price correctly (Metro vs Regional), not a plain size field -- see
-    // calculateCourierBoxesPrice(). Every other category keeps the generic
-    // flow below unchanged.
+    // price correctly (a distance-banded ladder, not a plain size field) --
+    // see calculateCourierBoxesPrice(). Every other category keeps the
+    // generic flow below unchanged.
     const isCourierBoxes = c.label === 'Courier Services' && estPrimaryGroup.unit === 'Box';
     document.getElementById('courierBoxesForm').style.display = isCourierBoxes ? 'block' : 'none';
     document.getElementById('estPrimaryQtyLabel').style.display = isCourierBoxes ? 'none' : 'block';
@@ -2854,6 +2882,7 @@
       document.getElementById('estPrimaryQty').style.display = 'none';
       document.getElementById('estPrimaryLW').style.display = 'none';
       document.getElementById('estPrimaryQtyHint').style.display = 'none';
+      initCourierPlacesAutocomplete();
       return;
     }
     document.getElementById('estPrimaryQtyHint').style.display = 'block';
@@ -2955,17 +2984,74 @@
   // Courier Services "Boxes" custom quoting (Sep 2026) -- number of boxes,
   // weight per box, and real pickup/delivery addresses instead of a plain
   // size field, since a courier price genuinely depends on where the job
-  // is, not just how much there is. Metro vs Regional is auto-determined
-  // via api/geocode-distance.js (free OpenStreetMap geocoding + straight-
-  // line distance), not asked as a manual choice -- confirmed with the
-  // founder: Metro = pickup<->delivery distance <=15km; Regional = BOTH
-  // pickup and delivery within 150km of the Melbourne CBD (not of each
-  // other -- two points far from the CBD but close together don't count as
-  // Metro just because they're near each other). A job outside both bands
-  // has no rate card price and isn't booked from here.
+  // is, not just how much there is.
+  //
+  // Distance-banded ladder (founder-confirmed Sep 2026, replacing an
+  // earlier flat Metro/Regional split): $30 up to 15km, $45 up to 25km,
+  // then +$20 per further 10km, up to the 150km service cap. Both
+  // eligibility and price now key off the SAME number -- straight-line
+  // pickup<->delivery distance -- computed via api/geocode-distance.js.
+  // The two original rate card tasks ("...Metro Delivery... Boxes" /
+  // "...Regional / Long Distance... Boxes") are kept only for their name/
+  // notes text (shown to the customer purely as a label for which kind of
+  // trip this is) -- the actual charged rate always comes from
+  // courierBoxLadderPrice() below, not from either task's own .rate field,
+  // so editing those two rates in the admin Rate Card tab no longer
+  // changes what a customer is charged. A ladder this shaped (14 distance
+  // bands) doesn't fit the rate card's single-number-per-task model, so
+  // it's a plain code constant here -- flagged to the founder as a
+  // follow-up if this ever needs to be admin-editable.
+  const COURIER_BOX_LADDER_MAX_KM = 150;
+  function courierBoxLadderPrice(km) {
+    if (km <= 15) return 30;
+    if (km <= 25) return 45;
+    if (km > COURIER_BOX_LADDER_MAX_KM) return null;
+    return 45 + Math.ceil((km - 25) / 10) * 20;
+  }
+
+  // Google Places Autocomplete (see loadGoogleMapsPlaces() above) --
+  // attaches once per input, per field. Selecting a real suggestion stores
+  // its precise lat/lng so api/geocode-distance.js can skip geocoding that
+  // side entirely (strictly more reliable than re-parsing typed text).
+  // Manually editing the field afterward clears the stored coords via
+  // onCourierBoxesFieldChange() below, so a stale selection is never
+  // silently reused against edited text.
+  let courierPickupCoords = null;
+  let courierDeliveryCoords = null;
+  let courierAutocompleteAttached = false;
+  async function initCourierPlacesAutocomplete() {
+    if (courierAutocompleteAttached) return;
+    const loaded = await loadGoogleMapsPlaces();
+    if (!loaded) return; // no key configured, or the script failed to load -- plain-text fallback still works
+    courierAutocompleteAttached = true;
+    const opts = { componentRestrictions: { country: 'au' }, fields: ['formatted_address', 'geometry'] };
+    const pickupInput = document.getElementById('courierPickup');
+    const deliveryInput = document.getElementById('courierDelivery');
+    const pickupAc = new google.maps.places.Autocomplete(pickupInput, opts);
+    pickupAc.addListener('place_changed', () => {
+      const place = pickupAc.getPlace();
+      if (place && place.geometry) {
+        courierPickupCoords = { lat: place.geometry.location.lat(), lon: place.geometry.location.lng() };
+        if (place.formatted_address) pickupInput.value = place.formatted_address;
+      }
+      onCourierBoxesFieldChange();
+    });
+    const deliveryAc = new google.maps.places.Autocomplete(deliveryInput, opts);
+    deliveryAc.addListener('place_changed', () => {
+      const place = deliveryAc.getPlace();
+      if (place && place.geometry) {
+        courierDeliveryCoords = { lat: place.geometry.location.lat(), lon: place.geometry.location.lng() };
+        if (place.formatted_address) deliveryInput.value = place.formatted_address;
+      }
+      onCourierBoxesFieldChange();
+    });
+  }
+
   let courierBoxesResult = null;
   function resetCourierBoxesForm() {
     courierBoxesResult = null;
+    courierPickupCoords = null;
+    courierDeliveryCoords = null;
     ['courierNumBoxes', 'courierWeightPerBox', 'courierPickup', 'courierDelivery'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
@@ -2974,9 +3060,13 @@
     if (resultEl) resultEl.innerHTML = '';
   }
   // Any field edit invalidates a previous calculation -- force a fresh
-  // "Calculate price" click rather than silently reusing a stale zone/price
-  // against edited addresses.
-  function onCourierBoxesFieldChange() {
+  // "Calculate price" click rather than silently reusing a stale distance/
+  // price against edited addresses. Typing in an address field (rather
+  // than picking a suggestion) also clears that field's stored coords, so
+  // the next calculation re-geocodes the actually-typed text.
+  function onCourierBoxesFieldChange(editedFieldId) {
+    if (editedFieldId === 'courierPickup') courierPickupCoords = null;
+    if (editedFieldId === 'courierDelivery') courierDeliveryCoords = null;
     if (!courierBoxesResult) return;
     courierBoxesResult = null;
     const resultEl = document.getElementById('courierBoxesResult');
@@ -2994,9 +3084,12 @@
     if (!pickup || !delivery) { resultEl.innerHTML = '<div class="est-field-error show">Enter both a pickup and a delivery location.</div>'; return; }
     resultEl.innerHTML = '<div class="est-hint">Calculating distance…</div>';
     try {
+      const body = { pickup, delivery };
+      if (courierPickupCoords) { body.pickupLat = courierPickupCoords.lat; body.pickupLon = courierPickupCoords.lon; }
+      if (courierDeliveryCoords) { body.deliveryLat = courierDeliveryCoords.lat; body.deliveryLon = courierDeliveryCoords.lon; }
       const res = await fetch('/api/geocode-distance', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pickup, delivery }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -3004,15 +3097,22 @@
         return;
       }
       if (data.zone === 'out_of_range') {
-        resultEl.innerHTML = `<div class="est-field-error show">This delivery is outside our current courier service area (Melbourne metro, or up to 150km from the CBD for both pickup and delivery). Please contact us directly for a custom quote.</div>`;
+        resultEl.innerHTML = `<div class="est-field-error show">This delivery is approx ${data.pickupToDeliveryKm}km, outside our current courier service area (up to ${COURIER_BOX_LADDER_MAX_KM}km). Please contact us directly for a custom quote.</div>`;
         return;
       }
-      const task = estPrimaryGroup.tasks.find(t => t.name.toLowerCase().includes(data.zone));
-      if (!task) { resultEl.innerHTML = '<div class="est-field-error show">Could not find a matching courier rate -- please contact us.</div>'; return; }
+      const perBoxRate = courierBoxLadderPrice(data.pickupToDeliveryKm);
+      const isMetro = data.pickupToDeliveryKm <= 15;
+      const labelTask = estPrimaryGroup.tasks.find(t => t.name.toLowerCase().includes(isMetro ? 'metro' : 'regional')) || estPrimaryGroup.tasks[0];
+      if (!labelTask) { resultEl.innerHTML = '<div class="est-field-error show">Could not find a matching courier rate -- please contact us.</div>'; return; }
+      // Clone so the ladder-derived rate never mutates the rate card's own
+      // stored task -- name stays identical so every downstream lookup
+      // that matches by task name (primaryNames, selectedTierSet keys)
+      // keeps working unchanged.
+      const task = { ...labelTask, rate: perBoxRate };
       const rawBase = Math.round(numBoxes * task.rate);
       const minApplied = !!(task.minJobPrice && rawBase < task.minJobPrice);
       const base = minApplied ? task.minJobPrice : rawBase;
-      courierBoxesResult = { task, numBoxes, weightPerBox, pickup, delivery, zone: data.zone, distanceKm: data.pickupToDeliveryKm };
+      courierBoxesResult = { task, numBoxes, weightPerBox, pickup, delivery, distanceKm: data.pickupToDeliveryKm };
       estPrimaryGroup.tasks.forEach(t => { selectedTierSet.delete(t.name); qtyValues.delete(t.name); });
       selectedTierSet.set(task.name, task);
       qtyValues.set(task.name, String(numBoxes));
@@ -3020,7 +3120,7 @@
         <div class="est-primary-option selected" style="cursor:default;">
           <div class="est-primary-option-body">
             <div class="est-primary-option-name">${escapeHtml(task.name)}</div>
-            <div class="est-primary-option-notes">${data.zone === 'metro' ? 'Metro delivery' : 'Regional delivery'} · pickup to delivery approx ${data.pickupToDeliveryKm}km${minApplied ? ' · Minimum job price applies' : ''}</div>
+            <div class="est-primary-option-notes">Pickup to delivery approx ${data.pickupToDeliveryKm}km · $${perBoxRate}/box${minApplied ? ' · Minimum job price applies' : ''}</div>
           </div>
           <div class="est-primary-option-price">$${base.toLocaleString()}</div>
           <div class="est-primary-option-check">✓</div>
