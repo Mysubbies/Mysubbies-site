@@ -40,6 +40,7 @@ module.exports = async (req, res) => {
         .upsert({
           email,
           business_name: application.business || email,
+          address: application.address || null,
           abn: application.abn || null,
           acn: application.acn || null,
           business_structure: application.businessStructure || null,

@@ -153,10 +153,34 @@
 <footer>© 2026 Mysubbies Holdings Pty Ltd. Melbourne, VIC. · <a href="mysubbies-terms.html" style="color:inherit;">Terms</a></footer>
 
 <script>
-  const TRADES = ['Fencing','Pergola','Decking','Grass Installation','Retaining Wall','Concreting',
+  // Sep 2026 (founder report): this list had drifted from the real rate
+  // card -- 11 live, bookable categories (Handyman, Pest Control,
+  // Locksmith, Courier Services, etc.) were missing here entirely, meaning
+  // a contractor applying in exactly those trades had no way to select
+  // them. Kept as a hardcoded fallback (used only if the live fetch below
+  // fails/is offline) rather than the source of truth -- hydrateTradesFromRateCard()
+  // overwrites it with the real, current category list from the same
+  // server-authoritative rate card the estimator/admin portal read from
+  // (api/rate-card.js), so this page can no longer silently fall out of
+  // sync with what customers can actually book.
+  let TRADES = ['Fencing','Pergola','Decking','Grass Installation','Retaining Wall','Concreting',
     'Gardening & Lawn Mowing','Tree Pruning & Removal','Painting','Rendering','Cabinetry','Stonemason',
     'Flooring','Earth Works','Demolition','Skip Bins','Cleaning','Tiling','Tiled Roof Repair',
     'Electrical','Plumbing'];
+  async function hydrateTradesFromRateCard() {
+    try {
+      const res = await fetch('/api/rate-card');
+      if (!res.ok) return;
+      const { categories } = await res.json();
+      if (!Array.isArray(categories) || categories.length === 0) return;
+      const liveLabels = categories
+        .filter(c => !c.deleted && (c.tasks || []).some(t => !t.disabled))
+        .map(c => c.label);
+      if (!liveLabels.length) return;
+      TRADES = liveLabels;
+      if (document.getElementById('tradeChips')) renderTradeChips();
+    } catch (e) { /* offline/hiccup -- the hardcoded fallback above still works */ }
+  }
 
   // Broad regional groupings rather than an exhaustive suburb/postcode
   // database — a contractor covering "most of the north" shouldn't have to
@@ -193,7 +217,11 @@
   let selectedAvailability = [];
   let insuranceDocs = [];
   let certDocs = [];
+  let idDocs = []; // Australian photo ID, for MySubbies' own records -- see renderVerifyStep()
   let projectPhotos = []; // up to 3 -- past-work photos, distinct from documents
+
+  const DOC_LISTS = { insurance: () => insuranceDocs, cert: () => certDocs, id: () => idDocs };
+  const DOC_LIST_ELEMENT_IDS = { insurance: 'insuranceDocList', cert: 'certDocList', id: 'idDocList' };
 
   function onDocSelected(e, type) {
     const files = Array.from(e.target.files || []);
@@ -203,7 +231,7 @@
       const reader = new FileReader();
       reader.onload = (ev) => {
         const doc = { name: file.name, dataUrl: ev.target.result, isImage: file.type.startsWith('image/') };
-        if (type === 'insurance') insuranceDocs.push(doc); else certDocs.push(doc);
+        DOC_LISTS[type]().push(doc);
         remaining--;
         if (remaining === 0) renderDocList(type);
       };
@@ -213,18 +241,18 @@
   }
 
   function removeDoc(type, idx) {
-    if (type === 'insurance') insuranceDocs.splice(idx, 1); else certDocs.splice(idx, 1);
+    DOC_LISTS[type]().splice(idx, 1);
     renderDocList(type);
   }
 
   function renderDocList(type) {
-    const docs = type === 'insurance' ? insuranceDocs : certDocs;
-    const list = document.getElementById(type === 'insurance' ? 'insuranceDocList' : 'certDocList');
+    const docs = DOC_LISTS[type]();
+    const list = document.getElementById(DOC_LIST_ELEMENT_IDS[type]);
     if (!list) return;
     list.innerHTML = docs.map((d, idx) => `
       <div class="doc-item">
         <div class="doc-thumb">${d.isImage ? `<img src="${d.dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">` : '📄'}</div>
-        <div class="doc-name">${d.name}</div>
+        <div class="doc-name">${escapeHtml(d.name)}</div>
         <button class="doc-remove" onclick="removeDoc('${type}', ${idx})" title="Remove">✕</button>
       </div>
     `).join('');
@@ -343,6 +371,7 @@
         </select>
       </div>
       <div class="field"><label>Trading or business name <span class="req">*</span></label><input type="text" id="fBusiness" placeholder="e.g. Coburg Decks" /></div>
+      <div class="field"><label>Business address <span class="req">*</span></label><input type="text" id="fAddress" placeholder="e.g. 12 Smith St, Coburg VIC 3058" /></div>
       <div class="row2">
         <div class="field"><label>ABN <span class="req">*</span></label><input type="text" id="fAbn" placeholder="11 digits" onblur="verifyAbnWithAbr()" /></div>
         <div class="field" id="acnFieldWrap" style="display:none;"><label>ACN <span class="req">*</span></label><input type="text" id="fAcn" placeholder="9 digits" /></div>
@@ -572,6 +601,7 @@
     const email = document.getElementById('fEmail').value.trim().toLowerCase();
     const businessStructure = document.getElementById('fBusinessStructure').value;
     const business = document.getElementById('fBusiness').value.trim();
+    const address = document.getElementById('fAddress').value.trim();
     const abn = document.getElementById('fAbn').value.trim();
     const acn = businessStructure === 'company' ? document.getElementById('fAcn').value.trim() : '';
     const suburbs = document.getElementById('fSuburbs').value.trim();
@@ -582,9 +612,9 @@
     const insuranceHeld = document.getElementById('fInsuranceHeld').value;
     const terms = document.getElementById('fTerms').checked;
 
-    const requiredIds = ['fContact', 'fPhone', 'fEmail', 'fBusiness', 'fAbn'];
+    const requiredIds = ['fContact', 'fPhone', 'fEmail', 'fBusiness', 'fAddress', 'fAbn'];
     if (businessStructure === 'company') requiredIds.push('fAcn');
-    if (!contact || !phone || !email || !business || !abn || (businessStructure === 'company' && !acn)) {
+    if (!contact || !phone || !email || !business || !address || !abn || (businessStructure === 'company' && !acn)) {
       showError('Please fill in the highlighted fields.');
       highlightMissingFields(requiredIds);
       return;
@@ -614,13 +644,13 @@
     const referredBy = apps.some(a => a.referralCode === referralInput) ? referralInput : null;
 
     const application = {
-      id: 'app_' + Date.now(), business, businessStructure, abn, acn: acn || null, contact, phone, email,
+      id: 'app_' + Date.now(), business, address, businessStructure, abn, acn: acn || null, contact, phone, email,
       trades: selectedTrades, otherTrade: otherTradeText.trim() || null,
       regions: selectedRegions,
       suburbs: [...selectedRegions, ...(suburbs ? suburbs.split(',').map(s => s.trim()).filter(Boolean) : [])],
       experience, jobSize, availability: selectedAvailability, urgentJobs: urgentJobs === 'yes',
       licenceHeld, insuranceHeld: insuranceHeld === 'yes',
-      insuranceDocs: [], certDocs: [], projectPhotos,
+      insuranceDocs: [], certDocs: [], idDocs: [], projectPhotos,
       referralCode, referredBy,
       status: 'pending', appliedAt: new Date().toISOString(),
       agreementVersion: 'contractor-agreement-2026-09', agreementAcceptedAt: new Date().toISOString(),
@@ -668,17 +698,25 @@
       <button type="button" class="btn btn-outline" onclick="document.getElementById('fCertInput').click()" style="margin-bottom:8px;">📄 Upload trade certificate</button>
       <div class="doc-list" id="certDocList"></div>
 
+      <div style="height:14px;"></div>
+      <label>Australian photo ID <span class="opt">(driver's licence, passport, or other government-issued ID)</span></label>
+      <div class="field-note" style="margin:2px 0 8px;">For our records only — used to verify who we're onboarding, never shared publicly.</div>
+      <input type="file" id="fIdInput" accept="image/*,application/pdf" multiple style="display:none;" onchange="onDocSelected(event, 'id')" />
+      <button type="button" class="btn btn-outline" onclick="document.getElementById('fIdInput').click()" style="margin-bottom:8px;">🪪 Upload photo ID</button>
+      <div class="doc-list" id="idDocList"></div>
+
       <button class="btn btn-black" style="margin-top:24px;" onclick="submitVerificationDocs()">Continue →</button>
       <button class="btn btn-ghost" onclick="skipVerificationDocs()">Skip for now — I'll upload later</button>
     `;
     renderDocList('insurance');
     renderDocList('cert');
+    renderDocList('id');
   }
 
   async function submitVerificationDocs() {
     const apps = getApplications();
     const app_ = apps.find(a => a.id === submittedApplication.id);
-    if (app_) { app_.insuranceDocs = insuranceDocs; app_.certDocs = certDocs; }
+    if (app_) { app_.insuranceDocs = insuranceDocs; app_.certDocs = certDocs; app_.idDocs = idDocs; }
     try { await saveApplications(apps); } catch (e) { /* non-critical -- application itself is already recorded */ }
     currentStep = 'confirm';
     render();
@@ -701,6 +739,7 @@
   }
 
   render();
+  hydrateTradesFromRateCard();
 
   // Referral share links (Aug 2026) point here as
   // mysubbies-contractor-signup.html?ref=CODE -- prefill, not lock, so a
