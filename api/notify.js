@@ -280,6 +280,39 @@ module.exports = async (req, res) => {
       return;
     }
 
+    // customer-registered: { name, email, phone, suburb } -- fired from
+    // mysubbies-booking.html right after a real customer account is
+    // created (not the legacy plaintext-password self-heal login in
+    // mysubbies-customer-portal.html, which silently upgrades an EXISTING
+    // customer's auth rather than creating a new one). Same gap
+    // contractor-application-submitted already closed on the contractor
+    // side (Sep 2026 pre-launch audit) -- until now, admin had no way to
+    // learn a new customer signed up except opening the admin portal.
+    if (type === 'customer-registered') {
+      const { name, email, phone, suburb } = req.body || {};
+      if (!email) { res.status(400).json({ error: 'email is required.' }); return; }
+      await sendEmail({
+        to: ADMIN_NOTIFY_EMAIL,
+        subject: `New customer registered — ${name || email}`,
+        html: wrapEmail(`
+          <h2 style="margin-top:0;">A new customer just signed up</h2>
+          ${emailDetailsTable([
+            { label: 'Name', value: name ? escapeHtml(name) : '' },
+            { label: 'Email', value: escapeHtml(email) },
+            { label: 'Phone', value: phone ? escapeHtml(phone) : '' },
+            { label: 'Suburb', value: suburb ? escapeHtml(suburb) : '' },
+          ])}
+          ${emailButton('View in Customers →', 'https://mysubbies-site.vercel.app/mysubbies-admin-portal.html')}
+        `),
+      });
+      await writeNotification({
+        recipient_role: 'admin', event_type: 'customer-registered',
+        title: 'New customer registered', body: `${name || email} signed up${suburb ? ' in ' + suburb : ''}.`,
+      });
+      res.status(200).json({ sent: true });
+      return;
+    }
+
     res.status(400).json({ error: 'Unknown notification type.' });
   } catch (err) {
     console.error('notify error:', err);

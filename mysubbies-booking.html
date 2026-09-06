@@ -348,6 +348,15 @@
       // See the matching comment in the login branch above -- same missing
       // session key, same bug.
       localStorage.setItem('mysubbies_customer_email', email);
+      // Admin had no way to learn a new customer registered except opening
+      // the admin portal's Customers tab and checking themselves -- same
+      // gap contractor-application-submitted already closed for contractor
+      // applications (Sep 2026 pre-launch audit). Fire-and-forget, never
+      // blocks the booking flow over an email hiccup.
+      fetch('/api/notify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'customer-registered', name, email, phone, suburb }),
+      }).catch(() => {});
       beginBookingFlow({ ...account, address, suburb, jobType, businessName });
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
