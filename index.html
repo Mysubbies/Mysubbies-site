@@ -3454,6 +3454,7 @@
     const wrap = document.getElementById('estQtyRows');
     if (selectedTierSet.size === 0) {
       wrap.innerHTML = '<div class="est-hint">Choose one or more options above first</div>';
+      updateCalculatePriceButtonVisibility();
       return;
     }
     // Whichever task is picked from the primary comparison cards already
