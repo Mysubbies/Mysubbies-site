@@ -5,6 +5,7 @@
   "rewrites": [
     { "source": "/", "destination": "/mysubbies-website.html" },
     { "source": "/contractor", "destination": "/mysubbies-contractor-portal.html" },
-    { "source": "/login", "destination": "/mysubbies-customer-portal.html" }
+    { "source": "/login", "destination": "/mysubbies-customer-portal.html" },
+    { "source": "/foundingcontractorssignup", "destination": "/mysubbies-founding-contractors.html" }
   ]
 }
