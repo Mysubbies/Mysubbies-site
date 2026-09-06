@@ -989,7 +989,7 @@
 
               <div id="estQtyRows"></div>
               <div id="estRemovalPrompt"></div>
-              <button class="btn btn-outline btn-full" onclick="calculateSelectedItems()" style="margin-top:4px;">Calculate price</button>
+              <button class="btn btn-outline btn-full" id="estCalculatePriceBtn" onclick="calculateSelectedItems()" style="margin-top:4px;">Calculate price</button>
 
               <div id="estItemPreview" style="display:none;"></div>
 
@@ -2903,6 +2903,11 @@
         pendingItems = [];
         document.getElementById('estItemPreview').style.display = 'none';
         estResetPriceReveal();
+        // Re-price automatically at the new size, same as picking a card,
+        // instead of leaving the preview hidden until a manual button click.
+        // Skipped while raw is empty (mid-edit/backspaced) so clearing the
+        // field doesn't flash a validation error at the customer.
+        if (raw && !hasSecondaryTierSelections()) calculateSelectedItems();
       }
       renderPrimaryOptionCards(qty);
     }, 300);
@@ -2941,6 +2946,10 @@
     renderQtyRows();
     renderSelectedPills();
     renderPrimaryOptionCards(qtyRaw ? parseQuantity(qtyRaw, estPrimaryGroup.unit) : null);
+    // The price is already shown on the card just clicked -- go straight to
+    // the "+ Add to job" preview instead of waiting for a separate
+    // "Calculate price" click, as long as nothing else still needs pricing.
+    if (qtyRaw && !hasSecondaryTierSelections()) calculateSelectedItems();
   }
 
   // Courier Services "Boxes" custom quoting (Sep 2026) -- number of boxes,
@@ -3016,6 +3025,11 @@
           <div class="est-primary-option-price">$${base.toLocaleString()}</div>
           <div class="est-primary-option-check">✓</div>
         </div>`;
+      updateCalculatePriceButtonVisibility();
+      // Same as picking a generic primary-group card -- the price is
+      // already shown above, so go straight to "+ Add to job" rather than
+      // requiring a separate "Calculate price" click.
+      if (!hasSecondaryTierSelections()) calculateSelectedItems();
     } catch (e) {
       resultEl.innerHTML = '<div class="est-field-error show">Something went wrong calculating this price -- please try again.</div>';
     }
@@ -3483,6 +3497,24 @@
     document.getElementById('estItemPreview').style.display = 'none';
     estResetPriceReveal();
     renderRemovalPrompt();
+    updateCalculatePriceButtonVisibility();
+  }
+
+  // Sep 2026 (founder feedback): when the only thing selected is a primary
+  // comparison-group option, its price is already shown on the card the
+  // customer just clicked -- clicking "Calculate price" again to see that
+  // same number a second time before an "Add to job" button appears was a
+  // pointless extra step. Once ANY secondary/"Other services" task is also
+  // selected, though, those genuinely have no price shown yet (they have
+  // their own qty rows, no pre-priced cards) -- the button still does real
+  // work there, so it stays visible whenever a secondary task is involved.
+  function hasSecondaryTierSelections() {
+    const primaryNames = new Set(estPrimaryGroup ? estPrimaryGroup.tasks.map(t => t.name) : []);
+    return Array.from(selectedTierSet.keys()).some(name => !primaryNames.has(name));
+  }
+  function updateCalculatePriceButtonVisibility() {
+    const btn = document.getElementById('estCalculatePriceBtn');
+    if (btn) btn.style.display = hasSecondaryTierSelections() ? 'block' : 'none';
   }
 
   // Companion to the m² branch in renderQtyRows() above -- combines a
