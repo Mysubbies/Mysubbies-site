@@ -201,7 +201,17 @@
     return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   }
   function saveApplications(apps) {
-    localStorage.setItem('mysubbies_contractor_applications', JSON.stringify(apps));
+    // Sep 2026 (real contractor report: submitting with photos attached
+    // never completed; removing them worked) -- this step-2 verification
+    // upload still allows raw, uncompressed insurance/certificate/ID
+    // photos, which can exceed this browser's localStorage quota. A local
+    // caching failure here must never block the real server sync below --
+    // same fix as saveJobs()/saveRateCard() elsewhere in this project.
+    try {
+      localStorage.setItem('mysubbies_contractor_applications', JSON.stringify(apps));
+    } catch (e) {
+      console.error('localStorage quota exceeded saving applications:', e);
+    }
     // Mirrors the full application (docs, referral code, everything) into
     // Supabase so mysubbies-admin-portal.html can review it from any
     // device, not just the browser it was submitted in — see
@@ -218,7 +228,6 @@
   let insuranceDocs = [];
   let certDocs = [];
   let idDocs = []; // Australian photo ID, for MySubbies' own records -- see renderVerifyStep()
-  let projectPhotos = []; // up to 3 -- past-work photos, distinct from documents
 
   const DOC_LISTS = { insurance: () => insuranceDocs, cert: () => certDocs, id: () => idDocs };
   const DOC_LIST_ELEMENT_IDS = { insurance: 'insuranceDocList', cert: 'certDocList', id: 'idDocList' };
@@ -256,39 +265,6 @@
         <button class="doc-remove" onclick="removeDoc('${type}', ${idx})" title="Remove">✕</button>
       </div>
     `).join('');
-  }
-
-  // Up to 3 optional project photos (Sept 2026) -- past-work photos shown
-  // once approved, not a single headshot-style profile photo like before.
-  function onProjectPhotoSelected(e) {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-    const room = 3 - projectPhotos.length;
-    files.slice(0, room).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (ev) => { projectPhotos.push(ev.target.result); renderProjectPhotos(); };
-      reader.readAsDataURL(file);
-    });
-    e.target.value = '';
-  }
-
-  function removeProjectPhoto(idx) {
-    projectPhotos.splice(idx, 1);
-    renderProjectPhotos();
-  }
-
-  function renderProjectPhotos() {
-    const wrap = document.getElementById('projectPhotosWrap');
-    if (!wrap) return;
-    const thumbs = projectPhotos.map((src, idx) => `
-      <div style="position:relative;">
-        <img src="${src}" style="width:72px;height:72px;border-radius:10px;object-fit:cover;display:block;" />
-        <button type="button" onclick="removeProjectPhoto(${idx})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:999px;border:none;background:var(--black);color:#fff;font-size:11px;cursor:pointer;">✕</button>
-      </div>`).join('');
-    wrap.innerHTML = `
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">${thumbs}</div>
-      ${projectPhotos.length < 3 ? `<button type="button" class="btn btn-outline" onclick="document.getElementById('fProjectPhotoInput').click()">📷 Add a photo (${projectPhotos.length}/3)</button>` : `<div class="field-note">3 of 3 added</div>`}
-    `;
   }
 
   const app = document.getElementById('app');
@@ -414,11 +390,6 @@
       </div>
       <div class="field-note">You'll upload the actual documents in a quick verification step right after this application.</div>
 
-      <div class="section-label">Project photos</div>
-      <label>Up to three optional project photos <span class="opt">(examples of your past work)</span></label>
-      <input type="file" id="fProjectPhotoInput" accept="image/*" multiple style="display:none;" onchange="onProjectPhotoSelected(event)" />
-      <div id="projectPhotosWrap"><button type="button" class="btn btn-outline" onclick="document.getElementById('fProjectPhotoInput').click()">📷 Add a photo (0/3)</button></div>
-
       <!-- Sep 2026 (founder feedback): the visible "enter a referral code"
            box read as clutter/unnecessary this early in the program (a
            brand-new applicant is unlikely to have one to type in) --
@@ -450,7 +421,6 @@
     renderTradeChips();
     renderRegionChips();
     renderAvailabilityChips();
-    renderProjectPhotos();
   }
 
   function renderRegionChips() {
@@ -658,7 +628,7 @@
       suburbs: [...selectedRegions, ...(suburbs ? suburbs.split(',').map(s => s.trim()).filter(Boolean) : [])],
       experience, jobSize, availability: selectedAvailability, urgentJobs: urgentJobs === 'yes',
       licenceHeld, insuranceHeld: insuranceHeld === 'yes',
-      insuranceDocs: [], certDocs: [], idDocs: [], projectPhotos,
+      insuranceDocs: [], certDocs: [], idDocs: [],
       referralCode, referredBy,
       status: 'pending', appliedAt: new Date().toISOString(),
       agreementVersion: 'contractor-agreement-2026-09', agreementAcceptedAt: new Date().toISOString(),
