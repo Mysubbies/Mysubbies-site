@@ -1885,18 +1885,34 @@
   let selectedCat = null;
   let uploadedPhotos = []; // array of data URLs, kept client-side only for this demo
 
+  // Sep 2026 (founder report: "Continue booking" appears stuck once a
+  // photo is attached, works fine without one) -- a raw phone photo is
+  // often 3-8MB; base64-encoded that's 4-11MB, which alone can exceed this
+  // browser's ~5-10MB per-origin localStorage quota. estContinueBooking()
+  // writes the whole quote (including every photo) to localStorage via
+  // runEstimate() right before redirecting to booking.html -- a
+  // QuotaExceededError there was thrown with no try/catch anywhere in that
+  // call chain, silently aborting before the redirect line ever ran.
+  // Reuses resizeImageFile() (defined below, in the Fix Something flow --
+  // built for the exact same class of bug there: a 10MB photo hitting
+  // Vercel's request-body size limit, Aug 2026) instead of a second
+  // near-identical compressor, so normal phone photos (even several at
+  // once) stay comfortably under quota. See runEstimate() below for the
+  // remaining safety net in case a customer still hits the limit somehow.
   function onPhotoSelected(e) {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-    let remaining = files.length;
     files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        uploadedPhotos.push(ev.target.result);
-        remaining--;
-        if (remaining === 0) renderPhotoGrid();
-      };
-      reader.readAsDataURL(file);
+      resizeImageFile(file, 1600, 0.75).then(dataUrl => {
+        uploadedPhotos.push(dataUrl);
+        renderPhotoGrid();
+      }).catch(() => {
+        // Fall back to the original file rather than silently dropping the
+        // photo -- worst case it's the same size-risk as before, not worse.
+        const reader = new FileReader();
+        reader.onload = () => { uploadedPhotos.push(reader.result); renderPhotoGrid(); };
+        reader.readAsDataURL(file);
+      });
     });
     e.target.value = ''; // allow re-selecting the same file again later
   }
@@ -2028,6 +2044,7 @@
   // recomputed the identical number and went nowhere. This is now the one
   // action: validate, compute (client-side, instant -- runEstimate() sets
   // the localStorage quote booking.html reads), and go straight to booking.
+  let lastQuotePhotosDropped = false;
   function estContinueBooking() {
     const err = document.getElementById('estStep2Error');
     // Same "did they forget to click Calculate" convenience runEstimate() already had.
@@ -2047,6 +2064,9 @@
     err.classList.remove('show');
     renderReviewStep();
     runEstimate();
+    if (lastQuotePhotosDropped) {
+      alert("Your photos were too large to attach, so we've continued your booking without them — everything else has been kept. Contact us if you'd still like to share photos for this job.");
+    }
     window.location.href = 'mysubbies-booking.html';
   }
 
@@ -4129,12 +4149,29 @@
     document.getElementById('estPriceSub').textContent = bits.join(' · ') + ' · GST inclusive';
     result.classList.add('show');
 
-    localStorage.setItem('mysubbies_pending_quote', JSON.stringify({
+    const pendingQuote = {
       category: uniqueCats.length > 1 ? uniqueCats.join(' + ') : uniqueCats[0],
       icon: cart[0].catIcon, items: cart, base: total, low: total, high: total, suburb,
       site: selectedSite, access: selectedAccess, urgency: selectedUrgency, needsSiteVisit,
       hasPhoto: uploadedPhotos.length > 0, photoDataUrl: uploadedPhotos[0] || null, photoDataUrls: uploadedPhotos,
-    }));
+    };
+    lastQuotePhotosDropped = false;
+    try {
+      localStorage.setItem('mysubbies_pending_quote', JSON.stringify(pendingQuote));
+    } catch (e) {
+      // Quota exceeded even after compressImageDataUrl() (e.g. several
+      // photos at once) -- must never leave the customer stuck on a dead
+      // "Continue booking" click. Retry without photos so the booking
+      // itself still goes through with everything else intact (items,
+      // suburb, urgency, notes); estContinueBooking() alerts the customer
+      // so the missing photos aren't a silent surprise.
+      try {
+        localStorage.setItem('mysubbies_pending_quote', JSON.stringify({ ...pendingQuote, hasPhoto: false, photoDataUrl: null, photoDataUrls: [] }));
+        lastQuotePhotosDropped = true;
+      } catch (e2) {
+        console.error('Could not store pending quote at all:', e2);
+      }
+    }
   }
 
   // Category grid is now static HTML in the source (for crawlability) — no JS population needed.
