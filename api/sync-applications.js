@@ -5,10 +5,18 @@
 // mysubbies-admin-portal.html's Applications tab could only ever show
 // applications submitted in that exact browser — nothing synced the full
 // application object (insurance docs, cert docs, profile photo, referral
-// code, etc.) anywhere. Matches contractors by email (set at signup time),
-// so it's a no-op for an application whose contractor row doesn't exist
-// yet — that shouldn't normally happen since contractor-signup.html
-// creates both together, but it's a safe no-op either way, not an error.
+// code, etc.) anywhere.
+//
+// Sept 2026 (contractor signup redesign, "Founding 100"): this now UPSERTS
+// the contractors row instead of update-only. Before this redesign,
+// mysubbies-contractor-signup.html created the contractors row itself via
+// an authenticated client-side insert (sb.auth.signUp() ran first, so
+// auth.uid() matched the RLS "insert own row" policy). Password creation
+// is now deferred to portal activation, so there's no authenticated
+// session at application time — this service-role endpoint (which bypasses
+// RLS by design, see _lib/clients.js) is now the only thing that can create
+// the row. Matches by email; a row with no auth_user_id yet is expected
+// and normal until the contractor activates their account.
 const { getSupabase } = require('./_lib/clients');
 
 module.exports = async (req, res) => {
@@ -26,12 +34,25 @@ module.exports = async (req, res) => {
 
     for (const application of applications.slice(0, 200)) {
       if (!application || !application.email) continue;
+      const email = String(application.email).toLowerCase();
       const { data, error } = await supabase
         .from('contractors')
-        .update({ full_application: application, updated_at: new Date().toISOString() })
-        .eq('email', String(application.email).toLowerCase())
+        .upsert({
+          email,
+          business_name: application.business || email,
+          abn: application.abn || null,
+          acn: application.acn || null,
+          business_structure: application.businessStructure || null,
+          phone: application.phone || null,
+          categories: application.trades || [],
+          referral_code: application.referralCode || null,
+          referred_by: application.referredBy || null,
+          full_application: application,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'email' })
         .select('id');
       if (!error && data && data.length) updated += data.length;
+      else if (error) console.error('sync-applications upsert error for', email, error);
     }
 
     res.status(200).json({ updated });

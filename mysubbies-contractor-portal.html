@@ -2171,9 +2171,132 @@
           <a onclick="renderForgotPassword()" style="text-decoration:underline;cursor:pointer;">Forgot password?</a>
         </div>
         <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:8px;">
+          Approved and logging in for the first time? <a onclick="renderActivateEntry()" style="font-weight:600;color:var(--ink);text-decoration:underline;cursor:pointer;">Activate your account</a>
+        </div>
+        <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:8px;">
           Not registered yet? <a href="mysubbies-contractor-signup.html" style="font-weight:600;color:var(--ink);text-decoration:underline;">Apply to join</a>
         </div>
       </div>`;
+  }
+  // Statuses that block portal access, mirrored from doLogin()'s existing
+  // effectiveStatus gate below -- kept as one list so activation eligibility
+  // and normal login eligibility can never silently disagree.
+  const CONTRACTOR_BLOCKED_STATUSES = new Set(['pending', 'manual_review', 'watchlist', 'rejected', 'suspended', 'expired_documents']);
+  function isLoginEligibleStatus(status) { return !!status && !CONTRACTOR_BLOCKED_STATUSES.has(status); }
+
+  // "Founding 100" signup redesign (Sep 2026) removed the password field
+  // from mysubbies-contractor-signup.html -- password creation is deferred
+  // to first login. This entry point lets an approved contractor find their
+  // way to that "create your password" step directly, instead of only
+  // reaching it by first trying (and failing) a normal login below.
+  function renderActivateEntry() {
+    app.innerHTML = `
+      <div class="loginbox">
+        <h1>Activate your account</h1>
+        <p>If you've been approved as a MySubbies contractor and this is your first time logging in, enter your application email to set up your password.</p>
+        <input type="email" id="activateEmail" placeholder="Email" style="margin-bottom:10px;" />
+        <div id="activateEntryError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
+        <button class="btn btn-black btn-full" onclick="checkActivationEligibility()">Continue →</button>
+        <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:14px;">
+          <a onclick="renderLogin()" style="text-decoration:underline;cursor:pointer;">Back to log in</a>
+        </div>
+      </div>`;
+  }
+  async function checkActivationEligibility() {
+    const email = document.getElementById('activateEmail').value.trim().toLowerCase();
+    const errBox = document.getElementById('activateEntryError');
+    if (!email) { errBox.textContent = 'Enter your email.'; return; }
+    try {
+      const res = await fetch('/api/activate-contractor?email=' + encodeURIComponent(email));
+      const info = await res.json();
+      if (!res.ok || !info.found) { errBox.textContent = "We couldn't find an application for that email."; return; }
+      if (info.activated) { errBox.textContent = 'This account is already active — use the login form instead.'; return; }
+      if (!isLoginEligibleStatus(info.status)) { errBox.textContent = "Your application isn't approved yet, so there's nothing to activate."; return; }
+      renderActivationForm(email, info.businessName);
+    } catch (e) {
+      errBox.textContent = 'Something went wrong — please try again.';
+    }
+  }
+  function renderActivationForm(email, businessName) {
+    app.innerHTML = `
+      <div class="loginbox">
+        <h1>Create your password</h1>
+        <p>You're approved${businessName ? ' as <strong>' + escapeHtml(businessName) + '</strong>' : ''} — set a password to activate your account and log in.</p>
+        <input type="email" value="${escapeHtml(email)}" disabled style="margin-bottom:10px;opacity:0.7;" />
+        <input type="password" id="activatePassword" placeholder="New password (min 8 characters)" style="margin-bottom:10px;" />
+        <input type="password" id="activatePasswordConfirm" placeholder="Confirm password" style="margin-bottom:14px;" />
+        <div id="activateError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
+        <button class="btn btn-black btn-full" id="activateSubmitBtn" onclick="activateContractorAccount('${email.replace(/'/g, "\\'")}')">Activate &amp; log in →</button>
+        <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:14px;">
+          <a onclick="renderLogin()" style="text-decoration:underline;cursor:pointer;">Back to log in</a>
+        </div>
+      </div>`;
+  }
+  async function activateContractorAccount(email) {
+    const password = document.getElementById('activatePassword').value;
+    const confirmPassword = document.getElementById('activatePasswordConfirm').value;
+    const errBox = document.getElementById('activateError');
+    const btn = document.getElementById('activateSubmitBtn');
+    if (!password || password.length < 8) { errBox.textContent = 'Password must be at least 8 characters.'; return; }
+    if (password !== confirmPassword) { errBox.textContent = 'Passwords do not match.'; return; }
+    if (!sb) { errBox.textContent = 'Activation is unavailable right now — please contact support.'; return; }
+    btn.disabled = true; btn.textContent = 'Activating…';
+    try {
+      const { data, error } = await sb.auth.signUp({ email, password });
+      if (error) {
+        // A real Supabase Auth user for this email may already exist from
+        // an earlier partial attempt -- try signing in with the password
+        // just chosen in case this is a retry, rather than dead-ending.
+        if (/already registered|already exists/i.test(error.message || '')) {
+          const { data: signInData, error: signInErr } = await sb.auth.signInWithPassword({ email, password });
+          if (signInErr) {
+            errBox.textContent = 'An account already exists for this email with a different password. Use "Forgot password?" instead.';
+            btn.disabled = false; btn.textContent = 'Activate & log in →';
+            return;
+          }
+          await finishActivation(email, signInData.session.access_token);
+          return;
+        }
+        errBox.textContent = error.message || 'Could not create your account.';
+        btn.disabled = false; btn.textContent = 'Activate & log in →';
+        return;
+      }
+      if (!data.session) {
+        // Email confirmation is enabled on this Supabase project -- signUp()
+        // succeeds but returns no session until the contractor confirms via
+        // email. Activation (linking auth_user_id) needs a real session, so
+        // ask them to confirm first, then log in normally afterward.
+        errBox.textContent = '';
+        app.innerHTML = `
+          <div class="loginbox">
+            <h1>Check your email</h1>
+            <p>We've sent a confirmation link to <strong>${escapeHtml(email)}</strong>. Click it, then come back and log in with your new password.</p>
+            <button class="btn btn-outline btn-full" onclick="renderLogin()">Back to log in</button>
+          </div>`;
+        return;
+      }
+      await finishActivation(email, data.session.access_token);
+    } catch (e) {
+      errBox.textContent = 'Something went wrong — please try again.';
+      btn.disabled = false; btn.textContent = 'Activate & log in →';
+    }
+  }
+  async function finishActivation(email, accessToken) {
+    const errBox = document.getElementById('activateError');
+    try {
+      const res = await fetch('/api/activate-contractor', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, accessToken }),
+      });
+      const result = await res.json();
+      if (!res.ok) { if (errBox) errBox.textContent = result.error || 'Could not activate your account.'; return; }
+      localStorage.setItem('mysubbies_contractor_name', result.businessName || 'your business');
+      localStorage.setItem('mysubbies_contractor_email', email);
+      await Promise.all([hydrateJobsFromServer(), hydrateAdminMessages()]);
+      render();
+    } catch (e) {
+      if (errBox) errBox.textContent = 'Could not activate your account — please try logging in normally.';
+    }
   }
   function renderForgotPassword() {
     app.innerHTML = `
@@ -2217,9 +2340,18 @@
     let verified = false;
     let remoteStatus = null; // real status from the `contractors` table, when available
     let knownAuthUserId = null;
+    let contractorInfo = null; // { found, activated, status, businessName } -- see api/activate-contractor.js
     if (sb) {
-      const { data: existing } = await sb.from('contractors').select('auth_user_id').eq('email', email).maybeSingle();
-      knownAuthUserId = existing?.auth_user_id || null;
+      // contractors' RLS only lets a row's own already-authenticated owner
+      // select it (auth.uid() = auth_user_id) -- an anonymous pre-login
+      // lookup by email via this browser's own Supabase client always
+      // returns nothing, so this has to go through a real server endpoint
+      // (service-role, bypasses RLS) instead of sb.from('contractors')...
+      try {
+        const lookupRes = await fetch('/api/activate-contractor?email=' + encodeURIComponent(email));
+        if (lookupRes.ok) contractorInfo = await lookupRes.json();
+      } catch (e) { /* offline/hiccup -- falls through to the existing behaviour below */ }
+      knownAuthUserId = !!(contractorInfo && contractorInfo.activated);
       const { data: authData, error } = await sb.auth.signInWithPassword({ email, password });
       verified = !error;
       if (verified) {
@@ -2233,6 +2365,16 @@
       // again -- otherwise a wrong Supabase password would silently
       // succeed via the old local copy. Same gate as the customer portal.
       if (knownAuthUserId) { errBox.textContent = 'This account already has a secure login. If you\'ve forgotten your password, contact MySubbies support.'; return; }
+      // Founding 100 signup redesign (Sep 2026) removed the password field
+      // from mysubbies-contractor-signup.html -- an approved contractor
+      // with a real server row but no auth_user_id yet has never activated
+      // their account, so there's no legacy password to compare against
+      // for them below. Route to the "create your password" step instead
+      // of a dead-end "No account found" error.
+      if (contractorInfo && contractorInfo.found && !contractorInfo.activated && isLoginEligibleStatus(contractorInfo.status)) {
+        renderActivationForm(email, contractorInfo.businessName);
+        return;
+      }
       if (!application || application.password !== password) { errBox.textContent = 'No account found with those details.'; return; }
       if (sb) {
         sb.auth.signUp({ email, password }).then(({ data }) => {

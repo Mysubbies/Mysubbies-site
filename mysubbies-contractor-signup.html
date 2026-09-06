@@ -3,11 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Join the MySubbies Panel | Contractor Application</title>
-<meta name="description" content="Apply to join the MySubbies contractor panel in Melbourne. No lead fees, no bidding wars — fixed jobs sent directly to you." />
+<title>Join the MySubbies Founding 100 | Melbourne Contractors</title>
+<meta name="description" content="Apply free in 3 minutes to join the MySubbies Founding 100 — pre-priced jobs sent to you, no lead fees, no bidding wars, no monthly cost." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     /* Navy/gold reskin (Aug 2026), Stage 3 -- see mysubbies-website.html's :root. */
@@ -28,28 +27,51 @@
   .navlinks a { color:var(--stone); font-size:13px; }
   .navlinks a:hover { color:var(--black); }
   .wrap { max-width:640px; margin:0 auto; padding:48px 24px 80px; }
-  .pitch { background:var(--black); color:#fff; border-radius:16px; padding:32px 28px; margin-bottom:32px; }
-  .pitch-eyebrow { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:rgba(255,255,255,0.55); margin-bottom:10px; }
-  .pitch h1 { font-size:26px; margin-bottom:10px; letter-spacing:-0.02em; }
-  .pitch-sub { font-size:14.5px; color:rgba(255,255,255,0.75); line-height:1.6; margin-bottom:24px; max-width:440px; }
-  .pitch-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:22px; }
-  @media (max-width:480px) { .pitch-grid { grid-template-columns:1fr; } }
-  .pitch-item { border-top:1px solid rgba(255,255,255,0.14); padding-top:12px; }
-  .pitch-item strong { display:block; font-size:14px; margin-bottom:3px; }
-  .pitch-item span { font-size:12.5px; color:rgba(255,255,255,0.65); line-height:1.5; }
-  .pitch-note { display:flex; gap:10px; align-items:flex-start; background:rgba(255,255,255,0.07); border-radius:10px; padding:12px 14px; font-size:12.5px; color:rgba(255,255,255,0.75); line-height:1.5; }
+
+  /* Hero */
+  .pitch { background:var(--black); color:#fff; border-radius:16px; padding:32px 28px; margin-bottom:20px; background-image:url('images/categories/handyman.jpg'); background-size:cover; background-position:center; position:relative; overflow:hidden; }
+  .pitch::before { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(20,33,61,.94) 0%, rgba(20,33,61,.90) 60%, rgba(20,33,61,.97) 100%); }
+  .pitch > * { position:relative; z-index:1; }
+  .pitch-eyebrow { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--accent); margin-bottom:10px; }
+  .pitch h1 { font-size:27px; margin-bottom:10px; letter-spacing:-0.02em; }
+  .pitch-sub { font-size:14.5px; color:rgba(255,255,255,0.8); line-height:1.6; margin-bottom:18px; max-width:460px; }
+  .pitch-benefitline { font-size:12.5px; font-weight:600; color:rgba(255,255,255,0.75); margin-bottom:22px; }
+  .pitch .btn-black { background:var(--accent); color:var(--black); font-weight:700; width:auto; padding:14px 26px; }
+
+  /* Founding 100 card */
+  .founding-card { background:#fff; border:2px solid var(--accent); border-radius:16px; padding:26px 24px; margin-bottom:32px; }
+  .founding-card h2 { font-size:19px; margin-bottom:14px; }
+  .founding-card h2 span { color:var(--accent-dark); }
+  .founding-list { list-style:none; margin-bottom:14px; }
+  .founding-list li { display:flex; gap:10px; align-items:flex-start; font-size:14px; color:var(--ink); padding:6px 0; }
+  .founding-list li::before { content:'✓'; color:var(--good); font-weight:800; flex-shrink:0; }
+  .founding-disclaimer { font-size:12px; color:var(--stone); border-top:1px solid var(--line); padding-top:12px; }
+
+  /* How it works */
+  .how-it-works { margin-bottom:32px; }
+  .how-it-works h2 { font-size:19px; margin-bottom:16px; }
+  .how-steps { display:grid; gap:14px; }
+  .how-step { display:flex; gap:14px; align-items:flex-start; }
+  .how-step .idx { width:30px; height:30px; border-radius:50%; background:var(--primary-pale); color:var(--black); font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .how-step h3 { font-size:14.5px; margin-bottom:2px; }
+  .how-step p { font-size:13px; color:var(--stone); line-height:1.5; }
+
+  .leadfee-note { background:var(--paper); border-radius:12px; padding:16px 18px; margin-bottom:32px; font-size:13px; color:var(--stone); line-height:1.6; }
+  .leadfee-note strong { display:block; color:var(--ink); font-size:14px; margin-bottom:4px; }
+
   h1.pagetitle { font-size:24px; margin-bottom:6px; }
   p.pagesub { color:var(--stone); font-size:14px; margin-bottom:24px; }
   .field { margin-bottom:16px; }
   label { display:block; font-size:13px; font-weight:600; color:var(--ink); margin-bottom:6px; }
   label .req { color:var(--warn); }
   label .opt { color:var(--stone-light); font-weight:400; }
-  input[type=text], input[type=email], input[type=password], input[type=tel] {
+  input[type=text], input[type=email], input[type=password], input[type=tel], select {
     width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:15px; color:var(--ink);
     border:1.5px solid var(--line); border-radius:10px; padding:13px 14px; outline:none; background:#fff;
   }
-  input:focus { border-color: var(--black); }
-  input.field-invalid { border-color:#B4232C !important; background:#FDF3F2; }
+  select { appearance:none; background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%236B7280" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>'); background-repeat:no-repeat; background-position:right 14px center; padding-right:36px; }
+  input:focus, select:focus { border-color: var(--black); }
+  input.field-invalid, select.field-invalid { border-color:#B4232C !important; background:#FDF3F2; }
   .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   @media (max-width:520px) { .row2 { grid-template-columns:1fr; } }
   .section-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--stone); margin:28px 0 14px; padding-top:16px; border-top:1px solid var(--line); }
@@ -78,7 +100,29 @@
   .confirm p { color:var(--stone); margin-bottom:12px; line-height:1.6; }
   .toggle-mode { text-align:center; font-size:13px; color:var(--stone); margin-top:14px; }
   .toggle-mode a { font-weight:600; color:var(--ink); text-decoration:underline; }
+  .below-btn-note { text-align:center; font-size:12px; color:var(--stone); margin-top:12px; }
   footer { background:var(--black); color:rgba(255,255,255,0.5); padding:32px 24px; text-align:center; font-size:13px; margin-top:40px; }
+
+  /* FAQ */
+  .faq { margin:36px 0; }
+  .faq h2 { font-size:19px; margin-bottom:14px; }
+  .faq-item { border-bottom:1px solid var(--line); padding:14px 0; }
+  .faq-item summary { font-size:14.5px; font-weight:600; cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .faq-item summary::-webkit-details-marker { display:none; }
+  .faq-item summary::after { content:'+'; font-size:20px; color:var(--stone); flex-shrink:0; }
+  .faq-item[open] summary::after { content:'–'; }
+  .faq-item p { font-size:13.5px; color:var(--stone); line-height:1.6; margin-top:10px; }
+
+  /* Step 2 verification */
+  .verify-intro { background:var(--paper); border-radius:12px; padding:16px 18px; margin-bottom:24px; font-size:13.5px; color:var(--stone); line-height:1.6; }
+
+  /* Sticky mobile CTA */
+  .sticky-cta { display:none; }
+  @media (max-width:640px) {
+    body { padding-bottom:76px; }
+    .sticky-cta { display:block; position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--line); padding:12px 16px; z-index:40; box-shadow:0 -6px 18px rgba(0,0,0,.06); }
+    .sticky-cta .btn { background:var(--accent); color:var(--black); font-weight:700; }
+  }
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
@@ -93,7 +137,7 @@
 <header>
   <div class="navwrap">
     <a class="logo" href="mysubbies-website.html">
-      
+
       <div class="logo-word">My<span class="gold">Subbies</span></div>
     </a>
     <div class="navlinks"><a href="mysubbies-contractor-portal.html">Already applied? Log in</a></div>
@@ -101,6 +145,10 @@
 </header>
 
 <div class="wrap" id="app"></div>
+
+<div class="sticky-cta" id="stickyCta">
+  <button class="btn" onclick="scrollToApplyForm()">Apply free</button>
+</div>
 
 <footer>© 2026 Mysubbies Holdings Pty Ltd. Melbourne, VIC. · <a href="mysubbies-terms.html" style="color:inherit;">Terms</a></footer>
 
@@ -115,6 +163,14 @@
   // type dozens of suburbs one by one. The free-text field below still lets
   // them narrow or add specific suburbs/postcodes on top of a region pick.
   const REGIONS = ['Northern Melbourne', 'Western Melbourne', 'Inner/CBD Melbourne', 'Southern Melbourne', 'Eastern Melbourne'];
+  const AVAILABILITY_OPTIONS = ['Weekdays', 'Weekends'];
+
+  // Founding 100 commission incentive (Sept 2026) -- founder flips this one
+  // constant when the 0%-commission-on-first-3-jobs offer should stop
+  // applying to new applicants. No general "platform settings" mechanism
+  // exists in this codebase yet; this is the deliberately simplest possible
+  // toggle rather than building one for a single flag.
+  const FOUNDING_COMMISSION_ENABLED = true;
 
   function getApplications() { return JSON.parse(localStorage.getItem('mysubbies_contractor_applications') || '[]'); }
   function escapeHtml(str) {
@@ -125,25 +181,19 @@
     // Mirrors the full application (docs, referral code, everything) into
     // Supabase so mysubbies-admin-portal.html can review it from any
     // device, not just the browser it was submitted in — see
-    // api/sync-applications.js.
-    fetch('/api/sync-applications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ applications: apps }) }).catch(() => {});
+    // api/sync-applications.js. This is also, since the Sept 2026 redesign,
+    // the ONLY thing that creates/updates the real contractors row (no
+    // authenticated client session exists at application time any more).
+    return fetch('/api/sync-applications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ applications: apps }) });
   }
-
-  // Same publishable/safe-to-expose Supabase key used on the customer side
-  // (mysubbies-booking.html) — protected by RLS, not secrecy. See
-  // supabase/schema_v2_marketplace.sql for the "manage your own row only"
-  // policies on the `contractors` table.
-  const SUPABASE_URL = 'https://yloiecuvrejaxxqvjglw.supabase.co';
-  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_dxp8_eCHY9nP1xF-LmxfuQ_h427tK3Y';
-  const sb = (typeof window.supabase !== 'undefined')
-    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
 
   let selectedTrades = [];
   let otherTradeText = '';
   let selectedRegions = [];
+  let selectedAvailability = [];
   let insuranceDocs = [];
   let certDocs = [];
-  let profilePhoto = null;
+  let projectPhotos = []; // up to 3 -- past-work photos, distinct from documents
 
   function onDocSelected(e, type) {
     const files = Array.from(e.target.files || []);
@@ -170,6 +220,7 @@
   function renderDocList(type) {
     const docs = type === 'insurance' ? insuranceDocs : certDocs;
     const list = document.getElementById(type === 'insurance' ? 'insuranceDocList' : 'certDocList');
+    if (!list) return;
     list.innerHTML = docs.map((d, idx) => `
       <div class="doc-item">
         <div class="doc-thumb">${d.isImage ? `<img src="${d.dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">` : '📄'}</div>
@@ -179,69 +230,124 @@
     `).join('');
   }
 
-  function onProfilePhotoSelected(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      profilePhoto = ev.target.result;
-      const wrap = document.getElementById('profilePhotoWrap');
-      wrap.innerHTML = `
-        <img class="profile-photo-preview" src="${profilePhoto}" />
-        <div style="display:flex;gap:8px;">
-          <button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoCameraInput').click()">Retake</button>
-          <button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoInput').click()">Change photo</button>
-          <button type="button" class="btn btn-outline" onclick="removeProfilePhoto()">Remove</button>
-        </div>`;
-    };
-    reader.readAsDataURL(file);
+  // Up to 3 optional project photos (Sept 2026) -- past-work photos shown
+  // once approved, not a single headshot-style profile photo like before.
+  function onProjectPhotoSelected(e) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const room = 3 - projectPhotos.length;
+    files.slice(0, room).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => { projectPhotos.push(ev.target.result); renderProjectPhotos(); };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
   }
 
-  function removeProfilePhoto() {
-    profilePhoto = null;
-    document.getElementById('profilePhotoWrap').innerHTML = `
-      <button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoCameraInput').click()">📷 Take a photo</button>
-      <button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoInput').click()">🖼️ Choose from gallery</button>`;
+  function removeProjectPhoto(idx) {
+    projectPhotos.splice(idx, 1);
+    renderProjectPhotos();
+  }
+
+  function renderProjectPhotos() {
+    const wrap = document.getElementById('projectPhotosWrap');
+    if (!wrap) return;
+    const thumbs = projectPhotos.map((src, idx) => `
+      <div style="position:relative;">
+        <img src="${src}" style="width:72px;height:72px;border-radius:10px;object-fit:cover;display:block;" />
+        <button type="button" onclick="removeProjectPhoto(${idx})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:999px;border:none;background:var(--black);color:#fff;font-size:11px;cursor:pointer;">✕</button>
+      </div>`).join('');
+    wrap.innerHTML = `
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">${thumbs}</div>
+      ${projectPhotos.length < 3 ? `<button type="button" class="btn btn-outline" onclick="document.getElementById('fProjectPhotoInput').click()">📷 Add a photo (${projectPhotos.length}/3)</button>` : `<div class="field-note">3 of 3 added</div>`}
+    `;
   }
 
   const app = document.getElementById('app');
+  let currentStep = 'apply'; // 'apply' | 'verify' | 'confirm'
+  let submittedApplication = null; // set after step 1 succeeds, used/updated by step 2
+
+  function scrollToApplyForm() {
+    const el = document.getElementById('fContact');
+    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+  }
+
+  function toggleAcnField() {
+    const structure = document.getElementById('fBusinessStructure').value;
+    const wrap = document.getElementById('acnFieldWrap');
+    wrap.style.display = structure === 'company' ? 'block' : 'none';
+  }
 
   function render() {
+    document.getElementById('stickyCta').style.display = currentStep === 'apply' ? '' : 'none';
+    if (currentStep === 'verify') { renderVerifyStep(); return; }
+    if (currentStep === 'confirm') { renderConfirmStep(); return; }
+
     app.innerHTML = `
       <div class="pitch">
-        <div class="pitch-eyebrow">MySubbies contractor panel</div>
-        <h1>Work you don't have to chase.</h1>
-        <p class="pitch-sub">Real jobs, priced and offered straight to you — no lead fees, no bidding wars, no chasing quotes.</p>
-        <div class="pitch-grid">
-          <div class="pitch-item"><strong>No lead fees</strong><span>Ever — not per job, not per lead.</span></div>
-          <div class="pitch-item"><strong>No bidding</strong><span>Each job is offered to one contractor at a time.</span></div>
-          <div class="pitch-item"><strong>Fixed payout</strong><span>Shown before you ever accept a job.</span></div>
-          <div class="pitch-item"><strong>Staged payments</strong><span>Paid as the job progresses, not just at the end.</span></div>
-        </div>
-        <div class="pitch-note">📱 Run it all from your phone — accept jobs, message customers and track payments from the contractor portal.</div>
+        <div class="pitch-eyebrow">MYSubbies Founding Contractor Program</div>
+        <h1>Get local jobs without chasing leads.</h1>
+        <p class="pitch-sub">MySubbies sends approved contractors properly described, pre-priced jobs in the Melbourne areas they choose. See the work, location and payout before deciding whether to accept it.</p>
+        <p class="pitch-benefitline">No monthly fees • No shared leads • No quoting competition</p>
+        <button class="btn btn-black" onclick="scrollToApplyForm()">Apply free in 3 minutes</button>
       </div>
 
-      <h1 class="pagetitle">Apply to join</h1>
-      <p class="pagesub">We review every application before granting portal access — usually within a few business days.</p>
+      <div class="founding-card">
+        <h2>Join the MySubbies <span>Founding 100</span></h2>
+        <ul class="founding-list">
+          ${FOUNDING_COMMISSION_ENABLED ? '<li>0% platform commission on your first 3 completed jobs</li>' : ''}
+          <li>Priority access to suitable local jobs</li>
+          <li>Permanent Founding Contractor badge</li>
+          <li>Choose your trades, service areas and availability</li>
+          <li>Accept or decline every job</li>
+          <li>No minimum job commitment</li>
+          <li>Free registration</li>
+        </ul>
+        <div class="founding-disclaimer">Founding offer is limited to the first 100 contractors who complete verification and receive approval.</div>
+      </div>
+
+      <div class="how-it-works">
+        <h2>How MySubbies Works</h2>
+        <div class="how-steps">
+          <div class="how-step"><div class="idx">1</div><div><h3>Receive a suitable job</h3><p>See the work description, suburb, timing and contractor payout.</p></div></div>
+          <div class="how-step"><div class="idx">2</div><div><h3>Decide if it suits you</h3><p>Accept only the jobs you want. There is no minimum commitment.</p></div></div>
+          <div class="how-step"><div class="idx">3</div><div><h3>Complete the work</h3><p>Manage job communication and progress through the contractor portal.</p></div></div>
+          <div class="how-step"><div class="idx">4</div><div><h3>Get paid</h3><p>Track applicable staged payments without chasing the customer yourself.</p></div></div>
+        </div>
+      </div>
+
+      <div class="leadfee-note">
+        <strong>No upfront lead fees</strong>
+        You never pay to receive or view job opportunities. Any applicable MySubbies platform fee is shown before you accept a job.
+      </div>
+
+      <h1 class="pagetitle">Apply for the Founding 100</h1>
+      <p class="pagesub">Applications take approximately 3 minutes. Suitable applicants are normally contacted within 1 business day.</p>
 
       <div id="errorBox"></div>
 
-      <div class="section-label">Business details</div>
-      <div class="field"><label>Business name <span class="req">*</span></label><input type="text" id="fBusiness" placeholder="e.g. Coburg Decks Pty Ltd" /></div>
-      <div class="row2">
-        <div class="field"><label>ABN <span class="req">*</span></label><input type="text" id="fAbn" placeholder="11 digits" onblur="verifyAbnWithAbr()" /></div>
-        <div class="field"><label>ACN <span class="req">*</span></label><input type="text" id="fAcn" placeholder="9 digits" /></div>
-      </div>
-      <div id="abrLookupResult"></div>
-      <p style="font-size:12px;color:var(--stone);margin:-8px 0 14px;">MySubbies currently only registers contractors operating through a company (Pty Ltd) — your ACN confirms this. Sole trader ABNs can't be accepted at this time.</p>
+      <div class="section-label">Your details</div>
       <div class="row2">
         <div class="field"><label>Contact name <span class="req">*</span></label><input type="text" id="fContact" placeholder="Your name" /></div>
+        <div class="field"><label>Mobile <span class="req">*</span></label><input type="tel" id="fPhone" placeholder="04xx xxx xxx" /></div>
       </div>
+      <div class="field"><label>Email <span class="req">*</span></label><input type="email" id="fEmail" placeholder="you@example.com" /></div>
+
+      <div class="section-label">Business details</div>
+      <div class="field">
+        <label>Business structure <span class="req">*</span></label>
+        <select id="fBusinessStructure" onchange="toggleAcnField()">
+          <option value="sole_trader">Sole trader</option>
+          <option value="partnership">Partnership</option>
+          <option value="company">Company</option>
+        </select>
+      </div>
+      <div class="field"><label>Trading or business name <span class="req">*</span></label><input type="text" id="fBusiness" placeholder="e.g. Coburg Decks" /></div>
       <div class="row2">
-        <div class="field"><label>Phone <span class="req">*</span></label><input type="tel" id="fPhone" placeholder="04xx xxx xxx" /></div>
-        <div class="field"><label>Email <span class="req">*</span></label><input type="email" id="fEmail" placeholder="you@example.com" /></div>
+        <div class="field"><label>ABN <span class="req">*</span></label><input type="text" id="fAbn" placeholder="11 digits" onblur="verifyAbnWithAbr()" /></div>
+        <div class="field" id="acnFieldWrap" style="display:none;"><label>ACN <span class="req">*</span></label><input type="text" id="fAcn" placeholder="9 digits" /></div>
       </div>
-      <div class="field"><label>Password <span class="req">*</span></label><input type="password" id="fPassword" placeholder="Choose a password" /></div>
+      <div id="abrLookupResult"></div>
 
       <div class="section-label">Trade categories</div>
       <label>Which categories do you work in? <span class="req">*</span></label>
@@ -255,45 +361,59 @@
       <div class="field-note">Pick one or more regions — much faster than listing every postcode. Leave blank to be considered for all Melbourne metro areas.</div>
       <div class="field" style="margin-top:10px;"><label>Specific suburbs or postcodes <span class="opt">(optional — narrows it down further)</span></label><input type="text" id="fSuburbs" placeholder="e.g. Brunswick, Coburg, 3056, 3058" /></div>
 
-      <div class="section-label">Licensing & insurance</div>
+      <div class="section-label">Experience & availability</div>
       <div class="row2">
-        <div class="field"><label>Licence number <span class="opt">(if applicable)</span></label><input type="text" id="fLicence" placeholder="e.g. electrical/plumbing licence" /></div>
-        <div class="field"><label>Public liability insurer</label><input type="text" id="fInsurer" placeholder="Insurer name" /></div>
+        <div class="field"><label>Years of experience <span class="req">*</span></label>
+          <select id="fExperience"><option value="under1">Under 1 year</option><option value="1to3">1–3 years</option><option value="3to10">3–10 years</option><option value="10plus">10+ years</option></select>
+        </div>
+        <div class="field"><label>Preferred job size <span class="req">*</span></label>
+          <select id="fJobSize"><option value="small">Small (under $2,000)</option><option value="medium">Medium ($2,000–$10,000)</option><option value="large">Large ($10,000+)</option><option value="no_preference">No preference</option></select>
+        </div>
+      </div>
+      <label>Availability <span class="req">*</span></label>
+      <div class="chiprow" id="availabilityChips"></div>
+      <div class="field"><label>Available for urgent jobs? <span class="req">*</span></label>
+        <select id="fUrgentJobs"><option value="">Select…</option><option value="yes">Yes</option><option value="no">No</option></select>
       </div>
 
-      <div class="section-label">Documents</div>
-      <p class="field-note" style="margin-top:-8px;margin-bottom:14px;">Photos or scans are fine \u2014 PDF, JPG or PNG. We review these before approving your application.</p>
-
-      <label>Insurance certificate <span class="opt">(e.g. public liability, workers comp)</span></label>
-      <input type="file" id="fInsuranceInput" accept="image/*,application/pdf" multiple style="display:none;" onchange="onDocSelected(event, 'insurance')" />
-      <button type="button" class="btn btn-outline" onclick="document.getElementById('fInsuranceInput').click()" style="margin-bottom:8px;">📄 Upload insurance certificate</button>
-      <div class="doc-list" id="insuranceDocList"></div>
-
-      <div style="height:14px;"></div>
-      <label>Trade certificate / licence document <span class="opt">(optional)</span></label>
-      <input type="file" id="fCertInput" accept="image/*,application/pdf" multiple style="display:none;" onchange="onDocSelected(event, 'cert')" />
-      <button type="button" class="btn btn-outline" onclick="document.getElementById('fCertInput').click()" style="margin-bottom:8px;">📄 Upload trade certificate</button>
-      <div class="doc-list" id="certDocList"></div>
-
-      <div style="height:14px;"></div>
-      <label>Profile photo <span class="opt">(optional \u2014 shown to customers once approved)</span></label>
-      <input type="file" id="fPhotoInput" accept="image/*" style="display:none;" onchange="onProfilePhotoSelected(event)" />
-      <input type="file" id="fPhotoCameraInput" accept="image/*" capture="user" style="display:none;" onchange="onProfilePhotoSelected(event)" />
-      <div id="profilePhotoWrap" style="display:flex;gap:8px;">
-        <button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoCameraInput').click()">📷 Take a photo</button>
-        <button type="button" class="btn btn-outline" onclick="document.getElementById('fPhotoInput').click()">🖼️ Choose from gallery</button>
+      <div class="section-label">Licensing & insurance</div>
+      <div class="field"><label>Required licence held for your trade? <span class="req">*</span></label>
+        <select id="fLicenceHeld"><option value="">Select…</option><option value="yes">Yes</option><option value="no">No</option><option value="not_applicable">Not applicable</option></select>
       </div>
+      <div class="field"><label>Public liability insurance held? <span class="req">*</span></label>
+        <select id="fInsuranceHeld"><option value="">Select…</option><option value="yes">Yes</option><option value="no">No</option></select>
+      </div>
+      <div class="field-note">You'll upload the actual documents in a quick verification step right after this application.</div>
+
+      <div class="section-label">Project photos</div>
+      <label>Up to three optional project photos <span class="opt">(examples of your past work)</span></label>
+      <input type="file" id="fProjectPhotoInput" accept="image/*" multiple style="display:none;" onchange="onProjectPhotoSelected(event)" />
+      <div id="projectPhotosWrap"><button type="button" class="btn btn-outline" onclick="document.getElementById('fProjectPhotoInput').click()">📷 Add a photo (0/3)</button></div>
 
       <div class="section-label">Referral</div>
       <div class="field"><label>Referral code <span class="opt">(optional — from another contractor)</span></label><input type="text" id="fContractorReferral" placeholder="e.g. DECK4821" /></div>
 
       <label class="terms" style="margin-top:24px;"><input type="checkbox" id="fTerms" /> I confirm that I am authorised to bind the contractor business identified above. I have read, understood and agree to the MySubbies <a href="mysubbies-contractor-agreement.html" target="_blank" style="text-decoration:underline;">Contractor Portal Terms &amp; Conditions</a> and <a href="mysubbies-privacy-policy.html" target="_blank" style="text-decoration:underline;">Privacy Policy</a>, and each Job Offer I accept.</label>
 
-      <button class="btn btn-black" onclick="submitApplication()">Submit application →</button>
+      <button class="btn btn-black" onclick="submitApplication()">Join the Founding 100 →</button>
+      <div class="below-btn-note">Free application • No obligation to accept jobs</div>
       <div class="toggle-mode">Already applied? <a href="mysubbies-contractor-portal.html">Log in</a></div>
+
+      <div class="faq">
+        <h2>Frequently asked questions</h2>
+        <details class="faq-item"><summary>Do I have to be a company?</summary><p>No. Sole traders, partnerships and companies can all apply — an ACN is only needed if you operate as a company. Your ABN is required either way.</p></details>
+        <details class="faq-item"><summary>Do I have to accept every job?</summary><p>No. You can accept or decline every job you're offered — there's no minimum job commitment.</p></details>
+        <details class="faq-item"><summary>Does MySubbies sell shared leads?</summary><p>No. Jobs are offered one at a time, to one suitable contractor at a time — never sold as a shared lead to multiple contractors to quote against.</p></details>
+        <details class="faq-item"><summary>How are contractor payouts determined?</summary><p>The payout for a job is shown to you before you decide whether to accept it, based on the job's scope and MySubbies' rate card.</p></details>
+        <details class="faq-item"><summary>When do I upload my licence and insurance?</summary><p>Right after this application, in a short second step — or you can skip it for now and upload from your contractor portal once you're approved.</p></details>
+        <details class="faq-item"><summary>Which Melbourne areas can I cover?</summary><p>Pick one or more broad regions, or add specific suburbs and postcodes — you can update this any time from your contractor portal.</p></details>
+        <details class="faq-item"><summary>Can I change my availability later?</summary><p>Yes, your availability, service areas and trade categories can all be updated later from your contractor portal.</p></details>
+      </div>
     `;
     renderTradeChips();
     renderRegionChips();
+    renderAvailabilityChips();
+    renderProjectPhotos();
   }
 
   function renderRegionChips() {
@@ -308,6 +428,23 @@
         if (selectedRegions.includes(region)) selectedRegions = selectedRegions.filter(r => r !== region);
         else selectedRegions.push(region);
         renderRegionChips();
+      };
+      row.appendChild(btn);
+    });
+  }
+
+  function renderAvailabilityChips() {
+    const row = document.getElementById('availabilityChips');
+    row.innerHTML = '';
+    AVAILABILITY_OPTIONS.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip' + (selectedAvailability.includes(opt) ? ' selected' : '');
+      btn.textContent = opt;
+      btn.onclick = () => {
+        if (selectedAvailability.includes(opt)) selectedAvailability = selectedAvailability.filter(a => a !== opt);
+        else selectedAvailability.push(opt);
+        renderAvailabilityChips();
       };
       row.appendChild(btn);
     });
@@ -333,6 +470,7 @@
 
   function showError(msg) {
     document.getElementById('errorBox').innerHTML = `<div class="error">⚠ ${msg}</div>`;
+    document.getElementById('errorBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function highlightMissingFields(ids) {
@@ -368,8 +506,9 @@
     return checkDigit === nums[8];
   }
   // A company's ABN is derived from its ACN — the last 9 digits of a
-  // company ABN equal its ACN. Sole traders have no ACN, so they can't pass
-  // this. This confirms company registration without needing the ABR API.
+  // company ABN equal its ACN. Only checked when business structure is
+  // Company — sole traders/partnerships have no ACN and this never runs
+  // for them.
   function abnMatchesAcn(abn, acn) {
     return String(abn).replace(/\s/g, '').slice(2) === String(acn).replace(/\s/g, '');
   }
@@ -403,13 +542,11 @@
         return;
       }
       const isActive = data.AbnStatus === 'Active';
-      const looksLikeCompany = /company/i.test(data.EntityTypeName || '');
       resultBox.innerHTML = `
         <div style="background:var(--paper);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:12.5px;">
           <div><strong>Registered as:</strong> ${escapeHtml(data.EntityName || '—')}</div>
           <div style="color:${isActive ? 'var(--good, #2F7A50)' : 'var(--warn)'};">${escapeHtml(data.AbnStatus || 'Unknown status')}</div>
           <div style="color:var(--stone);">${escapeHtml(data.EntityTypeName || '')}</div>
-          ${!looksLikeCompany ? `<div style="color:var(--warn);margin-top:4px;">This doesn't look like a company entity type — MySubbies only registers company-structured contractors.</div>` : ''}
         </div>
       `;
     };
@@ -423,29 +560,46 @@
     document.body.appendChild(script);
   }
 
+  // Step 1 — short application. No password (deferred to portal
+  // activation — see mysubbies-contractor-portal.html's doLogin()) and no
+  // document upload requirement (moved to step 2 below). Writes the
+  // contractors row via api/sync-applications.js's upsert, since there's no
+  // authenticated Supabase session at this point to satisfy the old
+  // insert's RLS policy.
   async function submitApplication() {
-    const business = document.getElementById('fBusiness').value.trim();
-    const abn = document.getElementById('fAbn').value.trim();
-    const acn = document.getElementById('fAcn').value.trim();
     const contact = document.getElementById('fContact').value.trim();
     const phone = document.getElementById('fPhone').value.trim();
     const email = document.getElementById('fEmail').value.trim().toLowerCase();
-    const password = document.getElementById('fPassword').value;
+    const businessStructure = document.getElementById('fBusinessStructure').value;
+    const business = document.getElementById('fBusiness').value.trim();
+    const abn = document.getElementById('fAbn').value.trim();
+    const acn = businessStructure === 'company' ? document.getElementById('fAcn').value.trim() : '';
     const suburbs = document.getElementById('fSuburbs').value.trim();
-    const licence = document.getElementById('fLicence').value.trim();
-    const insurer = document.getElementById('fInsurer').value.trim();
+    const experience = document.getElementById('fExperience').value;
+    const jobSize = document.getElementById('fJobSize').value;
+    const urgentJobs = document.getElementById('fUrgentJobs').value;
+    const licenceHeld = document.getElementById('fLicenceHeld').value;
+    const insuranceHeld = document.getElementById('fInsuranceHeld').value;
     const terms = document.getElementById('fTerms').checked;
 
-    if (!business || !abn || !acn || !contact || !phone || !email || !password) {
+    const requiredIds = ['fContact', 'fPhone', 'fEmail', 'fBusiness', 'fAbn'];
+    if (businessStructure === 'company') requiredIds.push('fAcn');
+    if (!contact || !phone || !email || !business || !abn || (businessStructure === 'company' && !acn)) {
       showError('Please fill in the highlighted fields.');
-      highlightMissingFields(['fBusiness', 'fAbn', 'fAcn', 'fContact', 'fPhone', 'fEmail', 'fPassword']);
+      highlightMissingFields(requiredIds);
       return;
     }
     if (!isValidAbnFormat(abn)) { showError('That ABN doesn\'t look valid — double-check the 11 digits.'); return; }
-    if (!isValidAcnFormat(acn)) { showError('That ACN doesn\'t look valid — double-check the 9 digits.'); return; }
-    if (!abnMatchesAcn(abn, acn)) { showError('That ABN and ACN don\'t match a registered company. MySubbies only registers company (Pty Ltd) contractors — sole trader ABNs aren\'t eligible.'); return; }
+    if (businessStructure === 'company') {
+      if (!isValidAcnFormat(acn)) { showError('That ACN doesn\'t look valid — double-check the 9 digits.'); return; }
+      if (!abnMatchesAcn(abn, acn)) { showError('That ABN and ACN don\'t match a registered company — double-check both.'); return; }
+    }
     if (selectedTrades.length === 0) { showError('Select at least one trade category.'); document.getElementById('tradeChips').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
-    if (!terms) { showError('Please accept the Contractor Agreement to continue.'); return; }
+    if (selectedAvailability.length === 0) { showError('Select your availability.'); document.getElementById('availabilityChips').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+    if (!urgentJobs) { showError('Let us know if you\'re available for urgent jobs.'); return; }
+    if (!licenceHeld) { showError('Let us know whether you hold the required licence for your trade.'); return; }
+    if (!insuranceHeld) { showError('Let us know whether you hold public liability insurance.'); return; }
+    if (!terms) { showError('Please accept the Contractor Portal Terms & Conditions to continue.'); return; }
 
     const referralInput = document.getElementById('fContractorReferral') ? document.getElementById('fContractorReferral').value.trim().toUpperCase() : '';
 
@@ -456,41 +610,30 @@
     const submitBtnLabel = submitBtn ? submitBtn.textContent : '';
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
 
-    // Computed before the Supabase insert below (used to be after it) so the
-    // real referral_code/referred_by columns get populated at signup time
-    // instead of only reaching Supabase later via the full_application jsonb
-    // mirror -- see schema_v9_contractor_referrals.sql.
     const referralCode = (business.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'TRDE') + Math.floor(1000 + Math.random() * 9000);
     const referredBy = apps.some(a => a.referralCode === referralInput) ? referralInput : null;
 
-    // Real account + backend profile row, same pattern as customer signup.
-    // Approval status (pending/approved/rejected) below is still driven by
-    // the existing localStorage application record — admin approval hasn't
-    // been migrated to the contractors table yet, so this only upgrades
-    // the password/account layer without changing that workflow.
-    if (sb) {
-      const { error: authError } = await sb.auth.signUp({ email, password });
-      if (authError) { showError(authError.message); if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = submitBtnLabel; } return; }
-      const { data: { user } } = await sb.auth.getUser();
-      if (user) {
-        await sb.from('contractors').insert({
-          auth_user_id: user.id, email, business_name: business, abn, acn, phone,
-          categories: selectedTrades, referral_code: referralCode, referred_by: referredBy,
-        });
-      }
-    }
-
     const application = {
-      id: 'app_' + Date.now(), business, abn, acn, contact, phone, email, password,
+      id: 'app_' + Date.now(), business, businessStructure, abn, acn: acn || null, contact, phone, email,
       trades: selectedTrades, otherTrade: otherTradeText.trim() || null,
       regions: selectedRegions,
       suburbs: [...selectedRegions, ...(suburbs ? suburbs.split(',').map(s => s.trim()).filter(Boolean) : [])],
-      licence, insurer, insuranceDocs, certDocs, profilePhoto, referralCode, referredBy,
+      experience, jobSize, availability: selectedAvailability, urgentJobs: urgentJobs === 'yes',
+      licenceHeld, insuranceHeld: insuranceHeld === 'yes',
+      insuranceDocs: [], certDocs: [], projectPhotos,
+      referralCode, referredBy,
       status: 'pending', appliedAt: new Date().toISOString(),
-      agreementVersion: 'contractor-agreement-2026-08-draft', agreementAcceptedAt: new Date().toISOString(),
+      agreementVersion: 'contractor-agreement-2026-09', agreementAcceptedAt: new Date().toISOString(),
     };
-    apps.unshift(application);
-    saveApplications(apps);
+
+    try {
+      apps.unshift(application);
+      await saveApplications(apps);
+    } catch (e) {
+      showError('Could not submit your application — check your connection and try again.');
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = submitBtnLabel; }
+      return;
+    }
 
     // Admin had no way to learn a new application arrived except opening
     // the Applications tab and checking themselves (founder report, Aug
@@ -500,12 +643,59 @@
       body: JSON.stringify({ type: 'contractor-application-submitted', business, contact, email, phone, trades: selectedTrades }),
     }).catch(() => {});
 
+    submittedApplication = application;
+    currentStep = 'verify';
+    render();
+  }
+
+  // Step 2 — verification documents, shown immediately after step 1
+  // succeeds (same page, same session -- no separate login/navigation).
+  // Skippable: an applicant can finish later from their approved
+  // contractor portal, so nothing here blocks the ~3-minute step 1 time.
+  function renderVerifyStep() {
+    app.innerHTML = `
+      <h1 class="pagetitle">Verify your business</h1>
+      <div class="verify-intro">Thanks, ${escapeHtml(submittedApplication.contact)} — your application for <strong>${escapeHtml(submittedApplication.business)}</strong> is in. Upload your documents now to speed up review, or skip and add them later from your contractor portal.</div>
+
+      <label>Insurance certificate <span class="opt">(e.g. public liability, workers comp)</span></label>
+      <input type="file" id="fInsuranceInput" accept="image/*,application/pdf" multiple style="display:none;" onchange="onDocSelected(event, 'insurance')" />
+      <button type="button" class="btn btn-outline" onclick="document.getElementById('fInsuranceInput').click()" style="margin-bottom:8px;">📄 Upload insurance certificate</button>
+      <div class="doc-list" id="insuranceDocList"></div>
+
+      <div style="height:14px;"></div>
+      <label>Trade certificate / licence document</label>
+      <input type="file" id="fCertInput" accept="image/*,application/pdf" multiple style="display:none;" onchange="onDocSelected(event, 'cert')" />
+      <button type="button" class="btn btn-outline" onclick="document.getElementById('fCertInput').click()" style="margin-bottom:8px;">📄 Upload trade certificate</button>
+      <div class="doc-list" id="certDocList"></div>
+
+      <button class="btn btn-black" style="margin-top:24px;" onclick="submitVerificationDocs()">Continue →</button>
+      <button class="btn btn-ghost" onclick="skipVerificationDocs()">Skip for now — I'll upload later</button>
+    `;
+    renderDocList('insurance');
+    renderDocList('cert');
+  }
+
+  async function submitVerificationDocs() {
+    const apps = getApplications();
+    const app_ = apps.find(a => a.id === submittedApplication.id);
+    if (app_) { app_.insuranceDocs = insuranceDocs; app_.certDocs = certDocs; }
+    try { await saveApplications(apps); } catch (e) { /* non-critical -- application itself is already recorded */ }
+    currentStep = 'confirm';
+    render();
+  }
+
+  function skipVerificationDocs() {
+    currentStep = 'confirm';
+    render();
+  }
+
+  function renderConfirmStep() {
     app.innerHTML = `
       <div class="confirm">
         <div class="tick">✓</div>
         <h1>Application received</h1>
-        <p>Thanks, ${escapeHtml(contact)} — we've received your application for <strong>${escapeHtml(business)}</strong>.</p>
-        <p>We review every application before granting portal access. You'll be able to log in once approved.</p>
+        <p>Thanks, ${escapeHtml(submittedApplication.contact)} — we've received your application for <strong>${escapeHtml(submittedApplication.business)}</strong>.</p>
+        <p>We review every application before granting portal access. You'll set your password and be able to log in once approved.</p>
         <a class="btn btn-black" href="mysubbies-website.html" style="max-width:280px;margin:20px auto 0;">Back to site</a>
       </div>`;
   }
