@@ -287,11 +287,6 @@
   .fs-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:200; align-items:center; justify-content:center; padding:20px; }
   .fs-modal-overlay.show { display:flex; }
 
-  /* Welcome splash — a brief brand interstitial shown once per browser
-     session before the homepage. No gate, one tap through. Background
-     photo (images/welcome-hero.jpg, Unsplash License, free for commercial
-     use) with a dark gradient for text legibility — same pattern works at
-     any viewport width without a separate mobile layout. */
   .install-banner { position:fixed; left:0; right:0; bottom:0; z-index:80; background:#111; color:#fff; align-items:center; justify-content:space-between; gap:14px; padding:12px 16px; box-shadow:0 -4px 16px rgba(0,0,0,0.18); }
   .install-banner-text { font-size:12.5px; line-height:1.4; color:rgba(255,255,255,0.8); }
   .install-banner-text strong { display:block; font-size:13.5px; color:#fff; margin-bottom:2px; }
@@ -326,12 +321,7 @@
     .install-banner { bottom: 64px; }
   }
 
-  .welcome-splash { position:fixed; inset:0; z-index:500; overflow-y:auto; transition:opacity .35s ease, visibility .35s ease; }
-  .welcome-splash.hide { opacity:0; visibility:hidden; pointer-events:none; }
-
-  /* Sub-category gallery (Aug 2026) -- same full-screen-takeover pattern as
-     .welcome-splash above, one z-index below it (the two never show at
-     once in practice, but this keeps the splash on top if they ever did). */
+  /* Sub-category gallery (Aug 2026) -- full-screen-takeover overlay. */
   .subcat-overlay { position:fixed; inset:0; z-index:450; background:var(--paper); overflow-y:auto; transition:opacity .25s ease, visibility .25s ease; }
   .subcat-overlay.hide { opacity:0; visibility:hidden; pointer-events:none; }
   .subcat-header { position:sticky; top:0; background:#fff; border-bottom:1px solid var(--line); padding:16px 24px; z-index:2; }
@@ -347,25 +337,6 @@
     .subcat-inner { padding:22px 18px 50px; }
     .subcat-titleblock h2 { font-size:21px; }
   }
-  /* The source photo has empty wall on its left third and the people
-     grouped in the right two-thirds — bias the crop rightward so the
-     people land centered in the viewport instead of the wall. */
-  .welcome-bg { position:absolute; inset:0; background:var(--black) url('images/welcome-hero.jpg') 72% center/cover no-repeat; }
-  .welcome-bg::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.85) 100%); }
-  .welcome-content { position:relative; z-index:1; min-height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:48px 24px; }
-  .welcome-content .logo-word { font-weight:800; font-size:26px; color:#fff; letter-spacing:-0.01em; margin-bottom:12px; }
-  .welcome-content h2 { color:#fff; font-size:clamp(26px,5vw,38px); line-height:1.1; max-width:520px; margin-bottom:12px; }
-  .welcome-content .tagline { color:rgba(255,255,255,0.78); font-size:15px; max-width:420px; line-height:1.55; margin-bottom:28px; }
-  .welcome-steps { display:flex; flex-direction:column; gap:12px; max-width:400px; width:100%; margin-bottom:30px; text-align:left; }
-  .welcome-step { display:flex; align-items:center; gap:12px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.14); border-radius:12px; padding:12px 14px; }
-  .welcome-step .num { flex-shrink:0; width:26px; height:26px; border-radius:50%; background:#fff; color:var(--black); font-size:12.5px; font-weight:800; display:flex; align-items:center; justify-content:center; }
-  .welcome-step span.txt { color:#fff; font-size:13px; line-height:1.4; }
-  .welcome-content .btn { padding:14px 34px; font-size:15px; }
-  .welcome-actions { display:flex; flex-direction:column; gap:12px; align-items:center; flex-wrap:wrap; justify-content:center; }
-  .welcome-actions .btn { width:100%; }
-  @media (min-width:480px) { .welcome-actions { flex-direction:row; } .welcome-actions .btn { width:auto; min-width:230px; } }
-  .welcome-enter-now { margin-top:14px; padding:10px 26px; font-size:13.5px; }
-  @media (max-width:480px) { .welcome-content { padding:36px 20px; } }
   .fs-modal { background:#fff; border-radius:20px; padding:28px; max-width:480px; width:100%; max-height:88vh; overflow-y:auto; }
   .fs-modal-close { float:right; background:none; border:none; font-size:20px; cursor:pointer; color:var(--stone); line-height:1; }
   .fs-modal h3 { font-size:20px; margin-bottom:6px; }
@@ -412,7 +383,7 @@
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior:auto; }
     .reveal { opacity:1; transform:none; transition:none; }
-    .welcome-splash, .catcard, .btn, .fs-cta, .prot-card { transition:none !important; }
+    .catcard, .btn, .fs-cta, .prot-card { transition:none !important; }
   }
   a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
     outline: 2.5px solid var(--black); outline-offset: 2px; border-radius: 4px;
@@ -771,21 +742,6 @@
   }
 </script>
 
-<div class="welcome-splash" id="welcomeSplash">
-  <div class="welcome-bg"></div>
-  <div class="welcome-content">
-    
-    <div class="logo-word">MySubbies</div>
-    <h2 style="font-size:clamp(24px,4.4vw,32px);">Welcome to MySubbies</h2>
-    <div class="tagline">Your personal tradie, book now and Get an instant quote.</div>
-    <div class="welcome-actions">
-      <button class="btn btn-white" onclick="dismissWelcomeSplash('browse')">Find a service</button>
-      <button class="btn btn-white" onclick="dismissWelcomeSplash('quote')">Get an instant quote</button>
-    </div>
-    <button class="btn btn-ghost-onblack welcome-enter-now" onclick="dismissWelcomeSplash(null)">Enter now</button>
-  </div>
-</div>
-
 <!-- Sub-category gallery (Aug 2026) -- clicking a category used to jump
      straight into the text-search step of the estimator. This opens a
      dedicated full-screen gallery of that category's real sub-services
@@ -807,30 +763,6 @@
     <div class="catgrid-all" id="subCatGrid"></div>
   </div>
 </div>
-<script>
-  // Runs immediately (before the rest of the page renders) so a returning
-  // visitor within the same browser session doesn't see the splash flash
-  // before disappearing. No auto-continue — the visitor picks "Find a
-  // service", "Get an instant quote", or the neutral "Enter now" (no
-  // destination, just closes the splash) before it goes away.
-  if (sessionStorage.getItem('mysubbies_welcome_seen') === 'true') {
-    document.getElementById('welcomeSplash').classList.add('hide');
-  }
-  function dismissWelcomeSplash(destination) {
-    sessionStorage.setItem('mysubbies_welcome_seen', 'true');
-    document.getElementById('welcomeSplash').classList.add('hide');
-    setTimeout(() => {
-      if (destination === 'quote') {
-        const el = document.getElementById('estimate');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else if (destination === 'browse') {
-        const el = document.getElementById('categories');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 350);
-  }
-</script>
-
 <header>
   <div class="navwrap">
     <a class="logo" href="#top">
