@@ -87,7 +87,20 @@
 <script>
   function getJobs() { return JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]'); }
   function saveJobs(jobs) {
-    localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs));
+    // Sep 2026 (founder report): a customer's accumulated job history
+    // (each job can carry a photo) can push this array past the browser's
+    // localStorage quota -- this threw uncaught here, which meant
+    // createJob() aborted BEFORE reaching the Supabase sync below, leaving
+    // a customer who had just been charged via Stripe with a raw "The
+    // quota has been exceeded" browser error and no job record anywhere,
+    // local or server. Same fix as saveRateCard() in
+    // mysubbies-admin-portal.html: a local caching failure must never
+    // block the real server record.
+    try {
+      localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs));
+    } catch (e) {
+      console.error('localStorage quota exceeded saving jobs:', e);
+    }
     // Fire-and-forget mirror to Supabase so this job is visible from any
     // device, not just this browser — see api/sync-jobs.js. Every page's
     // saveJobs() does this, so every mutation (not just creation) stays in
@@ -95,7 +108,13 @@
     fetch('/api/sync-jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs }) }).catch(() => {});
   }
   function getCustomers() { return JSON.parse(localStorage.getItem('mysubbies_customers') || '{}'); }
-  function saveCustomers(c) { localStorage.setItem('mysubbies_customers', JSON.stringify(c)); }
+  // Same quota-must-never-block-the-flow reasoning as saveJobs() above --
+  // localStorage's quota is per-origin, not per-key, so a photo-heavy
+  // mysubbies_jobs entry can leave no headroom for this unrelated write.
+  function saveCustomers(c) {
+    try { localStorage.setItem('mysubbies_customers', JSON.stringify(c)); }
+    catch (e) { console.error('localStorage quota exceeded saving customers:', e); }
+  }
   function getPendingQuote() { return JSON.parse(localStorage.getItem('mysubbies_pending_quote') || 'null'); }
 
   const quote = getPendingQuote();

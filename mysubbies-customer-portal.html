@@ -339,7 +339,14 @@
 <script>
   function getJobs() { return JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]'); }
   function saveJobs(jobs) {
-    localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs));
+    // Sep 2026: a local caching failure (localStorage quota exceeded --
+    // photos are the main size driver) must never block the real Supabase
+    // sync below. Same fix as saveRateCard() in mysubbies-admin-portal.html.
+    try {
+      localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs));
+    } catch (e) {
+      console.error('localStorage quota exceeded saving jobs:', e);
+    }
     fetch('/api/sync-jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs }) }).catch(() => {});
   }
   // Runs once before the first render: pulls this customer's jobs from
@@ -383,7 +390,14 @@
   }
 
   function getCustomers() { return JSON.parse(localStorage.getItem('mysubbies_customers') || '{}'); }
-  function saveCustomers(customers) { localStorage.setItem('mysubbies_customers', JSON.stringify(customers)); }
+  // Same quota-must-never-block-the-flow reasoning as saveJobs() elsewhere
+  // in this file -- localStorage's quota is per-origin, not per-key, so a
+  // photo-heavy mysubbies_jobs entry can leave no headroom for this
+  // unrelated write.
+  function saveCustomers(customers) {
+    try { localStorage.setItem('mysubbies_customers', JSON.stringify(customers)); }
+    catch (e) { console.error('localStorage quota exceeded saving customers:', e); }
+  }
   function getCurrentCustomerEmail() { return localStorage.getItem('mysubbies_customer_email'); }
 
   // Same publishable/safe-to-expose Supabase key as booking.html and the

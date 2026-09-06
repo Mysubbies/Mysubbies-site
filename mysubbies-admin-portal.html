@@ -293,7 +293,14 @@
 
   function getJobs() { return JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]'); }
   function saveJobs(jobs) {
-    localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs));
+    // Sep 2026: a local caching failure (localStorage quota exceeded --
+    // photos are the main size driver) must never block the real Supabase
+    // sync below. Same fix as saveRateCard() elsewhere in this file.
+    try {
+      localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs));
+    } catch (e) {
+      console.error('localStorage quota exceeded saving jobs:', e);
+    }
     fetch('/api/sync-jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs }) }).catch(() => {});
   }
   // Pulls every job from Supabase (admin sees everything) and merges into
