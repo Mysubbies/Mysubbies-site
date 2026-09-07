@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'mysubbies-v4';
+const CACHE_VERSION = 'mysubbies-v5';
 const PRECACHE_URLS = [
   '/',
   '/mysubbies-website.html',
@@ -49,7 +49,7 @@ self.addEventListener('fetch', event => {
   if (new URL(req.url).origin !== self.location.origin) return;
 
   event.respondWith(
-    fetch(req)
+    fetch(req, { cache: 'no-store' })
       .then(res => {
         const resClone = res.clone();
         caches.open(CACHE_VERSION).then(cache => cache.put(req, resClone));
