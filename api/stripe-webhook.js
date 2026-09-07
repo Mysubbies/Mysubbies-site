@@ -180,12 +180,12 @@ module.exports = async (req, res) => {
                   { label: 'Deposit paid', value: `<strong>$${(intent.amount / 100).toLocaleString()}</strong>` },
                 ])}
                 <p>We'll email you again once a contractor accepts. You can track everything, message your contractor, and see payment stages any time in My Jobs.</p>
-                ${emailButton('Open My Jobs →', 'https://mysubbies-site.vercel.app/mysubbies-customer-portal.html')}
+                ${emailButton('Open My Jobs →', 'https://app.mysubbies.com.au/mysubbies-customer-portal.html')}
               ` : `
                 <h2 style="margin-top:0;">Payment received</h2>
                 <p>Your <strong>${escapeHtml(stage)}</strong> stage payment for <strong>${escapeHtml(record.category)}</strong> in <strong>${escapeHtml(record.suburb)}</strong> has gone through — $${(intent.amount / 100).toLocaleString()}.</p>
                 <p>Track progress any time in My Jobs.</p>
-                ${emailButton('Open My Jobs →', 'https://mysubbies-site.vercel.app/mysubbies-customer-portal.html')}
+                ${emailButton('Open My Jobs →', 'https://app.mysubbies.com.au/mysubbies-customer-portal.html')}
               `),
             });
           }
@@ -224,7 +224,7 @@ module.exports = async (req, res) => {
                     const creditEmailHtml = (intro) => wrapEmail(`
                       <h2 style="margin-top:0;">You've earned a $50 credit!</h2>
                       <p>${intro} It's automatically applied to your next booking's deposit — nothing to do but book.</p>
-                      ${emailButton('Book your next job →', 'https://mysubbies-site.vercel.app/mysubbies-website.html#estimate')}
+                      ${emailButton('Book your next job →', 'https://app.mysubbies.com.au/mysubbies-website.html#estimate')}
                     `);
                     await Promise.allSettled([
                       sendEmail({ to: referrerEmail, subject: "You've earned a $50 MySubbies credit", html: creditEmailHtml('Your referral just booked their first job.') }),

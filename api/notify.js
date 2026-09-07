@@ -129,7 +129,7 @@ module.exports = async (req, res) => {
             { label: 'Contractor', value: contractorName ? escapeHtml(contractorName) : '' },
           ])}
           <p>You can message them directly and track progress any time in My Jobs.</p>
-          ${emailButton('Open My Jobs →', 'https://mysubbies-site.vercel.app/mysubbies-customer-portal.html')}
+          ${emailButton('Open My Jobs →', 'https://app.mysubbies.com.au/mysubbies-customer-portal.html')}
         `),
       });
       await writeNotification({
@@ -149,7 +149,7 @@ module.exports = async (req, res) => {
         subject: `Action needed — approve the ${stageLabel} stage for your ${category} job`,
         html: wrapEmail(`
           <h2 style="margin-top:0;">Your contractor is ready for the next stage</h2>
-          <p>Your contractor has marked the <strong>${stageLabel}</strong> stage ready on your <strong>${category}</strong> job. Review and approve the payment in <a href="https://mysubbies-site.vercel.app/mysubbies-customer-portal.html">My Jobs</a> to keep things moving.</p>
+          <p>Your contractor has marked the <strong>${stageLabel}</strong> stage ready on your <strong>${category}</strong> job. Review and approve the payment in <a href="https://app.mysubbies.com.au/mysubbies-customer-portal.html">My Jobs</a> to keep things moving.</p>
           <p>Nothing is charged until you approve it there.</p>
         `),
       });
@@ -196,7 +196,7 @@ module.exports = async (req, res) => {
           { label: 'Site notes', value: site ? escapeHtml(site) : '' },
         ])}
         <p style="font-size:12px;color:#6B7280;">Full address is shown once you accept.</p>
-        ${emailButton('Open Job Feed →', 'https://mysubbies-site.vercel.app/mysubbies-contractor-portal.html')}
+        ${emailButton('Open Job Feed →', 'https://app.mysubbies.com.au/mysubbies-contractor-portal.html')}
       `;
       await Promise.all(matches.map(a => sendEmail({
         to: a.email,
@@ -229,8 +229,8 @@ module.exports = async (req, res) => {
       const { toEmail, toRole, fromName, category, jobNumber, jobId, text } = req.body || {};
       if (!toEmail || !toRole || !text) { res.status(400).json({ error: 'toEmail, toRole and text are required.' }); return; }
       const portalUrl = toRole === 'contractor'
-        ? 'https://mysubbies-site.vercel.app/mysubbies-contractor-portal.html'
-        : 'https://mysubbies-site.vercel.app/mysubbies-customer-portal.html';
+        ? 'https://app.mysubbies.com.au/mysubbies-contractor-portal.html'
+        : 'https://app.mysubbies.com.au/mysubbies-customer-portal.html';
       const jobLabel = jobNumber != null ? `Job #${jobNumber}` : (category || 'your job');
       const senderPlain = fromName || (toRole === 'contractor' ? 'The customer' : 'Your contractor');
       const senderLabel = escapeHtml(senderPlain);
@@ -269,7 +269,7 @@ module.exports = async (req, res) => {
             { label: 'Phone', value: phone ? escapeHtml(phone) : '' },
             { label: 'Trades', value: Array.isArray(trades) && trades.length ? escapeHtml(trades.join(', ')) : '' },
           ])}
-          ${emailButton('Review in Applications →', 'https://mysubbies-site.vercel.app/mysubbies-admin-portal.html')}
+          ${emailButton('Review in Applications →', 'https://app.mysubbies.com.au/mysubbies-admin-portal.html')}
         `),
       });
       await writeNotification({
@@ -302,7 +302,7 @@ module.exports = async (req, res) => {
             { label: 'Phone', value: phone ? escapeHtml(phone) : '' },
             { label: 'Suburb', value: suburb ? escapeHtml(suburb) : '' },
           ])}
-          ${emailButton('View in Customers →', 'https://mysubbies-site.vercel.app/mysubbies-admin-portal.html')}
+          ${emailButton('View in Customers →', 'https://app.mysubbies.com.au/mysubbies-admin-portal.html')}
         `),
       });
       await writeNotification({

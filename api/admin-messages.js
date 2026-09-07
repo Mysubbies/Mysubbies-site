@@ -106,7 +106,7 @@ module.exports = async (req, res) => {
           <p><strong>${String(contractorEmail).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))}</strong></p>
           <p style="white-space:pre-wrap;">${String(body).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))}</p>
           ${attachmentFilename ? `<p>Attachment: <strong>${String(attachmentFilename).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))}</strong> — view it in the admin portal.</p>` : ''}
-          <p><a href="https://mysubbies-site.vercel.app/mysubbies-admin-portal.html">Open Admin Portal →</a></p>
+          <p><a href="https://app.mysubbies.com.au/mysubbies-admin-portal.html">Open Admin Portal →</a></p>
         `),
       }).catch(() => {});
 
@@ -147,7 +147,7 @@ module.exports = async (req, res) => {
           <h2 style="margin-top:0;">${subject ? subject : 'You have a new message'}</h2>
           <p style="white-space:pre-wrap;">${String(body).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))}</p>
           ${attachmentFilename ? `<p>Attachment: <strong>${attachmentFilename}</strong> — view it in your contractor portal.</p>` : ''}
-          <p><a href="https://mysubbies-site.vercel.app/mysubbies-contractor-portal.html">Open Contractor Portal →</a></p>
+          <p><a href="https://app.mysubbies.com.au/mysubbies-contractor-portal.html">Open Contractor Portal →</a></p>
         `),
       })));
 

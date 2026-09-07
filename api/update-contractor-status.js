@@ -46,7 +46,7 @@ module.exports = async (req, res) => {
           to: email,
           subject: status === 'approved' ? 'Your MySubbies application has been approved' : 'Your MySubbies application update',
           html: wrapEmail(status === 'approved'
-            ? `<h2 style="margin-top:0;">You're in!</h2><p>Your contractor application has been approved. You can now log in and start accepting jobs in your approved trade categories.</p><p><a href="https://mysubbies-site.vercel.app/mysubbies-contractor-portal.html">Log in to the Contractor Portal</a></p>`
+            ? `<h2 style="margin-top:0;">You're in!</h2><p>Your contractor application has been approved. You can now log in and start accepting jobs in your approved trade categories.</p><p><a href="https://app.mysubbies.com.au/mysubbies-contractor-portal.html">Log in to the Contractor Portal</a></p>`
             : `<h2 style="margin-top:0;">Application update</h2><p>Thanks for applying to join the MySubbies panel. After review, we're not able to approve your application at this time.</p><p>If you think this is a mistake, reply to this email and our team will take another look.</p>`),
         });
       } catch (emailErr) { console.error('application status email failed:', emailErr); }

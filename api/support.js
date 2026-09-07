@@ -22,7 +22,7 @@ const { requireAdmin } = require('./_lib/adminAuth');
 const { sendEmail, wrapEmail, escapeHtml, emailButton } = require('./_lib/email');
 
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || 'accounts@mysubbies.com.au';
-const ADMIN_URL = 'https://mysubbies-site.vercel.app/mysubbies-admin-portal.html';
+const ADMIN_URL = 'https://app.mysubbies.com.au/mysubbies-admin-portal.html';
 
 async function notifyAdmin({ eventType, title, body }) {
   const supabase = getSupabase();

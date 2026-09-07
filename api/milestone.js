@@ -106,7 +106,7 @@ module.exports = async (req, res) => {
           await sendEmail({
             to: jobRow.customer_email,
             subject: `Action needed — review the "${milestone.label}" milestone`,
-            html: wrapEmail(`<h2 style="margin-top:0;">Your contractor submitted progress</h2><p>Your contractor has submitted evidence for <strong>${milestone.label}</strong> on your ${jobRow.category} job. Review it in <a href="https://mysubbies-site.vercel.app/mysubbies-customer-portal.html">My Jobs</a> to approve and pay, or raise an issue.</p>`),
+            html: wrapEmail(`<h2 style="margin-top:0;">Your contractor submitted progress</h2><p>Your contractor has submitted evidence for <strong>${milestone.label}</strong> on your ${jobRow.category} job. Review it in <a href="https://app.mysubbies.com.au/mysubbies-customer-portal.html">My Jobs</a> to approve and pay, or raise an issue.</p>`),
           });
         } catch (e) { /* email is best-effort */ }
         // In-app notification-center row (supabase/schema_v13_notifications.sql),
