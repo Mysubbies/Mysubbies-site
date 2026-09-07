@@ -32,8 +32,24 @@
 // volume, and even less relevant once Places Autocomplete is configured
 // (most requests then arrive with coordinates already attached, skipping
 // Nominatim entirely).
+//
+// Address-matching retry (Sep 2026, real founder report: valid addresses
+// sometimes came back "couldn't find this address"). Two real causes found
+// and fixed:
+//   1. The old code always appended ", Victoria, Australia" unless the
+//      literal word "Australia" was already present -- even for an address
+//      that already named a DIFFERENT state (e.g. "...Sydney NSW"), which
+//      produced a geographically contradictory query ("...NSW, Victoria,
+//      Australia") that Nominatim can't resolve. Now only appended when no
+//      Australian state/territory is already named.
+//   2. Nominatim frequently fails to resolve a unit/suite/apartment prefix
+//      even though the underlying street address is completely real (e.g.
+//      "Unit 3/45 Smith St"). If the first lookup comes back empty, a
+//      second attempt strips that prefix and retries once before giving up.
 
 const MAX_SERVICE_KM = 200;
+
+const AU_STATE_PATTERN = /\b(vic|nsw|qld|sa|wa|tas|nt|act|victoria|new south wales|queensland|south australia|western australia|tasmania|northern territory|australian capital territory)\b/i;
 
 function toRad(deg) { return (deg * Math.PI) / 180; }
 
@@ -47,8 +63,23 @@ function haversineKm(a, b) {
   return R * 2 * Math.asin(Math.sqrt(h));
 }
 
-async function geocode(address) {
-  const q = /australia/i.test(address) ? address : `${address}, Victoria, Australia`;
+// "Unit 3/45 Smith St" / "3/45 Smith St" / "Suite 2, 10 High St" -> the
+// plain street address, since Nominatim often can't resolve the sub-unit
+// part even when the street address itself is real.
+function stripUnitPrefix(address) {
+  return address
+    .replace(/^\s*(unit|suite|apt|apartment|shop|level|flat)\s*\w*\s*[,/]\s*/i, '')
+    .replace(/^\s*\d+[a-z]?\/(?=\d)/i, '');
+}
+
+function buildQuery(address) {
+  const hasCountry = /australia/i.test(address);
+  if (hasCountry) return address;
+  const hasState = AU_STATE_PATTERN.test(address);
+  return hasState ? `${address}, Australia` : `${address}, Victoria, Australia`;
+}
+
+async function geocodeOnce(q) {
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=au&q=${encodeURIComponent(q)}`;
   const res = await fetch(url, {
     headers: { 'User-Agent': 'MySubbies-Courier-Quoting/1.0 (accounts@mysubbies.com.au)' },
@@ -57,6 +88,15 @@ async function geocode(address) {
   const results = await res.json();
   if (!Array.isArray(results) || results.length === 0) return null;
   return { lat: parseFloat(results[0].lat), lon: parseFloat(results[0].lon), displayName: results[0].display_name };
+}
+
+async function geocode(rawAddress) {
+  const address = String(rawAddress || '').trim();
+  const first = await geocodeOnce(buildQuery(address));
+  if (first) return first;
+  const stripped = stripUnitPrefix(address);
+  if (stripped === address) return null;
+  return geocodeOnce(buildQuery(stripped));
 }
 
 function isFiniteNum(n) { return typeof n === 'number' && Number.isFinite(n); }
