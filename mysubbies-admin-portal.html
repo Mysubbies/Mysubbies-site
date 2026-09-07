@@ -81,6 +81,13 @@
      real class from the start. */
   .ceo-grid { display:grid; grid-template-columns:1.3fr 1fr; gap:16px; align-items:start; }
   @media (max-width:900px) { .ceo-grid { grid-template-columns:1fr; } }
+  /* A CSS Grid item's default minimum width is its content's own minimum
+     (here, the category table's min-width:480px), not the track size --
+     without this the whole grid column (and the page) grows to fit the
+     table instead of the table's own overflow-x:auto box scrolling
+     within a properly-constrained column. Real bug found live on a
+     375px viewport. */
+  .ceo-grid > * { min-width:0; }
   /* flex-wrap added Sep 2026 -- this row (now 11 buttons with CEO Overview
      added) had no wrap/scroll handling at all, causing real page-level
      horizontal scroll on mobile viewports (found live testing the new
