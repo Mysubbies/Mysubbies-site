@@ -2974,6 +2974,11 @@
   //   Bulk (more than 5 boxes, or any box over 10kg) -- $275 metro / $400 regional
   //   Metro = 0-30km pickup<->delivery, Regional = 31-200km. Beyond 200km
   //   is out of the service area entirely (no price shown).
+  // All 4 are FLAT job prices, not per-box -- "$50 metro" already covers
+  // the whole shipment of up to 5 boxes, so the number of boxes entered
+  // only decides which of the 4 rates applies, never multiplies the price
+  // (fixed Sep 2026 after a real report that it was multiplying $50 x box
+  // count instead of charging the flat inclusive rate).
   // The matching rate card task is still looked up (from the WHOLE
   // category's task list, since Boxes and Bulk are different unit groups)
   // purely to reuse its existing display name -- its own .rate/.minJobPrice
@@ -3092,21 +3097,22 @@
         || allCourierTasks.find(t => t.name.toLowerCase().includes(zoneKeyword))
         || allCourierTasks[0];
       if (!labelTask) { resultEl.innerHTML = '<div class="est-field-error show">Could not find a matching courier rate -- please contact us.</div>'; return; }
-      // Bulk is a flat per-job price (qty always 1); small boxes are priced
-      // per box. Clone so the hardcoded rate never mutates the rate card's
-      // own stored task.
-      const qty = isBulk ? 1 : numBoxes;
+      // Flat job price, not per-box -- "$50 metro" already covers up to 5
+      // boxes at up to 10kg each (the whole point of the small/bulk split),
+      // so qty is always 1 regardless of how many boxes were entered.
+      // Clone so the hardcoded rate never mutates the rate card's own
+      // stored task.
       const task = { ...labelTask, rate, minJobPrice: null };
-      const base = Math.round(qty * rate);
+      const base = rate;
       courierBoxesResult = { task, numBoxes, weightPerBox, pickup, delivery, distanceKm: data.pickupToDeliveryKm, isBulk };
       allCourierTasks.forEach(t => { selectedTierSet.delete(t.name); qtyValues.delete(t.name); });
       selectedTierSet.set(task.name, task);
-      qtyValues.set(task.name, String(qty));
+      qtyValues.set(task.name, '1');
       resultEl.innerHTML = `
         <div class="est-primary-option selected" style="cursor:default;">
           <div class="est-primary-option-body">
             <div class="est-primary-option-name">${escapeHtml(task.name)}</div>
-            <div class="est-primary-option-notes">Pickup to delivery approx ${data.pickupToDeliveryKm}km${isBulk ? ' · Bulk delivery' : ` · $${rate}/box`}</div>
+            <div class="est-primary-option-notes">Pickup to delivery approx ${data.pickupToDeliveryKm}km${isBulk ? ' · Bulk delivery' : ' · Flat rate, up to 5 boxes'}</div>
           </div>
           <div class="est-primary-option-price">$${base.toLocaleString()}</div>
           <div class="est-primary-option-check">✓</div>
