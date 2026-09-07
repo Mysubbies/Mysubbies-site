@@ -64,6 +64,8 @@
   .action-needed-card .anc-sub { font-size:12.5px; color:var(--stone); margin-top:2px; }
   .summary-card-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
   @media (max-width:760px) { .summary-card-grid { grid-template-columns:repeat(2,1fr); } }
+  .ov-grid { display:grid; grid-template-columns:1.5fr 1fr; gap:16px; align-items:start; }
+  @media (max-width:860px) { .ov-grid { grid-template-columns:1fr; } }
   .summary-card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:0 3px 12px rgba(20,33,61,.05); }
   .summary-card-icon { width:32px; height:32px; border-radius:9px; background:var(--paper); display:flex; align-items:center; justify-content:center; margin-bottom:10px; color:var(--stone); }
   .summary-card-num { font-size:21px; font-weight:800; }
@@ -1023,7 +1025,7 @@
       ${overviewSummaryCardsHtml(feedJobs, myJobs, myJobsCompleted)}
     `;
 
-    html += `<div style="display:grid;grid-template-columns:1.5fr 1fr;gap:16px;align-items:start;" class="ov-grid">`;
+    html += `<div class="ov-grid">`;
     html += `<div>`;
     html += overviewJobOffersHtml(feedJobs, isPausedForNewOffers);
     html += `</div>`;
