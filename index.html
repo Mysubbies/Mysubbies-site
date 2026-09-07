@@ -2943,28 +2943,17 @@
   // size field, since a courier price genuinely depends on where the job
   // is, not just how much there is.
   //
-  // Distance-banded ladder (founder-confirmed Sep 2026, replacing an
-  // earlier flat Metro/Regional split): $30 up to 15km, $45 up to 25km,
-  // then +$20 per further 10km, up to the 150km service cap. Both
-  // eligibility and price now key off the SAME number -- straight-line
-  // pickup<->delivery distance -- computed via api/geocode-distance.js.
-  // The two original rate card tasks ("...Metro Delivery... Boxes" /
-  // "...Regional / Long Distance... Boxes") are kept only for their name/
-  // notes text (shown to the customer purely as a label for which kind of
-  // trip this is) -- the actual charged rate always comes from
-  // courierBoxLadderPrice() below, not from either task's own .rate field,
-  // so editing those two rates in the admin Rate Card tab no longer
-  // changes what a customer is charged. A ladder this shaped (14 distance
-  // bands) doesn't fit the rate card's single-number-per-task model, so
-  // it's a plain code constant here -- flagged to the founder as a
-  // follow-up if this ever needs to be admin-editable.
-  const COURIER_BOX_LADDER_MAX_KM = 150;
-  function courierBoxLadderPrice(km) {
-    if (km <= 15) return 30;
-    if (km <= 25) return 45;
-    if (km > COURIER_BOX_LADDER_MAX_KM) return null;
-    return 45 + Math.ceil((km - 25) / 10) * 20;
-  }
+  // Pricing (fixed Sep 2026): per-box rate comes straight from whichever
+  // rate card task matches the trip -- "...Metro Delivery... Boxes" for
+  // <=15km, "...Regional / Long Distance... Boxes" beyond that -- the same
+  // .rate field the admin Rate Card tab already edits for every other
+  // category. A hardcoded distance-banded ladder used to override both
+  // tasks' real rates entirely (founder report: editing them in the admin
+  // portal had no effect on what customers were charged) -- removed. Only
+  // the 150km service-area cap (api/geocode-distance.js's MAX_SERVICE_KM)
+  // remains a fixed number here, since it's an eligibility boundary, not a
+  // price.
+  const COURIER_MAX_SERVICE_KM = 150;
 
   // Google Places Autocomplete (see loadGoogleMapsPlaces() above) --
   // attaches once per input, per field. Selecting a real suggestion stores
@@ -3054,18 +3043,15 @@
         return;
       }
       if (data.zone === 'out_of_range') {
-        resultEl.innerHTML = `<div class="est-field-error show">This delivery is approx ${data.pickupToDeliveryKm}km, outside our current courier service area (up to ${COURIER_BOX_LADDER_MAX_KM}km). Please contact us directly for a custom quote.</div>`;
+        resultEl.innerHTML = `<div class="est-field-error show">This delivery is approx ${data.pickupToDeliveryKm}km, outside our current courier service area (up to ${COURIER_MAX_SERVICE_KM}km). Please contact us directly for a custom quote.</div>`;
         return;
       }
-      const perBoxRate = courierBoxLadderPrice(data.pickupToDeliveryKm);
       const isMetro = data.pickupToDeliveryKm <= 15;
-      const labelTask = estPrimaryGroup.tasks.find(t => t.name.toLowerCase().includes(isMetro ? 'metro' : 'regional')) || estPrimaryGroup.tasks[0];
-      if (!labelTask) { resultEl.innerHTML = '<div class="est-field-error show">Could not find a matching courier rate -- please contact us.</div>'; return; }
-      // Clone so the ladder-derived rate never mutates the rate card's own
-      // stored task -- name stays identical so every downstream lookup
-      // that matches by task name (primaryNames, selectedTierSet keys)
-      // keeps working unchanged.
-      const task = { ...labelTask, rate: perBoxRate };
+      const task = estPrimaryGroup.tasks.find(t => t.name.toLowerCase().includes(isMetro ? 'metro' : 'regional')) || estPrimaryGroup.tasks[0];
+      if (!task) { resultEl.innerHTML = '<div class="est-field-error show">Could not find a matching courier rate -- please contact us.</div>'; return; }
+      if (task.unavailable || !task.rate) { resultEl.innerHTML = '<div class="est-field-error show">This courier rate isn\'t available right now -- please contact us.</div>'; return; }
+      // Rate comes straight from the real rate card task (admin-editable in
+      // the Rate Card tab) -- no hardcoded ladder overriding it.
       const rawBase = Math.round(numBoxes * task.rate);
       const minApplied = !!(task.minJobPrice && rawBase < task.minJobPrice);
       const base = minApplied ? task.minJobPrice : rawBase;
@@ -3077,7 +3063,7 @@
         <div class="est-primary-option selected" style="cursor:default;">
           <div class="est-primary-option-body">
             <div class="est-primary-option-name">${escapeHtml(task.name)}</div>
-            <div class="est-primary-option-notes">Pickup to delivery approx ${data.pickupToDeliveryKm}km · $${perBoxRate}/box${minApplied ? ' · Minimum job price applies' : ''}</div>
+            <div class="est-primary-option-notes">Pickup to delivery approx ${data.pickupToDeliveryKm}km · $${task.rate}/box${minApplied ? ' · Minimum job price applies' : ''}</div>
           </div>
           <div class="est-primary-option-price">$${base.toLocaleString()}</div>
           <div class="est-primary-option-check">✓</div>

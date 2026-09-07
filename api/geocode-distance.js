@@ -4,9 +4,10 @@
 // Response: { zone: 'serviceable'|'out_of_range', pickupToDeliveryKm, pickupResolved, deliveryResolved }
 //
 // Backs the Courier Services "Boxes" quoting flow in mysubbies-website.html
-// (calculateCourierBoxesPrice()). Pricing itself (the distance-banded
-// ladder) lives client-side in courierBoxLadderPrice() -- this endpoint's
-// only job is turning two addresses into a real distance.
+// (calculateCourierBoxesPrice()). Pricing itself comes from the real rate
+// card's Metro/Regional Boxes tasks (admin-editable) -- this endpoint's
+// only job is turning two addresses into a real distance, used both to
+// pick which of those two tasks applies and to gate the 150km service area.
 //
 // Sep 2026 (founder feedback, real address typo caused a false "not
 // found"): when the client already has a precise lat/lon for an address --
@@ -21,11 +22,10 @@
 //
 // Serviceability rule (confirmed with the founder): the job is quotable
 // whenever the pickup<->delivery distance is <=150km -- this replaced an
-// earlier two-metric Metro/Regional-from-CBD design; the ladder is keyed
-// entirely off pickup<->delivery distance now, so eligibility uses the same
-// metric as pricing. Anything beyond 150km is out_of_range -- there is no
-// rate card price for it, so no price is shown rather than extrapolating
-// one.
+// earlier two-metric Metro/Regional-from-CBD design; eligibility is keyed
+// entirely off pickup<->delivery distance now. Anything beyond 150km is
+// out_of_range -- there is no rate card task for a delivery that far, so
+// no price is shown rather than extrapolating one.
 //
 // Nominatim's usage policy caps free use at ~1 request/second and requires
 // a real identifying User-Agent (set below) -- fine for this app's expected
