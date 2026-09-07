@@ -625,6 +625,21 @@
     inquiryAttachments = [];
     renderInquiryPanel();
   }
+  // "Get help with this booking" (job detail view, Sep 2026 redesign) --
+  // routes into the same real Contact MySubbies channel as Help/openInquiryForm,
+  // just pre-referencing the job so admin has the context immediately,
+  // rather than building a second, separate per-job support surface.
+  function getHelpWithBooking(jobId) {
+    const j = getJobs().find(x => x.id === jobId);
+    inquiryPrefillText = j ? `Re: ${j.category}${j.jobNumber ? ' (Job #' + j.jobNumber + ')' : ''} — ` : '';
+    selectedJobId = null;
+    showingPaymentHistory = false;
+    showingPropertyProfile = false;
+    dashSection = 'help';
+    showingNewInquiry = true;
+    inquiryAttachments = [];
+    render();
+  }
   function toggleNewInquiryCompose() {
     showingNewInquiry = !showingNewInquiry;
     inquiryAttachments = [];
@@ -645,10 +660,17 @@
       </div>`;
     if (showingNewInquiry) renderNewInquiryCompose();
   }
+  // Prefilled by getHelpWithBooking() below -- a job-scoped "Get help with
+  // this booking" link on the detail view routes into this exact same
+  // Contact MySubbies compose box, just with the job already referenced,
+  // rather than a separate support surface.
+  let inquiryPrefillText = '';
   function renderNewInquiryCompose() {
+    const prefill = inquiryPrefillText;
+    inquiryPrefillText = '';
     document.getElementById('newInquiryComposeWrap').innerHTML = `
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--paper);">
-        <textarea id="inquiryMessage" placeholder="What can we help with?" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;min-height:80px;font-family:inherit;"></textarea>
+        <textarea id="inquiryMessage" placeholder="What can we help with?" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;min-height:80px;font-family:inherit;">${escapeHtml(prefill)}</textarea>
         <input type="file" id="inquiryFileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple style="display:none;" onchange="onInquiryFileSelected(event)" />
         <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;margin-bottom:8px;" onclick="document.getElementById('inquiryFileInput').click()">📎 Attach documents</button>
         <div id="inquiryAttachmentList" style="margin-bottom:8px;"></div>
@@ -2027,7 +2049,12 @@
       </div>
       <div id="inquiryFormWrap"></div>
     `;
-    openInquiryForm();
+    // openInquiryForm() always resets to the closed/list state -- skip that
+    // reset when arriving with a pending prefill (getHelpWithBooking()
+    // already set showingNewInquiry/inquiryAttachments correctly for that
+    // case), so the compose box actually opens pre-filled instead of being
+    // immediately closed again.
+    if (inquiryPrefillText) { renderInquiryPanel(); } else { openInquiryForm(); }
   }
 
   // Referral card -- only ever shown when this account genuinely has a real
@@ -2090,8 +2117,9 @@
         ${j.photoDataUrl ? `<img src="${j.photoDataUrl}" style="width:100%;border-radius:12px;margin-bottom:16px;max-height:200px;object-fit:cover;">` : ''}
         <span class="pill">${escapeHtml(j.category)}</span>
         <h1 class="pagetitle" style="margin-top:8px;">${escapeHtml(j.category)}</h1>
-        <div class="jobmeta" style="margin-bottom:16px;">${j.jobNumber ? `Job #${j.jobNumber} · ` : ''}📍 ${escapeHtml(j.suburb)}</div>
-        <div class="row"><span class="l">Estimated cost</span><span class="r">$${(j.priceLow||j.basePrice||0).toLocaleString()}</span></div>
+        <div class="jobmeta" style="margin-bottom:8px;">${j.jobNumber ? `Job #${j.jobNumber} · ` : ''}📍 ${escapeHtml(j.suburb)}</div>
+        ${j.status !== 'cancelled' ? `<a style="font-size:12.5px;font-weight:600;text-decoration:underline;color:var(--stone);cursor:pointer;" onclick="getHelpWithBooking('${j.id}')">Get help with this booking</a>` : ''}
+        <div class="row" style="margin-top:12px;"><span class="l">Estimated cost</span><span class="r">$${(j.priceLow||j.basePrice||0).toLocaleString()}</span></div>
         <div class="row"><span class="l">Contractor</span><span class="r">${j.contractor ? escapeHtml(j.contractor) : 'Awaiting acceptance'}</span></div>
         ${j.contractor && !['cancellation_requested', 'cancelled'].includes(j.status) ? `<div id="milestoneSectionWrap"><div class="note">Loading payment schedule…</div></div>` : ''}
         ${j.status === 'completed' ? renderRatingSection(j) : ''}
