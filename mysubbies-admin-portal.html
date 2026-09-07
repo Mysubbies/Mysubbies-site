@@ -1097,6 +1097,21 @@
     return Array.isArray(j.paymentSchedule) && j.paymentSchedule.length > 0 &&
       j.paymentSchedule.every(s => j.paidStages && j.paidStages[s.key]);
   }
+  // The real "completed" signal for reporting: every payment stage paid,
+  // AND not cancelled. Found live (Sep 2026 audit) that a handful of test
+  // job fixtures are both status='cancelled' and fully paid (paidStages
+  // flags left over from before they were cancelled in testing) -- a
+  // state that shouldn't occur in genuine production use. Cancelled must
+  // win: a cancelled booking is never completed revenue no matter what
+  // its payment flags say. isJobFullyPaid() alone (without this check)
+  // disagreed with the category-performance breakdown the first time
+  // this was tested live, which is exactly the "cards and drill-down
+  // lists must agree" failure mode this whole reporting pass exists to
+  // prevent -- fixed by using this one function everywhere "completed"
+  // is decided, instead of two different rules in two places.
+  function isJobReallyCompleted(j) {
+    return j.status !== 'cancelled' && isJobFullyPaid(j);
+  }
   // Melbourne-local calendar-day string (YYYY-MM-DD) for a timestamp --
   // used for date-range boundaries so "today"/"this week"/"this month"
   // mean Melbourne's calendar, not the admin's own browser timezone.
@@ -1153,7 +1168,7 @@
     const gmv = billableJobs.reduce((s, j) => s + (j.basePrice || 0), 0);
     const commission = Math.round(gmv * 0.18);
     const payout = gmv - commission;
-    const completedJobs = scoped.filter(isJobFullyPaid);
+    const completedJobs = scoped.filter(isJobReallyCompleted);
     const completedGmv = completedJobs.reduce((s, j) => s + (j.basePrice || 0), 0);
     const completedCommission = Math.round(completedGmv * 0.18);
     // Repeat customer = 2+ non-cancelled jobs under the same email, within
@@ -1444,7 +1459,7 @@
       const cat = j.category || 'Unknown';
       if (!byCat[cat]) byCat[cat] = { completed: 0, value: 0, fees: 0, cancelled: 0 };
       if (j.status === 'cancelled') { byCat[cat].cancelled++; return; }
-      if (isJobFullyPaid(j)) {
+      if (isJobReallyCompleted(j)) {
         byCat[cat].completed++;
         byCat[cat].value += j.basePrice || 0;
         byCat[cat].fees += Math.round((j.basePrice || 0) * 0.18);
