@@ -896,6 +896,7 @@
                   <input type="text" inputmode="numeric" id="courierNumBoxes" class="est-qty-row-input" placeholder="e.g. 3" oninput="onCourierBoxesFieldChange()" />
                   <label class="est-field-label" style="margin-top:10px;">Weight per box (kg)</label>
                   <input type="text" inputmode="decimal" id="courierWeightPerBox" class="est-qty-row-input" placeholder="e.g. 10" oninput="onCourierBoxesFieldChange()" />
+                  <div class="est-hint">Up to 5 boxes at up to 10kg each is priced as small boxes. More than that is priced as a bulk delivery.</div>
                   <label class="est-field-label" style="margin-top:10px;">Pickup location</label>
                   <input type="text" id="courierPickup" class="est-qty-row-input" placeholder="e.g. 123 Smith St, Richmond VIC" autocomplete="off" oninput="onCourierBoxesFieldChange('courierPickup')" />
                   <label class="est-field-label" style="margin-top:10px;">Delivery location</label>
@@ -2814,6 +2815,13 @@
   // reachable via the relocated "Other services in this category" picker,
   // scoped to just these so nothing shows up in both places.
   function estSecondaryTasks(cat) {
+    // Courier Services' "Bulk" tasks (the ones NOT in the primary Box-unit
+    // group) are picked automatically by calculateCourierBoxesPrice() when
+    // box count/weight exceeds the "small boxes" threshold -- they must
+    // never also be manually selectable here, or a customer could get
+    // priced off these tasks' own stored .rate instead of the hardcoded
+    // metro/regional x small/bulk table.
+    if (cat.label === 'Courier Services') return [];
     const primaryNames = new Set(estPrimaryGroup ? estPrimaryGroup.tasks.map(t => t.name) : []);
     const companionName = CATEGORY_REMOVAL_COMPANION[cat.label];
     return cat.tasks.filter(t => !t.disabled && !primaryNames.has(t.name) && t.name !== companionName);
@@ -2938,22 +2946,33 @@
     if (qtyRaw && !hasSecondaryTierSelections()) calculateSelectedItems();
   }
 
-  // Courier Services "Boxes" custom quoting (Sep 2026) -- number of boxes,
-  // weight per box, and real pickup/delivery addresses instead of a plain
-  // size field, since a courier price genuinely depends on where the job
-  // is, not just how much there is.
+  // Courier Services "Boxes"/"Bulk" custom quoting (Sep 2026) -- number of
+  // boxes, weight per box, and real pickup/delivery addresses instead of a
+  // plain size field, since a courier price genuinely depends on where the
+  // job is, not just how much there is.
   //
-  // Pricing (fixed Sep 2026): per-box rate comes straight from whichever
-  // rate card task matches the trip -- "...Metro Delivery... Boxes" for
-  // <=15km, "...Regional / Long Distance... Boxes" beyond that -- the same
-  // .rate field the admin Rate Card tab already edits for every other
-  // category. A hardcoded distance-banded ladder used to override both
-  // tasks' real rates entirely (founder report: editing them in the admin
-  // portal had no effect on what customers were charged) -- removed. Only
-  // the 150km service-area cap (api/geocode-distance.js's MAX_SERVICE_KM)
-  // remains a fixed number here, since it's an eligibility boundary, not a
-  // price.
-  const COURIER_MAX_SERVICE_KM = 150;
+  // Pricing (founder-confirmed Sep 2026, hardcoded): reading the price from
+  // the rate card's Metro/Regional Boxes/Bulk tasks (tried earlier this
+  // session) didn't work out in practice, so all 4 dollar amounts below are
+  // fixed code constants again, not admin-editable. Zone and delivery-size
+  // still come from real inputs (pickup<->delivery distance, box
+  // count/weight) -- only the resulting dollar figure is fixed:
+  //   Small boxes (up to 5 boxes, 10kg each) -- $50 metro / $250 regional
+  //   Bulk (more than 5 boxes, or any box over 10kg) -- $275 metro / $400 regional
+  //   Metro = 0-30km pickup<->delivery, Regional = 31-200km. Beyond 200km
+  //   is out of the service area entirely (no price shown).
+  // The matching rate card task is still looked up (from the WHOLE
+  // category's task list, since Boxes and Bulk are different unit groups)
+  // purely to reuse its existing display name -- its own .rate/.minJobPrice
+  // fields are never read for pricing.
+  const COURIER_METRO_MAX_KM = 30;
+  const COURIER_MAX_SERVICE_KM = 200;
+  const COURIER_SMALL_MAX_BOXES = 5;
+  const COURIER_SMALL_MAX_WEIGHT_KG = 10;
+  const COURIER_RATES = {
+    metro: { small: 50, bulk: 275 },
+    regional: { small: 250, bulk: 400 },
+  };
 
   // Google Places Autocomplete (see loadGoogleMapsPlaces() above) --
   // attaches once per input, per field. Selecting a real suggestion stores
@@ -3046,24 +3065,35 @@
         resultEl.innerHTML = `<div class="est-field-error show">This delivery is approx ${data.pickupToDeliveryKm}km, outside our current courier service area (up to ${COURIER_MAX_SERVICE_KM}km). Please contact us directly for a custom quote.</div>`;
         return;
       }
-      const isMetro = data.pickupToDeliveryKm <= 15;
-      const task = estPrimaryGroup.tasks.find(t => t.name.toLowerCase().includes(isMetro ? 'metro' : 'regional')) || estPrimaryGroup.tasks[0];
-      if (!task) { resultEl.innerHTML = '<div class="est-field-error show">Could not find a matching courier rate -- please contact us.</div>'; return; }
-      if (task.unavailable || !task.rate) { resultEl.innerHTML = '<div class="est-field-error show">This courier rate isn\'t available right now -- please contact us.</div>'; return; }
-      // Rate comes straight from the real rate card task (admin-editable in
-      // the Rate Card tab) -- no hardcoded ladder overriding it.
-      const rawBase = Math.round(numBoxes * task.rate);
-      const minApplied = !!(task.minJobPrice && rawBase < task.minJobPrice);
-      const base = minApplied ? task.minJobPrice : rawBase;
-      courierBoxesResult = { task, numBoxes, weightPerBox, pickup, delivery, distanceKm: data.pickupToDeliveryKm };
-      estPrimaryGroup.tasks.forEach(t => { selectedTierSet.delete(t.name); qtyValues.delete(t.name); });
+      const isMetro = data.pickupToDeliveryKm <= COURIER_METRO_MAX_KM;
+      const isBulk = numBoxes > COURIER_SMALL_MAX_BOXES || weightPerBox > COURIER_SMALL_MAX_WEIGHT_KG;
+      const rate = COURIER_RATES[isMetro ? 'metro' : 'regional'][isBulk ? 'bulk' : 'small'];
+      // Looked up from the WHOLE category's task list (not just the primary
+      // comparison group, which only holds the Box-unit tasks) since Boxes
+      // and Bulk are different unit groups -- used only for its existing
+      // display name, never its .rate/.minJobPrice fields.
+      const allCourierTasks = (selectedCat && selectedCat.tasks) || [];
+      const sizeKeyword = isBulk ? 'bulk' : 'box';
+      const zoneKeyword = isMetro ? 'metro' : 'regional';
+      const labelTask = allCourierTasks.find(t => t.name.toLowerCase().includes(zoneKeyword) && t.name.toLowerCase().includes(sizeKeyword))
+        || allCourierTasks.find(t => t.name.toLowerCase().includes(zoneKeyword))
+        || allCourierTasks[0];
+      if (!labelTask) { resultEl.innerHTML = '<div class="est-field-error show">Could not find a matching courier rate -- please contact us.</div>'; return; }
+      // Bulk is a flat per-job price (qty always 1); small boxes are priced
+      // per box. Clone so the hardcoded rate never mutates the rate card's
+      // own stored task.
+      const qty = isBulk ? 1 : numBoxes;
+      const task = { ...labelTask, rate, minJobPrice: null };
+      const base = Math.round(qty * rate);
+      courierBoxesResult = { task, numBoxes, weightPerBox, pickup, delivery, distanceKm: data.pickupToDeliveryKm, isBulk };
+      allCourierTasks.forEach(t => { selectedTierSet.delete(t.name); qtyValues.delete(t.name); });
       selectedTierSet.set(task.name, task);
-      qtyValues.set(task.name, String(numBoxes));
+      qtyValues.set(task.name, String(qty));
       resultEl.innerHTML = `
         <div class="est-primary-option selected" style="cursor:default;">
           <div class="est-primary-option-body">
             <div class="est-primary-option-name">${escapeHtml(task.name)}</div>
-            <div class="est-primary-option-notes">Pickup to delivery approx ${data.pickupToDeliveryKm}km · $${task.rate}/box${minApplied ? ' · Minimum job price applies' : ''}</div>
+            <div class="est-primary-option-notes">Pickup to delivery approx ${data.pickupToDeliveryKm}km${isBulk ? ' · Bulk delivery' : ` · $${rate}/box`}</div>
           </div>
           <div class="est-primary-option-price">$${base.toLocaleString()}</div>
           <div class="est-primary-option-check">✓</div>

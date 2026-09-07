@@ -3,11 +3,11 @@
 //         pickupLat?, pickupLon?, deliveryLat?, deliveryLon? }
 // Response: { zone: 'serviceable'|'out_of_range', pickupToDeliveryKm, pickupResolved, deliveryResolved }
 //
-// Backs the Courier Services "Boxes" quoting flow in mysubbies-website.html
-// (calculateCourierBoxesPrice()). Pricing itself comes from the real rate
-// card's Metro/Regional Boxes tasks (admin-editable) -- this endpoint's
-// only job is turning two addresses into a real distance, used both to
-// pick which of those two tasks applies and to gate the 150km service area.
+// Backs the Courier Services "Boxes"/"Bulk" quoting flow in
+// mysubbies-website.html (calculateCourierBoxesPrice()). Pricing itself is
+// a hardcoded 4-way table there (metro/regional x small/bulk) -- this
+// endpoint's only job is turning two addresses into a real distance, used
+// both to pick metro vs regional and to gate the 200km service area.
 //
 // Sep 2026 (founder feedback, real address typo caused a false "not
 // found"): when the client already has a precise lat/lon for an address --
@@ -21,11 +21,11 @@
 // suggestion.
 //
 // Serviceability rule (confirmed with the founder): the job is quotable
-// whenever the pickup<->delivery distance is <=150km -- this replaced an
+// whenever the pickup<->delivery distance is <=200km -- this replaced an
 // earlier two-metric Metro/Regional-from-CBD design; eligibility is keyed
-// entirely off pickup<->delivery distance now. Anything beyond 150km is
-// out_of_range -- there is no rate card task for a delivery that far, so
-// no price is shown rather than extrapolating one.
+// entirely off pickup<->delivery distance now. Anything beyond 200km is
+// out_of_range -- there is no fixed rate for a delivery that far, so no
+// price is shown rather than extrapolating one.
 //
 // Nominatim's usage policy caps free use at ~1 request/second and requires
 // a real identifying User-Agent (set below) -- fine for this app's expected
@@ -33,7 +33,7 @@
 // (most requests then arrive with coordinates already attached, skipping
 // Nominatim entirely).
 
-const MAX_SERVICE_KM = 150;
+const MAX_SERVICE_KM = 200;
 
 function toRad(deg) { return (deg * Math.PI) / 180; }
 
