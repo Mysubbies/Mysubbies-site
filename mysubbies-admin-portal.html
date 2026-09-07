@@ -65,6 +65,12 @@
   .statcard { background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; }
   .statcard .num { font-size:24px; font-weight:800; }
   .statcard .lab { font-size:12px; color:var(--stone); margin-top:2px; }
+  /* CEO Overview (Sep 2026) -- learned from a real bug in the contractor
+     portal's equivalent grid: an inline grid-template-columns style can
+     never be overridden by a stylesheet media query, so this one is a
+     real class from the start. */
+  .ceo-grid { display:grid; grid-template-columns:1.3fr 1fr; gap:16px; align-items:start; }
+  @media (max-width:900px) { .ceo-grid { grid-template-columns:1fr; } }
   .tabs { display:flex; gap:6px; background:#EFEDE9; padding:4px; border-radius:10px; margin-bottom:24px; width:fit-content; }
   .tabs button { padding:9px 16px; border-radius:7px; font-size:13px; font-weight:600; border:none; cursor:pointer; background:transparent; color:var(--stone); }
   .tabs button.active { background:#fff; color:var(--ink); }
@@ -353,12 +359,21 @@
     { key: 'cancellation_requested', label: 'Cancellation requested' },
     { key: 'completed', label: 'Completed' },
     { key: 'cancelled', label: 'Cancelled' },
+    // Sep 2026 audit: a live job was found with no `status` value at all --
+    // invisible to every filter above (each checks exact string equality)
+    // even though it counted toward "All". Rather than silently drop it
+    // again, "Other" surfaces anything not matching a known status so a
+    // data-quality gap like this can't hide.
+    { key: 'other', label: 'Other' },
   ];
   let jobStatusFilter = 'feed';
   function jobStatusFilterChipsHtml(jobs) {
     return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
       ${JOB_STATUS_FILTERS.map(f => {
-        const count = f.key === 'all' ? jobs.length : jobs.filter(j => j.status === f.key).length;
+        const count = f.key === 'all' ? jobs.length
+          : f.key === 'other' ? jobs.filter(j => !KNOWN_JOB_STATUSES.includes(j.status)).length
+          : jobs.filter(j => j.status === f.key).length;
+        if (f.key === 'other' && count === 0) return '';
         const active = jobStatusFilter === f.key;
         return `<button onclick="jobStatusFilter='${f.key}'; render();" style="padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;border:1.5px solid ${active ? 'var(--ink)' : 'var(--line)'};background:${active ? 'var(--ink)' : '#fff'};color:${active ? '#fff' : 'var(--ink)'};cursor:pointer;">${f.label} (${count})</button>`;
       }).join('')}
@@ -1050,15 +1065,121 @@
     setBadge('mtMessagesBadge', unreadContractorMessageCount || 0);
     setBadge('mtDisputesBadge', openDisputeCount);
   }
+  // =====================================================================
+  // Shared reporting layer (Sep 2026 CEO/Operations audit) -- the ONE
+  // place GMV/commission/completion get computed, so the top stat strip,
+  // Reports tab and the new CEO Overview can no longer drift apart the
+  // way they had (two independently-copied `gmv * 0.18` calculations
+  // found during this pass, one here and one in renderReportsTab).
+  //
+  // Real bugs this replaces, confirmed against live production data
+  // (Sep 2026 founder audit request), not assumed from the report alone:
+  //  - "Completed jobs" used `status === 'completed'` -- live check found
+  //    5 jobs genuinely fully paid (every payment-schedule stage ticked
+  //    in paidStages) vs only 3 with that literal status string, a 2-job
+  //    undercount. Every other completion-aware view in this codebase
+  //    (contractor payouts, Property Profiles) already uses the
+  //    paidStages signal, not job.status -- this now matches that.
+  //  - GMV/commission had no date range at all (always "all time", shown
+  //    with no period label) -- now takes an explicit range and reports
+  //    it back so it can be displayed honestly.
+  //  - 1 live job has `status` missing entirely -- invisible to every
+  //    existing status filter chip. Counted explicitly here as 'other'
+  //    rather than silently dropped.
+  //
+  // The 18% commission rate itself is still the same hardcoded constant
+  // already used in 5+ places across this codebase (client and server) --
+  // no central config for it exists to read from. Not consolidating that
+  // here (a real payment-logic change beyond a reporting-layer fix); see
+  // delivery notes for the discrepancy this session already flagged.
+  const KNOWN_JOB_STATUSES = ['feed', 'assigned', 'cancellation_requested', 'completed', 'cancelled'];
+  function isJobFullyPaid(j) {
+    return Array.isArray(j.paymentSchedule) && j.paymentSchedule.length > 0 &&
+      j.paymentSchedule.every(s => j.paidStages && j.paidStages[s.key]);
+  }
+  // Melbourne-local calendar-day string (YYYY-MM-DD) for a timestamp --
+  // used for date-range boundaries so "today"/"this week"/"this month"
+  // mean Melbourne's calendar, not the admin's own browser timezone.
+  // Australia/Melbourne is this project's business timezone (see
+  // CLAUDE.md) -- no per-tenant timezone config exists, so this is
+  // hardcoded rather than left to Date's local-timezone default.
+  function melbDateStr(dateInput) {
+    const d = new Date(dateInput);
+    if (isNaN(d)) return null;
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  }
+  function reportDateRangeFor(period) {
+    const todayStr = melbDateStr(new Date());
+    if (period === 'today') return { start: todayStr, end: todayStr, label: 'Today' };
+    if (period === 'week') {
+      const now = new Date();
+      const d = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }));
+      const dayOfWeek = d.getDay(); // 0=Sun
+      const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const monday = new Date(d); monday.setDate(d.getDate() - mondayOffset);
+      return { start: melbDateStr(monday), end: todayStr, label: 'This week' };
+    }
+    if (period === 'month') {
+      const now = new Date();
+      const d = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }));
+      const first = new Date(d.getFullYear(), d.getMonth(), 1);
+      return { start: melbDateStr(first), end: todayStr, label: 'This month' };
+    }
+    return { start: null, end: null, label: 'All time' };
+  }
+  // Central metric computation -- every caller (top stat strip, Reports
+  // tab, CEO Overview) goes through this so a definition change only
+  // ever needs to happen in one place.
+  function computeReportMetrics(jobs, range) {
+    const inRange = (j) => {
+      if (!range || (!range.start && !range.end)) return true;
+      const ds = melbDateStr(j.createdAt);
+      if (!ds) return false; // no reliable date -- excluded from a dated range, not silently included
+      if (range.start && ds < range.start) return false;
+      if (range.end && ds > range.end) return false;
+      return true;
+    };
+    const scoped = jobs.filter(inRange);
+    const byStatus = { feed: 0, assigned: 0, cancellation_requested: 0, completed: 0, cancelled: 0, other: 0 };
+    scoped.forEach(j => {
+      if (j.status && KNOWN_JOB_STATUSES.includes(j.status)) byStatus[j.status]++;
+      else byStatus.other++;
+    });
+    // Founder-confirmed rule (Aug 2026): cancelled jobs never earn anything
+    // -- billable = every non-cancelled job, regardless of whether it's
+    // literally 'completed' yet (an in-progress job's booked value still
+    // counts toward gross job value the same way it always has here).
+    const billableJobs = scoped.filter(j => j.status !== 'cancelled');
+    const gmv = billableJobs.reduce((s, j) => s + (j.basePrice || 0), 0);
+    const commission = Math.round(gmv * 0.18);
+    const payout = gmv - commission;
+    const completedJobs = scoped.filter(isJobFullyPaid);
+    const completedGmv = completedJobs.reduce((s, j) => s + (j.basePrice || 0), 0);
+    const completedCommission = Math.round(completedGmv * 0.18);
+    // Repeat customer = 2+ non-cancelled jobs under the same email, within
+    // the selected range -- the only definition this data actually
+    // supports (no separate "first booking" flag exists to define it any
+    // other way).
+    const byCustomer = {};
+    billableJobs.forEach(j => { if (j.customerEmail) byCustomer[j.customerEmail] = (byCustomer[j.customerEmail] || 0) + 1; });
+    const repeatCustomerCount = Object.values(byCustomer).filter(c => c >= 2).length;
+    return {
+      range, totalJobs: scoped.length, byStatus, gmv, commission, payout,
+      completedJobs, completedGmv, completedCommission, repeatCustomerCount,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
   function renderInner() {
     if (selectedJobId) { renderDetail(); return; }
     const jobs = getJobs();
     // Cancelled jobs never actually earn MySubbies anything -- counting
     // them here overstated commission and gross job value with money that
     // was never collected (founder feedback, Aug 2026).
-    const billableJobs = jobs.filter(j => j.status !== 'cancelled');
-    const commission = billableJobs.reduce((s, j) => s + Math.round((j.basePrice || 0) * 0.18), 0);
-    const gmv = billableJobs.reduce((s, j) => s + (j.basePrice || 0), 0);
+    const topStatsRange = reportDateRangeFor('all');
+    const topStats = computeReportMetrics(jobs, topStatsRange);
+    const commission = topStats.commission;
+    const gmv = topStats.gmv;
     const applications = getApplications();
     const pendingCount = applications.filter(a => a.status === 'pending').length;
     const disputes = getDisputes();
@@ -1143,7 +1264,9 @@
           ${jobStatusFilterChipsHtml(jobs)}
           ${jobSearchBoxHtml()}
           ${(() => {
-            const statusFiltered = jobStatusFilter === 'all' ? jobs : jobs.filter(j => j.status === jobStatusFilter);
+            const statusFiltered = jobStatusFilter === 'all' ? jobs
+              : jobStatusFilter === 'other' ? jobs.filter(j => !KNOWN_JOB_STATUSES.includes(j.status))
+              : jobs.filter(j => j.status === jobStatusFilter);
             const filtered = statusFiltered.filter(j => jobMatchesSearch(j, jobSearchQuery));
             if (statusFiltered.length === 0) return '<div class="empty">No jobs in this status.</div>';
             return filtered.length === 0
@@ -1151,7 +1274,7 @@
               : jobsTableHtml(filtered);
           })()}
         `}
-      ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
+      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
     } catch (e) {
       console.error('Tab render error on tab=' + tab, e);
       tabContentHtml = `
@@ -1163,14 +1286,15 @@
     }
 
     app.innerHTML = `
-      ${actionRequiredHtml}
-      <div class="statgrid">
+      ${tab === 'ceo' ? '' : actionRequiredHtml}
+      ${tab === 'ceo' ? '' : `<div class="statgrid">
         <div class="statcard"><div class="num">${jobs.length}</div><div class="lab">Total jobs</div></div>
         <div class="statcard"><div class="num">${jobs.filter(j=>j.status==='feed').length}</div><div class="lab">Awaiting contractor</div></div>
-        <div class="statcard"><div class="num">$${gmv.toLocaleString()}</div><div class="lab">Gross job value</div></div>
-        <div class="statcard"><div class="num">$${commission.toLocaleString()}</div><div class="lab">Platform commission</div></div>
-      </div>
+        <div class="statcard"><div class="num">$${gmv.toLocaleString()}</div><div class="lab">Gross job value (all time)</div></div>
+        <div class="statcard"><div class="num">$${commission.toLocaleString()}</div><div class="lab">Platform commission (all time)</div></div>
+      </div>`}
       <div class="tabs">
+        <button class="${tab==='ceo'?'active':''}" style="${tab==='ceo'?'':'color:var(--accent-dark);'}" onclick="tab='ceo'; render();">📊 CEO Overview</button>
         <button class="${tab==='overview'?'active':''}" onclick="tab='overview'; render();">All Jobs</button>
         <button class="${tab==='applications'?'active':''}" onclick="tab='applications'; render();">Applications ${pendingCount ? '(' + pendingCount + ')' : ''}</button>
         <button class="${tab==='contractors'?'active':''}" onclick="tab='contractors'; render();">Contractors</button>
@@ -1249,19 +1373,148 @@
       </div>`;
   }
 
+  // ---------------------------------------------------------------------
+  // CEO Overview (Sep 2026) -- real primary metrics via computeReportMetrics(),
+  // a real date range (default "This month"), and the existing Action
+  // Required panel relabeled as "Needs a decision" (it's already the real
+  // authority-needed queue used everywhere else, not a new invented list).
+  //
+  // Deliberately NOT built this pass, flagged rather than faked with
+  // placeholder/sample data: Larger-project pipeline stages (project
+  // enquiries currently live as free-text "inquiries" with no real stage
+  // field), Contractor coverage vs demand (no real "available now" signal
+  // exists per contractor beyond approval status), Conversion/retention
+  // funnels (no funnel-stage tracking exists to define a denominator
+  // from). Building these with invented numbers would violate the
+  // explicit "never display fabricated trends" instruction this pass is
+  // built around -- they need real tracking added first, which is a
+  // separate, substantial piece of work each.
+  // ---------------------------------------------------------------------
+  let ceoDateRange = 'month';
+  let ceoCustomStart = '';
+  let ceoCustomEnd = '';
+  function renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) {
+    const range = ceoDateRange === 'custom'
+      ? { start: ceoCustomStart || null, end: ceoCustomEnd || null, label: (ceoCustomStart || ceoCustomEnd) ? `${ceoCustomStart || '…'} to ${ceoCustomEnd || '…'}` : 'Custom range (pick dates)' }
+      : reportDateRangeFor(ceoDateRange);
+    const m = computeReportMetrics(jobs, range);
+    const prevRange = (() => {
+      // Simple period-over-period comparison, only for the fixed presets
+      // (today/week/month) where "the equivalent prior period" is
+      // unambiguous -- skipped for "all time" and custom ranges rather
+      // than guess at a comparable window.
+      if (ceoDateRange === 'today') {
+        const y = new Date(); y.setDate(y.getDate() - 1);
+        const s = melbDateStr(y); return { start: s, end: s };
+      }
+      if (ceoDateRange === 'week') {
+        const cur = reportDateRangeFor('week');
+        const s = new Date(cur.start); s.setDate(s.getDate() - 7);
+        const e = new Date(cur.end); e.setDate(e.getDate() - 7);
+        return { start: melbDateStr(s), end: melbDateStr(e) };
+      }
+      if (ceoDateRange === 'month') {
+        const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }));
+        const prevMonthLastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+        const prevMonthFirstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const dayOfMonth = now.getDate();
+        const equivEnd = new Date(prevMonthFirstDay); equivEnd.setDate(Math.min(dayOfMonth, prevMonthLastDay.getDate()));
+        return { start: melbDateStr(prevMonthFirstDay), end: melbDateStr(equivEnd), partial: dayOfMonth < prevMonthLastDay.getDate() };
+      }
+      return null;
+    })();
+    const prevM = prevRange ? computeReportMetrics(jobs, prevRange) : null;
+    function pctChange(cur, prev) {
+      if (!prevM || prev == null || prev === 0) return null;
+      return Math.round(((cur - prev) / prev) * 100);
+    }
+    function trendHtml(cur, prev) {
+      const pct = pctChange(cur, prev);
+      if (pct === null) return '';
+      const up = pct >= 0;
+      return `<span style="font-size:11.5px;font-weight:700;color:${up ? 'var(--good)' : 'var(--warn)'};">${up ? '↑' : '↓'} ${Math.abs(pct)}%</span> <span style="font-size:11px;color:var(--stone-light);">vs previous ${ceoDateRange === 'today' ? 'day' : ceoDateRange === 'week' ? 'week' : 'month'}${prevRange && prevRange.partial ? ' (partial, same day count)' : ''}</span>`;
+    }
+
+    // Category performance, scoped to the same date range as the headline metrics.
+    const byCat = {};
+    m && jobs.forEach(j => {
+      const ds = melbDateStr(j.createdAt);
+      if (range.start && (!ds || ds < range.start)) return;
+      if (range.end && (!ds || ds > range.end)) return;
+      const cat = j.category || 'Unknown';
+      if (!byCat[cat]) byCat[cat] = { completed: 0, value: 0, fees: 0, cancelled: 0 };
+      if (j.status === 'cancelled') { byCat[cat].cancelled++; return; }
+      if (isJobFullyPaid(j)) {
+        byCat[cat].completed++;
+        byCat[cat].value += j.basePrice || 0;
+        byCat[cat].fees += Math.round((j.basePrice || 0) * 0.18);
+      }
+    });
+    const catRows = Object.entries(byCat).filter(([,v]) => v.completed > 0 || v.cancelled > 0).sort((a, b) => b[1].value - a[1].value);
+
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+        <div>
+          <h1 class="pagetitle">Business overview</h1>
+          <p class="pagesub">Performance, priorities and next steps.</p>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          ${['today','week','month','all','custom'].map(k => `<button onclick="ceoDateRange='${k}'; render();" style="padding:7px 13px;border-radius:999px;font-size:12px;font-weight:600;border:1.5px solid ${ceoDateRange===k?'var(--ink)':'var(--line)'};background:${ceoDateRange===k?'var(--ink)':'#fff'};color:${ceoDateRange===k?'#fff':'var(--ink)'};cursor:pointer;">${k==='today'?'Today':k==='week'?'This week':k==='month'?'This month':k==='all'?'All time':'Custom'}</button>`).join('')}
+        </div>
+      </div>
+      ${ceoDateRange === 'custom' ? `
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;">
+          <input type="date" value="${ceoCustomStart}" onchange="ceoCustomStart=this.value; render();" style="font-family:inherit;font-size:13px;border:1.5px solid var(--line);border-radius:8px;padding:8px 10px;" />
+          <span style="color:var(--stone);font-size:13px;">to</span>
+          <input type="date" value="${ceoCustomEnd}" onchange="ceoCustomEnd=this.value; render();" style="font-family:inherit;font-size:13px;border:1.5px solid var(--line);border-radius:8px;padding:8px 10px;" />
+        </div>` : ''}
+      <p style="font-size:11.5px;color:var(--stone);margin-bottom:14px;">Showing <strong>${escapeHtml(range.label)}</strong> · updated ${new Date(m.generatedAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })} · excludes cancelled jobs from value figures · commission at the current 18% platform rate (see note below)</p>
+
+      <div class="statgrid" style="margin-bottom:20px;">
+        <div class="statcard" style="cursor:pointer;" onclick="tab='reports'; render();"><div class="num">${m.completedJobs.length}</div><div class="lab">Completed jobs</div>${trendHtml(m.completedJobs.length, prevM && prevM.completedJobs.length)}</div>
+        <div class="statcard" style="cursor:pointer;" onclick="tab='reports'; render();"><div class="num">$${m.completedGmv.toLocaleString()}</div><div class="lab">Completed job value</div>${trendHtml(m.completedGmv, prevM && prevM.completedGmv)}</div>
+        <div class="statcard" style="cursor:pointer;" onclick="tab='reports'; render();"><div class="num">$${m.completedCommission.toLocaleString()}</div><div class="lab">Earned platform fees</div>${trendHtml(m.completedCommission, prevM && prevM.completedCommission)}</div>
+        <div class="statcard" style="cursor:pointer;" onclick="tab='customers'; render();"><div class="num">${m.repeatCustomerCount}</div><div class="lab">Repeat customers</div>${trendHtml(m.repeatCustomerCount, prevM && prevM.repeatCustomerCount)}</div>
+      </div>
+
+      <div class="ceo-grid">
+        <div class="detailcard">
+          <h3 style="font-size:15px;margin-bottom:2px;">Category performance</h3>
+          <p style="font-size:11.5px;color:var(--stone);margin-bottom:12px;">${escapeHtml(range.label)} · completed (fully paid) jobs only</p>
+          ${catRows.length === 0 ? '<div class="empty" style="padding:24px 0;">No completed jobs in this period.</div>' : `
+            <table class="jobstable">
+              <thead><tr><th>Category</th><th>Completed</th><th>Job value</th><th>Platform fees</th><th>Cancelled</th></tr></thead>
+              <tbody>
+                ${catRows.map(([cat, v]) => `<tr><td data-label="Category"><strong>${escapeHtml(cat)}</strong></td><td data-label="Completed">${v.completed}</td><td data-label="Job value">$${v.value.toLocaleString()}</td><td data-label="Platform fees">$${v.fees.toLocaleString()}</td><td data-label="Cancelled">${v.cancelled}</td></tr>`).join('')}
+              </tbody>
+            </table>`}
+        </div>
+        <div>
+          <p style="font-size:11.5px;color:var(--stone);margin-bottom:6px;">"Needs a decision" is the same real authority-needed queue shown across this portal — nothing invented for this view.</p>
+          ${actionRequiredHtml}
+          <div class="detailcard">
+            <h3 style="font-size:13.5px;margin-bottom:8px;color:var(--stone);text-transform:uppercase;letter-spacing:.03em;">Not built this pass</h3>
+            <p style="font-size:12px;color:var(--stone);line-height:1.6;">Larger-project pipeline, contractor coverage vs. demand, and conversion/retention — this data isn't tracked yet with the fields these panels need (a real project stage, per-contractor real-time availability, funnel tracking). Showing them with invented numbers would violate the "no fabricated trends in production" rule this rebuild is built around, so they're left out rather than faked. See delivery notes for what each would need.</p>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   function renderReportsTab(jobs, applications, disputes) {
     const customers = getCustomersMap();
     const customerList = Object.values(customers);
     const newsletterCount = JSON.parse(localStorage.getItem('mysubbies_newsletter_signups') || '[]').length;
 
-    // Cancelled jobs never actually earn MySubbies (or a contractor)
-    // anything -- gross job value, commission and payout are all computed
-    // off billable (non-cancelled) jobs only (founder feedback, Aug 2026).
-    const gmv = jobs.filter(j => j.status !== 'cancelled').reduce((s, j) => s + (j.basePrice || 0), 0);
-    const commission = Math.round(gmv * 0.18);
-    const payout = gmv - commission;
-    const completedJobs = jobs.filter(j => j.status === 'completed');
-    const completedGmv = completedJobs.reduce((s, j) => s + (j.basePrice || 0), 0);
+    // Sep 2026: routed through the shared computeReportMetrics() (see
+    // above renderInner()) instead of its own copy of this math -- this
+    // tab and the top stat strip had drifted into two independently
+    // hand-maintained gmv/commission calculations before this fix, and
+    // "completed" now uses the real paidStages signal instead of
+    // job.status, which undercounted real completed jobs by 2 in a live
+    // check (see the comment on computeReportMetrics for the full audit).
+    const reportsMetrics = computeReportMetrics(jobs, reportDateRangeFor('all'));
+    const { gmv, commission, payout, completedJobs, completedGmv } = reportsMetrics;
 
     const approved = applications.filter(a => a.status === 'approved');
     const pendingApps = applications.filter(a => a.status === 'pending');
@@ -1316,8 +1569,9 @@
       </div>
 
       <div class="detailcard" style="margin-bottom:14px;">
-        <h3 style="font-size:15px;margin-bottom:12px;">Finance</h3>
-        <div class="row"><span class="l">Gross merchandise value (all jobs)</span><span class="r">$${gmv.toLocaleString()}</span></div>
+        <h3 style="font-size:15px;margin-bottom:2px;">Finance</h3>
+        <p style="font-size:11.5px;color:var(--stone);margin-bottom:10px;">All time (no date filter) · excludes cancelled jobs · updated just now. For a specific period, use CEO Overview.</p>
+        <div class="row"><span class="l">Gross merchandise value</span><span class="r">$${gmv.toLocaleString()}</span></div>
         <div class="row"><span class="l">Platform commission (18%)</span><span class="r">$${commission.toLocaleString()}</span></div>
         <div class="row"><span class="l">Contractor payout (82%)</span><span class="r">$${payout.toLocaleString()}</span></div>
         <div class="row"><span class="l">Completed jobs value</span><span class="r">$${completedGmv.toLocaleString()} (${completedJobs.length} jobs)</span></div>
