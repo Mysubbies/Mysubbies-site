@@ -38,6 +38,62 @@
   @media (max-width:460px) { .navwrap { padding:0 14px; } .navlinks { gap:9px; font-size:11px; } }
   .navlinks a { color:var(--stone); }
   .navlinks a.current { color:var(--black); font-weight:600; }
+  /* Top nav + account menu (Sep 2026 "Your work, organised" redesign) --
+     same shape as mysubbies-customer-portal.html's equivalent (own copy,
+     self-contained convention). */
+  .toptabs { display:flex; align-items:center; gap:4px; }
+  @media (max-width:980px) { .toptabs { display:none; } }
+  .toptab { position:relative; background:none; border:none; font-family:inherit; font-size:13.5px; font-weight:600; color:var(--stone); padding:8px 12px; border-radius:8px; cursor:pointer; transition:color .15s ease, background .15s ease; }
+  .toptab:hover { color:var(--black); background:var(--paper); }
+  .toptab.active { color:var(--black); background:var(--primary-pale); }
+  .toptab .notif-badge { position:absolute; top:2px; right:2px; }
+  .acctmenu-wrap { position:relative; }
+  .acctmenu-trigger { background:none; border:none; cursor:pointer; padding:0; display:flex; align-items:center; }
+  .acctmenu-avatar { width:30px; height:30px; border-radius:50%; background:var(--black); color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; text-transform:uppercase; }
+  .acctmenu-panel { position:absolute; top:calc(100% + 10px); right:0; min-width:220px; background:#fff; border:1px solid var(--line); border-radius:14px; box-shadow:0 10px 32px rgba(20,33,61,.14); z-index:90; padding:14px; }
+  .acctmenu-email { font-size:12px; color:var(--stone); word-break:break-all; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--paper); }
+  .acctmenu-panel a, .acctmenu-panel button.acctmenu-item { display:block; width:100%; text-align:left; background:none; border:none; font-family:inherit; font-size:13.5px; font-weight:600; color:var(--ink); padding:9px 4px; cursor:pointer; border-radius:8px; }
+  .acctmenu-panel a:hover, .acctmenu-panel button.acctmenu-item:hover { background:var(--paper); }
+  /* Overview dashboard */
+  .welcome-head { margin-bottom:20px; }
+  .welcome-head h1 { font-size:26px; }
+  .welcome-head p { color:var(--stone); font-size:14px; margin-top:4px; }
+  .action-needed-card { display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; border:1.5px solid #F0D9A8; background:var(--accent-pale); border-radius:16px; padding:16px 18px; margin-bottom:18px; }
+  .action-needed-card .anc-icon { width:38px; height:38px; border-radius:10px; background:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px; }
+  .action-needed-card .anc-title { font-weight:700; font-size:14.5px; }
+  .action-needed-card .anc-sub { font-size:12.5px; color:var(--stone); margin-top:2px; }
+  .summary-card-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+  @media (max-width:760px) { .summary-card-grid { grid-template-columns:repeat(2,1fr); } }
+  .summary-card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:0 3px 12px rgba(20,33,61,.05); }
+  .summary-card-icon { width:32px; height:32px; border-radius:9px; background:var(--paper); display:flex; align-items:center; justify-content:center; margin-bottom:10px; color:var(--stone); }
+  .summary-card-num { font-size:21px; font-weight:800; }
+  .summary-card-label { font-size:12px; color:var(--stone); margin-top:2px; }
+  .summary-card-retry { font-size:11.5px; font-weight:600; text-decoration:underline; cursor:pointer; color:var(--stone); }
+  .prefs-panel { background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:16px; box-shadow:0 3px 12px rgba(20,33,61,.05); }
+  .prefs-panel h3 { font-size:15px; margin-bottom:12px; }
+  .prefs-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--paper); }
+  .prefs-row:first-of-type { border-top:none; }
+  .prefs-row-label { font-size:13.5px; font-weight:600; }
+  .prefs-row-sub { font-size:12px; color:var(--stone); margin-top:1px; }
+  .prefs-manage-link { font-size:12.5px; font-weight:600; color:var(--black); text-decoration:underline; cursor:pointer; flex-shrink:0; }
+  .toggle-switch { position:relative; width:42px; height:24px; flex-shrink:0; }
+  .toggle-switch input { position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; }
+  .toggle-switch .track { position:absolute; inset:0; background:var(--line); border-radius:999px; transition:background .15s ease; pointer-events:none; }
+  .toggle-switch input:checked + .track { background:var(--good); }
+  .toggle-switch .thumb { position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.3); transition:left .15s ease; pointer-events:none; }
+  .toggle-switch input:checked ~ .thumb { left:21px; }
+  .toggle-switch input:focus-visible ~ .track { outline:2.5px solid var(--black); outline-offset:2px; }
+  .project-panel { border-radius:20px; overflow:hidden; position:relative; margin-bottom:18px; min-height:190px; display:flex; align-items:flex-end; background:linear-gradient(135deg, var(--black), var(--primary-light)) center/cover; box-shadow:0 6px 20px rgba(20,33,61,.08); }
+  .project-panel-photo { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .project-panel::after { content:''; position:absolute; inset:0; background:linear-gradient(0deg, rgba(20,33,61,.88), rgba(20,33,61,.35) 60%, rgba(20,33,61,.15)); }
+  .project-panel-content { position:relative; z-index:2; padding:22px; color:#fff; }
+  .project-panel-content h2 { font-size:18px; margin-bottom:6px; }
+  .project-panel-content p { font-size:13px; color:rgba(255,255,255,.85); max-width:420px; margin-bottom:14px; line-height:1.5; }
+  .retry-box { text-align:center; padding:40px 20px; }
+  .retry-box p { color:var(--stone); font-size:13.5px; margin-bottom:14px; }
+  .bcard:focus-visible, .cat-card:focus-visible, .toptab:focus-visible, .tab-item:focus-visible, .acctmenu-trigger:focus-visible {
+    outline: 2.5px solid var(--black); outline-offset: 2px;
+  }
   .navlink-refresh { display:flex; align-items:center; cursor:pointer; color:var(--stone); }
   .navlink-refresh:hover { color:var(--black); }
   .navlink-refresh svg.spinning { animation:navlink-refresh-spin 0.8s linear infinite; }
@@ -274,13 +330,25 @@
 <header>
   <div class="navwrap">
     <div class="logo">
-      
+
       <div class="logo-word">My<span class="gold">Subbies</span></div>
     </div>
+    <nav class="toptabs" id="topTabs" aria-label="Primary">
+      <button class="toptab" data-tab="overview" onclick="tab='overview'; render();">Overview</button>
+      <button class="toptab" data-tab="feed" onclick="tab='feed'; render();">Job Offers<span class="notif-badge" id="topFeedBadge" style="display:none;"></span></button>
+      <button class="toptab" data-tab="myjobs" onclick="tab='myjobs'; render();">My Jobs<span class="notif-badge" id="topMyJobsBadge" style="display:none;"></span></button>
+      <button class="toptab" data-tab="earnings" onclick="tab='earnings'; render();">Earnings</button>
+      <button class="toptab" data-tab="messages" onclick="tab='messages'; render();">Messages<span class="notif-badge" id="topMessagesBadge" style="display:none;"></span></button>
+    </nav>
     <div class="navlinks">
       <a class="navlink-bell" onclick="toggleNotifPanel()" title="Notifications"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notifBadge" class="notif-badge" style="display:none;"></span></a>
       <a class="navlink-refresh" id="refreshLink" onclick="manualRefresh()" title="Refresh"><svg id="refreshIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></a>
-      <a class="current" href="mysubbies-contractor-portal.html">Contractor Portal</a>
+      <div class="acctmenu-wrap" id="acctMenuWrap">
+        <button class="acctmenu-trigger" id="acctMenuTrigger" onclick="toggleAccountMenu()" aria-haspopup="true" aria-expanded="false">
+          <span class="acctmenu-avatar" id="acctAvatarInitial">•</span>
+        </button>
+        <div class="acctmenu-panel" id="acctMenuPanel" style="display:none;"></div>
+      </div>
     </div>
   </div>
 </header>
@@ -289,28 +357,27 @@
 <div class="wrap" id="app"></div>
 
 <nav class="mobile-tabbar" aria-label="Primary">
-  <button class="tab-item" id="mtFeed" onclick="tab='feed'; render();">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-    Job Feed
+  <button class="tab-item" id="mtOverview" onclick="tab='overview'; render();" aria-label="Overview">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+    Overview
+  </button>
+  <button class="tab-item" id="mtFeed" onclick="tab='feed'; render();" aria-label="Offers">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+    Offers
     <span class="notif-badge" id="mtFeedBadge" style="display:none;"></span>
   </button>
-  <button class="tab-item" id="mtMyJobs" onclick="tab='myjobs'; render();">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+  <button class="tab-item" id="mtMyJobs" onclick="tab='myjobs'; render();" aria-label="My Jobs">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="m9 15 2 2 4-5"/></svg>
     My Jobs
     <span class="notif-badge" id="mtMyJobsBadge" style="display:none;"></span>
   </button>
-  <button class="tab-item" id="mtEarnings" onclick="tab='earnings'; render();">
+  <button class="tab-item" id="mtEarnings" onclick="tab='earnings'; render();" aria-label="Earnings">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
     Earnings
   </button>
-  <button class="tab-item" id="mtProfile" onclick="tab='profile'; render();">
+  <button class="tab-item" id="mtProfile" onclick="tab='profile'; render();" aria-label="Account">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
-    Profile
-  </button>
-  <button class="tab-item" id="mtMessages" onclick="tab='messages'; render();">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-    Messages
-    <span class="notif-badge" id="mtMessagesBadge" style="display:none;"></span>
+    Account
   </button>
 </nav>
 
@@ -332,19 +399,25 @@
   // still accept) from Supabase and merges into localStorage — see
   // api/get-jobs.js. Local-only jobs are left alone; they sync up on the
   // next saveJobs() call.
+  // Returns true when the server was genuinely reached (including a
+  // confirmed-empty list), false on a network/HTTP failure -- lets the
+  // initial load distinguish "confirmed no offers" from "couldn't load",
+  // same fix as mysubbies-customer-portal.html's identical function.
+  // Existing callers that ignore the return value are unaffected.
   async function hydrateJobsFromServer() {
     const email = localStorage.getItem('mysubbies_contractor_email');
-    if (!email) return;
+    if (!email) return true;
     try {
       const res = await fetch('/api/get-jobs?contractorEmail=' + encodeURIComponent(email));
-      if (!res.ok) return;
+      if (!res.ok) return false;
       const { jobs: remoteJobs } = await res.json();
-      if (!Array.isArray(remoteJobs) || remoteJobs.length === 0) return;
+      if (!Array.isArray(remoteJobs) || remoteJobs.length === 0) return true;
       const localJobs = getJobs();
       const byId = new Map(localJobs.map(j => [j.id, j]));
       remoteJobs.forEach(rj => { if (rj && rj.id) byId.set(rj.id, rj); });
       localStorage.setItem('mysubbies_jobs', JSON.stringify(Array.from(byId.values())));
-    } catch (e) { /* offline or first load — local data still works */ }
+      return true;
+    } catch (e) { return false; /* offline -- local cache still works */ }
   }
 
   // Admin -> contractor messaging (added Aug 2026) -- standalone channel,
@@ -568,7 +641,11 @@
     return regions.includes(jobRegion);
   }
 
-  let tab = 'feed';
+  let tab = 'overview';
+  // Jobs-load lifecycle for Overview/Job Offers -- distinguishes a
+  // confirmed-empty feed from a failed/slow fetch, same pattern and
+  // reasoning as mysubbies-customer-portal.html's identical redesign.
+  let jobsLoadState = 'loading'; // 'loading' | 'ready' | 'error'
   let selectedJobId = null;
   let jobSearchQuery = '';
   let selectedEarningsJobId = null;
@@ -843,24 +920,28 @@
   // early-return branches individually is the safe way to keep this in
   // sync with the current tab/badge counts without touching the many
   // existing call sites that already call render().
-  function render() { renderInner(); updateMobileTabbar(); }
+  function render() { renderInner(); updateMobileTabbar(); updateAcctAvatar(); }
   function updateMobileTabbar() {
     const nav = document.querySelector('.mobile-tabbar');
     if (!nav) return;
     const name = getContractorName();
     if (!name) { nav.style.display = 'none'; return; }
     nav.style.display = '';
-    ['mtFeed', 'mtMyJobs', 'mtEarnings', 'mtProfile', 'mtMessages'].forEach(id => {
+    ['mtOverview', 'mtFeed', 'mtMyJobs', 'mtEarnings', 'mtProfile'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.classList.remove('active');
     });
-    const activeId = { feed: 'mtFeed', myjobs: 'mtMyJobs', earnings: 'mtEarnings', profile: 'mtProfile', messages: 'mtMessages' }[tab];
+    document.querySelectorAll('.toptab').forEach(btn => btn.classList.remove('active'));
+    const activeId = { overview: 'mtOverview', feed: 'mtFeed', myjobs: 'mtMyJobs', earnings: 'mtEarnings', profile: 'mtProfile', messages: null }[tab];
     if (activeId) { const el = document.getElementById(activeId); if (el) el.classList.add('active'); }
+    const topTabEl = document.querySelector(`.toptab[data-tab="${tab}"]`);
+    if (topTabEl) topTabEl.classList.add('active');
 
     const jobs = getJobs();
     const myApplication = getApplications().find(a => a.business === name) || {};
     const myTrades = myApplication.trades;
-    const feedCount = jobs.filter(j => j.status === 'feed' && (!myTrades || !myTrades.length || myTrades.includes(j.category)) && jobMatchesContractorArea(j, myApplication)).length;
+    const isPausedForBadge = !!(myProfileData && myProfileData.pausedNewOffers);
+    const feedCount = isPausedForBadge ? 0 : jobs.filter(j => j.status === 'feed' && (!myTrades || !myTrades.length || myTrades.includes(j.category)) && jobMatchesContractorArea(j, myApplication)).length;
     const hiddenJobIds = getHiddenJobIds(name);
     const myJobsCount = jobs.filter(j => j.contractor === name && !hiddenJobIds.has(j.id) && !['completed', 'cancelled'].includes(j.status)).length;
     const unreadMsgCount = adminMessages.filter(m => m.sender_role === 'admin' && !m.read_at).length;
@@ -873,8 +954,244 @@
     };
     setBadge('mtFeedBadge', feedCount);
     setBadge('mtMyJobsBadge', myJobsCount);
-    setBadge('mtMessagesBadge', unreadMsgCount);
+    setBadge('topFeedBadge', feedCount);
+    setBadge('topMyJobsBadge', myJobsCount);
+    setBadge('topMessagesBadge', unreadMsgCount);
   }
+  function toggleAccountMenu() {
+    const panel = document.getElementById('acctMenuPanel');
+    const trigger = document.getElementById('acctMenuTrigger');
+    if (!panel) return;
+    const opening = panel.style.display === 'none';
+    if (opening) renderAccountMenu();
+    panel.style.display = opening ? 'block' : 'none';
+    if (trigger) trigger.setAttribute('aria-expanded', opening ? 'true' : 'false');
+  }
+  function closeAccountMenu() {
+    const panel = document.getElementById('acctMenuPanel');
+    const trigger = document.getElementById('acctMenuTrigger');
+    if (panel) panel.style.display = 'none';
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+  }
+  function renderAccountMenu() {
+    const panel = document.getElementById('acctMenuPanel');
+    if (!panel) return;
+    const email = localStorage.getItem('mysubbies_contractor_email') || '';
+    panel.innerHTML = `
+      <div class="acctmenu-email">${escapeHtml(email)}</div>
+      <button class="acctmenu-item" onclick="closeAccountMenu(); tab='profile'; render();">My Account</button>
+      <button class="acctmenu-item" onclick="closeAccountMenu(); tab='messages'; render();">Contact MySubbies</button>
+      <button class="acctmenu-item" onclick="logout()">Log out</button>
+    `;
+  }
+  document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('acctMenuWrap');
+    if (wrap && !wrap.contains(e.target)) closeAccountMenu();
+  });
+  function updateAcctAvatar() {
+    const el = document.getElementById('acctAvatarInitial');
+    const name = getContractorName();
+    const wrap = document.getElementById('acctMenuWrap');
+    const topTabs = document.getElementById('topTabs');
+    if (!name) {
+      if (wrap) wrap.style.display = 'none';
+      if (topTabs) topTabs.style.display = 'none';
+      return;
+    }
+    if (wrap) wrap.style.display = '';
+    if (topTabs) topTabs.style.display = '';
+    if (!el) return;
+    el.textContent = (name.trim()[0] || '•').toUpperCase();
+  }
+
+  // ---------------------------------------------------------------------
+  // Overview dashboard ("Your work, organised.", Sep 2026 redesign).
+  // Real data only throughout -- no invented ratings, demand, or counts.
+  // ---------------------------------------------------------------------
+  function renderOverviewTab(name, { feedJobs, myJobs, myJobsCompleted, myJobsAll, referralSectionHtml, isPausedForNewOffers }) {
+    if (connectOnboardingStatus === null && !connectOnboardingLoading) loadConnectOnboardingStatus();
+    if (myProfileData === null && !myProfileLoading) loadMyProfile();
+    const myApp = getApplications().find(a => a.business === name) || {};
+
+    let html = `
+      <div class="welcome-head">
+        <h1>Your work, organised.</h1>
+        <p>Manage your jobs, availability and payouts.</p>
+      </div>
+      <div id="inquiryFormWrap"></div>
+      ${overviewActionRequiredHtml()}
+      ${overviewSummaryCardsHtml(feedJobs, myJobs, myJobsCompleted)}
+    `;
+
+    html += `<div style="display:grid;grid-template-columns:1.5fr 1fr;gap:16px;align-items:start;" class="ov-grid">`;
+    html += `<div>`;
+    html += overviewJobOffersHtml(feedJobs, isPausedForNewOffers);
+    html += `</div>`;
+    html += `<div>`;
+    html += overviewWorkPreferencesHtml(myApp);
+    html += overviewProjectPanelHtml();
+    html += `</div>`;
+    html += `</div>`;
+    html += referralSectionHtml;
+
+    app.innerHTML = html;
+    wireNotifyButton();
+  }
+
+  // One real action item today: incomplete Stripe Connect payout setup.
+  // Deliberately not inventing "expired licence"/"missing documents"
+  // checks -- an approved, logged-in contractor's status is already
+  // gated server-side (see CONTRACTOR_BLOCKED_STATUSES below), so those
+  // conditions would block login entirely rather than surface as an
+  // in-app banner with real data behind it today.
+  function overviewActionRequiredHtml() {
+    if (connectOnboardingStatus === null || connectOnboardingStatus === 'complete') return '';
+    const isPending = connectOnboardingStatus === 'pending';
+    return `
+      <div class="action-needed-card">
+        <div style="display:flex;gap:12px;align-items:center;">
+          <div class="anc-icon">💳</div>
+          <div>
+            <div class="anc-title">${isPending ? 'Finish your payout setup' : 'Finish your payout setup'}</div>
+            <div class="anc-sub">${isPending ? "You started adding your bank details but didn't finish." : 'Complete your payout details to get ready for payments.'}</div>
+          </div>
+        </div>
+        <button class="btn btn-black" style="width:auto;flex-shrink:0;" onclick="startConnectOnboarding()" ${connectOnboardingLoading ? 'disabled' : ''}>${connectOnboardingLoading ? 'Loading…' : (isPending ? 'Continue setup →' : 'Complete setup →')}</button>
+      </div>`;
+  }
+
+  function overviewSummaryCardsHtml(feedJobs, myJobs, myJobsCompleted) {
+    if (jobsLoadState === 'error') {
+      return `<div class="summary-card-grid">
+        <div class="summary-card" style="grid-column:1/-1;text-align:center;">
+          <div style="font-size:13px;color:var(--stone);margin-bottom:8px;">Couldn't load your job data.</div>
+          <span class="summary-card-retry" onclick="retryLoadJobs()">Try again</span>
+        </div>
+      </div>`;
+    }
+    if (jobsLoadState === 'loading') {
+      return `<div class="summary-card-grid">${Array.from({length:4}).map(() => '<div class="skel" style="height:88px;"></div>').join('')}</div>`;
+    }
+    const payoutOk = connectOnboardingStatus === 'complete';
+    // Payouts card shows the real onboarding-gated state, not a $ amount --
+    // there's no per-contractor "amount currently pending transfer" read
+    // available today (weekly-payout.js processes batches, doesn't expose
+    // a live per-contractor pending total), so this card reports payout
+    // *readiness*, never a dollar estimate. See delivery notes.
+    return `<div class="summary-card-grid">
+      <div class="summary-card">
+        <div class="summary-card-icon">📄</div>
+        <div class="summary-card-num">${feedJobs.length}</div>
+        <div class="summary-card-label">Available offers</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-icon">🧰</div>
+        <div class="summary-card-num">${myJobs.length}</div>
+        <div class="summary-card-label">Active jobs</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-icon">✓</div>
+        <div class="summary-card-num">${myJobsCompleted.length}</div>
+        <div class="summary-card-label">Completed jobs</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-icon">💳</div>
+        <div class="summary-card-num" style="font-size:14px;">${connectOnboardingStatus === null ? 'Loading…' : (payoutOk ? 'Ready' : 'Setup needed')}</div>
+        <div class="summary-card-label">Payouts</div>
+      </div>
+    </div>`;
+  }
+
+  function retryLoadJobs() {
+    jobsLoadState = 'loading';
+    render();
+    hydrateJobsFromServer().then((ok) => {
+      jobsLoadState = ok ? 'ready' : 'error';
+      render();
+    });
+  }
+
+  function overviewJobOffersHtml(feedJobs, isPausedForNewOffers) {
+    let inner;
+    if (jobsLoadState === 'error') {
+      inner = `<div class="retry-box"><p>Couldn't load job offers.</p><button class="btn btn-black" style="width:auto;" onclick="retryLoadJobs()">Try again</button></div>`;
+    } else if (jobsLoadState === 'loading') {
+      inner = `<div class="skel" style="height:180px;"></div>`;
+    } else if (isPausedForNewOffers) {
+      inner = `
+        <div style="text-align:center;padding:36px 20px;">
+          <div style="font-size:15px;font-weight:700;margin-bottom:6px;">New offers paused</div>
+          <div style="font-size:13px;color:var(--stone);margin-bottom:18px;">You won't see new job offers while paused. Any jobs you've already accepted are unaffected.</div>
+          <button class="btn btn-black" style="width:auto;" onclick="togglePauseNewOffers(false)">Resume new offers</button>
+        </div>`;
+    } else if (feedJobs.length === 0) {
+      inner = `
+        <div style="text-align:center;padding:36px 20px;">
+          <div style="font-size:15px;font-weight:700;margin-bottom:6px;">No matching jobs right now</div>
+          <div style="font-size:13px;color:var(--stone);margin-bottom:18px;">Check your services and coverage so suitable offers can reach you.</div>
+          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+            <button class="btn btn-black" style="width:auto;" onclick="tab='profile'; render();">Edit work preferences</button>
+            <button class="btn btn-outline" style="width:auto;" onclick="requestNotificationPermission()">Notification settings</button>
+          </div>
+        </div>`;
+    } else {
+      inner = feedJobsTableHtml(feedJobs.slice(0, 5));
+    }
+    return `<div class="prefs-panel"><h3 style="margin-bottom:2px;">Job offers</h3><p style="font-size:12.5px;color:var(--stone);margin-bottom:12px;">No lead fees. No bidding against other contractors for the same job.</p>${inner}${feedJobs.length > 5 ? `<a style="display:block;text-align:center;margin-top:12px;font-size:12.5px;font-weight:600;text-decoration:underline;cursor:pointer;" onclick="tab='feed'; render();">View all ${feedJobs.length} offers →</a>` : ''}</div>`;
+  }
+
+  function overviewWorkPreferencesHtml(myApp) {
+    const services = (myApp.trades || []).join(', ') || '—';
+    const area = (myApp.regions && myApp.regions.length) ? myApp.regions.join(', ') : ((myApp.suburbs || []).join(', ') || 'All Melbourne metro');
+    const availability = (myApp.availability || []).join(', ') || '—';
+    const paused = !!(myProfileData && myProfileData.pausedNewOffers);
+    return `
+      <div class="prefs-panel">
+        <h3>Work preferences</h3>
+        <div class="prefs-row">
+          <div><div class="prefs-row-label">Services</div><div class="prefs-row-sub">${escapeHtml(services)}</div></div>
+          <a class="prefs-manage-link" onclick="tab='profile'; render();">Manage</a>
+        </div>
+        <div class="prefs-row">
+          <div><div class="prefs-row-label">Service area</div><div class="prefs-row-sub">${escapeHtml(area)}</div></div>
+          <a class="prefs-manage-link" onclick="tab='profile'; render();">Manage</a>
+        </div>
+        <div class="prefs-row">
+          <div><div class="prefs-row-label">Availability</div><div class="prefs-row-sub">${escapeHtml(availability)}</div></div>
+          <a class="prefs-manage-link" onclick="tab='profile'; render();">Update</a>
+        </div>
+        <div class="prefs-row">
+          <div><div class="prefs-row-label">Pause new offers</div><div class="prefs-row-sub">${paused ? 'Paused — you won\'t receive new offers' : 'On — accepted jobs are never affected'}</div></div>
+          <label class="toggle-switch">
+            <input type="checkbox" ${paused ? 'checked' : ''} ${pauseTogglePending ? 'disabled' : ''} onchange="togglePauseNewOffers(this.checked)" aria-label="Pause new offers" />
+            <span class="track"></span><span class="thumb"></span>
+          </label>
+        </div>
+      </div>`;
+  }
+
+  function overviewProjectPanelHtml() {
+    return `
+      <div class="project-panel">
+        <img class="project-panel-photo" src="images/categories/decking.jpg" alt="" />
+        <div class="project-panel-content">
+          <h2>Open to bigger projects?</h2>
+          <p>Add your project capabilities to your profile.</p>
+          <button class="btn" style="width:auto;background:var(--accent);color:var(--black);font-weight:700;" onclick="tab='profile'; render();">Update capabilities →</button>
+        </div>
+      </div>`;
+  }
+
+  function requestNotificationPermission() {
+    if (!('Notification' in window)) { showToast('Notifications aren\'t supported in this browser.'); return; }
+    if (Notification.permission === 'granted') { showToast('Notifications are already on.'); return; }
+    if (Notification.permission === 'denied') { showToast('Notifications are blocked — enable them in your browser settings.'); return; }
+    Notification.requestPermission().then((perm) => {
+      showToast(perm === 'granted' ? 'Notifications turned on' : 'Notifications not enabled');
+      render();
+    });
+  }
+
   function renderInner() {
     const name = getContractorName();
     if (!name) { renderLogin(); return; }
@@ -895,7 +1212,16 @@
     // suburb fails open instead of hiding a real job.
     const myApplication = getApplications().find(a => a.business === name) || {};
     const myTrades = myApplication.trades;
-    const feedJobs = jobs.filter(j => j.status === 'feed' && (!myTrades || !myTrades.length || myTrades.includes(j.category)) && jobMatchesContractorArea(j, myApplication));
+    // Pausing new offers (Sep 2026) hides the feed for THIS contractor's
+    // own view -- a real, visible effect of the toggle, not cosmetic. It
+    // doesn't touch server-side dispatch (api/notify.js's new-job-available
+    // email) -- see delivery notes. Computed separately from the real
+    // eligible list so the empty-state can honestly distinguish "paused"
+    // from "genuinely nothing eligible" instead of showing the same
+    // generic message for both.
+    const isPausedForNewOffers = !!(myProfileData && myProfileData.pausedNewOffers);
+    const eligibleFeedJobs = jobs.filter(j => j.status === 'feed' && (!myTrades || !myTrades.length || myTrades.includes(j.category)) && jobMatchesContractorArea(j, myApplication));
+    const feedJobs = isPausedForNewOffers ? [] : eligibleFeedJobs;
     const hiddenJobIds = getHiddenJobIds(name);
     const myJobsAll = jobs.filter(j => j.contractor === name && !hiddenJobIds.has(j.id));
     // Tab badge / earnings still care about "active" and "completed" as
@@ -904,38 +1230,33 @@
     const myJobs = myJobsAll.filter(j => !['completed', 'cancelled'].includes(j.status));
     const myJobsCompleted = myJobsAll.filter(j => j.status === 'completed');
 
-    app.innerHTML = `
-      <div class="whoami">
-        <span class="whoami-user">Logged in as <strong>${escapeHtml(name)}</strong></span>
-        <nav class="whoami-actions"><a onclick="logout()">Log out</a><a onclick="openInquiryForm()">Contact MySubbies</a></nav>
-      </div>
-      ${ctrProfileBarHtml(name, myJobsCompleted)}
-      <div id="inquiryFormWrap"></div>
-      ${(() => {
-        const myApp = getApplications().find(a => a.business === name);
-        if (!myApp || !myApp.referralCode) return '';
-        const referredCount = getApplications().filter(a => a.referredBy === myApp.referralCode).length;
-        return `<div class="box" style="margin-bottom:16px;">
-          <div style="font-size:13px;font-weight:600;margin-bottom:4px;">Refer another contractor</div>
-          <div style="font-size:12px;color:var(--stone);margin-bottom:8px;">${referredCount} contractor${referredCount===1?'':'s'} referred so far.</div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <code style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;flex:1;">${myApp.referralCode}</code>
-            <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;flex-shrink:0;" onclick="copyContractorReferralCode('${myApp.referralCode}')">Copy</button>
-          </div>
-          <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
-            <div style="font-size:12px;color:var(--stone);">Share the sign-up link directly</div>
-            <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;flex-shrink:0;" onclick="shareContractorReferralLink('${myApp.referralCode}')">Share link</button>
-          </div>
-        </div>`;
-      })()}
-      <div class="tabs">
-        <button class="${tab==='feed'?'active':''}" onclick="tab='feed'; render();">Job Feed ${feedJobs.length ? '('+feedJobs.length+')' : ''}</button>
-        <button class="${tab==='myjobs'?'active':''}" onclick="tab='myjobs'; render();">My Jobs ${myJobs.length ? '('+myJobs.length+')' : ''}</button>
-        <button class="${tab==='earnings'?'active':''}" onclick="tab='earnings'; render();">Earnings</button>
-        <button class="${tab==='profile'?'active':''}" onclick="tab='profile'; render();">My Profile</button>
-        <button class="${tab==='messages'?'active':''}" onclick="tab='messages'; render();">Messages ${adminMessages.filter(m => !m.read_at).length ? '('+adminMessages.filter(m => !m.read_at).length+')' : ''}</button>
-      </div>
-    `;
+    app.innerHTML = `<div id="inquiryFormWrap"></div>`;
+
+    // Referral (Sep 2026 redesign) -- moved out of the always-visible top
+    // block into a compact section rendered only at the bottom of Overview,
+    // and only when this account genuinely has a real referral code.
+    const referralSectionHtml = (() => {
+      const myApp = getApplications().find(a => a.business === name);
+      if (!myApp || !myApp.referralCode) return '';
+      const referredCount = getApplications().filter(a => a.referredBy === myApp.referralCode).length;
+      return `<div class="box" style="margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px;">Invite another contractor</div>
+        <div style="font-size:12px;color:var(--stone);margin-bottom:8px;">${referredCount} contractor${referredCount===1?'':'s'} referred so far.</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <code style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;flex:1;">${myApp.referralCode}</code>
+          <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;flex-shrink:0;" onclick="copyContractorReferralCode('${myApp.referralCode}')">Copy</button>
+        </div>
+        <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <div style="font-size:12px;color:var(--stone);">Share the sign-up link directly</div>
+          <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;flex-shrink:0;" onclick="shareContractorReferralLink('${myApp.referralCode}')">Share link</button>
+        </div>
+      </div>`;
+    })();
+
+    if (tab === 'overview') {
+      renderOverviewTab(name, { feedJobs, myJobs, myJobsCompleted, myJobsAll, referralSectionHtml, isPausedForNewOffers });
+      return;
+    }
 
     if (tab === 'earnings') {
       const completed = myJobsCompleted;
@@ -1003,15 +1324,23 @@
     }
 
     if (tab === 'feed') {
-      app.innerHTML += `<h1 class="pagetitle">New jobs near you</h1><p class="pagesub">No lead fees. No bidding against other contractors for the same job.</p>`;
-      app.innerHTML += jobSearchBoxHtml();
-      const feedJobsFiltered = feedJobs.filter(j => jobMatchesSearch(j, jobSearchQuery));
-      if (feedJobs.length === 0) {
-        app.innerHTML += `<div class="empty">No open jobs right now.<br>Go submit one from the site to see it appear here.</div>`;
-      } else if (feedJobsFiltered.length === 0) {
-        app.innerHTML += `<div class="empty">No jobs match "${escapeHtml(jobSearchQuery)}".</div>`;
+      app.innerHTML += `<h1 class="pagetitle">Job Offers</h1><p class="pagesub">No lead fees. No bidding against other contractors for the same job.</p>`;
+      if (jobsLoadState === 'error') {
+        app.innerHTML += `<div class="retry-box"><p>Couldn't load job offers.</p><button class="btn btn-black" style="width:auto;" onclick="retryLoadJobs()">Try again</button></div>`;
+      } else if (jobsLoadState === 'loading') {
+        app.innerHTML += `<div class="skel" style="height:200px;"></div>`;
+      } else if (isPausedForNewOffers) {
+        app.innerHTML += `<div class="empty">New offers paused.<br>You won't see new job offers while paused. Any jobs you've already accepted are unaffected.<br><br><button class="btn btn-black" style="width:auto;" onclick="togglePauseNewOffers(false)">Resume new offers</button></div>`;
       } else {
-        app.innerHTML += feedJobsTableHtml(feedJobsFiltered);
+        app.innerHTML += jobSearchBoxHtml();
+        const feedJobsFiltered = feedJobs.filter(j => jobMatchesSearch(j, jobSearchQuery));
+        if (eligibleFeedJobs.length === 0) {
+          app.innerHTML += `<div class="empty">No matching jobs right now.<br>Check your services and coverage so suitable offers can reach you.<br><br><button class="btn btn-outline" style="width:auto;" onclick="tab='profile'; render();">Edit work preferences</button></div>`;
+        } else if (feedJobsFiltered.length === 0) {
+          app.innerHTML += `<div class="empty">No jobs match "${escapeHtml(jobSearchQuery)}".</div>`;
+        } else {
+          app.innerHTML += feedJobsTableHtml(feedJobsFiltered);
+        }
       }
     } else {
       app.innerHTML += `<h1 class="pagetitle">My jobs</h1><p class="pagesub">${myJobsAll.length} total, ${myJobs.length} active</p>`;
@@ -1348,6 +1677,40 @@
       await loadMyProfile();
     } catch (e) { showToast('Could not save — check your connection.'); }
   }
+  // "Pause new offers" toggle (Overview + My Profile) -- a real,
+  // server-persisted contractor preference (see api/contractor-profile.js),
+  // not cosmetic. While paused, this contractor's own Job Offers list and
+  // offer counts stop showing new jobs (see the `paused` check in
+  // renderInner()'s feedJobs/feedCount computation) -- accepted jobs are
+  // never touched. On a failed save the toggle visibly reverts rather than
+  // silently claiming success, per "handle failures without pretending
+  // the settings were saved."
+  let pauseTogglePending = false;
+  async function togglePauseNewOffers(checked) {
+    pauseTogglePending = true;
+    render();
+    const email = localStorage.getItem('mysubbies_contractor_email');
+    const accessToken = await getContractorAccessToken();
+    if (!accessToken) {
+      pauseTogglePending = false;
+      showToast('Please log out and back in, then try again.');
+      render();
+      return;
+    }
+    try {
+      const res = await fetch('/api/contractor-profile', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, accessToken, pausedNewOffers: checked }),
+      });
+      if (!res.ok) { showToast('Could not save — try again.'); pauseTogglePending = false; render(); return; }
+      if (myProfileData) myProfileData.pausedNewOffers = checked;
+      showToast(checked ? 'New offers paused' : 'New offers resumed');
+    } catch (e) {
+      showToast('Could not save — check your connection.');
+    }
+    pauseTogglePending = false;
+    render();
+  }
   function onCtrProfilePhotoSelected(event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
@@ -1414,6 +1777,17 @@
       </div>
 
       ${payoutSetupCardHtml()}
+
+      <div class="ctr-profile-section">
+        <h3>Availability</h3>
+        <div class="prefs-row" style="border-top:none;padding-top:0;">
+          <div><div class="prefs-row-label">Pause new offers</div><div class="prefs-row-sub">${p.pausedNewOffers ? 'Paused — you won\'t receive new offers' : 'On — accepted jobs are never affected'}</div></div>
+          <label class="toggle-switch">
+            <input type="checkbox" ${p.pausedNewOffers ? 'checked' : ''} ${pauseTogglePending ? 'disabled' : ''} onchange="togglePauseNewOffers(this.checked)" aria-label="Pause new offers" />
+            <span class="track"></span><span class="thumb"></span>
+          </label>
+        </div>
+      </div>
 
       <div class="ctr-profile-section">
         <h3>Profile photo</h3>
@@ -2366,7 +2740,9 @@
       if (!res.ok) { if (errBox) errBox.textContent = result.error || 'Could not activate your account.'; return; }
       localStorage.setItem('mysubbies_contractor_name', result.businessName || 'your business');
       localStorage.setItem('mysubbies_contractor_email', email);
-      await Promise.all([hydrateJobsFromServer(), hydrateAdminMessages()]);
+      const [jobsOk] = await Promise.all([hydrateJobsFromServer(), hydrateAdminMessages()]);
+      jobsLoadState = jobsOk ? 'ready' : 'error';
+      tab = 'overview';
       render();
     } catch (e) {
       if (errBox) errBox.textContent = 'Could not activate your account — please try logging in normally.';
@@ -2511,7 +2887,9 @@
     // hydrateAdminMessages() has the exact same email-guard early-return, so
     // it needs the same re-run -- without this, Messages sat empty until a
     // manual refresh (found live-testing the messaging feature, Aug 2026).
-    await Promise.all([hydrateJobsFromServer(), hydrateAdminMessages()]);
+    const [jobsOk] = await Promise.all([hydrateJobsFromServer(), hydrateAdminMessages()]);
+    jobsLoadState = jobsOk ? 'ready' : 'error';
+    tab = 'overview';
     render();
   }
   function logout() {
@@ -2521,7 +2899,10 @@
     render();
   }
 
-  Promise.all([hydrateJobsFromServer(), hydrateAdminMessages()]).then(render);
+  Promise.all([hydrateJobsFromServer(), hydrateAdminMessages()]).then(([jobsOk]) => {
+    jobsLoadState = jobsOk ? 'ready' : 'error';
+    render();
+  });
   hydrateInquiriesFromServer(localStorage.getItem('mysubbies_contractor_email')).then(() => { if (document.getElementById('inquiryFormWrap')) renderInquiryPanel(); });
 </script>
 <script>

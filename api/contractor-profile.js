@@ -62,6 +62,11 @@ module.exports = async (req, res) => {
         licence: app.licence || '',
         insurer: app.insurer || '',
         profilePhoto: app.profilePhoto || null,
+        // "Pause new offers" (Sep 2026 dashboard redesign) -- a contractor
+        // preference, not an eligibility/approval field, so it lives in the
+        // same self-service full_application jsonb as contact/licence/
+        // insurer above rather than needing a schema migration.
+        pausedNewOffers: !!app.pausedNewOffers,
       });
     } catch (err) {
       console.error('contractor-profile GET error:', err);
@@ -110,6 +115,7 @@ module.exports = async (req, res) => {
     if (typeof body.licence === 'string') mergedApp.licence = body.licence.trim();
     if (typeof body.insurer === 'string') mergedApp.insurer = body.insurer.trim();
     if (typeof body.profilePhoto === 'string') mergedApp.profilePhoto = body.profilePhoto;
+    if (typeof body.pausedNewOffers === 'boolean') mergedApp.pausedNewOffers = body.pausedNewOffers;
     columnUpdate.full_application = mergedApp;
 
     const { error: updErr } = await supabase.from('contractors').update(columnUpdate).eq('id', auth.contractor.id);
