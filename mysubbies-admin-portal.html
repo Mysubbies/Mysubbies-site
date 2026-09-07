@@ -1124,6 +1124,39 @@
         `}
       </div>`;
 
+    // The active tab's own render function can throw on a real-world data
+    // shape this file's local test data didn't cover (e.g. Sep 2026's
+    // trades-stored-as-a-string case) -- wrapped so a future edge case
+    // shows a visible, screenshot-able error banner with the tab's other
+    // controls (nav, stats) still intact and clickable, instead of the
+    // whole render silently no-op'ing and looking like a dead click.
+    let tabContentHtml;
+    try {
+      tabContentHtml = tab === 'overview' ? `
+        <h1 class="pagetitle">Jobs</h1>
+        ${jobs.length === 0 ? '<div class="empty">No jobs yet. Submit one from the site to see it here.</div>' : `
+          ${jobStatusFilterChipsHtml(jobs)}
+          ${jobSearchBoxHtml()}
+          ${(() => {
+            const statusFiltered = jobStatusFilter === 'all' ? jobs : jobs.filter(j => j.status === jobStatusFilter);
+            const filtered = statusFiltered.filter(j => jobMatchesSearch(j, jobSearchQuery));
+            if (statusFiltered.length === 0) return '<div class="empty">No jobs in this status.</div>';
+            return filtered.length === 0
+              ? `<div class="empty">No jobs match "${escapeHtml(jobSearchQuery)}".</div>`
+              : jobsTableHtml(filtered);
+          })()}
+        `}
+      ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
+    } catch (e) {
+      console.error('Tab render error on tab=' + tab, e);
+      tabContentHtml = `
+        <div class="detailcard" style="border:1.5px solid #B4232C;background:#FFF5F5;">
+          <h2 style="font-size:16px;color:#B4232C;margin-bottom:6px;">This tab hit an error and couldn't display</h2>
+          <p style="font-size:13px;color:var(--stone);margin-bottom:10px;">Screenshot the text below and send it over so this can be fixed. The rest of the dashboard (other tabs, jobs, stats) is unaffected.</p>
+          <pre style="font-size:11.5px;white-space:pre-wrap;word-break:break-all;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;">${escapeHtml((e && e.message) || String(e))}${e && e.stack ? '\n\n' + escapeHtml(e.stack) : ''}</pre>
+        </div>`;
+    }
+
     app.innerHTML = `
       ${actionRequiredHtml}
       <div class="statgrid">
@@ -1144,21 +1177,7 @@
         <button class="${tab==='ratecard'?'active':''}" onclick="tab='ratecard'; render();">Rate Card</button>
         <button class="${tab==='reports'?'active':''}" onclick="tab='reports'; render();">Reports</button>
       </div>
-      ${tab === 'overview' ? `
-        <h1 class="pagetitle">Jobs</h1>
-        ${jobs.length === 0 ? '<div class="empty">No jobs yet. Submit one from the site to see it here.</div>' : `
-          ${jobStatusFilterChipsHtml(jobs)}
-          ${jobSearchBoxHtml()}
-          ${(() => {
-            const statusFiltered = jobStatusFilter === 'all' ? jobs : jobs.filter(j => j.status === jobStatusFilter);
-            const filtered = statusFiltered.filter(j => jobMatchesSearch(j, jobSearchQuery));
-            if (statusFiltered.length === 0) return '<div class="empty">No jobs in this status.</div>';
-            return filtered.length === 0
-              ? `<div class="empty">No jobs match "${escapeHtml(jobSearchQuery)}".</div>`
-              : jobsTableHtml(filtered);
-          })()}
-        `}
-      ` : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab()}
+      ${tabContentHtml}
       ${openContractorThreadEmail ? contractorThreadModalHtml() : ''}
     `;
     if (tab === 'ratecard') wireRateCardTab();
