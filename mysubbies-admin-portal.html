@@ -3386,9 +3386,17 @@
       const data = await resp.json();
       if (!resp.ok) { alert(data.error || 'Could not process this cancellation.'); return; }
       if (data.caseByCase) {
-        alert('A later payment stage has already been paid on this job -- no automatic refund was issued. Assess the actual cost incurred and process a manual refund via the Stripe dashboard.');
+        // The job is still cancelled either way (see api/process-cancellation-refund.js) --
+        // only the automatic refund itself didn't happen, for one of a few reasons.
+        if (data.reason === 'later_stage_paid') {
+          alert('Job cancelled. A later payment stage had already been paid, so no automatic refund was issued -- assess the actual cost incurred and process a manual refund via the Stripe dashboard.');
+        } else if (data.reason === 'refund_failed' || data.reason === 'no_payment_record') {
+          alert(`Job cancelled, but the deposit could not be refunded automatically (${data.refundError || 'unknown error'}). This can happen for a deposit paid before the site switched to live payments. Please check whether a manual refund is owed and process it via the Stripe dashboard.`);
+        } else {
+          alert('Job cancelled. No automatic refund was issued -- please check whether a manual refund is owed.');
+        }
       } else {
-        alert(`Refunded $${(data.amountCents / 100).toFixed(2)} to the customer.`);
+        alert(`Job cancelled and refunded $${(data.amountCents / 100).toFixed(2)} to the customer.`);
       }
     } catch (e) { alert('Could not reach the server to process this cancellation.'); return; }
     const jobs = getJobs();

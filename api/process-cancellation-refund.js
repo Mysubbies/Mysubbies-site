@@ -87,15 +87,38 @@ module.exports = async (req, res) => {
         return;
       }
 
+      // A refund not being possible (no payment record, or a real Stripe
+      // API rejection -- e.g. a deposit paid in test mode before this
+      // project switched to live keys, so that PaymentIntent no longer
+      // exists in the live ledger) must never trap a customer who wants to
+      // cancel with no way to do so. The job still gets cancelled; the
+      // refund itself is flagged for MySubbies to process manually, and
+      // the client shows honest copy instead of a false "refunded".
       const stripe = getStripe();
-      const result = await refundDeposit(supabase, stripe, jobId, 1);
-      if (result.error) { res.status(409).json({ error: result.error }); return; }
+      let result;
+      try {
+        result = await refundDeposit(supabase, stripe, jobId, 1);
+      } catch (refundErr) {
+        console.error('Refund attempt failed for job', jobId, refundErr);
+        await supabase.from('jobs').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', jobId);
+        await auditLog(supabase, jobId, 'cancellation_refund_failed', 'customer', customerEmail,
+          { status: job.status }, { status: 'cancelled', note: refundErr.message || 'Refund could not be processed automatically.' });
+        res.status(200).json({ cancelled: true, refunded: false, refundError: refundErr.message || 'Could not process the refund automatically.' });
+        return;
+      }
+      if (result.error) {
+        await supabase.from('jobs').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', jobId);
+        await auditLog(supabase, jobId, 'cancellation_refund_failed', 'customer', customerEmail,
+          { status: job.status }, { status: 'cancelled', note: result.error });
+        res.status(200).json({ cancelled: true, refunded: false, refundError: result.error });
+        return;
+      }
 
       await supabase.from('jobs').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', jobId);
       await auditLog(supabase, jobId, 'full_refund_pre_acceptance', 'customer', customerEmail,
         { status: job.status }, { status: 'cancelled', refundedCents: result.amountCents });
 
-      res.status(200).json({ refunded: true, amountCents: result.amountCents });
+      res.status(200).json({ cancelled: true, refunded: true, amountCents: result.amountCents });
       return;
     }
 
@@ -117,13 +140,37 @@ module.exports = async (req, res) => {
       if (laterStageAlreadyPaid(fullRecord.paymentSchedule, fullRecord.paidStages, depositKey)) {
         await auditLog(supabase, jobId, 'cancellation_flagged_case_by_case', 'admin', adminActorEmail,
           { status: job.status }, { status: job.status, note: 'A later stage was already paid -- refund must be assessed manually.' });
-        res.status(200).json({ caseByCase: true });
+        res.status(200).json({ caseByCase: true, reason: 'later_stage_paid' });
         return;
       }
 
+      // A refund not being possible (no payment record, or a real Stripe
+      // API rejection -- e.g. the original deposit was paid in test mode
+      // before this project switched to live keys, so that PaymentIntent
+      // no longer exists in the live ledger) must never block the admin
+      // from actually cancelling the job. Both are treated the same way
+      // as the "later stage already paid" case above: the job still gets
+      // cancelled, and the refund itself is flagged for manual handling
+      // rather than silently blocking the whole action.
       const stripe = getStripe();
-      const result = await refundDeposit(supabase, stripe, jobId, 0.9);
-      if (result.error) { res.status(409).json({ error: result.error }); return; }
+      let result;
+      try {
+        result = await refundDeposit(supabase, stripe, jobId, 0.9);
+      } catch (refundErr) {
+        console.error('Refund attempt failed for job', jobId, refundErr);
+        await supabase.from('jobs').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', jobId);
+        await auditLog(supabase, jobId, 'cancellation_refund_failed', 'admin', adminActorEmail,
+          { status: job.status }, { status: 'cancelled', note: refundErr.message || 'Refund could not be processed automatically.' });
+        res.status(200).json({ caseByCase: true, reason: 'refund_failed', refundError: refundErr.message || 'Could not process the refund automatically.' });
+        return;
+      }
+      if (result.error) {
+        await supabase.from('jobs').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', jobId);
+        await auditLog(supabase, jobId, 'cancellation_refund_failed', 'admin', adminActorEmail,
+          { status: job.status }, { status: 'cancelled', note: result.error });
+        res.status(200).json({ caseByCase: true, reason: 'no_payment_record', refundError: result.error });
+        return;
+      }
 
       await supabase.from('jobs').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', jobId);
       await auditLog(supabase, jobId, 'partial_refund_post_acceptance', 'admin', adminActorEmail,

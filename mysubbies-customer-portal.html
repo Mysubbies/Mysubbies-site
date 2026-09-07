@@ -1950,7 +1950,16 @@
       if (!resp.ok) { alert(data.error || 'Could not cancel this job. Please try again or contact support.'); if (btn) { btn.disabled = false; btn.textContent = 'Yes, cancel job'; } return; }
       j.status = 'cancelled';
       saveJobs(jobs);
-      alert(`Job cancelled. $${(data.amountCents / 100).toFixed(2)} has been refunded to your original payment method.`);
+      // A refund not going through automatically (e.g. a deposit paid
+      // before the site switched to live payments) must never block the
+      // cancellation itself -- see api/process-cancellation-refund.js.
+      // The job is always cancelled by this point; only the refund
+      // messaging differs.
+      if (data.refunded) {
+        alert(`Job cancelled. $${(data.amountCents / 100).toFixed(2)} has been refunded to your original payment method.`);
+      } else {
+        alert('Job cancelled. Your refund could not be processed automatically — our team will process it manually and confirm with you shortly.');
+      }
       render();
     } catch (e) {
       alert('Could not cancel this job — check your connection and try again.');
