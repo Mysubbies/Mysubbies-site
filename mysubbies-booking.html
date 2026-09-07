@@ -124,7 +124,7 @@
   // secret key, which only ever lives in Vercel env vars for /api
   // functions). Replace this with your real Stripe publishable key —
   // starts with pk_test_ in test mode, pk_live_ once you go live.
-  const STRIPE_PUBLISHABLE_KEY = 'pk_test_51U2ob6B25lHD6dwFqx6bGEipaEkk6A74k1eU9F12rF6gPNju9U9vnjZ5jj23z7Zi8IckThWii8kf6MF2tBXjXtSA00pOTmdFUJ';
+  const STRIPE_PUBLISHABLE_KEY = 'pk_live_51U2oWAPkdmC3yiOV5uqNifeP4xwEBgsu3oqdadRvsIpjuWbh1U0XpPTQBw7qUxHXAbb3MvcTG74g85HHqHsRKYTY00j0Up8qzb';
   const stripe = (typeof Stripe !== 'undefined' && !STRIPE_PUBLISHABLE_KEY.includes('REPLACE_ME'))
     ? Stripe(STRIPE_PUBLISHABLE_KEY) : null;
 
