@@ -2800,6 +2800,19 @@
   // prompt (renderRemovalPrompt), not a mutually-exclusive alternative.
   let estPrimaryGroup = null;
   function estPrimaryUnitGroup(cat) {
+    // Courier Services always uses its 2 "...Boxes" tasks as the primary
+    // group, matched by name rather than the generic most-common-.unit
+    // tie-break below -- found and fixed after a real incident: an admin
+    // rate-card edit left the Metro Boxes task's unit field as the literal
+    // string "5" instead of "Box", which flipped the tie-break to the 2
+    // Bulk/Job tasks instead (also 2 of them) and silently hid the whole
+    // courier quoting form, leaving only Bulk pricing reachable. Courier
+    // Services' grouping must never again depend on that field being typed
+    // correctly.
+    if (cat.label === 'Courier Services') {
+      const boxTasks = cat.tasks.filter(t => !t.disabled && !t.unavailable && /box/i.test(t.name) && !/bulk/i.test(t.name));
+      if (boxTasks.length >= 2) return { unit: 'Box', tasks: boxTasks };
+    }
     const companionName = CATEGORY_REMOVAL_COMPANION[cat.label];
     const priced = cat.tasks.filter(t => !t.disabled && !t.unavailable && typeof t.rate === 'number' && t.name !== companionName);
     if (priced.length < 2) return null;
@@ -2836,8 +2849,8 @@
     resetCourierBoxesForm();
     if (!estPrimaryGroup) { wrap.style.display = 'none'; return; }
     wrap.style.display = 'block';
-    // Courier Services' "Box" tasks need real pickup/delivery addresses to
-    // price correctly (a distance-banded ladder, not a plain size field) --
+    // Courier Services needs real pickup/delivery addresses to price
+    // correctly (metro/regional x small/bulk, not a plain size field) --
     // see calculateCourierBoxesPrice(). Every other category keeps the
     // generic flow below unchanged.
     const isCourierBoxes = c.label === 'Courier Services' && estPrimaryGroup.unit === 'Box';
