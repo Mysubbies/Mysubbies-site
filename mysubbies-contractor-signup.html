@@ -91,8 +91,9 @@
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:14px 24px; border-radius:999px; font-size:15px; font-weight:600; cursor:pointer; border:none; width:100%; }
   .btn-black { background:var(--black); color:#fff; }
   .btn-ghost { background:none; color:var(--stone); font-weight:500; }
-  .terms { display:flex; gap:10px; align-items:flex-start; font-size:13px; color:var(--stone); margin:20px 0; cursor:pointer; }
-  .terms input { margin-top:3px; width:auto; }
+  .terms { display:flex; gap:12px; align-items:flex-start; font-size:13px; color:var(--stone); margin:20px 0; cursor:pointer; padding:10px; border-radius:10px; border:1.5px solid var(--line); transition:border-color .15s ease, background .15s ease; }
+  .terms:has(input:checked) { border-color:var(--black); background:var(--paper); }
+  .terms input { margin-top:2px; width:20px; height:20px; flex-shrink:0; accent-color:var(--black); cursor:pointer; }
   .error { display:flex; gap:8px; align-items:center; padding:12px 14px; border-radius:10px; background:#FDEDEA; color:var(--warn); font-size:13px; margin-bottom:16px; }
   .confirm { text-align:center; padding:40px 0; }
   .confirm .tick { width:56px; height:56px; border-radius:999px; background:#EAF5EE; display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:26px; }
