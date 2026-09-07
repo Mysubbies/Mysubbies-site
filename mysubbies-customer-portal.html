@@ -1720,13 +1720,43 @@
   // ids in localStorage) -- it must never touch the shared mysubbies_jobs
   // array via saveJobs(), since that same record is still needed by the
   // contractor's and admin's own views and by the Property Profile history.
+  // Sep 2026 fix: this list was localStorage-only, so a job removed on one
+  // device/browser reappeared on any other device, or after site data was
+  // cleared -- same bug class found and fixed in
+  // mysubbies-contractor-portal.html's identical hideCancelledJob()
+  // pattern. Fix: also persist the hidden-id list server-side via
+  // api/customer-profile.js (customers.preferences.hiddenJobIds).
+  // getHiddenJobIds() reads the UNION of localStorage + customerPrefsData
+  // so the hide is instant on this device even before the server
+  // round-trip resolves, and still works offline (localStorage keeps
+  // working even if the POST below fails).
+  let customerPrefsData = null;
+  let customerPrefsLoading = false;
+  async function loadCustomerPrefs(email) {
+    customerPrefsLoading = true;
+    try {
+      const res = await fetch('/api/customer-profile?email=' + encodeURIComponent(email));
+      customerPrefsData = res.ok ? await res.json() : {};
+    } catch (e) { customerPrefsData = {}; }
+    customerPrefsLoading = false;
+    render();
+  }
+  async function getCustomerAccessToken() {
+    if (!sb) return null;
+    try {
+      const { data } = await sb.auth.getSession();
+      return (data && data.session && data.session.access_token) || null;
+    } catch (e) { return null; }
+  }
   function getHiddenJobIds(email) {
+    const server = (customerPrefsData && Array.isArray(customerPrefsData.hiddenJobIds)) ? customerPrefsData.hiddenJobIds : [];
     try {
       const all = JSON.parse(localStorage.getItem('mysubbies_customer_hidden_jobs') || '{}');
-      return new Set(all[email] || []);
-    } catch (e) { return new Set(); }
+      const local = all[email] || [];
+      return new Set([...local, ...server]);
+    } catch (e) { return new Set(server); }
   }
-  function hideCancelledJob(jobId, event) {
+  async function hideCancelledJob(jobId, event) {
     if (event) event.stopPropagation();
     const email = getCurrentCustomerEmail();
     if (!email) return;
@@ -1737,6 +1767,21 @@
       localStorage.setItem('mysubbies_customer_hidden_jobs', JSON.stringify(all));
     } catch (e) { /* non-critical -- worst case the job just stays visible */ }
     render();
+    // Fire-and-forget server persist -- a failed save just means this
+    // device's local hide still works; cross-device sync catches up next
+    // time a save succeeds.
+    try {
+      const accessToken = await getCustomerAccessToken();
+      if (!accessToken) return;
+      const serverHidden = new Set((customerPrefsData && customerPrefsData.hiddenJobIds) || []);
+      serverHidden.add(jobId);
+      const hiddenJobIds = Array.from(serverHidden);
+      const res = await fetch('/api/customer-profile', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, accessToken, hiddenJobIds }),
+      });
+      if (res.ok && customerPrefsData) customerPrefsData.hiddenJobIds = hiddenJobIds;
+    } catch (e) { /* offline -- local hide still applies on this device */ }
   }
 
   // Status filter chips (Aug 2026, same pattern as the admin portal's All
@@ -1825,6 +1870,7 @@
   function renderInner() {
     const email = getCurrentCustomerEmail();
     if (!email) { renderLogin(); return; }
+    if (customerPrefsData === null && !customerPrefsLoading) loadCustomerPrefs(email);
     if (selectedJobId) { renderDetail(email); return; }
     if (showingPaymentHistory) { renderPaymentHistory(email); return; }
     if (showingPropertyProfile) { renderPropertyProfile(email); return; }
