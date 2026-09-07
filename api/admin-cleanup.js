@@ -28,6 +28,6 @@ module.exports = async (req, res) => {
     res.status(200).json({ deleted: (data || []).length, deletedIds: (data || []).map(r => r.id) });
   } catch (err) {
     console.error('admin-cleanup error:', err);
-    res.status(500).json({ error: 'Cleanup failed.' });
+    res.status(500).json({ error: 'Cleanup failed.', detail: err.message || String(err) });
   }
 };
