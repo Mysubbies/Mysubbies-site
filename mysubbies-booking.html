@@ -24,7 +24,7 @@
   .navwrap { max-width:1180px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:64px; }
   .logo { display:flex; align-items:center; gap:9px; }
   .logo-word { font-weight:800; font-size:19px; color:var(--black); }
-  .logo-word .gold { color:var(--accent); }
+  .logo-word .gold { color:#FF6A1A; }
   .backlink { font-size:13px; color:var(--stone); }
   .wrap { max-width:640px; margin:0 auto; padding:48px 24px 80px; }
   .quote-summary { background:#fff; border:1px solid var(--line); border-radius:16px; padding:20px; display:flex; gap:14px; align-items:center; margin-bottom:32px; }
@@ -47,7 +47,11 @@
   .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   @media (max-width:520px) { .row2 { grid-template-columns:1fr; } }
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:14px 24px; border-radius:999px; font-size:15px; font-weight:600; cursor:pointer; border:none; width:100%; }
-  .btn-black { background:var(--black); color:#fff; }
+  /* Primary buttons -- bright orange app-wide (Sep 2026). Navy text for
+     accessible contrast (white-on-orange falls short at button-label
+     sizes). */
+  .btn-black { background:#FF6A1A; color:var(--black); font-weight:700; }
+  .btn-black:hover { background:#E85A0A; }
   .btn-ghost { background:none; color:var(--stone); font-weight:500; }
   .terms { display:flex; gap:10px; align-items:flex-start; font-size:13px; color:var(--stone); margin:20px 0; cursor:pointer; }
   .terms input { margin-top:3px; }

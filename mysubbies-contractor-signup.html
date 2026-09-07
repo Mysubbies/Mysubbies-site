@@ -23,7 +23,7 @@
   .navwrap { max-width:1180px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:64px; }
   .logo { display:flex; align-items:center; gap:9px; }
   .logo-word { font-weight:800; font-size:19px; color:var(--black); }
-  .logo-word .gold { color:var(--accent); }
+  .logo-word .gold { color:#FF6A1A; }
   .navlinks a { color:var(--stone); font-size:13px; }
   .navlinks a:hover { color:var(--black); }
   .wrap { max-width:640px; margin:0 auto; padding:48px 24px 80px; }
@@ -36,7 +36,7 @@
   .pitch h1 { font-size:27px; margin-bottom:10px; letter-spacing:-0.02em; }
   .pitch-sub { font-size:14.5px; color:rgba(255,255,255,0.8); line-height:1.6; margin-bottom:18px; max-width:460px; }
   .pitch-benefitline { font-size:12.5px; font-weight:600; color:rgba(255,255,255,0.75); margin-bottom:22px; }
-  .pitch .btn-black { background:var(--accent); color:var(--black); font-weight:700; width:auto; padding:14px 26px; }
+  .pitch .btn-black { background:#FF6A1A; color:var(--black); font-weight:700; width:auto; padding:14px 26px; }
 
   /* Founding 100 card */
   .founding-card { background:#fff; border:2px solid var(--accent); border-radius:16px; padding:26px 24px; margin-bottom:32px; }
@@ -89,7 +89,10 @@
   .doc-item .doc-remove:hover { color:var(--warn); }
   .profile-photo-preview { width:72px; height:72px; border-radius:999px; object-fit:cover; margin-bottom:10px; display:block; }
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:14px 24px; border-radius:999px; font-size:15px; font-weight:600; cursor:pointer; border:none; width:100%; }
-  .btn-black { background:var(--black); color:#fff; }
+  /* Primary buttons -- bright orange app-wide (Sep 2026). Navy text for
+     accessible contrast. */
+  .btn-black { background:#FF6A1A; color:var(--black); font-weight:700; }
+  .btn-black:hover { background:#E85A0A; }
   .btn-ghost { background:none; color:var(--stone); font-weight:500; }
   .terms { display:flex; gap:12px; align-items:flex-start; font-size:13px; color:var(--stone); margin:20px 0; cursor:pointer; padding:10px; border-radius:10px; border:1.5px solid var(--line); transition:border-color .15s ease, background .15s ease; }
   .terms:has(input:checked) { border-color:var(--black); background:var(--paper); }
