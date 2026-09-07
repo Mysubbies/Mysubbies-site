@@ -309,6 +309,13 @@
   @media (prefers-reduced-motion: reduce) { .skel { animation:none; } }
   .retry-box { text-align:center; padding:40px 20px; }
   .retry-box p { color:var(--stone); font-size:13.5px; margin-bottom:14px; }
+  /* Visible keyboard focus on the new custom interactive elements --
+     .bcard is a div[role=button] (can't be a real <button> since it
+     contains its own nested action buttons), so it needs an explicit
+     focus style same as the other custom controls here. */
+  .bcard:focus-visible, .cat-card:focus-visible, .toptab:focus-visible, .tab-item:focus-visible, .acctmenu-trigger:focus-visible, .project-panel button:focus-visible {
+    outline: 2.5px solid var(--black); outline-offset: 2px;
+  }
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
@@ -828,7 +835,7 @@
         <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;margin-bottom:8px;" onclick="document.getElementById('peFileInput').click()">📎 Attach photos/plans</button>
         <div id="peAttachmentList" style="margin-bottom:8px;"></div>
         <div class="box" style="margin-bottom:12px;">
-          <div style="font-size:12.5px;color:var(--stone);">We'll contact you via <strong>${escapeHtml(myAccount.name || email)}</strong>, ${escapeHtml(email)}${myAccount.phone ? ' or ' + escapeHtml(myAccount.phone) : ''} — the details already on your account.</div>
+          <div style="font-size:12.5px;color:var(--stone);">We'll contact you via ${myAccount.name ? `<strong>${escapeHtml(myAccount.name)}</strong>, ` : ''}${escapeHtml(email)}${myAccount.phone ? ' or ' + escapeHtml(myAccount.phone) : ''} — the details already on your account.</div>
         </div>
         <p style="font-size:12px;color:var(--stone);line-height:1.5;margin-bottom:12px;">Larger projects are reviewed before pricing. The next step may include a site visit or a custom quotation.</p>
         <div id="peError" style="color:var(--warn);font-size:12.5px;margin-bottom:10px;display:none;"></div>
@@ -889,7 +896,7 @@
       `Preferred timing: ${timing}`,
       `Budget range: ${budget}`,
       `Permits/engineering: ${permit}`,
-      `Preferred contact: ${name}, ${email}${myAccount.phone ? ', ' + myAccount.phone : ''}`,
+      `Preferred contact: ${myAccount.name ? myAccount.name + ', ' : ''}${email}${myAccount.phone ? ', ' + myAccount.phone : ''}`,
     ].filter(Boolean).join('\n');
 
     projectEnquirySubmitting = true;
@@ -1838,7 +1845,7 @@
       ? `<div class="bcard-price">$${(j.priceLow || j.basePrice).toLocaleString()}</div>`
       : `<div class="bcard-price-tbc">Price pending</div>`;
     return `
-      <div class="bcard" onclick="selectedJobId='${j.id}'; render();">
+      <div class="bcard" tabindex="0" role="button" aria-label="View booking: ${escapeHtml(j.category)}" onclick="selectedJobId='${j.id}'; render();" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectedJobId='${j.id}';render();}">
         <div class="bcard-top">
           <div>
             <div class="bcard-title">${escapeHtml(j.category)}${jobHasUnreadMessage(j) ? ` <span style="color:var(--warn);font-size:10px;">●</span>` : ''}</div>
