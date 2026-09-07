@@ -783,9 +783,23 @@
       const { applications: remoteApps } = await res.json();
       if (!Array.isArray(remoteApps) || remoteApps.length === 0) return;
       const localApps = getApplications();
-      const byId = new Map(localApps.map(a => [a.id, a]));
-      remoteApps.forEach(ra => { if (ra && ra.id) byId.set(ra.id, ra); });
-      localStorage.setItem('mysubbies_contractor_applications', JSON.stringify(Array.from(byId.values())));
+      // Merge by email -- the real, guaranteed-present database key --
+      // rather than `id`, a client-stamped field inside the JSONB blob
+      // that isn't guaranteed on every record (e.g. a contractor who
+      // signed up through an older flow before this field was added
+      // consistently). Merging by id alone silently dropped those
+      // applications from admin's view entirely, even though their data
+      // was genuinely in the database (founder report, Sep 2026).
+      const byEmail = new Map(localApps.filter(a => a && a.email).map(a => [String(a.email).toLowerCase(), a]));
+      remoteApps.forEach(ra => {
+        if (!ra || !ra.email) return;
+        // Backfill a stable id for records missing one so every existing
+        // id-keyed action (approve/reject/message/deactivate) still works
+        // once the record is actually visible.
+        if (!ra.id) ra.id = 'app_' + String(ra.email).toLowerCase();
+        byEmail.set(String(ra.email).toLowerCase(), ra);
+      });
+      localStorage.setItem('mysubbies_contractor_applications', JSON.stringify(Array.from(byEmail.values())));
     } catch (e) { /* offline or first load — local data still works */ }
   }
 
@@ -2833,6 +2847,27 @@
 
   function renderApplicationsTab(applications) {
     if (applications.length === 0) return '<div class="empty">No contractor applications yet.</div>';
+    // Defensive normalization -- Sep 2026 founder report: one record
+    // missing an expected array field (e.g. a contractor from an older
+    // signup path with no `trades`/`suburbs` on it) threw inside this
+    // function's own .map() below with no try/catch around it, which
+    // silently blanked the ENTIRE tab, not just that one record. Every
+    // application is now given safe defaults up front so a single sparse
+    // record can never crash rendering of every other application too.
+    applications = applications.map(a => {
+      const safe = { business: '', contact: '', email: '', phone: '', abn: '', status: 'manual_review', ...a };
+      // Explicit fallbacks after the spread, not defaults inside it -- a
+      // record with the key present but set to null/undefined would
+      // otherwise still override these and crash the .join()/.length
+      // calls below.
+      safe.trades = Array.isArray(safe.trades) ? safe.trades : [];
+      safe.suburbs = Array.isArray(safe.suburbs) ? safe.suburbs : [];
+      safe.insuranceDocs = Array.isArray(safe.insuranceDocs) ? safe.insuranceDocs : [];
+      safe.certDocs = Array.isArray(safe.certDocs) ? safe.certDocs : [];
+      safe.idDocs = Array.isArray(safe.idDocs) ? safe.idDocs : [];
+      if (!safe.appliedAt) safe.appliedAt = new Date().toISOString();
+      return safe;
+    });
     const statusBadge = { pending: 'badge-feed', approved: 'badge-completed', preferred: 'badge-completed', watchlist: 'badge-feed', suspended: 'badge-rejected', expired_documents: 'badge-rejected', manual_review: 'badge-feed', rejected: 'badge-rejected' };
     const filtered = applicationsStatusFilter === 'all' ? applications : applications.filter(a => a.status === applicationsStatusFilter);
     const approvedCount = applications.filter(a => a.status === 'approved').length;
