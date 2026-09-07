@@ -67,6 +67,13 @@ module.exports = async (req, res) => {
         // same self-service full_application jsonb as contact/licence/
         // insurer above rather than needing a schema migration.
         pausedNewOffers: !!app.pausedNewOffers,
+        // Cancelled-job "Remove" list (Sep 2026 fix) -- was localStorage-only
+        // (mysubbies_contractor_hidden_jobs), which meant a removed job came
+        // back on any other device/browser or after site data was cleared
+        // (real founder report: "when contractor removes the cancelled job
+        // from his history, it reappears again"). Same jsonb-field pattern
+        // as pausedNewOffers -- no schema migration needed.
+        hiddenJobIds: Array.isArray(app.hiddenJobIds) ? app.hiddenJobIds : [],
       });
     } catch (err) {
       console.error('contractor-profile GET error:', err);
@@ -116,6 +123,7 @@ module.exports = async (req, res) => {
     if (typeof body.insurer === 'string') mergedApp.insurer = body.insurer.trim();
     if (typeof body.profilePhoto === 'string') mergedApp.profilePhoto = body.profilePhoto;
     if (typeof body.pausedNewOffers === 'boolean') mergedApp.pausedNewOffers = body.pausedNewOffers;
+    if (Array.isArray(body.hiddenJobIds)) mergedApp.hiddenJobIds = body.hiddenJobIds.filter(id => typeof id === 'string');
     columnUpdate.full_application = mergedApp;
 
     const { error: updErr } = await supabase.from('contractors').update(columnUpdate).eq('id', auth.contractor.id);

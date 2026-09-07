@@ -187,6 +187,23 @@
   table.jobstable { width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--line); border-radius:14px; overflow:hidden; }
   table.jobstable th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:var(--stone); padding:12px 16px; background:var(--paper); }
   table.jobstable td { padding:14px 16px; font-size:13px; border-top:1px solid var(--paper); }
+  /* Mobile job list (Sep 2026 fix) -- this file's 7-column job table had no
+     responsive treatment at all, unlike mysubbies-customer-portal.html's
+     identical table which already gets stacked into cards below 640px --
+     real founder report: "when they click on my jobs in app, the screen
+     goes out of size." Same proven pattern copied over: hide the header
+     row, make every cell a full-width block, and use each cell's
+     data-label attribute as its own caption. */
+  @media (max-width:640px) {
+    table.jobstable, table.jobstable tbody, table.jobstable tr, table.jobstable td { display:block; width:100%; }
+    table.jobstable thead { display:none; }
+    table.jobstable { border:none; background:transparent; box-shadow:none; }
+    table.jobstable tr.jobrow { background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px; box-shadow:0 3px 12px rgba(20,33,61,0.05); }
+    table.jobstable td { padding:5px 0; border-top:none; }
+    table.jobstable td[data-label]:not([data-label=""])::before { content:attr(data-label); display:block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--stone-light); margin-bottom:2px; }
+    table.jobstable td[data-label=""] { padding-top:8px; }
+    table.jobstable td[data-label=""]:empty { display:none; }
+  }
   tr.jobrow { cursor:pointer; }
   tr.jobrow:hover { background:var(--paper); }
   .badge { font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; display:inline-block; }
@@ -1385,11 +1402,11 @@
             const payout = Math.round((j.basePrice || 0) * 0.82);
             return `
               <tr class="jobrow" onclick="selectedJobId='${j.id}'; render();">
-                <td>${j.jobNumber ? '#' + j.jobNumber : '—'}</td>
-                <td><strong>${escapeHtml(j.category)}</strong><br><span style="color:var(--stone);font-size:12px;">${escapeHtml(titleDetail)}</span></td>
-                <td>${escapeHtml(j.suburb)}</td>
-                <td><span class="badge badge-feed">Open</span></td>
-                <td>$${payout.toLocaleString()}</td>
+                <td data-label="#">${j.jobNumber ? '#' + j.jobNumber : '—'}</td>
+                <td data-label="Job"><strong>${escapeHtml(j.category)}</strong><br><span style="color:var(--stone);font-size:12px;">${escapeHtml(titleDetail)}</span></td>
+                <td data-label="Suburb">${escapeHtml(j.suburb)}</td>
+                <td data-label="Status"><span class="badge badge-feed">Open</span></td>
+                <td data-label="Payout">$${payout.toLocaleString()}</td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -1419,13 +1436,13 @@
             // file (older jobs, or a customer account that never had one set).
             return `
               <tr class="jobrow" onclick="selectedJobId='${j.id}'; render();">
-                <td>${j.jobNumber ? '#' + j.jobNumber : '—'}</td>
-                <td><strong>${escapeHtml(titleDetail)}</strong>${jobHasUnreadMessage(j) ? ` <span style="color:var(--warn);font-size:9px;vertical-align:middle;" title="New message">●</span>` : ''}${j.items && j.items.length > 1 ? `<br><span style="color:var(--stone);font-size:12px;">${j.items.length} items</span>` : ''}</td>
-                <td>${escapeHtml(j.address || j.suburb)}${j.address ? `<br><span style="color:var(--stone);font-size:12px;">${escapeHtml(j.suburb)}</span>` : ''}</td>
-                <td>${j.customerName ? escapeHtml(j.customerName) : '—'}</td>
-                <td><span class="badge ${JOB_BADGE_CLASS[j.status] || 'badge-feed'}">${JOB_BADGE_LABEL[j.status] || j.status}</span></td>
-                <td>$${Math.round((j.basePrice || 0) * 0.82).toLocaleString()}</td>
-                <td>${j.status === 'cancelled' ? `<button class="btn btn-outline" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="hideCancelledJob('${j.id}', event)">Remove</button>` : ''}</td>
+                <td data-label="#">${j.jobNumber ? '#' + j.jobNumber : '—'}</td>
+                <td data-label="Job"><strong>${escapeHtml(titleDetail)}</strong>${jobHasUnreadMessage(j) ? ` <span style="color:var(--warn);font-size:9px;vertical-align:middle;" title="New message">●</span>` : ''}${j.items && j.items.length > 1 ? `<br><span style="color:var(--stone);font-size:12px;">${j.items.length} items</span>` : ''}</td>
+                <td data-label="Site address">${escapeHtml(j.address || j.suburb)}${j.address ? `<br><span style="color:var(--stone);font-size:12px;">${escapeHtml(j.suburb)}</span>` : ''}</td>
+                <td data-label="Customer">${j.customerName ? escapeHtml(j.customerName) : '—'}</td>
+                <td data-label="Status"><span class="badge ${JOB_BADGE_CLASS[j.status] || 'badge-feed'}">${JOB_BADGE_LABEL[j.status] || j.status}</span></td>
+                <td data-label="Payout">$${Math.round((j.basePrice || 0) * 0.82).toLocaleString()}</td>
+                <td data-label="">${j.status === 'cancelled' ? `<button class="btn btn-outline" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="hideCancelledJob('${j.id}', event)">Remove</button>` : ''}</td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -1434,16 +1451,31 @@
 
   // Removing a cancelled job (Aug 2026) -- same per-account "hidden" list
   // pattern as mysubbies-customer-portal.html's hideCancelledJob(). Only
-  // hides the job from THIS contractor's own My Jobs view (own localStorage
-  // key) -- never deletes from the shared mysubbies_jobs array via
-  // saveJobs(), since the customer's and admin's views still need it.
+  // hides the job from THIS contractor's own My Jobs view -- never deletes
+  // from the shared mysubbies_jobs array via saveJobs(), since the
+  // customer's and admin's views still need it.
+  //
+  // Sep 2026 fix: this was localStorage-only, so a job hidden on one
+  // device/browser reappeared on any other device, or after site data was
+  // cleared -- real founder report: "when contractor removes the cancelled
+  // job from his history, it reappears again." Confirmed via live
+  // reproduction that re-render/reload/rename do NOT cause this; a fresh
+  // localStorage (simulating a different device) does. Fix: also persist
+  // the hidden-id list server-side via api/contractor-profile.js
+  // (full_application.hiddenJobIds, same field/pattern as pausedNewOffers).
+  // getHiddenJobIds() reads the UNION of localStorage + myProfileData so
+  // the hide is instant on this device even before the server round-trip
+  // resolves, and still works offline (localStorage keeps working even if
+  // the POST below fails).
   function getHiddenJobIds(contractorName) {
+    const server = (myProfileData && Array.isArray(myProfileData.hiddenJobIds)) ? myProfileData.hiddenJobIds : [];
     try {
       const all = JSON.parse(localStorage.getItem('mysubbies_contractor_hidden_jobs') || '{}');
-      return new Set(all[contractorName] || []);
-    } catch (e) { return new Set(); }
+      const local = all[contractorName] || [];
+      return new Set([...local, ...server]);
+    } catch (e) { return new Set(server); }
   }
-  function hideCancelledJob(jobId, event) {
+  async function hideCancelledJob(jobId, event) {
     if (event) event.stopPropagation();
     const name = getContractorName();
     if (!name) return;
@@ -1454,6 +1486,22 @@
       localStorage.setItem('mysubbies_contractor_hidden_jobs', JSON.stringify(all));
     } catch (e) { /* non-critical -- worst case the job just stays visible */ }
     render();
+    // Fire-and-forget server persist -- a failed save just means this
+    // device's local hide still works; cross-device sync catches up next
+    // time a save succeeds.
+    try {
+      const email = localStorage.getItem('mysubbies_contractor_email');
+      const accessToken = await getContractorAccessToken();
+      if (!email || !accessToken) return;
+      const serverHidden = new Set((myProfileData && myProfileData.hiddenJobIds) || []);
+      serverHidden.add(jobId);
+      const hiddenJobIds = Array.from(serverHidden);
+      const res = await fetch('/api/contractor-profile', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, accessToken, hiddenJobIds }),
+      });
+      if (res.ok && myProfileData) myProfileData.hiddenJobIds = hiddenJobIds;
+    } catch (e) { /* offline -- local hide still applies on this device */ }
   }
 
   function renderDetail(name) {
@@ -1925,6 +1973,38 @@
     XLSX.writeFile(wb, filename);
   }
   function fmtCents(c) { return '$' + ((c || 0) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  // Fallback for the real bug (Sep 2026 founder report: "receipt download
+  // comes back with 0 payment") -- api/job-payment-schedule.js only knows
+  // about jobs backed by a real job_payment_schedules row. Multi-category
+  // bundle jobs (and any older job from before that system existed) never
+  // got one -- see CLAUDE.md's "Only single-category bookings go through
+  // real Stripe payment" -- so the server correctly returns an empty
+  // milestones array for them, and the receipt/statement builders below
+  // had no fallback, silently showing $0 for a job that's genuinely been
+  // paid via the older paymentSchedule/paidStages fields already on the
+  // job record itself. Same default 4-stage schedule
+  // (5/35/50/10) already used as the fallback everywhere else in this
+  // codebase when a job has no paymentSchedule of its own (see
+  // mysubbies-booking.html's DEFAULT_PAYMENT_SCHEDULE). No real paid_at
+  // timestamp exists on this legacy path (only a boolean paidStages flag),
+  // so "Paid On" is honestly left blank here rather than invented.
+  const LEGACY_DEFAULT_PAYMENT_SCHEDULE = [
+    { key: 'deposit', label: 'Deposit', pct: 5 },
+    { key: 'materials', label: 'Materials ordered', pct: 35 },
+    { key: 'frame', label: 'Frame stage complete', pct: 50 },
+    { key: 'completion', label: 'On completion', pct: 10 },
+  ];
+  function legacyMilestonesFromJob(job) {
+    if (!job) return [];
+    const schedule = Array.isArray(job.paymentSchedule) && job.paymentSchedule.length ? job.paymentSchedule : LEGACY_DEFAULT_PAYMENT_SCHEDULE;
+    const baseCents = Math.round((job.basePrice || 0) * 100);
+    return schedule.map(s => ({
+      label: s.label, milestone_type: s.key,
+      amount_cents: Math.round(baseCents * (s.pct / 100)),
+      status: (job.paidStages && job.paidStages[s.key]) ? 'paid' : 'pending',
+      paid_at: null,
+    }));
+  }
   const STATEMENT_COLUMNS = [
     { key: 'jobNumber', label: 'Job #' }, { key: 'category', label: 'Category' }, { key: 'suburb', label: 'Suburb' },
     { key: 'stage', label: 'Stage' }, { key: 'amount', label: 'Amount' }, { key: 'status', label: 'Status' }, { key: 'paidAt', label: 'Paid On' },
@@ -1950,7 +2030,19 @@
     const res = await fetch(`/api/job-payment-schedule?all=1&${param}=` + encodeURIComponent(email));
     if (!res.ok) throw new Error('fetch failed');
     const data = await res.json();
-    return data.jobs || [];
+    const serverJobs = data.jobs || [];
+    // Same legacy fallback as downloadReceiptForJob() -- a job with no
+    // real job_payment_schedules row (bundle/older jobs) comes back with
+    // an empty milestones array, which silently dropped it from the
+    // Statement of Account/Earnings Statement entirely. Merge in its real
+    // local paymentSchedule/paidStages for any job the server has no
+    // milestones for, rather than showing $0 or omitting it.
+    const localJobs = getJobs();
+    return serverJobs.map(j => {
+      if (j.milestones && j.milestones.length) return j;
+      const localJob = localJobs.find(lj => lj.id === j.jobId);
+      return { ...j, milestones: legacyMilestonesFromJob(localJob) };
+    });
   }
   async function downloadStatement(format, forRole) {
     dlMenuOpenFor = null; render();
@@ -1998,7 +2090,7 @@
       const data = await res.json();
       const jobs = getJobs();
       const job = jobs.find(j => j.id === jobId) || {};
-      const milestones = data.milestones || [];
+      const milestones = (data.milestones && data.milestones.length) ? data.milestones : legacyMilestonesFromJob(job);
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       const jobRef = job.jobNumber != null ? 'Job #' + job.jobNumber : jobId;
