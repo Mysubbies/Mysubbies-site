@@ -374,13 +374,18 @@
   // share one small helper instead of three near-identical ones.
   let applicationsStatusFilter = 'all';
   function applicationsStatusFilterChipsHtml(applications) {
-    const presentStatuses = Array.from(new Set(applications.map(a => a.status)));
+    // A record with `status` present but explicitly null/undefined (a real
+    // production case, Sep 2026) survives a `{status:'x', ...a}`-style
+    // spread default unchanged -- only a genuinely *missing* key falls back
+    // to the default. Coerced to 'manual_review' here, matching this
+    // codebase's real DB default for that column.
+    const presentStatuses = Array.from(new Set(applications.map(a => a.status || 'manual_review')));
     const preferredOrder = ['pending', 'approved', 'suspended', 'rejected', 'manual_review', 'preferred', 'watchlist', 'expired_documents'];
     presentStatuses.sort((a, b) => preferredOrder.indexOf(a) - preferredOrder.indexOf(b));
-    const options = [{ key: 'all', label: 'All' }, ...presentStatuses.map(s => ({ key: s, label: s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }))];
+    const options = [{ key: 'all', label: 'All' }, ...presentStatuses.map(s => ({ key: s, label: String(s || 'manual_review').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }))];
     return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
       ${options.map(f => {
-        const count = f.key === 'all' ? applications.length : applications.filter(a => a.status === f.key).length;
+        const count = f.key === 'all' ? applications.length : applications.filter(a => (a.status || 'manual_review') === f.key).length;
         const active = applicationsStatusFilter === f.key;
         return `<button onclick="applicationsStatusFilter='${f.key}'; render();" style="padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;border:1.5px solid ${active ? 'var(--ink)' : 'var(--line)'};background:${active ? 'var(--ink)' : '#fff'};color:${active ? '#fff' : 'var(--ink)'};cursor:pointer;">${f.label} (${count})</button>`;
       }).join('')}
@@ -1867,13 +1872,16 @@
   // are the same record in this schema) -- excludes 'pending' since those
   // aren't real usable accounts yet, that's still Applications' job.
   function contractorsStatusFilterChipsHtml(contractors) {
-    const presentStatuses = Array.from(new Set(contractors.map(a => a.status)));
+    // See the identical comment in applicationsStatusFilterChipsHtml --
+    // a record with `status` present but null/undefined is a real
+    // production case, not a hypothetical.
+    const presentStatuses = Array.from(new Set(contractors.map(a => a.status || 'manual_review')));
     const preferredOrder = ['approved', 'suspended', 'rejected', 'manual_review', 'preferred', 'watchlist', 'expired_documents'];
     presentStatuses.sort((a, b) => preferredOrder.indexOf(a) - preferredOrder.indexOf(b));
-    const options = [{ key: 'all', label: 'All' }, ...presentStatuses.map(s => ({ key: s, label: s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }))];
+    const options = [{ key: 'all', label: 'All' }, ...presentStatuses.map(s => ({ key: s, label: String(s || 'manual_review').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }))];
     return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
       ${options.map(f => {
-        const count = f.key === 'all' ? contractors.length : contractors.filter(a => a.status === f.key).length;
+        const count = f.key === 'all' ? contractors.length : contractors.filter(a => (a.status || 'manual_review') === f.key).length;
         const active = contractorsStatusFilter === f.key;
         return `<button onclick="contractorsStatusFilter='${f.key}'; render();" style="padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;border:1.5px solid ${active ? 'var(--ink)' : 'var(--line)'};background:${active ? 'var(--ink)' : '#fff'};color:${active ? '#fff' : 'var(--ink)'};cursor:pointer;">${f.label} (${count})</button>`;
       }).join('')}
@@ -1916,7 +1924,7 @@
                 <div style="font-size:12px;color:var(--stone);margin-top:2px;">${escapeHtml(a.contact)} · ${escapeHtml(a.email)}${a.phone ? ' · ' + escapeHtml(a.phone) : ''}</div>
               </div>
             </div>
-            <span class="badge ${a.status === 'approved' ? 'badge-completed' : a.status === 'suspended' ? 'badge-rejected' : 'badge-feed'}">${a.status}</span>
+            <span class="badge ${a.status === 'approved' ? 'badge-completed' : a.status === 'suspended' ? 'badge-rejected' : 'badge-feed'}">${a.status || 'manual_review'}</span>
           </div>
           <div class="row"><span class="l">Trades</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml(toArr(a.trades).join(', ') || '—')}</span></div>
           <div class="row"><span class="l">Applied</span><span class="r">${a.appliedAt ? new Date(a.appliedAt).toLocaleDateString('en-AU') : '—'}</span></div>
