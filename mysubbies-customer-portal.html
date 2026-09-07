@@ -99,8 +99,15 @@
   }
   .wrap { max-width:640px; margin:0 auto; padding:32px 24px 80px; }
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 20px; border-radius:999px; font-size:14px; font-weight:600; cursor:pointer; border:none; transition:box-shadow .15s ease, background .15s ease, border-color .15s ease, transform .1s ease; }
-  .btn-black { background:var(--black); color:#fff; box-shadow:0 3px 10px rgba(20,33,61,0.22); }
-  .btn-black:hover { background:var(--primary-light); box-shadow:0 5px 14px rgba(20,33,61,0.3); }
+  /* Primary buttons -- bright orange (Sep 2026, matching the approved
+     portal mockups) instead of navy. Navy text, not white: white on this
+     brightness of orange falls short of accessible contrast at normal
+     button-label sizes, navy clears it comfortably. Kept as its own
+     declaration rather than repointing --black, since --black still does
+     real work elsewhere (headings, header) that isn't supposed to turn
+     orange. */
+  .btn-black { background:#FF6A1A; color:var(--black); font-weight:700; box-shadow:0 3px 10px rgba(255,106,26,0.35); }
+  .btn-black:hover { background:#E85A0A; box-shadow:0 5px 14px rgba(255,106,26,0.4); }
   .btn-black:active { transform:translateY(1px); }
   .btn-outline { background:#fff; color:var(--ink); border:1.5px solid var(--line); }
   .btn-outline:hover { border-color:var(--black); background:var(--paper); }
