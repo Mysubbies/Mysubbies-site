@@ -81,7 +81,13 @@
      real class from the start. */
   .ceo-grid { display:grid; grid-template-columns:1.3fr 1fr; gap:16px; align-items:start; }
   @media (max-width:900px) { .ceo-grid { grid-template-columns:1fr; } }
-  .tabs { display:flex; gap:6px; background:#EFEDE9; padding:4px; border-radius:10px; margin-bottom:24px; width:fit-content; }
+  /* flex-wrap added Sep 2026 -- this row (now 11 buttons with CEO Overview
+     added) had no wrap/scroll handling at all, causing real page-level
+     horizontal scroll on mobile viewports (found live testing the new
+     CEO Overview tab, pre-existing before today but made more visible by
+     the 11th button). Wrapping to multiple rows reads better here than a
+     horizontally-scrolling single row would with this many items. */
+  .tabs { display:flex; flex-wrap:wrap; gap:6px; background:#EFEDE9; padding:4px; border-radius:10px; margin-bottom:24px; width:fit-content; max-width:100%; }
   .tabs button { padding:9px 16px; border-radius:7px; font-size:13px; font-weight:600; border:none; cursor:pointer; background:transparent; color:var(--stone); }
   .tabs button.active { background:#fff; color:var(--ink); }
   h1.pagetitle { font-size:22px; margin-bottom:16px; }
