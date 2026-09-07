@@ -327,6 +327,19 @@
     return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   }
 
+  // Coerces a contractor field expected to be an array (trades, suburbs)
+  // into a real array. `(a.trades || [])` alone only guards missing/falsy
+  // values -- a record from an older signup path that stored trades as a
+  // plain string (e.g. "Electrical") is truthy, so it sails past that
+  // guard and then throws on the first .join()/.forEach() call, which
+  // (since these calls almost always sit inside an unwrapped .map() over
+  // every contractor) blanks the whole tab, not just that one record.
+  function toArr(x) {
+    if (Array.isArray(x)) return x;
+    if (x == null || x === '') return [];
+    return [x];
+  }
+
   // "All Jobs" used to be one long mixed list (everything from awaiting-
   // contractor through cancelled, in creation order) with a single archive
   // toggle just for cancelled -- founder feedback (Aug 2026) was that this
@@ -1188,7 +1201,7 @@
   }
   function exportContractorsCsv() {
     const apps = getApplications();
-    const rows = apps.map(a => ({ ...a, tradesCsv: (a.trades || []).join('; '), suburbsCsv: (a.suburbs || []).join('; ') }));
+    const rows = apps.map(a => ({ ...a, tradesCsv: toArr(a.trades).join('; '), suburbsCsv: toArr(a.suburbs).join('; ') }));
     downloadCsv('mysubbies-contractors.csv', toCsv(rows, [
       { key: 'business', label: 'Business name' }, { key: 'contact', label: 'Contact' },
       { key: 'email', label: 'Email' }, { key: 'phone', label: 'Phone' },
@@ -1263,7 +1276,7 @@
 
     // Contractor category coverage (approved contractors per trade)
     const coverage = {};
-    approved.forEach(a => (a.trades || []).forEach(t => { coverage[t] = (coverage[t] || 0) + 1; }));
+    approved.forEach(a => toArr(a.trades).forEach(t => { coverage[t] = (coverage[t] || 0) + 1; }));
     const uncoveredCats = catRows.filter(([cat]) => !coverage[cat]).map(([cat]) => cat);
 
     return `
@@ -1877,7 +1890,7 @@
         <div class="detailcard" style="max-width:640px;margin-bottom:14px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <div style="display:flex;gap:12px;align-items:center;">
-              ${a.status === 'approved' ? `<input type="checkbox" onclick="toggleContractorSelection('${a.email.replace(/'/g, "\\'")}')" ${selectedContractorEmails.has(a.email) ? 'checked' : ''} style="width:17px;height:17px;flex-shrink:0;cursor:pointer;" title="Select to message" />` : ''}
+              ${a.status === 'approved' ? `<input type="checkbox" onclick="toggleContractorSelection('${(a.email || '').replace(/'/g, "\\'")}')" ${selectedContractorEmails.has(a.email) ? 'checked' : ''} style="width:17px;height:17px;flex-shrink:0;cursor:pointer;" title="Select to message" />` : ''}
               ${a.profilePhoto ? `<img src="${escapeHtml(a.profilePhoto)}" style="width:44px;height:44px;border-radius:999px;object-fit:cover;">` : ''}
               <div>
                 <div style="font-weight:700;font-size:15px;">${escapeHtml(a.business)}</div>
@@ -1886,10 +1899,10 @@
             </div>
             <span class="badge ${a.status === 'approved' ? 'badge-completed' : a.status === 'suspended' ? 'badge-rejected' : 'badge-feed'}">${a.status}</span>
           </div>
-          <div class="row"><span class="l">Trades</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml((a.trades || []).join(', ') || '—')}</span></div>
+          <div class="row"><span class="l">Trades</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml(toArr(a.trades).join(', ') || '—')}</span></div>
           <div class="row"><span class="l">Applied</span><span class="r">${a.appliedAt ? new Date(a.appliedAt).toLocaleDateString('en-AU') : '—'}</span></div>
           <div style="display:flex;gap:8px;margin-top:14px;">
-            <button class="btn btn-outline" style="flex:1;" onclick="openContractorThread('${a.email.replace(/'/g, "\\'")}')">💬 Messages</button>
+            <button class="btn btn-outline" style="flex:1;" onclick="openContractorThread('${(a.email || '').replace(/'/g, "\\'")}')">💬 Messages</button>
             ${a.status === 'suspended'
               ? `<button class="btn btn-outline" style="flex:1;" onclick="reactivateContractor('${a.id}')">Reactivate</button>`
               : `<button class="btn btn-outline" style="flex:1;" onclick="deactivateContractor('${a.id}')">Deactivate</button>`}
@@ -2860,8 +2873,8 @@
       // record with the key present but set to null/undefined would
       // otherwise still override these and crash the .join()/.length
       // calls below.
-      safe.trades = Array.isArray(safe.trades) ? safe.trades : [];
-      safe.suburbs = Array.isArray(safe.suburbs) ? safe.suburbs : [];
+      safe.trades = toArr(safe.trades);
+      safe.suburbs = toArr(safe.suburbs);
       safe.insuranceDocs = Array.isArray(safe.insuranceDocs) ? safe.insuranceDocs : [];
       safe.certDocs = Array.isArray(safe.certDocs) ? safe.certDocs : [];
       safe.idDocs = Array.isArray(safe.idDocs) ? safe.idDocs : [];
@@ -2890,7 +2903,7 @@
         <div class="detailcard" style="max-width:640px;margin-bottom:14px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <div style="display:flex;gap:12px;align-items:center;">
-              ${a.status === 'approved' ? `<input type="checkbox" onclick="toggleContractorSelection('${a.email.replace(/'/g, "\\'")}')" ${selectedContractorEmails.has(a.email) ? 'checked' : ''} style="width:17px;height:17px;flex-shrink:0;cursor:pointer;" title="Select to message" />` : ''}
+              ${a.status === 'approved' ? `<input type="checkbox" onclick="toggleContractorSelection('${(a.email || '').replace(/'/g, "\\'")}')" ${selectedContractorEmails.has(a.email) ? 'checked' : ''} style="width:17px;height:17px;flex-shrink:0;cursor:pointer;" title="Select to message" />` : ''}
               ${a.profilePhoto ? `<img src="${escapeHtml(a.profilePhoto)}" style="width:44px;height:44px;border-radius:999px;object-fit:cover;">` : ''}
               <div>
                 <div style="font-weight:700;font-size:16px;">${escapeHtml(a.business)}</div>
@@ -3369,11 +3382,11 @@
   function approvedContractorOptions(j) {
     const eligible = getApplications().filter(a => ['approved', 'preferred'].includes(a.status) && a.email !== (j.contractorEmail || ''));
     eligible.sort((a, b) => {
-      const aMatch = (a.trades || []).includes(j.category) ? 0 : 1;
-      const bMatch = (b.trades || []).includes(j.category) ? 0 : 1;
-      return aMatch - bMatch || a.business.localeCompare(b.business);
+      const aMatch = toArr(a.trades).includes(j.category) ? 0 : 1;
+      const bMatch = toArr(b.trades).includes(j.category) ? 0 : 1;
+      return aMatch - bMatch || (a.business || '').localeCompare(b.business || '');
     });
-    return eligible.map(a => `<option value="${escapeHtml(a.email)}" data-name="${escapeHtml(a.business)}">${escapeHtml(a.business)}${(a.trades || []).includes(j.category) ? ' ✓ ' + escapeHtml(j.category) : ''}</option>`).join('');
+    return eligible.map(a => `<option value="${escapeHtml(a.email)}" data-name="${escapeHtml(a.business)}">${escapeHtml(a.business)}${toArr(a.trades).includes(j.category) ? ' ✓ ' + escapeHtml(j.category) : ''}</option>`).join('');
   }
 
   function reassign(id) {
