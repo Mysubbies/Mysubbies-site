@@ -36,6 +36,22 @@
   @media (max-width:460px) { .navwrap { padding:0 14px; } .navlinks { gap:9px; font-size:11px; } }
   .navlinks a { color:var(--stone); }
   .navlinks a.current { color:var(--black); font-weight:600; }
+  /* Top nav (Sep 2026, "My Home" dashboard) -- My Home / My Bookings / Home
+     Maintenance / Payments / Help. Lives in the static header (not #app) so
+     it stays visible and highlightable across every sub-view, same
+     reasoning as .mobile-tabbar already living outside #app. */
+  .toptabs { display:flex; align-items:center; gap:4px; }
+  @media (max-width:980px) { .toptabs { display:none; } }
+  .toptab { background:none; border:none; font-family:inherit; font-size:13.5px; font-weight:600; color:var(--stone); padding:8px 12px; border-radius:8px; cursor:pointer; transition:color .15s ease, background .15s ease; }
+  .toptab:hover { color:var(--black); background:var(--paper); }
+  .toptab.active { color:var(--black); background:var(--primary-pale); }
+  .acctmenu-wrap { position:relative; }
+  .acctmenu-trigger { background:none; border:none; cursor:pointer; padding:0; display:flex; align-items:center; }
+  .acctmenu-avatar { width:30px; height:30px; border-radius:50%; background:var(--black); color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; text-transform:uppercase; }
+  .acctmenu-panel { position:absolute; top:calc(100% + 10px); right:0; min-width:220px; background:#fff; border:1px solid var(--line); border-radius:14px; box-shadow:0 10px 32px rgba(20,33,61,.14); z-index:90; padding:14px; }
+  .acctmenu-email { font-size:12px; color:var(--stone); word-break:break-all; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--paper); }
+  .acctmenu-panel a, .acctmenu-panel button.acctmenu-item { display:block; width:100%; text-align:left; background:none; border:none; font-family:inherit; font-size:13.5px; font-weight:600; color:var(--ink); padding:9px 4px; cursor:pointer; border-radius:8px; }
+  .acctmenu-panel a:hover, .acctmenu-panel button.acctmenu-item:hover { background:var(--paper); }
   .navlink-refresh { display:flex; align-items:center; cursor:pointer; color:var(--stone); }
   .navlink-refresh:hover { color:var(--black); }
   .navlink-refresh svg.spinning { animation:navlink-refresh-spin 0.8s linear infinite; }
@@ -244,6 +260,55 @@
   .dl-menu.show { display:block; }
   .dl-menu button { display:block; width:100%; text-align:left; padding:9px 12px; border-radius:8px; border:none; background:none; font-size:13px; font-family:inherit; cursor:pointer; color:var(--ink); }
   .dl-menu button:hover { background:var(--paper); }
+
+  /* "My Home" dashboard (Sep 2026 redesign) */
+  .welcome-head { margin-bottom:20px; }
+  .welcome-head h1 { font-size:26px; }
+  .welcome-head p { color:var(--stone); font-size:14px; margin-top:4px; }
+  .action-needed-card { border:1.5px solid #F0D9A8; background:var(--accent-pale); border-radius:16px; padding:16px 18px; margin-bottom:16px; }
+  .action-needed-card .anc-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#8A6D2E; margin-bottom:6px; }
+  .hero-panel { background:#fff; border:1px solid var(--line); border-radius:20px; padding:26px; margin-bottom:22px; box-shadow:0 6px 20px rgba(20,33,61,.06); }
+  .hero-panel h2 { font-size:20px; margin-bottom:6px; }
+  .hero-panel p { color:var(--stone); font-size:13.5px; line-height:1.55; max-width:520px; margin-bottom:18px; }
+  .hero-panel-actions { display:flex; gap:10px; flex-wrap:wrap; }
+  .cat-card-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px; }
+  @media (max-width:640px) { .cat-card-grid { grid-template-columns:repeat(2,1fr); } }
+  .cat-card { background:#fff; border:1px solid var(--line); border-radius:14px; overflow:hidden; cursor:pointer; text-align:left; box-shadow:0 3px 12px rgba(20,33,61,.05); transition:box-shadow .15s ease, transform .1s ease; }
+  .cat-card:hover { box-shadow:0 8px 22px rgba(20,33,61,.12); }
+  .cat-card:active { transform:translateY(1px); }
+  .cat-card-photo { width:100%; aspect-ratio:4/3; object-fit:cover; display:block; background:var(--paper); }
+  .cat-card-label { padding:10px 12px; font-size:13px; font-weight:700; display:flex; justify-content:space-between; align-items:center; gap:6px; }
+  .explore-all-link { display:inline-block; font-size:13px; font-weight:600; color:var(--black); text-decoration:underline; margin-bottom:24px; }
+  .project-panel { border-radius:20px; overflow:hidden; position:relative; margin-bottom:22px; min-height:220px; display:flex; align-items:flex-end; background:linear-gradient(135deg, var(--black), var(--primary-light)) center/cover; box-shadow:0 6px 20px rgba(20,33,61,.08); }
+  .project-panel-photo { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .project-panel::after { content:''; position:absolute; inset:0; background:linear-gradient(0deg, rgba(20,33,61,.88), rgba(20,33,61,.35) 60%, rgba(20,33,61,.15)); }
+  .project-panel-content { position:relative; z-index:2; padding:24px; color:#fff; }
+  .project-panel-content h2 { font-size:19px; margin-bottom:6px; }
+  .project-panel-content p { font-size:13px; color:rgba(255,255,255,.85); max-width:440px; margin-bottom:14px; line-height:1.5; }
+  /* Booking cards (replaces the plain jobstable on the dashboard/bookings
+     views -- the table stays available nowhere else, this is a from-scratch
+     card treatment carrying the richer per-card fields the redesign asks
+     for: status, next action, payment status, contractor only when real). */
+  .bcard { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px 18px; margin-bottom:12px; cursor:pointer; box-shadow:0 3px 12px rgba(20,33,61,.05); transition:box-shadow .15s ease, border-color .15s ease; }
+  .bcard:hover { border-color:var(--black); box-shadow:0 6px 18px rgba(20,33,61,.1); }
+  .bcard-top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:8px; }
+  .bcard-title { font-size:15.5px; font-weight:700; }
+  .bcard-meta { font-size:12.5px; color:var(--stone); margin-top:2px; }
+  .bcard-status-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px; font-size:12.5px; color:var(--stone); }
+  .status-dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0; }
+  .status-dot.st-amber { background:#C98A2B; }
+  .status-dot.st-blue { background:#2E5E8A; }
+  .status-dot.st-green { background:var(--good); }
+  .status-dot.st-red { background:var(--danger); }
+  .status-dot.st-grey { background:var(--stone-light); }
+  .bcard-actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .bcard-price { font-weight:800; font-size:15px; white-space:nowrap; }
+  .bcard-price-tbc { font-weight:600; font-size:13px; color:var(--stone); white-space:nowrap; }
+  .skel { background:linear-gradient(90deg, var(--paper) 25%, #efefec 37%, var(--paper) 63%); background-size:400% 100%; animation:skel-shine 1.4s ease infinite; border-radius:10px; }
+  @keyframes skel-shine { 0% { background-position:100% 0; } 100% { background-position:0 0; } }
+  @media (prefers-reduced-motion: reduce) { .skel { animation:none; } }
+  .retry-box { text-align:center; padding:40px 20px; }
+  .retry-box p { color:var(--stone); font-size:13.5px; margin-bottom:14px; }
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
@@ -258,14 +323,26 @@
 <header>
   <div class="navwrap">
     <a class="logo" href="mysubbies-website.html">
-      
+
       <div class="logo-word">My<span class="gold">Subbies</span></div>
     </a>
+    <nav class="toptabs" id="topTabs" aria-label="Primary">
+      <button class="toptab" data-section="home" onclick="goToDashSection('home')">My Home</button>
+      <button class="toptab" data-section="bookings" onclick="goToDashSection('bookings')">My Bookings</button>
+      <button class="toptab" data-section="maintenance" onclick="goToDashSection('maintenance')">Home Maintenance</button>
+      <button class="toptab" data-section="payments" onclick="goToDashSection('payments')">Payments</button>
+      <button class="toptab" data-section="help" onclick="goToDashSection('help')">Help</button>
+    </nav>
     <div class="navlinks">
       <a class="navlink-bell" onclick="toggleNotifPanel()" title="Notifications"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notifBadge" class="notif-badge" style="display:none;"></span></a>
       <a class="navlink-refresh" id="refreshLink" onclick="manualRefresh()" title="Refresh"><svg id="refreshIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></a>
-      <a href="mysubbies-website.html">Site</a>
-      <a class="current" href="mysubbies-customer-portal.html">My Jobs</a>
+      <a href="mysubbies-website.html">Explore services</a>
+      <div class="acctmenu-wrap" id="acctMenuWrap">
+        <button class="acctmenu-trigger" id="acctMenuTrigger" onclick="toggleAccountMenu()" aria-haspopup="true" aria-expanded="false">
+          <span class="acctmenu-avatar" id="acctAvatarInitial">•</span>
+        </button>
+        <div class="acctmenu-panel" id="acctMenuPanel" style="display:none;"></div>
+      </div>
     </div>
   </div>
 </header>
@@ -274,23 +351,23 @@
 <div class="wrap" id="app"></div>
 
 <nav class="mobile-tabbar" aria-label="Primary">
-  <a class="tab-item" href="mysubbies-website.html">
+  <button class="tab-item" id="mtHome" onclick="goToDashSection('home')" aria-label="Home">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
     Home
-  </a>
-  <button class="tab-item" id="mtBookings" onclick="selectedJobId=null; showingPaymentHistory=false; closePropertyProfile();">
+  </button>
+  <button class="tab-item" id="mtBookings" onclick="goToDashSection('bookings')" aria-label="Bookings">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
     Bookings
   </button>
-  <a class="tab-item tab-fab" href="mysubbies-website.html#estimate">
+  <a class="tab-item tab-fab" href="mysubbies-website.html#estimate" aria-label="Book">
     <span class="fab-circle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>
-    New Job
+    Book
   </a>
-  <button class="tab-item" id="mtHouseHealth" onclick="selectedJobId=null; showingPaymentHistory=false; openPropertyProfile();">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="m9 15 2 2 4-5"/></svg>
-    House Health
+  <button class="tab-item" id="mtHelp" onclick="goToDashSection('help')" aria-label="Help">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.7-2.5 2-2.5 3.5"/><path d="M12 17h.01"/></svg>
+    Help
   </button>
-  <button class="tab-item" id="mtAccount" onclick="selectedJobId=null; showingPaymentHistory=false; closePropertyProfile();">
+  <button class="tab-item" id="mtAccount" onclick="toggleAccountMenu()" aria-label="Account" aria-haspopup="true">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
     Account
   </button>
@@ -357,19 +434,28 @@
   // device (or before this browser had a local copy) shows up here too.
   // Local jobs not yet known to the server are left alone — they'll sync up
   // next time anything calls saveJobs().
+  // Returns true when the server was genuinely reached (including a
+  // confirmed-empty jobs list -- a real "no bookings yet" is not a
+  // failure), false on a network/HTTP failure. Existing callers that
+  // don't check the return value keep working exactly as before (silent
+  // fallback to whatever's in local cache); the initial page-load path
+  // uses this to distinguish "confirmed zero bookings" from "couldn't
+  // load" so a genuinely new customer and a failed fetch never render
+  // identically -- see jobsLoadState.
   async function hydrateJobsFromServer() {
     const email = getCurrentCustomerEmail();
-    if (!email) return;
+    if (!email) return true;
     try {
       const res = await fetch('/api/get-jobs?customerEmail=' + encodeURIComponent(email));
-      if (!res.ok) return;
+      if (!res.ok) return false;
       const { jobs: remoteJobs } = await res.json();
-      if (!Array.isArray(remoteJobs) || remoteJobs.length === 0) return;
+      if (!Array.isArray(remoteJobs) || remoteJobs.length === 0) return true;
       const localJobs = getJobs();
       const byId = new Map(localJobs.map(j => [j.id, j]));
       remoteJobs.forEach(rj => { if (rj && rj.id) byId.set(rj.id, rj); });
       localStorage.setItem('mysubbies_jobs', JSON.stringify(Array.from(byId.values())));
-    } catch (e) { /* offline or first load — local data still works */ }
+      return true;
+    } catch (e) { return false; /* offline -- local cache still works */ }
   }
 
   // Manual refresh (Aug 2026) -- re-pulls jobs from Supabase and re-renders,
@@ -424,10 +510,69 @@
   let jobSearchQuery = '';
   const app = document.getElementById('app');
 
-  function openPaymentHistory() { showingPaymentHistory = true; render(); }
-  function closePaymentHistory() { showingPaymentHistory = false; render(); }
-  function openPropertyProfile() { showingPropertyProfile = true; window.location.hash = 'house-health'; render(); }
-  function closePropertyProfile() { showingPropertyProfile = false; render(); }
+  // "My Home" dashboard (Sep 2026 redesign) -- top-level section state.
+  // 'home' is the new adaptive dashboard (new-customer hero vs
+  // returning-customer summary); 'bookings' is the full booking list this
+  // page used to show by default; 'help' is the dedicated Contact
+  // MySubbies view. Payments/maintenance keep using the existing
+  // showingPaymentHistory/showingPropertyProfile booleans unchanged, since
+  // a lot of already-working code (nav highlight, back buttons, deep
+  // links) already keys off them directly.
+  let dashSection = 'home';
+  // Jobs-load lifecycle, so a real fetch failure shows a retry control
+  // instead of a silent "no bookings" that looks identical to a genuinely
+  // new customer -- see renderMyHome()/renderBookingsList().
+  let jobsLoadState = 'loading'; // 'loading' | 'ready' | 'error'
+
+  function openPaymentHistory() { showingPaymentHistory = true; showingPropertyProfile = false; dashSection = 'payments'; render(); }
+  function closePaymentHistory() { showingPaymentHistory = false; dashSection = 'home'; render(); }
+  function openPropertyProfile() { showingPropertyProfile = true; showingPaymentHistory = false; dashSection = 'maintenance'; window.location.hash = 'house-health'; render(); }
+  function closePropertyProfile() { showingPropertyProfile = false; dashSection = 'home'; render(); }
+  // Central nav handler for the top tabs (desktop) -- clears whichever
+  // other view flags are set, then hands off to the right existing
+  // open*/close* function so highlight state and deep-link behavior
+  // (#house-health etc.) all stay correct from one place.
+  function goToDashSection(section) {
+    selectedJobId = null;
+    closeAccountMenu();
+    if (section === 'maintenance') { openPropertyProfile(); return; }
+    if (section === 'payments') { openPaymentHistory(); return; }
+    showingPaymentHistory = false;
+    showingPropertyProfile = false;
+    dashSection = section;
+    render();
+  }
+  function toggleAccountMenu() {
+    const panel = document.getElementById('acctMenuPanel');
+    const trigger = document.getElementById('acctMenuTrigger');
+    if (!panel) return;
+    const opening = panel.style.display === 'none';
+    if (opening) renderAccountMenu();
+    panel.style.display = opening ? 'block' : 'none';
+    if (trigger) trigger.setAttribute('aria-expanded', opening ? 'true' : 'false');
+  }
+  function closeAccountMenu() {
+    const panel = document.getElementById('acctMenuPanel');
+    const trigger = document.getElementById('acctMenuTrigger');
+    if (panel) panel.style.display = 'none';
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+  }
+  function renderAccountMenu() {
+    const panel = document.getElementById('acctMenuPanel');
+    if (!panel) return;
+    const email = getCurrentCustomerEmail();
+    panel.innerHTML = `
+      <div class="acctmenu-email">${escapeHtml(email || '')}</div>
+      <button class="acctmenu-item" onclick="closeAccountMenu(); dashSection='help'; showingPaymentHistory=false; showingPropertyProfile=false; selectedJobId=null; render();">Contact MySubbies</button>
+      <button class="acctmenu-item" onclick="logout()">Log out</button>
+    `;
+  }
+  // Closing the account menu on outside click, same convention as the
+  // download menus elsewhere in this file.
+  document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('acctMenuWrap');
+    if (wrap && !wrap.contains(e.target)) closeAccountMenu();
+  });
 
   // General-purpose "Contact MySubbies" inquiry (Aug 2026) -- not tied to
   // any specific job, unlike Report a problem/Request to cancel. Each
@@ -583,10 +728,11 @@
     const customers = getCustomers();
     const name = (customers[email] && customers[email].name) || email;
     try {
-      await fetch('/api/support', {
+      const res = await fetch('/api/support', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entity: 'inquiries', action: 'create', role: 'customer', name, email, text: message, attachments: inquiryAttachments }),
       });
+      if (!res.ok) throw new Error('save failed');
     } catch (e) {
       errBox.textContent = 'Could not send — please try again.';
       errBox.style.display = 'block';
@@ -595,6 +741,180 @@
     await hydrateInquiriesFromServer(email);
     showingNewInquiry = false;
     renderInquiryPanel();
+  }
+
+  // ---------------------------------------------------------------------
+  // Larger-project enquiry ("Tell us about your project", Sep 2026 "My
+  // Home" redesign). No dedicated backend/table exists for this yet, so it
+  // deliberately reuses the same real, working inquiries channel as
+  // Contact MySubbies (api/support.js, supabase/schema_v14_disputes_
+  // inquiries.sql) rather than inventing a new one -- the structured
+  // fields below are composed into one clearly-labelled message so admin
+  // sees exactly the same detail in the exact same Inquiries workflow they
+  // already use, just formatted as a project brief instead of free text.
+  // Contact details are read from the account, not re-asked. A dedicated
+  // table (project category/budget/etc as real columns, for filtering/
+  // reporting) is a reasonable follow-up if this volume grows -- flagged
+  // in the delivery notes, not built speculatively here.
+  // ---------------------------------------------------------------------
+  const PROJECT_CATEGORY_OPTIONS = ['Decking', 'Pergola', 'Fencing', 'Retaining Wall', 'Concreting', 'Grass Installation', 'Demolition', 'Earth Works', 'Other / not sure yet'];
+  let projectEnquiryAttachments = [];
+  let projectEnquirySubmitting = false;
+  let projectEnquirySubmitted = false;
+
+  function openProjectEnquiryForm() {
+    projectEnquiryAttachments = [];
+    projectEnquirySubmitted = false;
+    renderProjectEnquiryForm();
+    const wrap = document.getElementById('projectEnquiryFormWrap');
+    if (wrap) wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  function closeProjectEnquiryForm() {
+    const wrap = document.getElementById('projectEnquiryFormWrap');
+    if (wrap) wrap.innerHTML = '';
+  }
+  function renderProjectEnquiryForm() {
+    const wrap = document.getElementById('projectEnquiryFormWrap');
+    if (!wrap) return;
+    if (projectEnquirySubmitted) {
+      wrap.innerHTML = `
+        <div class="detailcard" style="margin-top:14px;">
+          <div style="font-weight:700;margin-bottom:6px;">✓ Enquiry sent</div>
+          <p style="font-size:13px;color:var(--stone);line-height:1.5;">Larger projects are reviewed before pricing. The next step may include a site visit or a custom quotation. You can see this thread any time under Help.</p>
+        </div>`;
+      return;
+    }
+    const email = getCurrentCustomerEmail();
+    const customers = getCustomers();
+    const myAccount = customers[email] || {};
+    const jobs = getJobs().filter(j => j.customerEmail === email);
+    const recentSuburb = jobs.length ? (jobs[jobs.length - 1].suburb || '') : '';
+    wrap.innerHTML = `
+      <div class="detailcard" style="margin-top:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h3 style="font-size:16px;">Tell us about your project</h3>
+          <button onclick="closeProjectEnquiryForm()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--stone);">✕</button>
+        </div>
+        <label class="est-field-label" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:4px;">Project category</label>
+        <select id="peCategory" style="width:100%;font-family:inherit;font-size:14px;border:1.5px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:12px;">
+          ${PROJECT_CATEGORY_OPTIONS.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
+        </select>
+        <label class="est-field-label" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:4px;">Suburb</label>
+        <input type="text" id="peSuburb" value="${escapeHtml(recentSuburb)}" placeholder="e.g. Coburg" style="margin-bottom:12px;" />
+        <label class="est-field-label" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:4px;">What are you looking to do? <span style="color:var(--warn);">*</span></label>
+        <textarea id="peDescription" placeholder="Describe the project…" style="width:100%;font-size:14px;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:12px;min-height:90px;font-family:inherit;"></textarea>
+        <label class="est-field-label" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:4px;">Approximate dimensions <span class="opt" style="color:var(--stone-light);font-weight:400;">(optional)</span></label>
+        <input type="text" id="peDimensions" placeholder="e.g. 6m x 4m deck" style="margin-bottom:12px;" />
+        <div style="display:flex;gap:10px;margin-bottom:12px;">
+          <div style="flex:1;">
+            <label class="est-field-label" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:4px;">Preferred timing</label>
+            <select id="peTiming" style="width:100%;font-family:inherit;font-size:13.5px;border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;">
+              <option>Just exploring</option><option>Within 1 month</option><option>1–3 months</option><option>3–6 months</option><option>ASAP</option>
+            </select>
+          </div>
+          <div style="flex:1;">
+            <label class="est-field-label" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:4px;">Budget range</label>
+            <select id="peBudget" style="width:100%;font-family:inherit;font-size:13.5px;border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;">
+              <option>Not sure yet</option><option>Under $5,000</option><option>$5,000–$15,000</option><option>$15,000–$40,000</option><option>$40,000+</option>
+            </select>
+          </div>
+        </div>
+        <label class="est-field-label" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:4px;">Permits or engineering</label>
+        <select id="pePermit" style="width:100%;font-family:inherit;font-size:13.5px;border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;margin-bottom:12px;">
+          <option>Not sure</option><option>Not applicable</option><option>Already have approval</option><option>In progress</option>
+        </select>
+        <label class="est-field-label" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;">Photos or plans <span class="opt" style="color:var(--stone-light);font-weight:400;">(optional)</span></label>
+        <input type="file" id="peFileInput" accept=".pdf,.jpg,.jpeg,.png" multiple style="display:none;" onchange="onProjectEnquiryFileSelected(event)" />
+        <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;margin-bottom:8px;" onclick="document.getElementById('peFileInput').click()">📎 Attach photos/plans</button>
+        <div id="peAttachmentList" style="margin-bottom:8px;"></div>
+        <div class="box" style="margin-bottom:12px;">
+          <div style="font-size:12.5px;color:var(--stone);">We'll contact you via <strong>${escapeHtml(myAccount.name || email)}</strong>, ${escapeHtml(email)}${myAccount.phone ? ' or ' + escapeHtml(myAccount.phone) : ''} — the details already on your account.</div>
+        </div>
+        <p style="font-size:12px;color:var(--stone);line-height:1.5;margin-bottom:12px;">Larger projects are reviewed before pricing. The next step may include a site visit or a custom quotation.</p>
+        <div id="peError" style="color:var(--warn);font-size:12.5px;margin-bottom:10px;display:none;"></div>
+        <button class="btn btn-black btn-full" id="peSubmitBtn" onclick="submitProjectEnquiry()">Submit enquiry</button>
+      </div>`;
+  }
+  function onProjectEnquiryFileSelected(event) {
+    const files = Array.from(event.target.files || []).slice(0, 5 - projectEnquiryAttachments.length);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        projectEnquiryAttachments.push({ name: file.name, dataUrl: reader.result });
+        renderProjectEnquiryAttachmentList();
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  function renderProjectEnquiryAttachmentList() {
+    const wrap = document.getElementById('peAttachmentList');
+    if (!wrap) return;
+    wrap.innerHTML = projectEnquiryAttachments.map((a, idx) => `
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;">
+        <span>📄 ${escapeHtml(a.name)}</span>
+        <button onclick="removeProjectEnquiryAttachment(${idx})" style="background:none;border:none;color:var(--warn);cursor:pointer;font-size:12px;">Remove</button>
+      </div>`).join('');
+  }
+  function removeProjectEnquiryAttachment(idx) {
+    projectEnquiryAttachments.splice(idx, 1);
+    renderProjectEnquiryAttachmentList();
+  }
+  async function submitProjectEnquiry() {
+    if (projectEnquirySubmitting) return; // duplicate-submit guard
+    const errBox = document.getElementById('peError');
+    const description = document.getElementById('peDescription').value.trim();
+    if (!description) {
+      errBox.textContent = 'Please describe what you\'re looking to do.';
+      errBox.style.display = 'block';
+      document.getElementById('peDescription').focus();
+      return;
+    }
+    const email = getCurrentCustomerEmail();
+    const customers = getCustomers();
+    const myAccount = customers[email] || {};
+    const name = myAccount.name || email;
+    const category = document.getElementById('peCategory').value;
+    const suburb = document.getElementById('peSuburb').value.trim();
+    const dimensions = document.getElementById('peDimensions').value.trim();
+    const timing = document.getElementById('peTiming').value;
+    const budget = document.getElementById('peBudget').value;
+    const permit = document.getElementById('pePermit').value;
+
+    const text = [
+      '🏗️ Larger project enquiry',
+      `Category: ${category}`,
+      suburb ? `Suburb: ${suburb}` : null,
+      `Description: ${description}`,
+      dimensions ? `Approx. dimensions: ${dimensions}` : null,
+      `Preferred timing: ${timing}`,
+      `Budget range: ${budget}`,
+      `Permits/engineering: ${permit}`,
+      `Preferred contact: ${name}, ${email}${myAccount.phone ? ', ' + myAccount.phone : ''}`,
+    ].filter(Boolean).join('\n');
+
+    projectEnquirySubmitting = true;
+    const btn = document.getElementById('peSubmitBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+    errBox.style.display = 'none';
+    try {
+      const res = await fetch('/api/support', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entity: 'inquiries', action: 'create', role: 'customer', name, email, text, attachments: projectEnquiryAttachments }),
+      });
+      if (!res.ok) throw new Error('save failed');
+    } catch (e) {
+      projectEnquirySubmitting = false;
+      if (btn) { btn.disabled = false; btn.textContent = 'Submit enquiry'; }
+      errBox.textContent = 'Could not send — please try again.';
+      errBox.style.display = 'block';
+      return;
+    }
+    // Only now (server confirmed the save) do we show success -- the
+    // in-flight guard above stays true so a repeated click/tap can't
+    // double-submit while this resolves.
+    await hydrateInquiriesFromServer(email);
+    projectEnquirySubmitted = true;
+    renderProjectEnquiryForm();
   }
 
   // Job search (all 3 portals, Aug 2026) -- a plain-text filter over
@@ -853,7 +1173,7 @@
   async function renderPaymentHistory(email) {
     const jobs = getJobs().filter(j => j.customerEmail === email && j.contractor);
     app.innerHTML = `
-      <button class="backbtn" onclick="closePaymentHistory()">← Back to my jobs</button>
+      <button class="backbtn" onclick="closePaymentHistory()">← My Home</button>
       <h1 class="pagetitle">Payment history</h1>
       <div style="display:flex;justify-content:flex-end;margin-bottom:10px;" id="paymentHistoryDlMenu">${downloadMenuHtml()}</div>
       <p class="pagesub">Every payment made across your jobs.</p>
@@ -1216,7 +1536,7 @@
       </div>
       <div class="prop-health-card">
         <div>
-          <div style="font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--stone);margin-bottom:8px;">House Health</div>
+          <div style="font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--stone);margin-bottom:8px;">Home Maintenance</div>
           <div class="prop-health-score" style="color:${health.color};">${health.score}%</div>
           <div class="prop-health-label" style="color:${health.color};">${health.label}</div>
         </div>
@@ -1242,12 +1562,12 @@
       ${renderUpcomingMaintenanceSection(p)}
       <div class="section-head">History${propertyCategoryFilter ? ' · ' + escapeHtml(propertyCategoryFilter) + ' <a onclick="setPropertyCategoryFilter(null)" style="text-decoration:underline;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;">(clear)</a>' : ''}</div>
       ${renderPropertyHistoryList(p)}
-      <div class="prop-health-disclaimer">House Health is based on your MySubbies service and maintenance records and is not a building inspection.</div>`;
+      <div class="prop-health-disclaimer">Home Maintenance is based on your MySubbies service and maintenance records and is not a building inspection.</div>`;
   }
 
   async function renderPropertyProfile(email) {
     app.innerHTML = `
-      <button class="backbtn" onclick="closePropertyProfile()">← All jobs</button>
+      <button class="backbtn" onclick="closePropertyProfile()">← My Home</button>
       <div id="propertyProfileList"><div class="empty">Loading…</div></div>
     `;
     const wrap = document.getElementById('propertyProfileList');
@@ -1264,7 +1584,7 @@
     lastPropertyProfiles = properties;
 
     if (properties.length === 0) {
-      wrap.innerHTML = `<h1 class="pagetitle" style="margin-bottom:10px;">House Health</h1><div class="empty">Your House Health record will build automatically as soon as you book your first job. <a href="mysubbies-website.html#estimate" style="text-decoration:underline;">Get an estimated price instantly</a> to get started.</div>`;
+      wrap.innerHTML = `<h1 class="pagetitle" style="margin-bottom:10px;">Home Maintenance</h1><div class="empty">Your Home Maintenance record will build automatically as soon as you book your first job. <a href="mysubbies-website.html#estimate" style="text-decoration:underline;">Get an estimated price instantly</a> to get started.</div>`;
       return;
     }
 
@@ -1286,7 +1606,7 @@
   function hideProperty(propertyId, addressLabel) {
     const email = getCurrentCustomerEmail();
     if (!email) return;
-    if (!confirm(`Remove "${addressLabel}" from your House Health? Your job history stays intact — MySubbies can restore this view if you ever need it back.`)) return;
+    if (!confirm(`Remove "${addressLabel}" from your Home Maintenance? Your job history stays intact — MySubbies can restore this view if you ever need it back.`)) return;
     try {
       const all = JSON.parse(localStorage.getItem('mysubbies_customer_hidden_properties') || '{}');
       if (!all[email]) all[email] = [];
@@ -1395,16 +1715,42 @@
   // individually is the safe way to keep the active-tab highlight in sync
   // without touching the many existing call sites that already call
   // render().
-  function render() { renderInner(); updateMobileTabbar(); }
+  function render() { renderInner(); updateMobileTabbar(); updateAcctAvatar(); }
+  function updateAcctAvatar() {
+    const el = document.getElementById('acctAvatarInitial');
+    const email = getCurrentCustomerEmail();
+    const wrap = document.getElementById('acctMenuWrap');
+    const topTabs = document.getElementById('topTabs');
+    if (!email) {
+      if (wrap) wrap.style.display = 'none';
+      if (topTabs) topTabs.style.display = 'none';
+      return;
+    }
+    if (wrap) wrap.style.display = '';
+    if (topTabs) topTabs.style.display = '';
+    if (!el) return;
+    const customers = getCustomers();
+    const name = (customers[email] && customers[email].name) || '';
+    el.textContent = (name.trim()[0] || email[0] || '•').toUpperCase();
+  }
   function updateMobileTabbar() {
     const nav = document.querySelector('.mobile-tabbar');
     if (!nav) return;
     if (!getCurrentCustomerEmail()) { nav.style.display = 'none'; return; }
     nav.style.display = '';
+    const homeEl = document.getElementById('mtHome');
     const bookingsEl = document.getElementById('mtBookings');
-    const houseHealthEl = document.getElementById('mtHouseHealth');
-    if (bookingsEl) bookingsEl.classList.toggle('active', !showingPropertyProfile);
-    if (houseHealthEl) houseHealthEl.classList.toggle('active', !!showingPropertyProfile);
+    const helpEl = document.getElementById('mtHelp');
+    const acctEl = document.getElementById('mtAccount');
+    const activeSection = showingPropertyProfile ? 'maintenance' : showingPaymentHistory ? 'payments' : dashSection;
+    if (homeEl) homeEl.classList.toggle('active', activeSection === 'home');
+    if (bookingsEl) bookingsEl.classList.toggle('active', activeSection === 'bookings');
+    if (helpEl) helpEl.classList.toggle('active', activeSection === 'help');
+    if (acctEl) acctEl.classList.toggle('active', false);
+    // Desktop top tabs -- same active-section value, separate elements.
+    document.querySelectorAll('.toptab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.section === activeSection);
+    });
   }
   function renderInner() {
     const email = getCurrentCustomerEmail();
@@ -1412,62 +1758,295 @@
     if (selectedJobId) { renderDetail(email); return; }
     if (showingPaymentHistory) { renderPaymentHistory(email); return; }
     if (showingPropertyProfile) { renderPropertyProfile(email); return; }
+    if (dashSection === 'bookings') { renderBookingsList(email); return; }
+    if (dashSection === 'help') { renderHelpView(email); return; }
+    renderMyHome(email);
+  }
 
-    const hiddenJobIds = getHiddenJobIds(email);
-    const allJobs = getJobs().filter(j => j.customerEmail === email && !hiddenJobIds.has(j.id));
+  // ---------------------------------------------------------------------
+  // "My Home" dashboard (Sep 2026 redesign) -- adapts between a new-customer
+  // hero (no real bookings yet) and a returning-customer summary (action
+  // needed first, then the next upcoming booking), per the approved design
+  // brief. Real booking data only -- no fabricated counts, ratings, or
+  // review content anywhere in this view.
+  // ---------------------------------------------------------------------
+  const HOME_CATEGORY_CARDS = [
+    { label: 'Home repairs', catLabel: 'Handyman', photo: 'images/categories/handyman.jpg' },
+    { label: 'Cleaning', catLabel: 'Cleaning', photo: 'images/categories/cleaning.jpg' },
+    { label: 'Garden care', catLabel: 'Gardening & Lawn Mowing', photo: 'images/categories/gardening-lawn-mowing.jpg' },
+    { label: 'Outdoor projects', catLabel: 'Decking', photo: 'images/categories/decking.jpg' },
+  ];
+  function goToCategoryInEstimator(catLabel) {
+    localStorage.setItem('mysubbies_open_category', catLabel);
+    window.location.href = 'mysubbies-website.html#categories';
+  }
+  function categoryCardsHtml() {
+    return `<div class="cat-card-grid">
+      ${HOME_CATEGORY_CARDS.map(c => `
+        <button class="cat-card" onclick="goToCategoryInEstimator('${c.catLabel.replace(/'/g, "\\'")}')">
+          <img class="cat-card-photo" src="${c.photo}" alt="${escapeHtml(c.label)}" loading="lazy" />
+          <div class="cat-card-label">${escapeHtml(c.label)} <span>→</span></div>
+        </button>
+      `).join('')}
+    </div>
+    <a class="explore-all-link" href="mysubbies-website.html#categories">Explore all services →</a>`;
+  }
+  function projectPanelHtml() {
+    return `
+      <div class="project-panel">
+        <img class="project-panel-photo" src="images/categories/decking.jpg" alt="" />
+        <div class="project-panel-content">
+          <h2>Thinking bigger for your home?</h2>
+          <p>Explore landscaping, pergolas, decking, fencing and complete outdoor transformations.</p>
+          <button class="btn" style="width:auto;background:var(--accent);color:var(--black);font-weight:700;" onclick="openProjectEnquiryForm()">Tell us about your project</button>
+        </div>
+      </div>
+      <div id="projectEnquiryFormWrap"></div>
+    `;
+  }
+
+  // Derives a simple, honest customer-facing progress label from real job
+  // fields only -- no invented appointment times or fabricated "scheduled"
+  // states, since this codebase has no scheduling/appointment concept at
+  // all (a marketplace match, not a calendar booking). Milestone-level
+  // "awaiting payment"/"completion submitted" states live behind an async
+  // per-job fetch (renderMilestoneSection) that isn't cheap to run for
+  // every card on a list -- flagged as a follow-up in the delivery notes
+  // rather than guessed at here.
+  function deriveBookingProgress(j, email) {
+    if (j.status === 'cancelled') return { label: 'Cancelled', dot: 'st-grey', action: null };
+    if (j.status === 'cancellation_requested') return { label: 'Cancellation requested', dot: 'st-amber', action: null };
+    const disputes = JSON.parse(localStorage.getItem('mysubbies_disputes') || '[]');
+    if (disputes.some(d => d.jobId === j.id && d.status === 'open')) {
+      return { label: 'Disputed', dot: 'st-red', action: { label: 'View booking', onclick: `selectedJobId='${j.id}'; render();` } };
+    }
+    const isFullyPaid = (j.paymentSchedule || []).length > 0 && (j.paymentSchedule || []).every(s => j.paidStages && j.paidStages[s.key]);
+    if (j.status === 'completed' || isFullyPaid) {
+      return { label: 'Completed', dot: 'st-green', action: { label: 'Book again', onclick: `bookAgain('${j.id}')` } };
+    }
+    if ((j.variations || []).some(v => v.status === 'pending')) {
+      return { label: 'Review variation', dot: 'st-amber', action: { label: 'Review variation', onclick: `selectedJobId='${j.id}'; render();` } };
+    }
+    if (!j.contractor) {
+      return { label: 'Awaiting contractor match', dot: 'st-amber', action: { label: 'View booking', onclick: `selectedJobId='${j.id}'; render();` } };
+    }
+    return { label: 'In progress', dot: 'st-blue', action: { label: 'View booking', onclick: `selectedJobId='${j.id}'; render();` } };
+  }
+  function bookingCardHtml(j, email) {
+    const progress = deriveBookingProgress(j, email);
+    const priceHtml = (j.priceLow || j.basePrice)
+      ? `<div class="bcard-price">$${(j.priceLow || j.basePrice).toLocaleString()}</div>`
+      : `<div class="bcard-price-tbc">Price pending</div>`;
+    return `
+      <div class="bcard" onclick="selectedJobId='${j.id}'; render();">
+        <div class="bcard-top">
+          <div>
+            <div class="bcard-title">${escapeHtml(j.category)}${jobHasUnreadMessage(j) ? ` <span style="color:var(--warn);font-size:10px;">●</span>` : ''}</div>
+            <div class="bcard-meta">${j.jobNumber ? 'Job #' + j.jobNumber + ' · ' : ''}${escapeHtml(j.suburb || j.address || '')}</div>
+          </div>
+          ${priceHtml}
+        </div>
+        <div class="bcard-status-row">
+          <span class="status-dot ${progress.dot}"></span>
+          <span>${progress.label}</span>
+          ${j.contractor ? `<span>· ${escapeHtml(j.contractor)}</span>` : ''}
+        </div>
+        <div class="bcard-actions" onclick="event.stopPropagation();">
+          ${progress.action ? `<button class="btn btn-black" style="width:auto;padding:9px 16px;font-size:12.5px;" onclick="${progress.action.onclick}">${progress.action.label}</button>` : ''}
+          <button class="btn btn-outline" style="width:auto;padding:9px 16px;font-size:12.5px;" onclick="selectedJobId='${j.id}'; render();">View booking</button>
+        </div>
+      </div>`;
+  }
+  function loadingBookingCardsHtml(n) {
+    return Array.from({ length: n }).map(() => `<div class="skel" style="height:96px;margin-bottom:12px;"></div>`).join('');
+  }
+
+  function renderMyHome(email) {
     const customers = getCustomers();
-    const name = customers[email] ? customers[email].name : email;
     const myAccount = customers[email] || {};
-    const referredCount = Object.values(customers).filter(c => c.referredBy === myAccount.referralCode).length;
+    const firstName = (myAccount.name || '').trim().split(/\s+/)[0];
 
     app.innerHTML = `
-      <div class="whoami">
-        <span class="whoami-user">Logged in as <strong>${escapeHtml(name)}</strong></span>
-        <nav class="whoami-actions"><a onclick="logout()">Log out</a><a onclick="openInquiryForm()">Contact MySubbies</a></nav>
+      <div class="welcome-head">
+        <h1>${firstName ? `Welcome back, ${escapeHtml(firstName)}` : 'Welcome to MySubbies'}</h1>
+        <p>Your home jobs, bookings and updates in one place.</p>
       </div>
       <div id="inquiryFormWrap"></div>
       ${notifyBannerHtml()}
+      <div id="homeMainWrap">${loadingBookingCardsHtml(2)}</div>
+      <div id="referralCardWrap"></div>
+    `;
+    wireNotifyButton();
+    renderHomeMain(email);
+    renderReferralCard(email);
+  }
+
+  function renderHomeMain(email) {
+    const wrap = document.getElementById('homeMainWrap');
+    if (!wrap) return;
+
+    if (jobsLoadState === 'error') {
+      wrap.innerHTML = `<div class="retry-box"><p>We couldn't load your bookings just now.</p><button class="btn btn-black" style="width:auto;" onclick="retryLoadJobs()">Try again</button></div>`;
+      return;
+    }
+    if (jobsLoadState === 'loading') {
+      wrap.innerHTML = loadingBookingCardsHtml(2);
+      return;
+    }
+
+    const hiddenJobIds = getHiddenJobIds(email);
+    const allJobs = getJobs().filter(j => j.customerEmail === email && !hiddenJobIds.has(j.id));
+
+    if (allJobs.length === 0) {
+      wrap.innerHTML = `
+        <div class="hero-panel">
+          <h2>What can we help you with today?</h2>
+          <p>From everyday repairs to bigger home improvements, start with the job you need sorted.</p>
+          <div class="hero-panel-actions">
+            <a class="btn btn-black" style="width:auto;" href="mysubbies-website.html#estimate">Book your first service</a>
+            <button class="btn btn-outline" style="width:auto;" onclick="openProjectEnquiryForm()">Plan a larger project</button>
+          </div>
+        </div>
+        <div class="section-head">Popular services</div>
+        ${categoryCardsHtml()}
+        ${projectPanelHtml()}
+      `;
+      return;
+    }
+
+    const nonCancelled = allJobs.filter(j => j.status !== 'cancelled');
+    const withProgress = nonCancelled.map(j => ({ j, progress: deriveBookingProgress(j, email) }));
+    // Action-needed strip: anything with a pending variation or open
+    // dispute, surfaced above everything else regardless of which bucket
+    // it's otherwise in.
+    const flagged = withProgress.filter(x => ['Review variation', 'Disputed'].includes(x.progress.label)).map(x => x.j);
+    const active = withProgress.filter(x => x.progress.label !== 'Completed').map(x => x.j);
+    const hasActive = active.length > 0;
+
+    let html = '';
+    if (flagged.length > 0) {
+      html += `<div class="action-needed-card"><div class="anc-label">Needs your attention</div>${flagged.map(j => bookingCardHtml(j, email)).join('')}</div>`;
+    }
+
+    if (hasActive) {
+      const remaining = active.filter(j => !flagged.includes(j)).slice(0, 3);
+      if (remaining.length > 0) {
+        html += `<div class="section-head">Your next booking${remaining.length > 1 ? 's' : ''}</div>` + remaining.map(j => bookingCardHtml(j, email)).join('');
+      }
+      html += `<a class="btn btn-outline" style="width:auto;margin-bottom:24px;" onclick="goToDashSection('bookings')">View all bookings →</a>`;
+    } else {
+      html += `
+        <div class="hero-panel">
+          <h2>Ready for your next home job?</h2>
+          <p>Browse services or plan something bigger for your place.</p>
+          <div class="hero-panel-actions">
+            <a class="btn btn-black" style="width:auto;" href="mysubbies-website.html#estimate">Book a service</a>
+            <button class="btn btn-outline" style="width:auto;" onclick="goToDashSection('bookings')">View past bookings</button>
+          </div>
+        </div>`;
+    }
+    html += `<div class="section-head">Popular services</div>${categoryCardsHtml()}`;
+    html += projectPanelHtml();
+    wrap.innerHTML = html;
+  }
+
+  function retryLoadJobs() {
+    jobsLoadState = 'loading';
+    renderHomeMain(getCurrentCustomerEmail());
+    if (dashSection === 'bookings') renderBookingsListInner(getCurrentCustomerEmail());
+    hydrateJobsFromServer().then((ok) => {
+      jobsLoadState = ok ? 'ready' : 'error';
+      render();
+    });
+  }
+
+  // Full booking list -- what this page used to show by default, now its
+  // own "My Bookings" section reached from the top nav. Keeps the existing
+  // status filter chips + search, upgraded to the new card layout.
+  function renderBookingsList(email) {
+    app.innerHTML = `
+      <div class="welcome-head">
+        <h1 class="pagetitle">My bookings</h1>
+        <p class="pagesub" id="bookingsCountLine"></p>
+      </div>
+      <div id="bookingsListWrap">${loadingBookingCardsHtml(3)}</div>
+    `;
+    renderBookingsListInner(email);
+  }
+  function renderBookingsListInner(email) {
+    const wrap = document.getElementById('bookingsListWrap');
+    const countLine = document.getElementById('bookingsCountLine');
+    if (!wrap) return;
+
+    if (jobsLoadState === 'error') {
+      wrap.innerHTML = `<div class="retry-box"><p>We couldn't load your bookings just now.</p><button class="btn btn-black" style="width:auto;" onclick="retryLoadJobs()">Try again</button></div>`;
+      if (countLine) countLine.textContent = '';
+      return;
+    }
+    if (jobsLoadState === 'loading') {
+      wrap.innerHTML = loadingBookingCardsHtml(3);
+      return;
+    }
+
+    const hiddenJobIds = getHiddenJobIds(email);
+    const allJobs = getJobs().filter(j => j.customerEmail === email && !hiddenJobIds.has(j.id));
+    if (countLine) countLine.textContent = `${allJobs.length} booking${allJobs.length === 1 ? '' : 's'}`;
+
+    if (allJobs.length === 0) {
+      wrap.innerHTML = `<div class="empty">No bookings yet. <a href="mysubbies-website.html#estimate" style="text-decoration:underline;">Get an estimated price instantly</a> to submit one.</div>`;
+      return;
+    }
+    let html = jobStatusFilterChipsHtml(allJobs) + jobSearchBoxHtml();
+    const statusFiltered = jobStatusFilter === 'all' ? allJobs : allJobs.filter(j => j.status === jobStatusFilter);
+    const jobsFiltered = statusFiltered.filter(j => jobMatchesSearch(j, jobSearchQuery));
+    if (statusFiltered.length === 0) {
+      html += `<div class="empty">No bookings in this status.</div>`;
+    } else if (jobsFiltered.length === 0) {
+      html += `<div class="empty">No bookings match "${escapeHtml(jobSearchQuery)}".</div>`;
+    } else {
+      html += jobsFiltered.map(j => bookingCardHtml(j, email)).join('');
+    }
+    wrap.innerHTML = html;
+  }
+
+  // Dedicated "Help" section (top nav / mobile tab) -- same Contact
+  // MySubbies inquiry panel that used to live inline on the job list,
+  // now a first-class destination.
+  function renderHelpView(email) {
+    app.innerHTML = `
+      <div class="welcome-head">
+        <h1 class="pagetitle">Help</h1>
+        <p class="pagesub">Message MySubbies directly — we'll reply here.</p>
+      </div>
+      <div id="inquiryFormWrap"></div>
+    `;
+    openInquiryForm();
+  }
+
+  // Referral card -- only ever shown when this account genuinely has a real
+  // referral code (some older accounts predate the referral system and
+  // have none). Moved below the main booking/project content per the
+  // redesign brief.
+  async function renderReferralCard(email) {
+    const wrap = document.getElementById('referralCardWrap');
+    if (!wrap) return;
+    const customers = getCustomers();
+    const myAccount = customers[email] || {};
+    if (!myAccount.referralCode) { wrap.innerHTML = ''; return; }
+    wrap.innerHTML = `
       <div class="box" style="margin-bottom:16px;">
         <div style="font-size:13px;font-weight:600;margin-bottom:4px;">Give $50, get $50</div>
         <div style="font-size:12px;color:var(--stone);margin-bottom:8px;">Share your code — when a friend books their first job, you both get a $50 credit toward your next booking.</div>
         <div style="display:flex;gap:8px;align-items:center;">
-          <code style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;flex:1;">${myAccount.referralCode || '—'}</code>
-          <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="copyReferralCode('${myAccount.referralCode || ''}')">Copy</button>
+          <code style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;flex:1;">${escapeHtml(myAccount.referralCode)}</code>
+          <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="copyReferralCode('${myAccount.referralCode}')">Copy</button>
         </div>
         <div id="referralCreditLine" style="margin-top:10px;font-size:12.5px;color:var(--stone);">Checking your referral credit…</div>
         <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
           <div style="font-size:12px;color:var(--stone);">Just want to share the app itself?</div>
           <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;flex-shrink:0;" onclick="shareAppWithFriend()">Share app link</button>
         </div>
-      </div>
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-        <div>
-          <h1 class="pagetitle">My jobs</h1>
-          <p class="pagesub">${allJobs.length} job${allJobs.length === 1 ? '' : 's'}</p>
-        </div>
-        <div style="display:flex;gap:8px;flex-shrink:0;">
-          <button class="btn btn-outline" style="width:auto;" onclick="openPropertyProfile()">House Health</button>
-          <button class="btn btn-outline" style="width:auto;" onclick="openPaymentHistory()">Payment history</button>
-          <a class="btn btn-black" style="width:auto;" href="mysubbies-website.html#estimate">+ Book another job</a>
-        </div>
-      </div>
-    `;
-    if (allJobs.length === 0) {
-      app.innerHTML += `<div class="empty">No jobs yet. <a href="mysubbies-website.html#estimate" style="text-decoration:underline;">Get an estimated price instantly</a> to submit one.</div>`;
-    } else {
-      app.innerHTML += jobStatusFilterChipsHtml(allJobs);
-      app.innerHTML += jobSearchBoxHtml();
-      const statusFiltered = jobStatusFilter === 'all' ? allJobs : allJobs.filter(j => j.status === jobStatusFilter);
-      const jobsFiltered = statusFiltered.filter(j => jobMatchesSearch(j, jobSearchQuery));
-      if (statusFiltered.length === 0) {
-        app.innerHTML += `<div class="empty">No jobs in this status.</div>`;
-      } else if (jobsFiltered.length === 0) {
-        app.innerHTML += `<div class="empty">No jobs match "${escapeHtml(jobSearchQuery)}".</div>`;
-      } else {
-        app.innerHTML += customerJobsTableHtml(jobsFiltered);
-      }
-    }
-    wireNotifyButton();
+      </div>`;
     renderReferralCreditLine(email);
   }
 
@@ -2259,8 +2838,9 @@
     // before this login existed — it needs to run again now that we know
     // who's logged in, or a first login on a fresh device shows "0 jobs"
     // even though jobs exist on the server. Found via live testing.
-    await hydrateJobsFromServer();
-    showingPropertyProfile = true; // House Health is the default landing view
+    const ok = await hydrateJobsFromServer();
+    jobsLoadState = ok ? 'ready' : 'error';
+    dashSection = 'home'; // lands on the My Home dashboard after login
     render();
   }
   function logout() {
@@ -2410,17 +2990,25 @@
   pollNotifications();
   setInterval(pollNotifications, 25000);
 
-  // House Health is now the default landing view for "My Jobs" (founder
-  // request, Aug 2026 — feels more personalized than a flat job list).
-  // Deep-links (#house-health / mysubbies_open_house_health from the main
-  // site) already forced this open; now it's just the default too, so the
-  // only remaining case to explicitly check is nothing -- always default
-  // true unless the customer explicitly navigated elsewhere in-session
-  // (render() itself still lets them reach the flat "All jobs" list via
-  // closePropertyProfile()).
-  showingPropertyProfile = true;
+  // "My Home" is now the default landing view (Sep 2026 redesign),
+  // superseding the earlier "House Health defaults open" decision below --
+  // the new dashboard already surfaces what needs attention, so Home
+  // Maintenance goes back to being one destination among several rather
+  // than the landing page. A genuine deep link from the main site
+  // (#house-health / mysubbies_open_house_health) still forces it open.
+  if (localStorage.getItem('mysubbies_open_house_health')) {
+    showingPropertyProfile = true;
+    dashSection = 'maintenance';
+  }
   localStorage.removeItem('mysubbies_open_house_health');
-  hydrateJobsFromServer().then(render);
+  // Loading state must resolve before the very first render so a genuinely
+  // new customer (0 jobs) and a slow/offline load never look identical --
+  // render() only runs once hydrate settles either way, matching the
+  // pre-existing render() call shape here.
+  hydrateJobsFromServer().then((ok) => {
+    jobsLoadState = ok ? 'ready' : 'error';
+    render();
+  });
   { const __email = getCurrentCustomerEmail(); hydrateDisputesFromServer(__email); hydrateInquiriesFromServer(__email).then(() => { if (document.getElementById('inquiryFormWrap')) renderInquiryPanel(); }); }
 </script>
 <script>

@@ -4006,6 +4006,18 @@
   }
   initFixSomethingIfRequested();
 
+  // Cross-page trigger to land directly on one category in the estimator
+  // (Sep 2026, customer portal "My Home" dashboard category cards) -- same
+  // handoff pattern as the two flags above, just calling
+  // goToEstimatorWithCategory() instead of openFixSomething()/a cart rebuild.
+  function initOpenCategoryIfRequested() {
+    const label = localStorage.getItem('mysubbies_open_category');
+    if (!label) return;
+    localStorage.removeItem('mysubbies_open_category');
+    goToEstimatorWithCategory(label);
+  }
+  initOpenCategoryIfRequested();
+
   // "Recommended for you" (Sept 2026) -- fixed 8-card menu, no page-load
   // fetch needed (Home Maintenance Due fetches property data lazily, only
   // when that specific card is opened -- see homePersonaliseMaintenanceOptions()).
