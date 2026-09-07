@@ -20,13 +20,34 @@ module.exports = async (req, res) => {
     const supabase = getSupabase();
 
     if (type === 'applications') {
+      // Was `.select('full_application').not('full_application', 'is',
+      // null)` -- silently excluded any contractor whose `contractors` row
+      // was created without that jsonb blob ever populated (e.g. an older
+      // signup code path, or a direct/manual insert). Real case found Sep
+      // 2026: "Rapid Connect Electrical" existed with real business_name/
+      // email/phone/abn columns and a genuine 'manual_review' status, but
+      // full_application was null, so it never appeared in this endpoint's
+      // response at all -- no admin-portal client-side fix could have
+      // surfaced it, since the data never left the server. Now selects
+      // every contractor row and falls back to building an application
+      // object from the real columns when full_application is missing, so
+      // a contractor can never be invisible to admin just because that one
+      // jsonb write didn't happen.
       const { data, error } = await supabase
         .from('contractors')
-        .select('full_application')
-        .not('full_application', 'is', null)
+        .select('email, business_name, phone, abn, acn, categories, suburb_ids, status, address, full_application, created_at')
         .limit(500);
       if (error) throw error;
-      res.status(200).json({ applications: (data || []).map(r => r.full_application).filter(Boolean) });
+      const applications = (data || []).map(r => {
+        if (r.full_application) return r.full_application;
+        return {
+          business: r.business_name || '', contact: '', email: r.email, phone: r.phone || '',
+          abn: r.abn || '', acn: r.acn || null, trades: r.categories || [], suburbs: r.suburb_ids || [],
+          status: r.status || 'manual_review', address: r.address || null, appliedAt: r.created_at,
+          insuranceDocs: [], certDocs: [], idDocs: [],
+        };
+      });
+      res.status(200).json({ applications });
       return;
     }
 
