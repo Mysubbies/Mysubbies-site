@@ -15,7 +15,7 @@
 // stage-requested: { customerEmail, category, stageLabel } — fired from
 //   mysubbies-contractor-portal.html's requestStageApproval().
 // new-job-available: { category, suburb, taskName, items, qty, unit,
-//   urgency, access, site, photoThumb } — fired from
+//   urgency, basePrice } — fired from
 //   mysubbies-booking.html once a job is created. Added Aug 2026: until
 //   this existed, a contractor had NO way to learn a new job existed
 //   except opening the portal and checking the Job Feed tab themselves —
@@ -39,7 +39,7 @@
 //   new-job-available had for contractors, just on the admin side.
 //   ADMIN_NOTIFY_EMAIL is optional; defaults to the site's own published
 //   contact address so this works with zero extra Vercel config.
-const { sendEmail, wrapEmail, escapeHtml, emailDetailsTable, emailButton, emailPhoto } = require('./_lib/email');
+const { sendEmail, wrapEmail, escapeHtml, emailDetailsTable, emailButton } = require('./_lib/email');
 const { getSupabase } = require('./_lib/clients');
 
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || 'accounts@mysubbies.com.au';
@@ -158,7 +158,7 @@ module.exports = async (req, res) => {
     }
 
     if (type === 'new-job-available') {
-      const { category, suburb, taskName, items, qty, unit, urgency, access, site, photoThumb, basePrice } = req.body || {};
+      const { category, suburb, taskName, items, qty, unit, urgency, basePrice } = req.body || {};
       if (!category) { res.status(400).json({ error: 'category is required.' }); return; }
       // Same 82% figure shown everywhere else a contractor sees a job's
       // value (Job Feed's Payout column, My Jobs, earnings) -- never the
@@ -185,17 +185,14 @@ module.exports = async (req, res) => {
       const emailBody = `
         <h2 style="margin-top:0;">A new job just came in</h2>
         <p>A customer needs <strong>${escapeHtml(taskName || category)}</strong>${suburb ? ` in <strong>${escapeHtml(suburb)}</strong>` : ''}. No lead fees, no bidding — first to accept gets it.</p>
-        ${emailPhoto(photoThumb)}
         ${emailDetailsTable([
           { label: 'Job', value: escapeHtml(taskName || category) },
           { label: 'Quantity', value: itemsSummaryHtml(items, qty, unit) },
           { label: 'Suburb', value: suburb ? escapeHtml(suburb) : '' },
           { label: 'Urgency', value: urgency ? escapeHtml(urgency) : '' },
           { label: 'Payout', value: payout != null ? `<strong>$${payout.toLocaleString()}</strong>` : '' },
-          { label: 'Site access', value: access ? escapeHtml(access) : '' },
-          { label: 'Site notes', value: site ? escapeHtml(site) : '' },
         ])}
-        <p style="font-size:12px;color:#6B7280;">Full address is shown once you accept.</p>
+        <p style="font-size:12px;color:#6B7280;">Customer identity, contact details, photos, site notes and the full address are shown only after authorised assignment.</p>
         ${emailButton('Open Job Feed →', 'https://app.mysubbies.com.au/mysubbies-contractor-portal.html')}
       `;
       await Promise.all(matches.map(a => sendEmail({

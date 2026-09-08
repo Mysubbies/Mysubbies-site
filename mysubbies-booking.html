@@ -638,23 +638,19 @@
     // this codebase. Added Aug 2026: until this existed, a contractor had
     // no way to learn a new job existed except opening the portal and
     // checking the Job Feed tab themselves. Sep 2026: now sends the real
-    // job details (quantity, urgency, access/site notes) plus a small
-    // resized photo thumbnail when the customer attached one -- resized
-    // client-side here (never the raw upload, see resizeImageDataUrl())
-    // since this fans out to every matching contractor and the raw photo
-    // could be several MB.
+    // minimum offer details (category, quantity, suburb and urgency).
+    // Access instructions, site notes and customer photos are deliberately
+    // withheld until the accepting contractor is authoritatively assigned.
     createdJobs.forEach(async (job) => {
       const taskName = job.items && job.items.length === 1 ? job.items[0].taskName
         : job.items && job.items.length > 1 ? job.items.length + ' items'
         : null;
-      const photoThumb = await resizeImageDataUrl(job.photoDataUrl, 480, 0.6);
       fetch('/api/notify', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'new-job-available', category: job.category, suburb: job.suburb, taskName,
           items: (job.items || []).map(i => ({ taskName: i.taskName, qty: i.qty, unit: i.unit })),
-          qty: job.qty, unit: job.unit, urgency: job.urgency, access: job.access, site: job.site,
-          photoThumb, basePrice: job.basePrice,
+          qty: job.qty, unit: job.unit, urgency: job.urgency, basePrice: job.basePrice,
         }),
       }).catch(() => {});
     });
