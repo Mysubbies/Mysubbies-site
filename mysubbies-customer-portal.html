@@ -460,7 +460,9 @@
     const email = getCurrentCustomerEmail();
     if (!email) return true;
     try {
-      const res = await fetch('/api/get-jobs?customerEmail=' + encodeURIComponent(email));
+      const token = await getCustomerAccessToken();
+      if (!token) return false;
+      const res = await fetch('/api/get-jobs?customerEmail=1', { headers: { Authorization: 'Bearer ' + token } });
       if (!res.ok) return false;
       const { jobs: remoteJobs } = await res.json();
       if (!Array.isArray(remoteJobs) || remoteJobs.length === 0) return true;
