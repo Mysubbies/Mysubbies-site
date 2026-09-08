@@ -258,13 +258,14 @@
           ${q.scopeText ? `<div class="textblock"><div class="textlabel">Notes</div>${escapeHtml(q.scopeText)}</div>` : ''}
           ${q.inclusionsText ? `<div class="textblock"><div class="textlabel">Inclusions</div>${escapeHtml(q.inclusionsText)}</div>` : ''}
           ${q.exclusionsText ? `<div class="textblock"><div class="textlabel">Exclusions</div>${escapeHtml(q.exclusionsText)}</div>` : ''}
-          ${q.paymentTermsText ? `<div class="textblock"><div class="textlabel">Payment terms</div>${escapeHtml(q.paymentTermsText)}</div>` : ''}
+          ${q.paymentTermsText ? `<div class="textblock"><div class="textlabel">Payment schedule</div>${escapeHtml(q.paymentTermsText)}</div>` : ''}
         </div>` : ''}
 
       ${q.termsText ? `
         <div class="card">
           <div class="textlabel">Terms &amp; conditions</div>
           <div class="textblock" style="color:var(--stone);font-size:12.5px;">${escapeHtml(q.termsText)}</div>
+          <a href="${escapeHtml(q.termsUrl || '')}" target="_blank" style="display:inline-block;margin-top:10px;font-size:12.5px;text-decoration:underline;color:var(--black);">Read the full Mysubbies Platform Terms →</a>
         </div>` : ''}
 
       ${q.status === 'accepted' ? `<div class="card" style="background:#E4F3EA;border-color:#B9DDC6;"><strong>✓ Quote accepted</strong>${q.acceptedAt ? ` on ${fmtDate(q.acceptedAt)}` : ''}. We'll be in touch with next steps.</div>` : ''}
@@ -417,17 +418,25 @@
 
     const sections = [
       ['Notes', q.scopeText], ['Inclusions', q.inclusionsText], ['Exclusions', q.exclusionsText],
-      ['Payment terms', q.paymentTermsText], ['Terms & conditions', q.termsText],
+      ['Payment schedule', q.paymentTermsText],
+      ['Terms & conditions', q.termsText, q.termsUrl],
     ];
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
-    sections.forEach(([label, text]) => {
+    sections.forEach(([label, text, url]) => {
       if (!text) return;
       if (finalY > 250) { doc.addPage(); finalY = 20; }
       doc.setFont('helvetica', 'bold'); doc.text(label, 14, finalY);
       doc.setFont('helvetica', 'normal');
       const lines = doc.splitTextToSize(text, 180);
       doc.text(lines, 14, finalY + 5);
-      finalY += 5 + lines.length * 4.5 + 6;
+      finalY += 5 + lines.length * 4.5;
+      if (url) {
+        doc.setTextColor(30, 60, 150);
+        doc.textWithLink('Read the full Mysubbies Platform Terms →', 14, finalY + 3, { url });
+        doc.setTextColor(60, 60, 60);
+        finalY += 6;
+      }
+      finalY += 6;
     });
 
     pdfFooter(doc, `Valid until ${fmtDate(q.expiresAt)} · Not a tax invoice.`, legalName, abn);

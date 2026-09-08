@@ -34,11 +34,15 @@ const { getSupabase } = require('./_lib/clients');
 const { requireAdmin } = require('./_lib/adminAuth');
 const { computeQuoteTotals } = require('./_lib/quoteMath');
 const { notifyAdmin } = require('./_lib/adminNotify');
+const { sendEmail, wrapEmail, escapeHtml, emailButton, emailDetailsTable } = require('./_lib/email');
 
 const TOKEN_BYTES = 32;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const RATE_LIMIT_MAX_ATTEMPTS = 20;
 const QUOTE_BASE_URL = 'https://app.mysubbies.com.au/mysubbies-quote.html';
+const TERMS_URL = 'https://app.mysubbies.com.au/mysubbies-terms.html';
+
+function fmtCentsServer(c) { return '$' + ((c || 0) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 // Standard terms text, keyed by terms_version, returned to BOTH the admin
 // builder and the customer quote page so there is one server-side source
@@ -155,6 +159,7 @@ function serializePublic(quote, version, issuingEntity) {
     paymentTermsText: version.payment_terms_text,
     termsVersion: version.terms_version,
     termsText: getTermsText(version.terms_version),
+    termsUrl: TERMS_URL,
     attachments: version.attachments || [],
     issuedAt: version.issued_at,
     expiresAt: version.expires_at,
@@ -170,7 +175,7 @@ function serializeVersionAdmin(v) {
     subtotalExGstCents: v.subtotal_ex_gst_cents, gstCents: v.gst_cents, totalIncGstCents: v.total_inc_gst_cents,
     scopeText: v.scope_text, inclusionsText: v.inclusions_text, exclusionsText: v.exclusions_text,
     paymentTermsText: v.payment_terms_text,
-    termsVersion: v.terms_version, termsText: getTermsText(v.terms_version), attachments: v.attachments, validityDays: v.validity_days,
+    termsVersion: v.terms_version, termsText: getTermsText(v.terms_version), termsUrl: TERMS_URL, attachments: v.attachments, validityDays: v.validity_days,
     issuedAt: v.issued_at, expiresAt: v.expires_at, supersededByVersionId: v.superseded_by_version_id,
     acceptedAt: v.accepted_at, acceptedByName: v.accepted_by_name, acceptedByEmail: v.accepted_by_email,
     declinedAt: v.declined_at, declinedReason: v.declined_reason, createdAt: v.created_at,
@@ -358,6 +363,58 @@ async function handleWithdraw(req, res, supabase) {
   res.status(200).json({ ok: true });
 }
 
+// Email the quote directly (Sep 2026, founder feedback: generating a link
+// to copy/forward manually was an extra, unnecessary step). Always issues
+// a FRESH token when (re)sending -- revokes whatever was active first, so
+// there is only ever one live link per version. This also means a resend
+// naturally works with no special-case code: this same action can be
+// called again later (e.g. "the customer says they never got it") and it
+// just generates and sends a new link. The raw token is never recoverable
+// once this response finishes (only its hash is persisted), so re-sending
+// the "same" link is never actually possible anyway -- a fresh one every
+// time is simplest, not just secure.
+async function handleSendQuoteEmail(req, res, supabase) {
+  const { quoteId } = req.body || {};
+  if (!quoteId) { res.status(400).json({ error: 'quoteId is required.' }); return; }
+  const { data: quote, error: qErr } = await supabase.from('quotes').select('*').eq('id', quoteId).maybeSingle();
+  if (qErr) throw qErr;
+  if (!quote) { res.status(404).json({ error: 'Quote not found.' }); return; }
+  const { data: version, error: vErr } = await supabase.from('quote_versions').select('*').eq('id', quote.current_version_id).maybeSingle();
+  if (vErr) throw vErr;
+  if (!version || version.status !== 'issued') { res.status(409).json({ error: 'This quote must be issued before it can be emailed.' }); return; }
+  const customerEmail = (version.customer_snapshot && version.customer_snapshot.email) || null;
+  if (!customerEmail) { res.status(400).json({ error: 'This quote has no customer email on file.' }); return; }
+
+  const nowIso = new Date().toISOString();
+  await supabase.from('document_access_tokens').update({ revoked_at: nowIso })
+    .eq('document_type', 'quote_version').eq('document_id', version.id).is('revoked_at', null);
+  const rawToken = generateToken();
+  await supabase.from('document_access_tokens').insert({
+    document_type: 'quote_version', document_id: version.id, token_hash: hashToken(rawToken), expires_at: version.expires_at,
+  });
+  const url = `${QUOTE_BASE_URL}?token=${encodeURIComponent(rawToken)}`;
+
+  const customerName = (version.customer_snapshot && version.customer_snapshot.name) || '';
+  await sendEmail({
+    to: customerEmail,
+    subject: `Your Mysubbies quote is ready (Quote #${quote.quote_number})`,
+    html: wrapEmail(`
+      <p>Hi ${escapeHtml(customerName || 'there')},</p>
+      <p>Your Mysubbies quote is ready. Review the scope, pricing and next steps using the secure link below.</p>
+      ${emailButton('View your quote', url)}
+      ${emailDetailsTable([
+        { label: 'Quote', value: `#${quote.quote_number}` },
+        { label: 'Total', value: fmtCentsServer(version.total_inc_gst_cents) },
+        { label: 'Valid until', value: version.expires_at ? new Date(version.expires_at).toLocaleDateString('en-AU') : null },
+      ])}
+      <p style="margin-top:16px;">Questions? Just reply to this email or use "Ask a question" on the quote page.</p>
+    `),
+  });
+
+  await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'emailed', actorRole: 'admin', payload: { to: customerEmail } });
+  res.status(200).json({ ok: true, url, sentTo: customerEmail });
+}
+
 // AI-assisted drafting (Sep 2026) -- admin types a few short notes per
 // field, this expands them into full professional text using the same
 // Anthropic integration already proven in api/classify-job.js. Never
@@ -540,6 +597,7 @@ module.exports = async (req, res) => {
       if (action === 'issue') { await handleIssue(req, res, supabase); return; }
       if (action === 'revise') { await handleRevise(req, res, supabase); return; }
       if (action === 'withdraw') { await handleWithdraw(req, res, supabase); return; }
+      if (action === 'send_quote_email') { await handleSendQuoteEmail(req, res, supabase); return; }
       if (action === 'ai_draft_text') { await handleAiDraftText(req, res); return; }
 
       if (action === 'create_staff') {

@@ -2444,9 +2444,10 @@
 
     const sections = [
       ['Scope', d.scopeText], ['Inclusions', d.inclusionsText], ['Exclusions', d.exclusionsText],
-      ['Payment terms', d.paymentTermsText], ['Terms & conditions', STANDARD_QUOTE_TERMS_V1],
+      ['Payment schedule', d.paymentTermsText],
+      ['Terms & conditions', STANDARD_QUOTE_TERMS_V1, 'https://app.mysubbies.com.au/mysubbies-terms.html'],
     ];
-    sections.forEach(([label, text]) => {
+    sections.forEach(([label, text, url]) => {
       if (!text) return;
       if (finalY > 255) { doc.addPage(); finalY = 20; }
       doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
@@ -2454,7 +2455,14 @@
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(80, 80, 80);
       const lines = doc.splitTextToSize(text, 180);
       doc.text(lines, 14, finalY + 5);
-      finalY += 5 + lines.length * 4 + 8;
+      finalY += 5 + lines.length * 4;
+      if (url) {
+        doc.setTextColor(30, 60, 150);
+        doc.textWithLink('Read the full Mysubbies Platform Terms →', 14, finalY + 3, { url });
+        doc.setTextColor(80, 80, 80);
+        finalY += 6;
+      }
+      finalY += 8;
     });
 
     pdfFooter(doc, 'DRAFT PREVIEW -- not yet issued to the customer.', 'Mysubbies Holdings Pty Ltd', '69 693 675 268');
@@ -2528,11 +2536,11 @@
         <label class="fieldlabel">Scope / notes</label><textarea class="fieldinput" rows="3" oninput="quoteBuilderDraft.scopeText=this.value">${escapeHtml(d.scopeText)}</textarea>
         <label class="fieldlabel" style="margin-top:10px;">Inclusions</label><textarea class="fieldinput" rows="2" oninput="quoteBuilderDraft.inclusionsText=this.value">${escapeHtml(d.inclusionsText)}</textarea>
         <label class="fieldlabel" style="margin-top:10px;">Exclusions</label><textarea class="fieldinput" rows="2" oninput="quoteBuilderDraft.exclusionsText=this.value">${escapeHtml(d.exclusionsText)}</textarea>
-        <label class="fieldlabel" style="margin-top:10px;">Payment terms</label><textarea class="fieldinput" rows="2" placeholder="e.g. 10% deposit on acceptance, balance on completion" oninput="quoteBuilderDraft.paymentTermsText=this.value">${escapeHtml(d.paymentTermsText)}</textarea>
+        <label class="fieldlabel" style="margin-top:10px;">Payment schedule</label><textarea class="fieldinput" rows="2" placeholder="e.g. 10% deposit on acceptance, 40% at frame stage, 50% on completion" oninput="quoteBuilderDraft.paymentTermsText=this.value">${escapeHtml(d.paymentTermsText)}</textarea>
         <label class="fieldlabel" style="margin-top:10px;">Valid for (days)</label><input class="fieldinput" type="number" min="1" style="max-width:120px;" value="${d.validityDays}" oninput="quoteBuilderDraft.validityDays=this.value" />
         <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:11.5px;color:var(--stone);">
           <div class="fieldlabel" style="margin-bottom:4px;">Terms &amp; conditions (standard, shown on every quote)</div>
-          ${escapeHtml(STANDARD_QUOTE_TERMS_V1)}
+          ${escapeHtml(STANDARD_QUOTE_TERMS_V1)} <a href="mysubbies-terms.html" target="_blank" style="text-decoration:underline;color:var(--black);">Read the full Mysubbies Platform Terms →</a>
         </div>
       </div>
 
@@ -2556,6 +2564,34 @@
   }
   function closeQuoteDetail() { selectedQuoteId = null; quoteDetailData = null; quoteIssuedLink = null; render(); }
 
+  let quoteEmailSending = false;
+  // Founder feedback (Sep 2026): generating a link the admin then had to
+  // copy and forward themselves was an extra, unnecessary step. The
+  // primary action now issues AND emails the customer directly in one
+  // click; "Issue link only" stays available underneath for anyone who'd
+  // rather send it manually (SMS, in person, etc.).
+  async function issueAndEmailSelectedQuote() {
+    if (!confirm('Issue this quote and email it to the customer now?')) return;
+    quoteEmailSending = true; render();
+    try {
+      const issueRes = await adminFetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'issue', quoteId: selectedQuoteId }) });
+      const issueData = await issueRes.json();
+      if (!issueRes.ok) { quoteEmailSending = false; alert(issueData.error || 'Could not issue this quote.'); render(); return; }
+      const emailRes = await adminFetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send_quote_email', quoteId: selectedQuoteId }) });
+      const emailData = await emailRes.json();
+      quoteEmailSending = false;
+      if (!emailRes.ok) {
+        quoteIssuedLink = issueData.url;
+        alert((emailData.error || 'Could not email the customer') + ' -- the quote was still issued, and you can share this link manually.');
+        quotesTabData = null;
+        await openQuoteDetail(selectedQuoteId);
+        return;
+      }
+      quoteIssuedLink = emailData.url;
+      quotesTabData = null;
+      await openQuoteDetail(selectedQuoteId);
+    } catch (e) { quoteEmailSending = false; alert('Could not issue this quote — check your connection.'); render(); }
+  }
   async function issueSelectedQuote() {
     if (!confirm('Issue this quote? A secure link will be generated for the customer.')) return;
     try {
@@ -2566,6 +2602,18 @@
       quotesTabData = null;
       await openQuoteDetail(selectedQuoteId);
     } catch (e) { alert('Could not issue this quote — check your connection.'); }
+  }
+  async function resendQuoteEmail() {
+    if (!confirm('Send this quote to the customer\'s email again? A fresh link will be generated and the old one will stop working.')) return;
+    quoteEmailSending = true; render();
+    try {
+      const res = await adminFetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send_quote_email', quoteId: selectedQuoteId }) });
+      const data = await res.json();
+      quoteEmailSending = false;
+      if (!res.ok) { alert(data.error || 'Could not email this quote.'); render(); return; }
+      quoteIssuedLink = data.url;
+      render();
+    } catch (e) { quoteEmailSending = false; alert('Could not email this quote — check your connection.'); render(); }
   }
   async function reviseSelectedQuote() {
     if (!confirm('Create a new draft version of this quote? The current version will be marked superseded.')) return;
@@ -2609,9 +2657,10 @@
     finalY = pdfTotalsBox(doc, finalY + 12, { exGstCents: v.subtotalExGstCents, gstCents: v.gstCents, totalCents: v.totalIncGstCents }, 'Total (inc. GST)');
     const sections = [
       ['Scope', v.scopeText], ['Inclusions', v.inclusionsText], ['Exclusions', v.exclusionsText],
-      ['Payment terms', v.paymentTermsText], ['Terms & conditions', v.termsText],
+      ['Payment schedule', v.paymentTermsText],
+      ['Terms & conditions', v.termsText, v.termsUrl],
     ];
-    sections.forEach(([label, text]) => {
+    sections.forEach(([label, text, url]) => {
       if (!text) return;
       if (finalY > 255) { doc.addPage(); finalY = 20; }
       doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
@@ -2619,7 +2668,14 @@
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(80, 80, 80);
       const lines = doc.splitTextToSize(text, 180);
       doc.text(lines, 14, finalY + 5);
-      finalY += 5 + lines.length * 4 + 8;
+      finalY += 5 + lines.length * 4;
+      if (url) {
+        doc.setTextColor(30, 60, 150);
+        doc.textWithLink('Read the full Mysubbies Platform Terms →', 14, finalY + 3, { url });
+        doc.setTextColor(80, 80, 80);
+        finalY += 6;
+      }
+      finalY += 8;
     });
     pdfFooter(doc, `Valid until ${v.expiresAt ? new Date(v.expiresAt).toLocaleDateString('en-AU') : '—'} · Not a tax invoice.`, 'Mysubbies Holdings Pty Ltd', '69 693 675 268');
     doc.save(`mysubbies-quote-${quote.quoteNumber}-v${v.versionNumber}.pdf`);
@@ -2655,7 +2711,7 @@
       </div>
       <p class="pagesub">${escapeHtml((quote.customer && quote.customer.name) || (quote.customer && quote.customer.email) || '')}</p>
 
-      ${quoteIssuedLink ? `<div class="detailcard" style="margin-bottom:16px;background:#EAF5EE;border-color:#B9DDC6;"><strong>Quote issued.</strong> Share this link with the customer:<br><input class="fieldinput" style="margin-top:8px;" readonly value="${escapeHtml(quoteIssuedLink)}" onclick="this.select()" /></div>` : ''}
+      ${quoteIssuedLink ? `<div class="detailcard" style="margin-bottom:16px;background:#EAF5EE;border-color:#B9DDC6;"><strong>Quote link ready.</strong> If you emailed it, the customer already has this link -- you can also share it directly:<br><input class="fieldinput" style="margin-top:8px;" readonly value="${escapeHtml(quoteIssuedLink)}" onclick="this.select()" /></div>` : ''}
 
       ${v ? `
         <div class="detailcard" style="margin-bottom:16px;">
@@ -2670,7 +2726,14 @@
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-weight:800;font-size:15px;"><span>Total</span><span>${fmtCents(v.totalIncGstCents)}</span></div>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
-            ${v.status === 'draft' ? `<button class="btn btn-outline" onclick="editDraftQuote()">Edit draft</button><button class="btn btn-black" onclick="issueSelectedQuote()">Issue &amp; get link</button>` : `<button class="btn btn-outline" onclick="downloadIssuedQuotePdf()">Download PDF</button>`}
+            ${v.status === 'draft' ? `
+              <button class="btn btn-outline" onclick="editDraftQuote()">Edit draft</button>
+              <button class="btn btn-black" ${quoteEmailSending ? 'disabled' : ''} onclick="issueAndEmailSelectedQuote()">${quoteEmailSending ? 'Sending…' : '📧 Issue & email to customer'}</button>
+              <button class="btn btn-outline" ${quoteEmailSending ? 'disabled' : ''} onclick="issueSelectedQuote()">Issue link only</button>
+            ` : `
+              <button class="btn btn-outline" onclick="downloadIssuedQuotePdf()">Download PDF</button>
+              ${quote.currentStatus === 'sent' ? `<button class="btn btn-outline" ${quoteEmailSending ? 'disabled' : ''} onclick="resendQuoteEmail()">${quoteEmailSending ? 'Sending…' : '📧 Resend email'}</button>` : ''}
+            `}
             ${quote.currentStatus === 'sent' ? `<button class="btn btn-outline" onclick="reviseSelectedQuote()">Revise (new version)</button><button class="btn btn-outline" onclick="withdrawSelectedQuote()">Withdraw</button>` : ''}
           </div>
         </div>
@@ -2680,8 +2743,8 @@
           ${v.scopeText ? `<div style="margin-bottom:12px;"><div class="fieldlabel">Scope</div><div style="font-size:13px;white-space:pre-wrap;">${escapeHtml(v.scopeText)}</div></div>` : ''}
           ${v.inclusionsText ? `<div style="margin-bottom:12px;"><div class="fieldlabel">Inclusions</div><div style="font-size:13px;white-space:pre-wrap;">${escapeHtml(v.inclusionsText)}</div></div>` : ''}
           ${v.exclusionsText ? `<div style="margin-bottom:12px;"><div class="fieldlabel">Exclusions</div><div style="font-size:13px;white-space:pre-wrap;">${escapeHtml(v.exclusionsText)}</div></div>` : ''}
-          ${v.paymentTermsText ? `<div style="margin-bottom:12px;"><div class="fieldlabel">Payment terms</div><div style="font-size:13px;white-space:pre-wrap;">${escapeHtml(v.paymentTermsText)}</div></div>` : ''}
-          <div style="font-size:11.5px;color:var(--stone);padding-top:8px;border-top:1px solid var(--line);"><div class="fieldlabel" style="margin-bottom:4px;">Terms &amp; conditions</div>${escapeHtml(v.termsText || '')}</div>
+          ${v.paymentTermsText ? `<div style="margin-bottom:12px;"><div class="fieldlabel">Payment schedule</div><div style="font-size:13px;white-space:pre-wrap;">${escapeHtml(v.paymentTermsText)}</div></div>` : ''}
+          <div style="font-size:11.5px;color:var(--stone);padding-top:8px;border-top:1px solid var(--line);"><div class="fieldlabel" style="margin-bottom:4px;">Terms &amp; conditions</div>${escapeHtml(v.termsText || '')} <a href="${escapeHtml(v.termsUrl || '')}" target="_blank" style="text-decoration:underline;color:var(--black);">Read the full Mysubbies Platform Terms →</a></div>
         </div>` : ''}
       ` : ''}
 
