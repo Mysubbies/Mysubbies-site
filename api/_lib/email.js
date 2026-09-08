@@ -12,7 +12,7 @@
 // (e.g. notifications@mysubbies.com.au) is verified in the Resend
 // dashboard, set RESEND_FROM_EMAIL in Vercel to switch over — no code
 // change needed.
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'MySubbies <onboarding@resend.dev>';
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'MySubbies <notifications@mysubbies.com.au>';
 
 async function sendEmail({ to, subject, html }) {
   if (!process.env.RESEND_API_KEY) {
