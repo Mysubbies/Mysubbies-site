@@ -2601,7 +2601,11 @@
       const emailData = await emailRes.json();
       quoteEmailSending = false;
       if (!emailRes.ok) {
-        quoteIssuedLink = issueData.url;
+        // send_quote_email always issues a FRESH token before attempting
+        // to send (so a resend never reuses a stale link) -- on failure
+        // that fresh token is still the valid one, not issueData.url from
+        // the earlier issue step, which send_quote_email already revoked.
+        quoteIssuedLink = emailData.url || issueData.url;
         alert((emailData.error || 'Could not email the customer') + ' -- the quote was still issued, and you can share this link manually.');
         quotesTabData = null;
         await openQuoteDetail(selectedQuoteId);

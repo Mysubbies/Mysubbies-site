@@ -34,7 +34,7 @@ const { getSupabase } = require('./_lib/clients');
 const { requireAdmin } = require('./_lib/adminAuth');
 const { computeQuoteTotals } = require('./_lib/quoteMath');
 const { notifyAdmin } = require('./_lib/adminNotify');
-const { sendEmail, wrapEmail, escapeHtml, emailButton, emailDetailsTable } = require('./_lib/email');
+const { sendEmailWithResult, wrapEmail, escapeHtml, emailButton, emailDetailsTable } = require('./_lib/email');
 
 const TOKEN_BYTES = 32;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
@@ -395,7 +395,7 @@ async function handleSendQuoteEmail(req, res, supabase) {
   const url = `${QUOTE_BASE_URL}?token=${encodeURIComponent(rawToken)}`;
 
   const customerName = (version.customer_snapshot && version.customer_snapshot.name) || '';
-  await sendEmail({
+  const emailResult = await sendEmailWithResult({
     to: customerEmail,
     subject: `Your Mysubbies quote is ready (Quote #${quote.quote_number})`,
     html: wrapEmail(`
@@ -410,6 +410,19 @@ async function handleSendQuoteEmail(req, res, supabase) {
       <p style="margin-top:16px;">Questions? Just reply to this email or use "Ask a question" on the quote page.</p>
     `),
   });
+
+  // Unlike every other notification in this codebase (deliberately fire-
+  // and-forget so a broken email never blocks a booking/payment), this
+  // action's whole point is telling the customer their quote exists -- a
+  // silent failure here is worse than a blocked click, so a real send
+  // failure is surfaced back to the admin instead of swallowed. The token
+  // is already generated and valid either way, so the link is still
+  // returned for manual sharing even when the email itself failed.
+  if (!emailResult.ok) {
+    await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'email_failed', actorRole: 'system', payload: { to: customerEmail, error: emailResult.error } });
+    res.status(502).json({ error: emailResult.error || 'Could not send the email.', url });
+    return;
+  }
 
   await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'emailed', actorRole: 'admin', payload: { to: customerEmail } });
   res.status(200).json({ ok: true, url, sentTo: customerEmail });

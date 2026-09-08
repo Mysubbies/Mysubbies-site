@@ -62,6 +62,40 @@ function wrapEmail(bodyHtml) {
 // documents for the client-side portals' innerHTML rendering, just
 // server-side here since this file builds HTML outside a browser. Shared
 // by every /api file that builds an email body from user input.
+// Sep 2026: sendEmail() above is deliberately fire-and-forget (never
+// throws, never reports failure) because every OTHER caller in this
+// codebase is a background notification that must never block a booking/
+// payment/approval just because an email bounced. Quote delivery is
+// different -- the founder reported an "Issue & email" that silently
+// didn't reach the customer, and the admin genuinely needs to know when a
+// send failed rather than seeing a false "success". This mirrors
+// sendEmail() exactly but returns the real outcome instead of only
+// logging it -- used by api/quotes.js's send_quote_email action, nothing
+// else needs to change.
+async function sendEmailWithResult({ to, subject, html }) {
+  if (!process.env.RESEND_API_KEY) {
+    return { ok: false, error: 'Email sending is not configured yet (RESEND_API_KEY is not set in Vercel).' };
+  }
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: FROM_EMAIL, to, subject, html }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.error('Resend send failed:', res.status, text);
+      let providerMessage = '';
+      try { providerMessage = JSON.parse(text).message || ''; } catch (e) { /* not JSON */ }
+      return { ok: false, status: res.status, error: providerMessage || `The email provider rejected this send (status ${res.status}).` };
+    }
+    return { ok: true };
+  } catch (err) {
+    console.error('Resend send error:', err);
+    return { ok: false, error: 'Could not reach the email provider — check your connection and try again.' };
+  }
+}
+
 function escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -99,4 +133,4 @@ function emailPhoto(dataUrl) {
   return `<img src="${dataUrl}" alt="Job photo" style="width:100%;max-width:300px;border-radius:12px;margin:4px 0 14px;display:block;" />`;
 }
 
-module.exports = { sendEmail, wrapEmail, escapeHtml, emailDetailsTable, emailButton, emailPhoto };
+module.exports = { sendEmail, sendEmailWithResult, wrapEmail, escapeHtml, emailDetailsTable, emailButton, emailPhoto };
