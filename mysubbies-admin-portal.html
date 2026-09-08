@@ -2392,6 +2392,26 @@
     const totalIncGstCents = quoteBuilderDraft.lineItems.reduce((s, li) => s + Math.round((Number(li.qty) > 0 ? Number(li.qty) : 1) * (li.unitPriceCents || 0)), 0);
     return gstBreakdown(totalIncGstCents);
   }
+  // Sep 2026 fix: the Qty/Unit price inputs used to call the full render()
+  // on every keystroke to keep the totals live -- that replaces the ENTIRE
+  // builder's innerHTML (every input, select, textarea) on every character
+  // typed, which destroys and recreates the very input being typed into.
+  // The visible symptom was the whole page jumping/scrolling as focus was
+  // lost and the DOM was rebuilt mid-keystroke. Fix: update just the
+  // specific text nodes that actually changed (each line's own total, plus
+  // the three totals-box values) directly, without touching the rest of
+  // the DOM -- the input being typed into is never replaced, so it keeps
+  // focus and the cursor position, and the page never jumps.
+  function updateQuoteBuilderTotals() {
+    quoteBuilderDraft.lineItems.forEach(li => {
+      const el = document.getElementById('lineTotal_' + li.id);
+      if (el) el.textContent = fmtCents(Math.round((Number(li.qty) || 1) * (li.unitPriceCents || 0)));
+    });
+    const totals = quoteBuilderTotalsPreview();
+    const sub = document.getElementById('qbSubtotal'); if (sub) sub.textContent = fmtCents(totals.exGstCents);
+    const gst = document.getElementById('qbGst'); if (gst) gst.textContent = fmtCents(totals.gstCents);
+    const tot = document.getElementById('qbTotal'); if (tot) tot.textContent = fmtCents(totals.totalCents);
+  }
 
   async function saveQuoteDraft() {
     const d = quoteBuilderDraft;
@@ -2510,20 +2530,20 @@
             </select>
             <div style="display:grid;grid-template-columns:2fr 0.7fr 0.7fr 0.9fr auto;gap:8px;align-items:end;">
               <div><label class="fieldlabel">Description</label><input class="fieldinput" value="${escapeHtml(li.description)}" oninput="onQuoteLineItemField('${li.id}','description',this.value)" /></div>
-              <div><label class="fieldlabel">Qty</label><input class="fieldinput" type="number" min="0" step="0.01" value="${li.qty}" oninput="onQuoteLineItemField('${li.id}','qty',this.value); render();" /></div>
+              <div><label class="fieldlabel">Qty</label><input class="fieldinput" type="number" min="0" step="0.01" value="${li.qty}" oninput="onQuoteLineItemField('${li.id}','qty',this.value); updateQuoteBuilderTotals();" /></div>
               <div><label class="fieldlabel">Unit</label><input class="fieldinput" value="${escapeHtml(li.unit)}" oninput="onQuoteLineItemField('${li.id}','unit',this.value)" /></div>
-              <div><label class="fieldlabel">Unit price ($)</label><input class="fieldinput" type="number" min="0" step="0.01" value="${(li.unitPriceCents / 100).toFixed(2)}" oninput="onQuoteLineItemField('${li.id}','unitPriceDollars',this.value); render();" /></div>
+              <div><label class="fieldlabel">Unit price ($)</label><input class="fieldinput" type="number" min="0" step="0.01" value="${(li.unitPriceCents / 100).toFixed(2)}" oninput="onQuoteLineItemField('${li.id}','unitPriceDollars',this.value); updateQuoteBuilderTotals();" /></div>
               <button class="btn btn-outline" style="padding:10px;" onclick="removeQuoteLineItem('${li.id}')" title="Remove">✕</button>
             </div>
-            <div style="font-size:12px;color:var(--stone);margin-top:6px;">Line total: ${fmtCents(Math.round((Number(li.qty) || 1) * li.unitPriceCents))} (GST inclusive)</div>
+            <div style="font-size:12px;color:var(--stone);margin-top:6px;">Line total: <span id="lineTotal_${li.id}">${fmtCents(Math.round((Number(li.qty) || 1) * li.unitPriceCents))}</span> (GST inclusive)</div>
           </div>
         `).join('')}
         <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;" onclick="addQuoteLineItem()">＋ Add line item</button>
 
         <div style="max-width:260px;margin-left:auto;margin-top:14px;font-size:13.5px;">
-          <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Subtotal (ex. GST)</span><span>${fmtCents(totals.exGstCents)}</span></div>
-          <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>GST (10%)</span><span>${fmtCents(totals.gstCents)}</span></div>
-          <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-weight:800;font-size:15px;"><span>Total</span><span>${fmtCents(totals.totalCents)}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Subtotal (ex. GST)</span><span id="qbSubtotal">${fmtCents(totals.exGstCents)}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>GST (10%)</span><span id="qbGst">${fmtCents(totals.gstCents)}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-weight:800;font-size:15px;"><span>Total</span><span id="qbTotal">${fmtCents(totals.totalCents)}</span></div>
         </div>
       </div>
 
