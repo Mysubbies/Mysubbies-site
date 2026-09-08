@@ -7,11 +7,8 @@
 // a missing or bounced confirmation email should never be the reason a
 // booking, payment, or approval fails).
 //
-// FROM_EMAIL defaults to Resend's own shared test domain, which sends
-// without needing a verified sending domain first. Once a real domain
-// (e.g. notifications@mysubbies.com.au) is verified in the Resend
-// dashboard, set RESEND_FROM_EMAIL in Vercel to switch over — no code
-// change needed.
+// FROM_EMAIL defaults to the MySubbies domain. That domain/address must be
+// verified in Resend; RESEND_FROM_EMAIL can select another verified sender.
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'MySubbies <notifications@mysubbies.com.au>';
 
 async function sendEmail({ to, subject, html }) {

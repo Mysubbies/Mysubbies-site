@@ -10,6 +10,7 @@
 // POST { action:'issue', quoteId }                                      (admin)
 // POST { action:'revise', quoteId }                                     (admin -- from 'sent' only)
 // POST { action:'withdraw', quoteId }                                   (admin -- from 'sent' only)
+// POST { action:'convert_to_job', quoteId }                             (admin -- accepted quote only, idempotent)
 // POST { action:'create_staff', name, email }                           (admin)
 // POST { action:'update_staff', id, name, email, active }               (admin)
 //
@@ -35,11 +36,12 @@ const { requireAdmin } = require('./_lib/adminAuth');
 const { computeQuoteTotals } = require('./_lib/quoteMath');
 const { notifyAdmin } = require('./_lib/adminNotify');
 const { sendEmailWithResult, wrapEmail, escapeHtml, emailButton, emailDetailsTable } = require('./_lib/email');
+const { convertAcceptedQuoteToJob, QuoteConversionError } = require('./_lib/quoteToJob');
 
 const TOKEN_BYTES = 32;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const RATE_LIMIT_MAX_ATTEMPTS = 20;
-const QUOTE_BASE_URL = 'https://app.mysubbies.com.au/mysubbies-quote.html';
+const QUOTE_BASE_URL = process.env.QUOTE_BASE_URL || 'https://app.mysubbies.com.au/mysubbies-quote.html';
 const TERMS_URL = 'https://app.mysubbies.com.au/mysubbies-terms.html';
 
 function fmtCentsServer(c) { return '$' + ((c || 0) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -543,8 +545,27 @@ module.exports = async (req, res) => {
       ]);
       const versionById = new Map((versions || []).map(v => [v.id, v]));
       const customerById = new Map((customers || []).map(c => [c.id, c]));
+      const quoteIds = (quoteRows || []).map(row => row.id);
+      const [{ data: recentEvents }, { data: openQuestions }] = quoteIds.length ? await Promise.all([
+        supabase.from('quote_events').select('quote_id, event_type, created_at').in('quote_id', quoteIds).order('created_at', { ascending: false }),
+        supabase.from('inquiries').select('quote_id').in('quote_id', quoteIds).eq('status', 'open'),
+      ]) : [{ data: [] }, { data: [] }];
+      const activityByQuote = new Map();
+      for (const event of recentEvents || []) {
+        const activity = activityByQuote.get(event.quote_id) || { questionCount: 0, lastActivityAt: null };
+        if (!activity.lastActivityAt) activity.lastActivityAt = event.created_at;
+        activityByQuote.set(event.quote_id, activity);
+      }
+      for (const inquiry of openQuestions || []) {
+        const activity = activityByQuote.get(inquiry.quote_id) || { questionCount: 0, lastActivityAt: null };
+        activity.questionCount++;
+        activityByQuote.set(inquiry.quote_id, activity);
+      }
       res.status(200).json({
-        quotes: (quoteRows || []).map(q2 => serializeQuoteAdmin(q2, versionById.get(q2.current_version_id) || null, customerById.get(q2.customer_id) || null)),
+        quotes: (quoteRows || []).map(q2 => ({
+          ...serializeQuoteAdmin(q2, versionById.get(q2.current_version_id) || null, customerById.get(q2.customer_id) || null),
+          ...(activityByQuote.get(q2.id) || { questionCount: 0, lastActivityAt: q2.updated_at }),
+        })),
       });
       return;
     }
@@ -611,6 +632,21 @@ module.exports = async (req, res) => {
       if (action === 'revise') { await handleRevise(req, res, supabase); return; }
       if (action === 'withdraw') { await handleWithdraw(req, res, supabase); return; }
       if (action === 'send_quote_email') { await handleSendQuoteEmail(req, res, supabase); return; }
+      if (action === 'convert_to_job') {
+        try {
+          const converted = await convertAcceptedQuoteToJob(supabase, (req.body || {}).quoteId);
+          await logQuoteEvent(supabase, { quoteId: converted.quote.id, quoteVersionId: converted.quote.current_version_id,
+            eventType: converted.alreadyConverted ? 'job_conversion_retried' : 'converted_to_job', actorRole: 'admin',
+            payload: { jobId: converted.job && converted.job.id } });
+          res.status(200).json({ ok: true, jobId: converted.job && converted.job.id, alreadyConverted: converted.alreadyConverted });
+        } catch (conversionError) {
+          if (conversionError instanceof QuoteConversionError) {
+            res.status(conversionError.statusCode).json({ error: conversionError.message }); return;
+          }
+          throw conversionError;
+        }
+        return;
+      }
       if (action === 'ai_draft_text') { await handleAiDraftText(req, res); return; }
 
       if (action === 'create_staff') {
