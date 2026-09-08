@@ -253,11 +253,18 @@
         </div>
       </div>
 
-      ${(q.scopeText || q.inclusionsText || q.exclusionsText) ? `
+      ${(q.scopeText || q.inclusionsText || q.exclusionsText || q.paymentTermsText) ? `
         <div class="card">
           ${q.scopeText ? `<div class="textblock"><div class="textlabel">Notes</div>${escapeHtml(q.scopeText)}</div>` : ''}
           ${q.inclusionsText ? `<div class="textblock"><div class="textlabel">Inclusions</div>${escapeHtml(q.inclusionsText)}</div>` : ''}
           ${q.exclusionsText ? `<div class="textblock"><div class="textlabel">Exclusions</div>${escapeHtml(q.exclusionsText)}</div>` : ''}
+          ${q.paymentTermsText ? `<div class="textblock"><div class="textlabel">Payment terms</div>${escapeHtml(q.paymentTermsText)}</div>` : ''}
+        </div>` : ''}
+
+      ${q.termsText ? `
+        <div class="card">
+          <div class="textlabel">Terms &amp; conditions</div>
+          <div class="textblock" style="color:var(--stone);font-size:12.5px;">${escapeHtml(q.termsText)}</div>
         </div>` : ''}
 
       ${q.status === 'accepted' ? `<div class="card" style="background:#E4F3EA;border-color:#B9DDC6;"><strong>✓ Quote accepted</strong>${q.acceptedAt ? ` on ${fmtDate(q.acceptedAt)}` : ''}. We'll be in touch with next steps.</div>` : ''}
@@ -408,18 +415,20 @@
     let finalY = doc.lastAutoTable.finalY || 70;
     finalY = pdfTotalsBox(doc, finalY + 12, gstBreakdown(q.totalIncGstCents), 'Total (inc. GST)');
 
-    if (q.scopeText || q.inclusionsText || q.exclusionsText) {
+    const sections = [
+      ['Notes', q.scopeText], ['Inclusions', q.inclusionsText], ['Exclusions', q.exclusionsText],
+      ['Payment terms', q.paymentTermsText], ['Terms & conditions', q.termsText],
+    ];
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
+    sections.forEach(([label, text]) => {
+      if (!text) return;
       if (finalY > 250) { doc.addPage(); finalY = 20; }
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
-      [['Notes', q.scopeText], ['Inclusions', q.inclusionsText], ['Exclusions', q.exclusionsText]].forEach(([label, text]) => {
-        if (!text) return;
-        doc.setFont('helvetica', 'bold'); doc.text(label, 14, finalY);
-        doc.setFont('helvetica', 'normal');
-        const lines = doc.splitTextToSize(text, 180);
-        doc.text(lines, 14, finalY + 5);
-        finalY += 5 + lines.length * 4.5 + 6;
-      });
-    }
+      doc.setFont('helvetica', 'bold'); doc.text(label, 14, finalY);
+      doc.setFont('helvetica', 'normal');
+      const lines = doc.splitTextToSize(text, 180);
+      doc.text(lines, 14, finalY + 5);
+      finalY += 5 + lines.length * 4.5 + 6;
+    });
 
     pdfFooter(doc, `Valid until ${fmtDate(q.expiresAt)} · Not a tax invoice.`, legalName, abn);
     doc.save(`mysubbies-quote-${q.quoteNumber}-v${q.versionNumber}.pdf`);

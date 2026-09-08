@@ -29,6 +29,7 @@
 // withdrawn version always rejects, so an old link can't be used to accept
 // obsolete terms even if it still resolves).
 const crypto = require('crypto');
+const Anthropic = require('@anthropic-ai/sdk');
 const { getSupabase } = require('./_lib/clients');
 const { requireAdmin } = require('./_lib/adminAuth');
 const { computeQuoteTotals } = require('./_lib/quoteMath');
@@ -38,6 +39,24 @@ const TOKEN_BYTES = 32;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const RATE_LIMIT_MAX_ATTEMPTS = 20;
 const QUOTE_BASE_URL = 'https://app.mysubbies.com.au/mysubbies-quote.html';
+
+// Standard terms text, keyed by terms_version, returned to BOTH the admin
+// builder and the customer quote page so there is one server-side source
+// of truth (never duplicated/hand-typed in two HTML files, unlike most
+// other content in this codebase, because drift in legal text is a real
+// risk). Deliberately references the real, solicitor-reviewed platform
+// Terms page rather than inventing new contractual language here.
+const STANDARD_QUOTE_TERMS = {
+  v1: 'This quote is valid until the expiry date shown above and may be withdrawn or revised after that date. Accepting this quote confirms you agree to the scope, pricing and payment terms described above. This document does not replace the MySubbies Platform Terms, which continue to apply in full -- see mysubbies-terms.html on the MySubbies website. Work is carried out by a vetted MySubbies contractor; any site-specific conditions discovered after acceptance may require a separate variation, which will always be agreed with you before proceeding.',
+};
+function getTermsText(version) {
+  return STANDARD_QUOTE_TERMS[version] || STANDARD_QUOTE_TERMS.v1;
+}
+
+function getAnthropicClient() {
+  if (!process.env.ANTHROPIC_API_KEY) return null;
+  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+}
 
 function hashToken(raw) {
   return crypto.createHash('sha256').update(String(raw || '')).digest('hex');
@@ -133,7 +152,9 @@ function serializePublic(quote, version, issuingEntity) {
     scopeText: version.scope_text,
     inclusionsText: version.inclusions_text,
     exclusionsText: version.exclusions_text,
+    paymentTermsText: version.payment_terms_text,
     termsVersion: version.terms_version,
+    termsText: getTermsText(version.terms_version),
     attachments: version.attachments || [],
     issuedAt: version.issued_at,
     expiresAt: version.expires_at,
@@ -148,7 +169,8 @@ function serializeVersionAdmin(v) {
     customerSnapshot: v.customer_snapshot, propertySnapshot: v.property_snapshot, lineItems: v.line_items,
     subtotalExGstCents: v.subtotal_ex_gst_cents, gstCents: v.gst_cents, totalIncGstCents: v.total_inc_gst_cents,
     scopeText: v.scope_text, inclusionsText: v.inclusions_text, exclusionsText: v.exclusions_text,
-    termsVersion: v.terms_version, attachments: v.attachments, validityDays: v.validity_days,
+    paymentTermsText: v.payment_terms_text,
+    termsVersion: v.terms_version, termsText: getTermsText(v.terms_version), attachments: v.attachments, validityDays: v.validity_days,
     issuedAt: v.issued_at, expiresAt: v.expires_at, supersededByVersionId: v.superseded_by_version_id,
     acceptedAt: v.accepted_at, acceptedByName: v.accepted_by_name, acceptedByEmail: v.accepted_by_email,
     declinedAt: v.declined_at, declinedReason: v.declined_reason, createdAt: v.created_at,
@@ -213,7 +235,8 @@ async function handleCreateDraft(req, res, supabase) {
     line_items: totals.lineItems, subtotal_ex_gst_cents: totals.subtotalExGstCents,
     gst_cents: totals.gstCents, total_inc_gst_cents: totals.totalIncGstCents,
     scope_text: body.scopeText || null, inclusions_text: body.inclusionsText || null,
-    exclusions_text: body.exclusionsText || null, validity_days: body.validityDays || 30,
+    exclusions_text: body.exclusionsText || null, payment_terms_text: body.paymentTermsText || null,
+    terms_version: 'v1', validity_days: body.validityDays || 30,
   }).select().single();
   if (versionErr) throw versionErr;
 
@@ -243,6 +266,7 @@ async function handleUpdateDraft(req, res, supabase) {
     scope_text: body.scopeText !== undefined ? body.scopeText : version.scope_text,
     inclusions_text: body.inclusionsText !== undefined ? body.inclusionsText : version.inclusions_text,
     exclusions_text: body.exclusionsText !== undefined ? body.exclusionsText : version.exclusions_text,
+    payment_terms_text: body.paymentTermsText !== undefined ? body.paymentTermsText : version.payment_terms_text,
     validity_days: body.validityDays || version.validity_days,
     updated_at: new Date().toISOString(),
   }).eq('id', version.id).select().single();
@@ -306,6 +330,7 @@ async function handleRevise(req, res, supabase) {
     line_items: current.line_items, subtotal_ex_gst_cents: current.subtotal_ex_gst_cents,
     gst_cents: current.gst_cents, total_inc_gst_cents: current.total_inc_gst_cents,
     scope_text: current.scope_text, inclusions_text: current.inclusions_text, exclusions_text: current.exclusions_text,
+    payment_terms_text: current.payment_terms_text, terms_version: current.terms_version,
     validity_days: current.validity_days,
   }).select().single();
   if (nvErr) throw nvErr;
@@ -331,6 +356,54 @@ async function handleWithdraw(req, res, supabase) {
     .eq('document_type', 'quote_version').eq('document_id', quote.current_version_id).is('revoked_at', null);
   await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: quote.current_version_id, eventType: 'withdrawn', actorRole: 'admin' });
   res.status(200).json({ ok: true });
+}
+
+// AI-assisted drafting (Sep 2026) -- admin types a few short notes per
+// field, this expands them into full professional text using the same
+// Anthropic integration already proven in api/classify-job.js. Never
+// auto-saves or auto-issues: the returned text always lands back in the
+// builder's own editable textareas for the admin to review/edit before
+// Save Draft, same human-in-the-loop posture as every other AI feature in
+// this codebase (Fix Something always shows its guess for confirmation,
+// never books blind). Explicitly told not to invent scope, prices,
+// timeframes or warranty claims beyond what the line items/admin notes
+// already establish.
+async function handleAiDraftText(req, res) {
+  const anthropic = getAnthropicClient();
+  if (!anthropic) { res.status(400).json({ error: 'AI drafting is not turned on for this account yet (ANTHROPIC_API_KEY not set in Vercel).' }); return; }
+  const { lineItems, scopeBrief, inclusionsBrief, exclusionsBrief } = req.body || {};
+  const itemsList = (Array.isArray(lineItems) ? lineItems : [])
+    .filter(li => li && li.description)
+    .map(li => `- ${li.description} (${li.qty || 1}${li.unit ? ' ' + li.unit : ''} @ $${((li.unitPriceCents || 0) / 100).toFixed(2)})`)
+    .join('\n') || '(no line items yet)';
+
+  const prompt = `You are drafting professional, plain-English sections for a home-services trade quote issued by Mysubbies, an Australian (Melbourne) trades marketplace.
+
+Line items on this quote:
+${itemsList}
+
+The admin has given these short notes to expand into full, professional, customer-ready text. Expand short/bullet notes into clear complete sentences, but do NOT invent new work, materials, prices, timeframes, warranties or guarantees beyond what is stated here or directly implied by the line items above.
+
+Scope notes: "${scopeBrief || '(none given -- write a short scope paragraph based only on the line items above)'}"
+Inclusions notes: "${inclusionsBrief || '(none given -- infer only safe, generic inclusions directly implied by the line items, e.g. removal of packaging from an itemised material -- do not invent extras; leave blank if nothing is safely inferable)'}"
+Exclusions notes: "${exclusionsBrief || '(none given -- leave blank unless something is clearly implied as out of scope)'}"
+
+Respond with ONLY a JSON object (no other text) in this exact shape:
+{ "scopeText": "...", "inclusionsText": "...", "exclusionsText": "..." }
+Keep each under 120 words, professional and factual, no marketing language, no invented pricing/warranty/timeframe claims. Return an empty string for any section with nothing genuine to say.`;
+
+  const message = await anthropic.messages.create({
+    model: 'claude-sonnet-4-5', max_tokens: 800,
+    messages: [{ role: 'user', content: prompt }],
+  });
+  const raw = message.content.find(b => b.type === 'text')?.text || '{}';
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+  res.status(200).json({
+    scopeText: typeof parsed.scopeText === 'string' ? parsed.scopeText : '',
+    inclusionsText: typeof parsed.inclusionsText === 'string' ? parsed.inclusionsText : '',
+    exclusionsText: typeof parsed.exclusionsText === 'string' ? parsed.exclusionsText : '',
+  });
 }
 
 module.exports = async (req, res) => {
@@ -467,6 +540,7 @@ module.exports = async (req, res) => {
       if (action === 'issue') { await handleIssue(req, res, supabase); return; }
       if (action === 'revise') { await handleRevise(req, res, supabase); return; }
       if (action === 'withdraw') { await handleWithdraw(req, res, supabase); return; }
+      if (action === 'ai_draft_text') { await handleAiDraftText(req, res); return; }
 
       if (action === 'create_staff') {
         const { name, email } = req.body || {};

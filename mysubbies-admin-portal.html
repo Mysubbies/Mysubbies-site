@@ -368,6 +368,13 @@
   }
   function fmtCents(c) { return '$' + ((c || 0) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
+  // Mirrors api/quotes.js's STANDARD_QUOTE_TERMS.v1 (the server-side
+  // source of truth, sent back on every quote GET) -- shown here only so
+  // the admin sees the real terms text while drafting, before this quote
+  // has been saved/issued and the server can return it. Never edited
+  // client-side.
+  const STANDARD_QUOTE_TERMS_V1 = 'This quote is valid until the expiry date shown above and may be withdrawn or revised after that date. Accepting this quote confirms you agree to the scope, pricing and payment terms described above. This document does not replace the MySubbies Platform Terms, which continue to apply in full -- see mysubbies-terms.html on the MySubbies website. Work is carried out by a vetted MySubbies contractor; any site-specific conditions discovered after acceptance may require a separate variation, which will always be agreed with you before proceeding.';
+
   // Same branded PDF helpers as mysubbies-customer-portal.html's Payment
   // Receipt / Statement of Account (copied verbatim, per the no-shared-JS
   // convention) -- used here for the Quote Builder's "Preview PDF".
@@ -2326,16 +2333,36 @@
     return { id: 'li_' + Math.random().toString(36).slice(2), rateCardItemId: null, description: '', qty: 1, unit: '', unitPriceCents: 0, taxTreatment: 'gst_inclusive_10' };
   }
   function openNewQuoteBuilder() {
-    quoteBuilderDraft = { quoteId: null, customerId: null, customerEmail: '', customerName: '', customerPhone: '', assignedStaffId: '', lineItems: [blankLineItem()], scopeText: '', inclusionsText: '', exclusionsText: '', validityDays: 30, propertyAddress: '', propertySuburb: '' };
+    quoteBuilderDraft = { quoteId: null, customerId: null, customerEmail: '', customerName: '', customerPhone: '', assignedStaffId: '', lineItems: [blankLineItem()], scopeText: '', inclusionsText: '', exclusionsText: '', paymentTermsText: '', validityDays: 30, propertyAddress: '', propertySuburb: '' };
     quoteBuilderOpen = true; selectedQuoteId = null; quoteIssuedLink = null;
     render();
   }
   function openQuoteBuilderForCustomer(email, customerId) {
     const c = (customersTabData && customersTabData.rows || []).find(x => x.email === email);
-    quoteBuilderDraft = { quoteId: null, customerId: customerId || (c && c.id) || null, customerEmail: email, customerName: (c && c.name) || '', customerPhone: (c && c.phone) || '', assignedStaffId: '', lineItems: [blankLineItem()], scopeText: '', inclusionsText: '', exclusionsText: '', validityDays: 30, propertyAddress: '', propertySuburb: '' };
+    quoteBuilderDraft = { quoteId: null, customerId: customerId || (c && c.id) || null, customerEmail: email, customerName: (c && c.name) || '', customerPhone: (c && c.phone) || '', assignedStaffId: '', lineItems: [blankLineItem()], scopeText: '', inclusionsText: '', exclusionsText: '', paymentTermsText: '', validityDays: 30, propertyAddress: '', propertySuburb: '' };
     quoteBuilderOpen = true; selectedQuoteId = null; quoteIssuedLink = null;
     tab = 'quotes';
     render();
+  }
+  let aiDraftLoading = false;
+  async function aiDraftQuoteText() {
+    aiDraftLoading = true; render();
+    try {
+      const res = await adminFetch('/api/quotes', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'ai_draft_text', lineItems: quoteBuilderDraft.lineItems,
+          scopeBrief: quoteBuilderDraft.scopeText, inclusionsBrief: quoteBuilderDraft.inclusionsText, exclusionsBrief: quoteBuilderDraft.exclusionsText,
+        }),
+      });
+      const data = await res.json();
+      aiDraftLoading = false;
+      if (!res.ok) { alert(data.error || 'Could not draft this text.'); render(); return; }
+      if (data.scopeText) quoteBuilderDraft.scopeText = data.scopeText;
+      if (data.inclusionsText) quoteBuilderDraft.inclusionsText = data.inclusionsText;
+      if (data.exclusionsText) quoteBuilderDraft.exclusionsText = data.exclusionsText;
+      render();
+    } catch (e) { aiDraftLoading = false; alert('Could not draft this text — check your connection.'); render(); }
   }
   function closeQuoteBuilder() { quoteBuilderOpen = false; quoteBuilderDraft = null; render(); }
   function addQuoteLineItem() { quoteBuilderDraft.lineItems.push(blankLineItem()); render(); }
@@ -2380,6 +2407,7 @@
       assignedStaffId: d.assignedStaffId || null,
       lineItems: validItems.map(li => ({ id: li.id, rateCardItemId: li.rateCardItemId, description: li.description, qty: li.qty, unit: li.unit, unitPriceCents: li.unitPriceCents, taxTreatment: li.taxTreatment })),
       scopeText: d.scopeText, inclusionsText: d.inclusionsText, exclusionsText: d.exclusionsText,
+      paymentTermsText: d.paymentTermsText,
       validityDays: Number(d.validityDays) || 30,
       propertySnapshot: (d.propertyAddress || d.propertySuburb) ? { address: d.propertyAddress, suburb: d.propertySuburb } : null,
     };
@@ -2411,8 +2439,24 @@
       styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: PDF_NAVY, textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: PDF_PAPER }, columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } }, theme: 'grid',
     });
-    const finalY = doc.lastAutoTable.finalY || 66;
-    pdfTotalsBox(doc, finalY + 12, quoteBuilderTotalsPreview(), 'Total (inc. GST)');
+    let finalY = doc.lastAutoTable.finalY || 66;
+    finalY = pdfTotalsBox(doc, finalY + 12, quoteBuilderTotalsPreview(), 'Total (inc. GST)');
+
+    const sections = [
+      ['Scope', d.scopeText], ['Inclusions', d.inclusionsText], ['Exclusions', d.exclusionsText],
+      ['Payment terms', d.paymentTermsText], ['Terms & conditions', STANDARD_QUOTE_TERMS_V1],
+    ];
+    sections.forEach(([label, text]) => {
+      if (!text) return;
+      if (finalY > 255) { doc.addPage(); finalY = 20; }
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
+      doc.text(label, 14, finalY);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(80, 80, 80);
+      const lines = doc.splitTextToSize(text, 180);
+      doc.text(lines, 14, finalY + 5);
+      finalY += 5 + lines.length * 4 + 8;
+    });
+
     pdfFooter(doc, 'DRAFT PREVIEW -- not yet issued to the customer.', 'Mysubbies Holdings Pty Ltd', '69 693 675 268');
     doc.save('mysubbies-quote-draft-preview.pdf');
   }
@@ -2476,11 +2520,20 @@
       </div>
 
       <div class="detailcard" style="margin-bottom:16px;">
-        <h2 style="font-size:14px;margin-bottom:10px;">Scope &amp; terms</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <h2 style="font-size:14px;">Scope &amp; terms</h2>
+          <button class="btn btn-outline" style="width:auto;padding:7px 12px;font-size:12px;" ${aiDraftLoading ? 'disabled' : ''} onclick="aiDraftQuoteText()">${aiDraftLoading ? 'Drafting…' : '✨ Draft with AI'}</button>
+        </div>
+        <div style="font-size:11.5px;color:var(--stone);margin-bottom:10px;">Type a few short notes below, then click "Draft with AI" to expand them into full professional text -- review and edit the result before saving. Nothing is sent to the customer until you click Issue.</div>
         <label class="fieldlabel">Scope / notes</label><textarea class="fieldinput" rows="3" oninput="quoteBuilderDraft.scopeText=this.value">${escapeHtml(d.scopeText)}</textarea>
         <label class="fieldlabel" style="margin-top:10px;">Inclusions</label><textarea class="fieldinput" rows="2" oninput="quoteBuilderDraft.inclusionsText=this.value">${escapeHtml(d.inclusionsText)}</textarea>
         <label class="fieldlabel" style="margin-top:10px;">Exclusions</label><textarea class="fieldinput" rows="2" oninput="quoteBuilderDraft.exclusionsText=this.value">${escapeHtml(d.exclusionsText)}</textarea>
+        <label class="fieldlabel" style="margin-top:10px;">Payment terms</label><textarea class="fieldinput" rows="2" placeholder="e.g. 10% deposit on acceptance, balance on completion" oninput="quoteBuilderDraft.paymentTermsText=this.value">${escapeHtml(d.paymentTermsText)}</textarea>
         <label class="fieldlabel" style="margin-top:10px;">Valid for (days)</label><input class="fieldinput" type="number" min="1" style="max-width:120px;" value="${d.validityDays}" oninput="quoteBuilderDraft.validityDays=this.value" />
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:11.5px;color:var(--stone);">
+          <div class="fieldlabel" style="margin-bottom:4px;">Terms &amp; conditions (standard, shown on every quote)</div>
+          ${escapeHtml(STANDARD_QUOTE_TERMS_V1)}
+        </div>
       </div>
 
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -2534,6 +2587,44 @@
       await openQuoteDetail(selectedQuoteId);
     } catch (e) { alert('Could not withdraw this quote — check your connection.'); }
   }
+  function downloadIssuedQuotePdf() {
+    const { quote } = quoteDetailData;
+    const v = quote.currentVersion;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    pdfLetterhead(doc, { docType: 'QUOTE', docRef: `Quote #${quote.quoteNumber} · v${v.versionNumber}`, dateStr: v.issuedAt ? new Date(v.issuedAt).toLocaleDateString('en-AU') : new Date().toLocaleDateString('en-AU'), legalName: 'Mysubbies Holdings Pty Ltd', abn: '69 693 675 268' });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(140);
+    doc.text('PREPARED FOR', 14, 46);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(20, 20, 20);
+    doc.text((quote.customer && quote.customer.name) || '—', 14, 52);
+    doc.setFontSize(9); doc.setTextColor(110);
+    doc.text((quote.customer && quote.customer.email) || '', 14, 57);
+    const rows = (v.lineItems || []).map(li => [li.description, `${li.qty}${li.unit ? ' ' + li.unit : ''}`, fmtCents(li.unitPriceCents), fmtCents(li.lineTotalCents)]);
+    doc.autoTable({
+      startY: 66, head: [['Description', 'Qty', 'Unit price', 'Amount']], body: rows,
+      styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: PDF_NAVY, textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: PDF_PAPER }, columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } }, theme: 'grid',
+    });
+    let finalY = doc.lastAutoTable.finalY || 70;
+    finalY = pdfTotalsBox(doc, finalY + 12, { exGstCents: v.subtotalExGstCents, gstCents: v.gstCents, totalCents: v.totalIncGstCents }, 'Total (inc. GST)');
+    const sections = [
+      ['Scope', v.scopeText], ['Inclusions', v.inclusionsText], ['Exclusions', v.exclusionsText],
+      ['Payment terms', v.paymentTermsText], ['Terms & conditions', v.termsText],
+    ];
+    sections.forEach(([label, text]) => {
+      if (!text) return;
+      if (finalY > 255) { doc.addPage(); finalY = 20; }
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
+      doc.text(label, 14, finalY);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(80, 80, 80);
+      const lines = doc.splitTextToSize(text, 180);
+      doc.text(lines, 14, finalY + 5);
+      finalY += 5 + lines.length * 4 + 8;
+    });
+    pdfFooter(doc, `Valid until ${v.expiresAt ? new Date(v.expiresAt).toLocaleDateString('en-AU') : '—'} · Not a tax invoice.`, 'Mysubbies Holdings Pty Ltd', '69 693 675 268');
+    doc.save(`mysubbies-quote-${quote.quoteNumber}-v${v.versionNumber}.pdf`);
+  }
+
   function editDraftQuote() {
     const { quote } = quoteDetailData;
     const v = quote.currentVersion;
@@ -2543,6 +2634,7 @@
       assignedStaffId: quote.assignedStaffId || '',
       lineItems: (v.lineItems && v.lineItems.length ? v.lineItems : [blankLineItem()]).map(li => ({ ...li, id: li.id || 'li_' + Math.random().toString(36).slice(2) })),
       scopeText: v.scopeText || '', inclusionsText: v.inclusionsText || '', exclusionsText: v.exclusionsText || '',
+      paymentTermsText: v.paymentTermsText || '',
       validityDays: v.validityDays || 30,
       propertyAddress: (v.propertySnapshot && v.propertySnapshot.address) || '', propertySuburb: (v.propertySnapshot && v.propertySnapshot.suburb) || '',
     };
@@ -2578,10 +2670,19 @@
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-weight:800;font-size:15px;"><span>Total</span><span>${fmtCents(v.totalIncGstCents)}</span></div>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
-            ${v.status === 'draft' ? `<button class="btn btn-outline" onclick="editDraftQuote()">Edit draft</button><button class="btn btn-black" onclick="issueSelectedQuote()">Issue &amp; get link</button>` : ''}
+            ${v.status === 'draft' ? `<button class="btn btn-outline" onclick="editDraftQuote()">Edit draft</button><button class="btn btn-black" onclick="issueSelectedQuote()">Issue &amp; get link</button>` : `<button class="btn btn-outline" onclick="downloadIssuedQuotePdf()">Download PDF</button>`}
             ${quote.currentStatus === 'sent' ? `<button class="btn btn-outline" onclick="reviseSelectedQuote()">Revise (new version)</button><button class="btn btn-outline" onclick="withdrawSelectedQuote()">Withdraw</button>` : ''}
           </div>
         </div>
+        ${(v.scopeText || v.inclusionsText || v.exclusionsText || v.paymentTermsText) ? `
+        <div class="detailcard" style="margin-bottom:16px;">
+          <h2 style="font-size:14px;margin-bottom:10px;">Scope, terms &amp; conditions</h2>
+          ${v.scopeText ? `<div style="margin-bottom:12px;"><div class="fieldlabel">Scope</div><div style="font-size:13px;white-space:pre-wrap;">${escapeHtml(v.scopeText)}</div></div>` : ''}
+          ${v.inclusionsText ? `<div style="margin-bottom:12px;"><div class="fieldlabel">Inclusions</div><div style="font-size:13px;white-space:pre-wrap;">${escapeHtml(v.inclusionsText)}</div></div>` : ''}
+          ${v.exclusionsText ? `<div style="margin-bottom:12px;"><div class="fieldlabel">Exclusions</div><div style="font-size:13px;white-space:pre-wrap;">${escapeHtml(v.exclusionsText)}</div></div>` : ''}
+          ${v.paymentTermsText ? `<div style="margin-bottom:12px;"><div class="fieldlabel">Payment terms</div><div style="font-size:13px;white-space:pre-wrap;">${escapeHtml(v.paymentTermsText)}</div></div>` : ''}
+          <div style="font-size:11.5px;color:var(--stone);padding-top:8px;border-top:1px solid var(--line);"><div class="fieldlabel" style="margin-bottom:4px;">Terms &amp; conditions</div>${escapeHtml(v.termsText || '')}</div>
+        </div>` : ''}
       ` : ''}
 
       <div class="detailcard" style="margin-bottom:16px;">
