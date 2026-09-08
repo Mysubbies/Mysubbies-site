@@ -55,7 +55,17 @@
   .notif-item-body { font-size:12px; color:var(--stone); line-height:1.4; }
   .notif-item-time { font-size:10.5px; color:var(--stone-light); margin-top:4px; }
   .notif-empty { padding:26px 14px; text-align:center; font-size:12.5px; color:var(--stone-light); }
-  .wrap { max-width:880px; margin:0 auto; padding:32px 24px 80px; }
+  .admin-shell { display:grid; grid-template-columns:230px minmax(0,1fr); min-height:calc(100vh - 64px); }
+  .crm-sidebar { background:var(--black); color:#fff; padding:24px 14px; position:sticky; top:0; height:calc(100vh - 64px); }
+  .crm-sidebar-label { padding:0 12px 14px; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:#94A0B8; font-weight:800; }
+  .crm-nav { display:flex; flex-direction:column; gap:4px; }
+  .crm-nav button { width:100%; border:0; background:transparent; color:#CBD2DF; padding:11px 12px; border-radius:9px; text-align:left; font:600 13px 'Plus Jakarta Sans',sans-serif; cursor:pointer; }
+  .crm-nav button:hover, .crm-nav button.active { background:rgba(255,255,255,.1); color:#fff; }
+  .crm-nav button.active { box-shadow:inset 3px 0 #FF6A1A; }
+  .crm-sidebar-foot { position:absolute; left:26px; bottom:22px; color:#8F9AB0; font-size:10.5px; }
+  body.logged-out .crm-sidebar { display:none; }
+  body.logged-out .admin-shell { display:block; }
+  .wrap { max-width:1220px; width:100%; margin:0 auto; padding:32px 30px 80px; min-width:0; }
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 18px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; border:none; }
   /* Primary buttons -- bright orange (Sep 2026, matching the CEO/admin
      mockup's CTA colour) instead of navy. Kept as a dedicated pair of
@@ -78,6 +88,44 @@
   .fieldinput { width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:13.5px; color:var(--ink); border:1.5px solid var(--line); border-radius:8px; padding:9px 11px; outline:none; background:#fff; }
   .fieldinput:focus { border-color:var(--black); }
   textarea.fieldinput { resize:vertical; }
+  .quote-workflow { display:flex; align-items:center; gap:8px; margin:4px 0 24px; overflow-x:auto; padding-bottom:3px; }
+  .quote-workflow-step { display:flex; align-items:center; gap:7px; white-space:nowrap; color:var(--stone); font-size:11.5px; font-weight:700; }
+  .quote-workflow-step::before { content:''; width:9px; height:9px; border-radius:50%; background:#D8DCE3; }
+  .quote-workflow-step.active { color:var(--black); }
+  .quote-workflow-step.active::before { background:#FF6A1A; box-shadow:0 0 0 4px #FFF0E8; }
+  .quote-workflow-arrow { color:#B8BEC9; }
+  .quote-builder-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:8px; }
+  .quote-builder-grid { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:20px; align-items:start; }
+  .quote-builder-main { min-width:0; }
+  .quote-side { position:sticky; top:20px; display:flex; flex-direction:column; gap:14px; }
+  .quote-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:20px; box-shadow:0 8px 26px rgba(20,33,61,.045); margin-bottom:16px; max-width:none; }
+  .quote-card-title { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:14px; }
+  .quote-card-title h2 { font-size:15px; }
+  .quote-line-head { display:grid; grid-template-columns:minmax(180px,2fr) 80px 80px 120px 110px 36px; gap:8px; color:var(--stone); font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:0 4px 6px; }
+  .quote-line { display:grid; grid-template-columns:minmax(180px,2fr) 80px 80px 120px 110px 36px; gap:8px; align-items:center; padding:10px 4px; border-top:1px solid var(--line); }
+  .quote-line-amount { text-align:right; font-weight:800; font-size:13px; }
+  .quote-total-card { background:var(--black); color:#fff; border:0; }
+  .quote-total-row { display:flex; justify-content:space-between; padding:6px 0; color:#CBD2DF; font-size:12.5px; }
+  .quote-total-row.final { border-top:1px solid rgba(255,255,255,.2); padding-top:13px; margin-top:6px; color:#fff; font-size:18px; font-weight:800; }
+  .quote-preview-overlay { position:fixed; inset:0; z-index:200; background:rgba(10,18,35,.66); display:flex; align-items:center; justify-content:center; padding:20px; }
+  .quote-preview-sheet { background:#F7F7F5; width:min(800px,100%); max-height:92vh; overflow:auto; border-radius:18px; box-shadow:0 28px 80px rgba(0,0,0,.28); }
+  .quote-preview-top { background:var(--black); color:#fff; padding:25px 28px; display:flex; justify-content:space-between; }
+  .quote-preview-body { padding:28px; }
+  .quote-preview-actions { position:sticky; bottom:0; background:#fff; border-top:1px solid var(--line); padding:14px 20px; display:flex; justify-content:flex-end; gap:10px; }
+  .quote-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:18px 0; }
+  .quote-kpi { background:#fff; border:1px solid var(--line); border-radius:13px; padding:15px; }
+  .quote-kpi strong { display:block; font-size:22px; color:var(--black); }
+  .quote-kpi span { font-size:11.5px; color:var(--stone); }
+  @media (max-width:1000px) { .quote-builder-grid { grid-template-columns:1fr; } .quote-side { position:static; } }
+  @media (max-width:860px) {
+    .admin-shell { display:block; }
+    .crm-sidebar { display:none; }
+    .wrap { padding:24px 16px 90px; }
+    .quote-kpis { grid-template-columns:1fr 1fr; }
+    .quote-line-head { display:none; }
+    .quote-line { grid-template-columns:1fr 74px 90px; }
+    .quote-line > *:first-child { grid-column:1/-1; }
+  }
   .badge-active { background:#EAF5EE; color:var(--good); }
   .badge-deactivated { background:#FDEDEA; color:var(--warn); }
   .statgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:28px; }
@@ -250,7 +298,23 @@
 </header>
 <div id="notifPanel" class="notif-panel" style="display:none;"></div>
 
-<div class="wrap" id="app"></div>
+<div class="admin-shell">
+  <aside class="crm-sidebar">
+    <div class="crm-sidebar-label">Business workspace</div>
+    <nav class="crm-nav" id="crmNav">
+      <button data-tab="ceo" onclick="setAdminTab('ceo')">⌂ &nbsp; Dashboard</button>
+      <button data-tab="customers" onclick="setAdminTab('customers')">◎ &nbsp; Customers</button>
+      <button data-tab="quotes" onclick="setAdminTab('quotes')">▤ &nbsp; Quotes</button>
+      <button data-tab="overview" onclick="setAdminTab('overview')">□ &nbsp; Jobs</button>
+      <button data-tab="payments" onclick="setAdminTab('payments')">▧ &nbsp; Invoices</button>
+      <button data-tab="payments" onclick="setAdminTab('payments')">＄ &nbsp; Payments</button>
+      <button data-tab="reports" onclick="setAdminTab('reports')">↗ &nbsp; Reports</button>
+      <button data-tab="ratecard" onclick="setAdminTab('ratecard')">⚙ &nbsp; Settings</button>
+    </nav>
+    <div class="crm-sidebar-foot">MySubbies CRM · Melbourne</div>
+  </aside>
+  <main class="wrap" id="app"></main>
+</div>
 
 <nav class="mobile-tabbar" aria-label="Primary">
   <button class="tab-item" id="mtOverview" onclick="tab='overview'; render();">
@@ -288,7 +352,8 @@
   // session token (see api/_lib/adminAuth.js) that every admin-only
   // endpoint now verifies before acting.
   function checkAdminAuth() {
-    if (localStorage.getItem('mysubbies_admin_token')) { Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer(), hydrateDisputesFromServer(), hydrateInquiriesFromServer()]).then(render); return; }
+    if (localStorage.getItem('mysubbies_admin_token')) { document.body.classList.remove('logged-out'); Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer(), hydrateDisputesFromServer(), hydrateInquiriesFromServer()]).then(render); return; }
+    document.body.classList.add('logged-out');
     document.getElementById('app').innerHTML = `
       <div style="max-width:360px;margin:80px auto 0;background:#fff;border:1px solid var(--line);border-radius:16px;padding:28px;">
         <h1 style="font-size:22px;font-weight:800;margin-bottom:8px;">Admin login</h1>
@@ -363,6 +428,10 @@
   let jobSearchQuery = '';
   let selectedCustomerEmail = null;
   const app = document.getElementById('app');
+  function setAdminTab(nextTab) { tab = nextTab; selectedJobId = null; render(); }
+  function updateCrmNav() {
+    document.querySelectorAll('#crmNav button').forEach(button => button.classList.toggle('active', button.dataset.tab === tab));
+  }
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   }
@@ -1423,6 +1492,7 @@
     if (tab === 'ratecard') wireRateCardTab();
     if (openContractorThreadEmail) renderContractorThreadList();
     wireNotifyButton();
+    updateCrmNav();
   }
 
   function getCustomersMap() { return JSON.parse(localStorage.getItem('mysubbies_customers') || '{}'); }
@@ -2304,6 +2374,7 @@
   let quoteBuilderDraft = null;
   let quoteBuilderSaving = false;
   let quoteIssuedLink = null;
+  let quoteBuilderPreviewOpen = false;
 
   async function loadQuotesTab() {
     quotesTabLoading = true;
@@ -2344,6 +2415,17 @@
     tab = 'quotes';
     render();
   }
+  function selectQuoteCustomer(customerId) {
+    const customer = (customersTabData && customersTabData.rows || []).find(c => c.id === customerId);
+    if (!customer) {
+      quoteBuilderDraft.customerId = null; quoteBuilderDraft.customerName = '';
+      quoteBuilderDraft.customerEmail = ''; quoteBuilderDraft.customerPhone = '';
+    } else {
+      quoteBuilderDraft.customerId = customer.id; quoteBuilderDraft.customerName = customer.name || '';
+      quoteBuilderDraft.customerEmail = customer.email || ''; quoteBuilderDraft.customerPhone = customer.phone || '';
+    }
+    render();
+  }
   let aiDraftLoading = false;
   async function aiDraftQuoteText() {
     aiDraftLoading = true; render();
@@ -2364,7 +2446,14 @@
       render();
     } catch (e) { aiDraftLoading = false; alert('Could not draft this text — check your connection.'); render(); }
   }
-  function closeQuoteBuilder() { quoteBuilderOpen = false; quoteBuilderDraft = null; render(); }
+  function closeQuoteBuilder() { quoteBuilderOpen = false; quoteBuilderDraft = null; quoteBuilderPreviewOpen = false; render(); }
+  function openQuoteBuilderPreview() {
+    const d = quoteBuilderDraft;
+    if (!d.customerEmail) { alert('Add the customer email before previewing.'); return; }
+    if (!d.lineItems.some(li => li.description && li.description.trim())) { alert('Add at least one line item before previewing.'); return; }
+    quoteBuilderPreviewOpen = true; render();
+  }
+  function closeQuoteBuilderPreview() { quoteBuilderPreviewOpen = false; render(); }
   function addQuoteLineItem() { quoteBuilderDraft.lineItems.push(blankLineItem()); render(); }
   function removeQuoteLineItem(id) { quoteBuilderDraft.lineItems = quoteBuilderDraft.lineItems.filter(li => li.id !== id); render(); }
   function onQuoteLineItemField(id, field, value) {
@@ -2494,15 +2583,27 @@
     const totals = quoteBuilderTotalsPreview();
     const rateCard = getRateCard();
     return `
-      <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;margin-bottom:14px;" onclick="closeQuoteBuilder()">← Cancel</button>
-      <h1 class="pagetitle">${d.quoteId ? 'Edit draft quote' : 'New quote'}</h1>
+      <div class="quote-builder-head">
+        <div><button class="backbtn" onclick="closeQuoteBuilder()">← Back to quotes</button><h1 class="pagetitle" style="margin-bottom:4px;">${d.quoteId ? 'Edit quote draft' : 'Create quote'}</h1><p class="pagesub">Build a clear, professional quote your customer can review securely.</p></div>
+        <span class="badge badge-feed">Draft</span>
+      </div>
+      <div class="quote-workflow" aria-label="Quote workflow">
+        <span class="quote-workflow-step active">Draft</span><span class="quote-workflow-arrow">→</span>
+        <span class="quote-workflow-step">Sent</span><span class="quote-workflow-arrow">→</span>
+        <span class="quote-workflow-step">Accepted</span><span class="quote-workflow-arrow">→</span>
+        <span class="quote-workflow-step">Job</span><span class="quote-workflow-arrow">→</span>
+        <span class="quote-workflow-step">Invoice</span>
+      </div>
+      <div class="quote-builder-grid"><div class="quote-builder-main">
 
-      <div class="detailcard" style="margin-bottom:16px;">
-        <h2 style="font-size:14px;margin-bottom:10px;">Customer</h2>
+      <div class="quote-card">
+        <div class="quote-card-title"><h2>Customer details</h2><span style="font-size:11.5px;color:var(--stone);">${d.customerId ? 'Existing customer' : 'New CRM contact'}</span></div>
+        <div style="margin-bottom:12px;"><label class="fieldlabel">Select customer</label><select class="fieldinput" onchange="selectQuoteCustomer(this.value)"><option value="">＋ Create a new customer</option>${(customersTabData && customersTabData.rows || []).map(c => `<option value="${c.id}" ${d.customerId === c.id ? 'selected' : ''}>${escapeHtml(c.name || c.email)} · ${escapeHtml(c.email)}</option>`).join('')}</select></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
           <div><label class="fieldlabel">Name</label><input class="fieldinput" value="${escapeHtml(d.customerName)}" ${d.customerId ? 'disabled' : ''} oninput="quoteBuilderDraft.customerName=this.value" /></div>
           <div><label class="fieldlabel">Email</label><input class="fieldinput" value="${escapeHtml(d.customerEmail)}" ${d.customerId ? 'disabled' : ''} oninput="quoteBuilderDraft.customerEmail=this.value" /></div>
         </div>
+        <div style="margin-top:10px;"><label class="fieldlabel">Phone</label><input class="fieldinput" value="${escapeHtml(d.customerPhone)}" ${d.customerId ? 'disabled' : ''} oninput="quoteBuilderDraft.customerPhone=this.value" /></div>
         <div style="font-size:11.5px;color:var(--stone);margin-top:6px;">${d.customerId ? 'Existing customer.' : 'A new contact will be created for quoting -- no login/password is created.'}</div>
         <div style="margin-top:10px;"><label class="fieldlabel">Assigned staff</label>
           <select class="fieldinput" onchange="quoteBuilderDraft.assignedStaffId=this.value">
@@ -2512,7 +2613,7 @@
         </div>
       </div>
 
-      <div class="detailcard" style="margin-bottom:16px;">
+      <div class="quote-card">
         <h2 style="font-size:14px;margin-bottom:10px;">Property (optional)</h2>
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;">
           <div><label class="fieldlabel">Address</label><input class="fieldinput" value="${escapeHtml(d.propertyAddress)}" oninput="quoteBuilderDraft.propertyAddress=this.value" /></div>
@@ -2520,8 +2621,8 @@
         </div>
       </div>
 
-      <div class="detailcard" style="margin-bottom:16px;">
-        <h2 style="font-size:14px;margin-bottom:10px;">Line items</h2>
+      <div class="quote-card">
+        <div class="quote-card-title"><h2>Quote items</h2><span style="font-size:11.5px;color:var(--stone);">Prices shown are GST inclusive</span></div>
         ${d.lineItems.map(li => `
           <div style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;">
             <select class="fieldinput" style="margin-bottom:8px;" onchange="onQuoteRateCardPick('${li.id}', this.value)">
@@ -2540,14 +2641,9 @@
         `).join('')}
         <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;" onclick="addQuoteLineItem()">＋ Add line item</button>
 
-        <div style="max-width:260px;margin-left:auto;margin-top:14px;font-size:13.5px;">
-          <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Subtotal (ex. GST)</span><span id="qbSubtotal">${fmtCents(totals.exGstCents)}</span></div>
-          <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>GST (10%)</span><span id="qbGst">${fmtCents(totals.gstCents)}</span></div>
-          <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-weight:800;font-size:15px;"><span>Total</span><span id="qbTotal">${fmtCents(totals.totalCents)}</span></div>
-        </div>
       </div>
 
-      <div class="detailcard" style="margin-bottom:16px;">
+      <div class="quote-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
           <h2 style="font-size:14px;">Scope &amp; terms</h2>
           <button class="btn btn-outline" style="width:auto;padding:7px 12px;font-size:12px;" ${aiDraftLoading ? 'disabled' : ''} onclick="aiDraftQuoteText()">${aiDraftLoading ? 'Drafting…' : '✨ Draft with AI'}</button>
@@ -2562,13 +2658,39 @@
           <div class="fieldlabel" style="margin-bottom:4px;">Terms &amp; conditions (standard, shown on every quote)</div>
           ${escapeHtml(STANDARD_QUOTE_TERMS_V1)} <a href="mysubbies-terms.html" target="_blank" style="text-decoration:underline;color:var(--black);">Read the full Mysubbies Platform Terms →</a>
         </div>
-      </div>
-
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="btn btn-outline" onclick="previewQuoteBuilderPdf()">Preview PDF</button>
-        <button class="btn btn-black" ${quoteBuilderSaving ? 'disabled' : ''} onclick="saveQuoteDraft()">${quoteBuilderSaving ? 'Saving…' : (d.quoteId ? 'Save changes' : 'Save draft')}</button>
-      </div>
+      </div></div>
+      <aside class="quote-side">
+        <div class="quote-card quote-total-card">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#9EA9BC;margin-bottom:8px;">Quote summary</div>
+          <div class="quote-total-row"><span>Subtotal ex. GST</span><span id="qbSubtotal">${fmtCents(totals.exGstCents)}</span></div>
+          <div class="quote-total-row"><span>GST (10%)</span><span id="qbGst">${fmtCents(totals.gstCents)}</span></div>
+          <div class="quote-total-row final"><span>Total</span><span id="qbTotal">${fmtCents(totals.totalCents)}</span></div>
+        </div>
+        <div class="quote-card" style="margin:0;">
+          <div style="font-size:13px;font-weight:800;margin-bottom:5px;">Ready for review?</div>
+          <p style="font-size:11.5px;color:var(--stone);margin-bottom:14px;">Preview exactly what the customer will see before saving and sending.</p>
+          <button class="btn btn-black" style="width:100%;margin-bottom:8px;" onclick="openQuoteBuilderPreview()">Preview &amp; Send →</button>
+          <button class="btn btn-outline" style="width:100%;" ${quoteBuilderSaving ? 'disabled' : ''} onclick="saveQuoteDraft()">${quoteBuilderSaving ? 'Saving…' : (d.quoteId ? 'Save changes' : 'Save draft')}</button>
+          <button class="btn btn-outline" style="width:100%;margin-top:8px;" onclick="previewQuoteBuilderPdf()">Download draft PDF</button>
+        </div>
+      </aside></div>
+      ${quoteBuilderPreviewOpen ? renderQuoteBuilderPreview() : ''}
     `;
+  }
+
+  function renderQuoteBuilderPreview() {
+    const d = quoteBuilderDraft, totals = quoteBuilderTotalsPreview();
+    const items = d.lineItems.filter(li => li.description && li.description.trim());
+    return `<div class="quote-preview-overlay" onclick="if(event.target===this)closeQuoteBuilderPreview()"><div class="quote-preview-sheet">
+      <div class="quote-preview-top"><div class="logo-word" style="color:#fff;font-size:22px;">My<span class="gold">Subbies</span></div><div style="text-align:right;"><strong>QUOTE</strong><div style="font-size:11px;color:#BFC7D6;">Draft preview</div></div></div>
+      <div class="quote-preview-body">
+        <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:24px;"><div><div class="fieldlabel">Prepared for</div><strong>${escapeHtml(d.customerName || d.customerEmail)}</strong><div style="font-size:12px;color:var(--stone);">${escapeHtml(d.customerEmail)}</div></div><div style="text-align:right;"><div class="fieldlabel">Valid for</div><strong>${Number(d.validityDays) || 30} days</strong></div></div>
+        <table><thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${items.map(li => `<tr><td>${escapeHtml(li.description)}</td><td>${li.qty} ${escapeHtml(li.unit || '')}</td><td>${fmtCents(li.unitPriceCents)}</td><td><strong>${fmtCents(Math.round((Number(li.qty) || 1) * li.unitPriceCents))}</strong></td></tr>`).join('')}</tbody></table>
+        <div style="max-width:300px;margin:18px 0 24px auto;"><div class="row"><span class="l">Subtotal ex. GST</span><span class="r">${fmtCents(totals.exGstCents)}</span></div><div class="row"><span class="l">GST</span><span class="r">${fmtCents(totals.gstCents)}</span></div><div class="row" style="font-size:17px;"><strong>Total</strong><strong>${fmtCents(totals.totalCents)}</strong></div></div>
+        ${d.scopeText ? `<div class="fieldlabel">Scope &amp; notes</div><div style="white-space:pre-wrap;font-size:13px;margin-bottom:18px;">${escapeHtml(d.scopeText)}</div>` : ''}
+        <div style="background:#EEF1F6;border-radius:10px;padding:12px;font-size:11.5px;color:var(--stone);">This is an internal preview. Save the draft to continue to the secure email and customer acceptance step.</div>
+      </div><div class="quote-preview-actions"><button class="btn btn-outline" onclick="closeQuoteBuilderPreview()">Keep editing</button><button class="btn btn-black" ${quoteBuilderSaving ? 'disabled' : ''} onclick="saveQuoteDraft()">${quoteBuilderSaving ? 'Saving…' : 'Save draft & continue to send →'}</button></div>
+    </div></div>`;
   }
 
   async function openQuoteDetail(id) {
@@ -2790,12 +2912,22 @@
     if (!quotesTabData) return '<h1 class="pagetitle">Quotes</h1><div class="empty">Loading…</div>';
     if (quotesTabData.error) return `<h1 class="pagetitle">Quotes</h1><div class="empty">${escapeHtml(quotesTabData.error)}</div>`;
     const rows = quotesTabData.rows;
+    const countStatus = status => rows.filter(q => q.currentStatus === status).length;
+    const pipelineCents = rows.filter(q => ['draft', 'sent'].includes(q.currentStatus)).reduce((sum, q) => sum + ((q.currentVersion && q.currentVersion.totalIncGstCents) || 0), 0);
     return `
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <h1 class="pagetitle">Quotes</h1>
+        <div><h1 class="pagetitle" style="margin-bottom:3px;">Quotes</h1><p class="pagesub">Create, send and track customer proposals from one place.</p></div>
         <button class="btn btn-black" style="width:auto;padding:9px 16px;" onclick="openNewQuoteBuilder()">＋ New Quote</button>
       </div>
+      <div class="quote-workflow" style="margin-top:20px;"><span class="quote-workflow-step active">Draft</span><span class="quote-workflow-arrow">→</span><span class="quote-workflow-step">Sent</span><span class="quote-workflow-arrow">→</span><span class="quote-workflow-step">Accepted</span><span class="quote-workflow-arrow">→</span><span class="quote-workflow-step">Job</span><span class="quote-workflow-arrow">→</span><span class="quote-workflow-step">Invoice</span></div>
+      <div class="quote-kpis">
+        <div class="quote-kpi"><strong>${countStatus('draft')}</strong><span>Drafts to finish</span></div>
+        <div class="quote-kpi"><strong>${countStatus('sent')}</strong><span>Awaiting customer</span></div>
+        <div class="quote-kpi"><strong>${countStatus('accepted')}</strong><span>Accepted quotes</span></div>
+        <div class="quote-kpi"><strong>${fmtCents(pipelineCents)}</strong><span>Open pipeline</span></div>
+      </div>
       ${rows.length === 0 ? '<div class="empty">No quotes yet.</div>' : `
+        <div class="quote-card-title"><h2>Recent quote activity</h2><span style="font-size:11.5px;color:var(--stone);">Select a quote to view activity and next actions</span></div>
         <table>
           <thead><tr><th>#</th><th>Customer</th><th>Status</th><th>Total</th><th>Created</th></tr></thead>
           <tbody>
