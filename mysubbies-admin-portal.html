@@ -340,7 +340,7 @@
     } catch (e) {
       console.error('localStorage quota exceeded saving jobs:', e);
     }
-    fetch('/api/sync-jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs }) }).catch(() => {});
+    adminFetch('/api/sync-jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs }) }).catch(() => {});
   }
   // Pulls every job from Supabase (admin sees everything) and merges into
   // localStorage, so All Jobs reflects work created on any device, not

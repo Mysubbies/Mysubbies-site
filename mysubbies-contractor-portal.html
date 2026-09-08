@@ -415,7 +415,10 @@
     } catch (e) {
       console.error('localStorage quota exceeded saving jobs:', e);
     }
-    fetch('/api/sync-jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs }) }).catch(() => {});
+    getContractorAccessToken().then(token => token && fetch('/api/sync-jobs', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ role: 'contractor', jobs }),
+    })).catch(() => {});
   }
   // Runs once before the first render: pulls jobs relevant to this
   // contractor (their own accepted jobs, plus the unassigned pool they can

@@ -109,7 +109,10 @@
     // device, not just this browser — see api/sync-jobs.js. Every page's
     // saveJobs() does this, so every mutation (not just creation) stays in
     // sync without each call site needing to know about the backend.
-    fetch('/api/sync-jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs }) }).catch(() => {});
+    getBookingAccessToken().then(token => token && fetch('/api/sync-jobs', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ role: 'customer', jobs }),
+    })).catch(() => {});
   }
   function getCustomers() { return JSON.parse(localStorage.getItem('mysubbies_customers') || '{}'); }
   // Same quota-must-never-block-the-flow reasoning as saveJobs() above --
@@ -123,6 +126,12 @@
 
   const quote = getPendingQuote();
   const app = document.getElementById('app');
+
+  async function getBookingAccessToken() {
+    if (!sb) return null;
+    const { data } = await sb.auth.getSession();
+    return data && data.session && data.session.access_token;
+  }
 
   // Publishable keys are safe to expose client-side by design (unlike the
   // secret key, which only ever lives in Vercel env vars for /api
@@ -510,9 +519,11 @@
     errBox.textContent = '';
 
     try {
+      const accessToken = await getBookingAccessToken();
+      if (!accessToken) throw new Error('Please log in again before paying.');
       const res = await fetch('/api/create-deposit-intent', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken },
         body: JSON.stringify({
           jobId: pending.jobId,
           category: pending.catLabel,

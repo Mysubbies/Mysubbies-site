@@ -17,7 +17,7 @@ async function requireAccount(supabase, req, role) {
 
   const table = role === 'customer' ? 'customers' : role === 'contractor' ? 'contractors' : null;
   if (!table) return { ok: false, status: 400, error: 'Invalid account role.' };
-  const fields = role === 'contractor' ? 'id, auth_user_id, email, categories' : 'id, auth_user_id, email';
+  const fields = role === 'contractor' ? 'id, auth_user_id, email, categories, business_name' : 'id, auth_user_id, email, name, phone';
   const { data: account, error } = await supabase.from(table)
     .select(fields).eq('auth_user_id', authData.user.id).maybeSingle();
   if (error) throw error;
