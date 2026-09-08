@@ -6,6 +6,11 @@
 <title>MySubbies — Admin Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Quote PDF preview/download (Sep 2026) -- same libraries and same
+     duplicated-per-file pattern as mysubbies-customer-portal.html's
+     Payment Receipt / Statement of Account export. -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root {
     /* Navy/gold reskin (Aug 2026), Stage 2 -- see CLAUDE.md and
@@ -68,6 +73,11 @@
   .btn-danger:hover { background:#FDF3F2; }
   .searchbox { width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:14px; color:var(--ink); border:1.5px solid var(--line); border-radius:10px; padding:11px 14px; outline:none; background:#fff; margin-bottom:16px; }
   .searchbox:focus { border-color:var(--black); }
+  /* Quote Builder form fields (Sep 2026) */
+  .fieldlabel { display:block; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.02em; color:var(--stone); margin-bottom:5px; }
+  .fieldinput { width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:13.5px; color:var(--ink); border:1.5px solid var(--line); border-radius:8px; padding:9px 11px; outline:none; background:#fff; }
+  .fieldinput:focus { border-color:var(--black); }
+  textarea.fieldinput { resize:vertical; }
   .badge-active { background:#EAF5EE; color:var(--good); }
   .badge-deactivated { background:#FDEDEA; color:var(--warn); }
   .statgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:28px; }
@@ -351,9 +361,61 @@
   let tab = 'overview';
   let selectedJobId = null;
   let jobSearchQuery = '';
+  let selectedCustomerEmail = null;
   const app = document.getElementById('app');
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  }
+  function fmtCents(c) { return '$' + ((c || 0) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+  // Same branded PDF helpers as mysubbies-customer-portal.html's Payment
+  // Receipt / Statement of Account (copied verbatim, per the no-shared-JS
+  // convention) -- used here for the Quote Builder's "Preview PDF".
+  const PDF_NAVY = [20, 33, 61];
+  const PDF_PAPER = [247, 247, 245];
+  function gstBreakdown(totalIncGstCents) {
+    const gstCents = Math.round((totalIncGstCents || 0) / 11);
+    return { totalCents: totalIncGstCents || 0, gstCents, exGstCents: (totalIncGstCents || 0) - gstCents };
+  }
+  function pdfLetterhead(doc, { docType, docRef, dateStr, legalName, abn }) {
+    doc.setFillColor(...PDF_NAVY); doc.rect(0, 0, 210, 34, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
+    doc.text('MySubbies', 14, 16);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(200, 206, 220);
+    doc.text(`${legalName}  ·  ABN ${abn}  ·  Melbourne, VIC`, 14, 23);
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text(docType, 196, 15, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(200, 206, 220);
+    if (docRef) doc.text(docRef, 196, 21, { align: 'right' });
+    doc.text(`Issued ${dateStr}`, 196, 27, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+  }
+  function pdfFooter(doc, noteLine, legalName, abn) {
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      const h = doc.internal.pageSize.getHeight();
+      doc.setDrawColor(230, 230, 227); doc.setLineWidth(0.2);
+      doc.line(14, h - 18, 196, h - 18);
+      doc.setFontSize(7.5); doc.setTextColor(140, 140, 138);
+      doc.text(`${legalName} · ABN ${abn} · Melbourne, VIC`, 14, h - 12);
+      doc.text(noteLine, 14, h - 8);
+      doc.text(`Page ${i} of ${pageCount}`, 196, h - 8, { align: 'right' });
+    }
+  }
+  function pdfTotalsBox(doc, y, { exGstCents, gstCents, totalCents }, totalLabel) {
+    const boxX = 130, boxW = 66;
+    doc.setFontSize(9.5); doc.setTextColor(90, 90, 90); doc.setFont('helvetica', 'normal');
+    doc.text('Subtotal (ex. GST)', boxX, y);
+    doc.text(fmtCents(exGstCents), boxX + boxW, y, { align: 'right' });
+    doc.text('GST (10%)', boxX, y + 6);
+    doc.text(fmtCents(gstCents), boxX + boxW, y + 6, { align: 'right' });
+    doc.setDrawColor(220, 220, 217); doc.line(boxX, y + 9, boxX + boxW, y + 9);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.setTextColor(20, 33, 61);
+    doc.text(totalLabel || 'Total (inc. GST)', boxX, y + 17);
+    doc.text(fmtCents(totalCents), boxX + boxW, y + 17, { align: 'right' });
+    doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal');
+    return y + 24;
   }
 
   // Coerces a contractor field expected to be an array (trades, suburbs)
@@ -1210,6 +1272,7 @@
 
   function renderInner() {
     if (selectedJobId) { renderDetail(); return; }
+    if (selectedCustomerEmail) { renderCustomerDetail(); return; }
     const jobs = getJobs();
     // Cancelled jobs never actually earn MySubbies anything -- counting
     // them here overstated commission and gross job value with money that
@@ -1232,7 +1295,9 @@
     // they happen to click into that tab.
     if (!paymentTabData && !paymentTabLoading) loadPaymentScheduleTab();
     if (unreadContractorMessageCount === null && !unreadContractorMessageLoading) loadUnreadContractorMessageCount();
-    if (tab === 'customers' && !customersTabData && !customersTabLoading) loadCustomersTab();
+    if ((tab === 'customers' || tab === 'quotes') && !customersTabData && !customersTabLoading) loadCustomersTab();
+    if (tab === 'quotes' && !quotesTabData && !quotesTabLoading) loadQuotesTab();
+    if (!staffListData && !staffListLoading) loadStaffList();
     if (tab === 'messages' && !messageThreadsData && !messageThreadsLoading) loadMessageThreads();
     if (tab === 'reports' && !contractorPayoutsData && !contractorPayoutsLoading) loadContractorPayouts();
     const paymentBadgeCount = paymentTabData ? (paymentTabData.disputedMilestones || []).length + (paymentTabData.pendingScheduleJobs || []).length : 0;
@@ -1312,7 +1377,7 @@
               : jobsTableHtml(filtered);
           })()}
         `}
-      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
+      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
     } catch (e) {
       console.error('Tab render error on tab=' + tab, e);
       tabContentHtml = `
@@ -1338,6 +1403,7 @@
         <button class="${tab==='contractors'?'active':''}" onclick="tab='contractors'; render();">Contractors</button>
         <button class="${tab==='messages'?'active':''}" onclick="tab='messages'; render();">Messages ${unreadContractorMessageCount ? '(' + unreadContractorMessageCount + ')' : ''}</button>
         <button class="${tab==='customers'?'active':''}" onclick="tab='customers'; render();">Customers</button>
+        <button class="${tab==='quotes'?'active':''}" onclick="tab='quotes'; render();">Quotes</button>
         <button class="${tab==='disputes'?'active':''}" onclick="tab='disputes'; render();">Disputes ${openDisputeCount ? '(' + openDisputeCount + ')' : ''}</button>
         <button class="${tab==='inquiries'?'active':''}" onclick="tab='inquiries'; render();">Inquiries ${openInquiryCount ? '(' + openInquiryCount + ')' : ''}</button>
         <button class="${tab==='payments'?'active':''}" onclick="tab='payments'; render();">Payment Schedules ${paymentBadgeCount ? '(' + paymentBadgeCount + ')' : ''}</button>
@@ -2147,6 +2213,7 @@
           </div>
           <div class="row"><span class="l">Registered</span><span class="r">${c.created_at ? new Date(c.created_at).toLocaleDateString('en-AU') : '—'}</span></div>
           <div style="display:flex;gap:8px;margin-top:14px;">
+            <button class="btn btn-outline" style="flex:1;" onclick="selectedCustomerEmail='${escapeHtml(c.email)}'; render();">View</button>
             ${c.status === 'deactivated'
               ? `<button class="btn btn-outline" style="flex:1;" onclick="reactivateCustomer('${escapeHtml(c.email)}')">Reactivate</button>`
               : `<button class="btn btn-outline" style="flex:1;" onclick="deactivateCustomer('${escapeHtml(c.email)}')">Deactivate</button>`}
@@ -2154,6 +2221,407 @@
           </div>
         </div>
       `).join('')}
+    `;
+  }
+
+  // ============================================================
+  // Customer CRM detail view (Sep 2026) -- pure client-side aggregation of
+  // data this portal already caches after load (getJobs()/getInquiries())
+  // plus the new Quotes list, filtered to one customer. No new endpoint
+  // needed for jobs/inquiries; api/quotes.js's own `list` action supplies
+  // the only genuinely new data source.
+  // ============================================================
+  function renderCustomerDetail() {
+    const email = selectedCustomerEmail;
+    const c = (customersTabData && customersTabData.rows || []).find(x => x.email === email);
+    const jobs = getJobs().filter(j => j.customerEmail === email);
+    const inquiries = getInquiries().filter(i => i.email === email);
+    const quotes = (quotesTabData && quotesTabData.rows || []).filter(q => q.customer && q.customer.email === email);
+    const jobBadgeClass = { feed: 'badge-feed', assigned: 'badge-assigned', completed: 'badge-completed', cancellation_requested: 'badge-rejected', cancelled: 'badge-rejected' };
+    const jobBadgeLabel = { feed: 'Awaiting contractor', assigned: 'Assigned', completed: 'Completed', cancellation_requested: 'Cancellation requested', cancelled: 'Cancelled' };
+    return `
+      <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;margin-bottom:14px;" onclick="selectedCustomerEmail=null; render();">← Back to Customers</button>
+      <h1 class="pagetitle">${escapeHtml((c && c.name) || email)}</h1>
+      <p class="pagesub">${escapeHtml(email)}${c && c.phone ? ' · ' + escapeHtml(c.phone) : ''}</p>
+
+      <div class="detailcard" style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <h2 style="font-size:15px;">Quotes (${quotes.length})</h2>
+          <button class="btn btn-black" style="width:auto;padding:8px 14px;font-size:12.5px;" onclick="openQuoteBuilderForCustomer('${escapeHtml(email)}', ${c ? `'${c.id}'` : 'null'})">＋ New Quote</button>
+        </div>
+        ${quotes.length === 0 ? '<div class="empty">No quotes yet.</div>' : quotes.map(q => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--line);cursor:pointer;" onclick="openQuoteDetail('${q.id}')">
+            <span style="font-size:13.5px;">Quote #${q.quoteNumber}${q.currentVersion ? ' — ' + fmtCents(q.currentVersion.totalIncGstCents) : ''}</span>
+            <span class="badge ${quoteStatusBadgeClass(q.currentStatus)}">${escapeHtml(q.currentStatus)}</span>
+          </div>`).join('')}
+      </div>
+
+      <div class="detailcard" style="margin-bottom:16px;">
+        <h2 style="font-size:15px;margin-bottom:10px;">Jobs (${jobs.length})</h2>
+        ${jobs.length === 0 ? '<div class="empty">No jobs yet.</div>' : jobs.map(j => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--line);cursor:pointer;" onclick="selectedCustomerEmail=null; selectedJobId='${j.id}'; render();">
+            <span style="font-size:13.5px;">${j.jobNumber ? '#' + j.jobNumber + ' — ' : ''}${escapeHtml(j.category)}, ${escapeHtml(j.suburb)}</span>
+            <span class="badge ${jobBadgeClass[j.status] || 'badge-feed'}">${jobBadgeLabel[j.status] || j.status}</span>
+          </div>`).join('')}
+      </div>
+
+      <div class="detailcard">
+        <h2 style="font-size:15px;margin-bottom:10px;">Inquiries (${inquiries.length})</h2>
+        ${inquiries.length === 0 ? '<div class="empty">No inquiries yet.</div>' : inquiries.map(i => `
+          <div style="padding:9px 0;border-top:1px solid var(--line);">
+            <div style="display:flex;justify-content:space-between;"><span style="font-size:13px;font-weight:600;">${i.messages && i.messages[0] ? escapeHtml(String(i.messages[0].text).slice(0, 80)) : '(no message)'}</span><span class="badge ${i.status === 'open' ? 'badge-feed' : 'badge-completed'}">${escapeHtml(i.status)}</span></div>
+            <div style="font-size:11.5px;color:var(--stone);margin-top:2px;">${i.createdAt ? new Date(i.createdAt).toLocaleDateString('en-AU') : ''}</div>
+          </div>`).join('')}
+      </div>
+    `;
+  }
+
+  // ============================================================
+  // Quotes tab (Sep 2026) -- admin quote builder + lifecycle. Backed by
+  // api/quotes.js / supabase/schema_v19_quotes_crm.sql. Stage 1 only: no
+  // invoicing, no branded email send, no service recommendations --
+  // "Issue" hands back a raw copyable link since automated delivery is a
+  // later stage. Money is always recomputed server-side (api/_lib/
+  // quoteMath.js) -- the totals shown here while building a draft are a
+  // display-only preview using the same GST-inclusive convention as
+  // gstBreakdown(), never trusted as the real charge.
+  // ============================================================
+  let quotesTabData = null;
+  let quotesTabLoading = false;
+  let staffListData = null;
+  let staffListLoading = false;
+  let selectedQuoteId = null;
+  let quoteDetailData = null;
+  let quoteDetailLoading = false;
+  let quoteBuilderOpen = false;
+  let quoteBuilderDraft = null;
+  let quoteBuilderSaving = false;
+  let quoteIssuedLink = null;
+
+  async function loadQuotesTab() {
+    quotesTabLoading = true;
+    try {
+      const res = await adminFetch('/api/quotes?action=list');
+      const body = await res.json();
+      quotesTabData = res.ok ? { rows: body.quotes || [] } : { error: body.error || 'Could not load quotes.' };
+    } catch (e) { quotesTabData = { error: 'Could not load quotes.' }; }
+    quotesTabLoading = false;
+    render();
+  }
+  async function loadStaffList() {
+    staffListLoading = true;
+    try {
+      const res = await adminFetch('/api/quotes?action=list_staff');
+      const body = await res.json();
+      staffListData = res.ok ? (body.staff || []) : [];
+    } catch (e) { staffListData = []; }
+    staffListLoading = false;
+    render();
+  }
+  function quoteStatusBadgeClass(status) {
+    return { draft: 'badge-feed', sent: 'badge-assigned', accepted: 'badge-completed', declined: 'badge-rejected', expired: 'badge-rejected', withdrawn: 'badge-rejected' }[status] || 'badge-feed';
+  }
+
+  function blankLineItem() {
+    return { id: 'li_' + Math.random().toString(36).slice(2), rateCardItemId: null, description: '', qty: 1, unit: '', unitPriceCents: 0, taxTreatment: 'gst_inclusive_10' };
+  }
+  function openNewQuoteBuilder() {
+    quoteBuilderDraft = { quoteId: null, customerId: null, customerEmail: '', customerName: '', customerPhone: '', assignedStaffId: '', lineItems: [blankLineItem()], scopeText: '', inclusionsText: '', exclusionsText: '', validityDays: 30, propertyAddress: '', propertySuburb: '' };
+    quoteBuilderOpen = true; selectedQuoteId = null; quoteIssuedLink = null;
+    render();
+  }
+  function openQuoteBuilderForCustomer(email, customerId) {
+    const c = (customersTabData && customersTabData.rows || []).find(x => x.email === email);
+    quoteBuilderDraft = { quoteId: null, customerId: customerId || (c && c.id) || null, customerEmail: email, customerName: (c && c.name) || '', customerPhone: (c && c.phone) || '', assignedStaffId: '', lineItems: [blankLineItem()], scopeText: '', inclusionsText: '', exclusionsText: '', validityDays: 30, propertyAddress: '', propertySuburb: '' };
+    quoteBuilderOpen = true; selectedQuoteId = null; quoteIssuedLink = null;
+    tab = 'quotes';
+    render();
+  }
+  function closeQuoteBuilder() { quoteBuilderOpen = false; quoteBuilderDraft = null; render(); }
+  function addQuoteLineItem() { quoteBuilderDraft.lineItems.push(blankLineItem()); render(); }
+  function removeQuoteLineItem(id) { quoteBuilderDraft.lineItems = quoteBuilderDraft.lineItems.filter(li => li.id !== id); render(); }
+  function onQuoteLineItemField(id, field, value) {
+    const li = quoteBuilderDraft.lineItems.find(x => x.id === id);
+    if (!li) return;
+    if (field === 'qty') li.qty = Number(value) || 0;
+    else if (field === 'unitPriceDollars') li.unitPriceCents = Math.round((Number(value) || 0) * 100);
+    else li[field] = value;
+  }
+  function onQuoteRateCardPick(id, taskKey) {
+    const li = quoteBuilderDraft.lineItems.find(x => x.id === id);
+    if (!li || !taskKey) return;
+    const sep = taskKey.indexOf('|||');
+    const catLabel = taskKey.slice(0, sep), taskName = taskKey.slice(sep + 3);
+    const cat = getRateCard().find(c => c.label === catLabel);
+    const task = cat && (cat.tasks || []).find(t => t.name === taskName);
+    if (!task) return;
+    li.rateCardItemId = task.name;
+    li.description = task.name;
+    li.unit = task.unit || '';
+    li.unitPriceCents = Math.round((Number(task.rate) || 0) * 100);
+    render();
+  }
+  function quoteBuilderTotalsPreview() {
+    const totalIncGstCents = quoteBuilderDraft.lineItems.reduce((s, li) => s + Math.round((Number(li.qty) > 0 ? Number(li.qty) : 1) * (li.unitPriceCents || 0)), 0);
+    return gstBreakdown(totalIncGstCents);
+  }
+
+  async function saveQuoteDraft() {
+    const d = quoteBuilderDraft;
+    if (!d.customerEmail) { alert('Enter a customer email.'); return; }
+    const validItems = d.lineItems.filter(li => li.description && li.description.trim());
+    if (validItems.length === 0) { alert('Add at least one line item with a description.'); return; }
+    quoteBuilderSaving = true; render();
+    const body = {
+      action: d.quoteId ? 'update_draft' : 'create_draft',
+      quoteId: d.quoteId || undefined,
+      customerId: d.customerId || undefined,
+      newCustomer: d.customerId ? undefined : { name: d.customerName, email: d.customerEmail, phone: d.customerPhone },
+      assignedStaffId: d.assignedStaffId || null,
+      lineItems: validItems.map(li => ({ id: li.id, rateCardItemId: li.rateCardItemId, description: li.description, qty: li.qty, unit: li.unit, unitPriceCents: li.unitPriceCents, taxTreatment: li.taxTreatment })),
+      scopeText: d.scopeText, inclusionsText: d.inclusionsText, exclusionsText: d.exclusionsText,
+      validityDays: Number(d.validityDays) || 30,
+      propertySnapshot: (d.propertyAddress || d.propertySuburb) ? { address: d.propertyAddress, suburb: d.propertySuburb } : null,
+    };
+    try {
+      const res = await adminFetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json();
+      quoteBuilderSaving = false;
+      if (!res.ok) { alert(data.error || 'Could not save this draft.'); render(); return; }
+      quoteBuilderOpen = false; quoteBuilderDraft = null;
+      quotesTabData = null;
+      await loadQuotesTab();
+      await openQuoteDetail(data.quote.id);
+    } catch (e) { quoteBuilderSaving = false; alert('Could not save this draft — check your connection.'); render(); }
+  }
+
+  function previewQuoteBuilderPdf() {
+    const d = quoteBuilderDraft;
+    const items = d.lineItems.filter(li => li.description && li.description.trim());
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    pdfLetterhead(doc, { docType: 'QUOTE (DRAFT)', docRef: null, dateStr: new Date().toLocaleDateString('en-AU'), legalName: 'Mysubbies Holdings Pty Ltd', abn: '69 693 675 268' });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(140);
+    doc.text('PREPARED FOR', 14, 46);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(20, 20, 20);
+    doc.text(d.customerName || d.customerEmail || '—', 14, 52);
+    const rows = items.map(li => [li.description, `${li.qty}${li.unit ? ' ' + li.unit : ''}`, fmtCents(li.unitPriceCents), fmtCents(Math.round((Number(li.qty) || 1) * li.unitPriceCents))]);
+    doc.autoTable({
+      startY: 62, head: [['Description', 'Qty', 'Unit price', 'Amount']], body: rows,
+      styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: PDF_NAVY, textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: PDF_PAPER }, columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } }, theme: 'grid',
+    });
+    const finalY = doc.lastAutoTable.finalY || 66;
+    pdfTotalsBox(doc, finalY + 12, quoteBuilderTotalsPreview(), 'Total (inc. GST)');
+    pdfFooter(doc, 'DRAFT PREVIEW -- not yet issued to the customer.', 'Mysubbies Holdings Pty Ltd', '69 693 675 268');
+    doc.save('mysubbies-quote-draft-preview.pdf');
+  }
+
+  function renderQuoteBuilder() {
+    const d = quoteBuilderDraft;
+    const totals = quoteBuilderTotalsPreview();
+    const rateCard = getRateCard();
+    return `
+      <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;margin-bottom:14px;" onclick="closeQuoteBuilder()">← Cancel</button>
+      <h1 class="pagetitle">${d.quoteId ? 'Edit draft quote' : 'New quote'}</h1>
+
+      <div class="detailcard" style="margin-bottom:16px;">
+        <h2 style="font-size:14px;margin-bottom:10px;">Customer</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div><label class="fieldlabel">Name</label><input class="fieldinput" value="${escapeHtml(d.customerName)}" ${d.customerId ? 'disabled' : ''} oninput="quoteBuilderDraft.customerName=this.value" /></div>
+          <div><label class="fieldlabel">Email</label><input class="fieldinput" value="${escapeHtml(d.customerEmail)}" ${d.customerId ? 'disabled' : ''} oninput="quoteBuilderDraft.customerEmail=this.value" /></div>
+        </div>
+        <div style="font-size:11.5px;color:var(--stone);margin-top:6px;">${d.customerId ? 'Existing customer.' : 'A new contact will be created for quoting -- no login/password is created.'}</div>
+        <div style="margin-top:10px;"><label class="fieldlabel">Assigned staff</label>
+          <select class="fieldinput" onchange="quoteBuilderDraft.assignedStaffId=this.value">
+            <option value="">— Unassigned —</option>
+            ${(staffListData || []).filter(s => s.active).map(s => `<option value="${s.id}" ${d.assignedStaffId === s.id ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div class="detailcard" style="margin-bottom:16px;">
+        <h2 style="font-size:14px;margin-bottom:10px;">Property (optional)</h2>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;">
+          <div><label class="fieldlabel">Address</label><input class="fieldinput" value="${escapeHtml(d.propertyAddress)}" oninput="quoteBuilderDraft.propertyAddress=this.value" /></div>
+          <div><label class="fieldlabel">Suburb</label><input class="fieldinput" value="${escapeHtml(d.propertySuburb)}" oninput="quoteBuilderDraft.propertySuburb=this.value" /></div>
+        </div>
+      </div>
+
+      <div class="detailcard" style="margin-bottom:16px;">
+        <h2 style="font-size:14px;margin-bottom:10px;">Line items</h2>
+        ${d.lineItems.map(li => `
+          <div style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;">
+            <select class="fieldinput" style="margin-bottom:8px;" onchange="onQuoteRateCardPick('${li.id}', this.value)">
+              <option value="">— Pick a rate card item, or type a custom one below —</option>
+              ${rateCard.map(cat => `<optgroup label="${escapeHtml(cat.label)}">${(cat.tasks || []).filter(t => !t.disabled && !t.unavailable).map(t => `<option value="${escapeHtml(cat.label)}|||${escapeHtml(t.name)}" ${li.rateCardItemId === t.name ? 'selected' : ''}>${escapeHtml(t.name)} (${fmtCents(Math.round((t.rate || 0) * 100))}/${escapeHtml(t.unit || '')})</option>`).join('')}</optgroup>`).join('')}
+            </select>
+            <div style="display:grid;grid-template-columns:2fr 0.7fr 0.7fr 0.9fr auto;gap:8px;align-items:end;">
+              <div><label class="fieldlabel">Description</label><input class="fieldinput" value="${escapeHtml(li.description)}" oninput="onQuoteLineItemField('${li.id}','description',this.value)" /></div>
+              <div><label class="fieldlabel">Qty</label><input class="fieldinput" type="number" min="0" step="0.01" value="${li.qty}" oninput="onQuoteLineItemField('${li.id}','qty',this.value); render();" /></div>
+              <div><label class="fieldlabel">Unit</label><input class="fieldinput" value="${escapeHtml(li.unit)}" oninput="onQuoteLineItemField('${li.id}','unit',this.value)" /></div>
+              <div><label class="fieldlabel">Unit price ($)</label><input class="fieldinput" type="number" min="0" step="0.01" value="${(li.unitPriceCents / 100).toFixed(2)}" oninput="onQuoteLineItemField('${li.id}','unitPriceDollars',this.value); render();" /></div>
+              <button class="btn btn-outline" style="padding:10px;" onclick="removeQuoteLineItem('${li.id}')" title="Remove">✕</button>
+            </div>
+            <div style="font-size:12px;color:var(--stone);margin-top:6px;">Line total: ${fmtCents(Math.round((Number(li.qty) || 1) * li.unitPriceCents))} (GST inclusive)</div>
+          </div>
+        `).join('')}
+        <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;" onclick="addQuoteLineItem()">＋ Add line item</button>
+
+        <div style="max-width:260px;margin-left:auto;margin-top:14px;font-size:13.5px;">
+          <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Subtotal (ex. GST)</span><span>${fmtCents(totals.exGstCents)}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>GST (10%)</span><span>${fmtCents(totals.gstCents)}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-weight:800;font-size:15px;"><span>Total</span><span>${fmtCents(totals.totalCents)}</span></div>
+        </div>
+      </div>
+
+      <div class="detailcard" style="margin-bottom:16px;">
+        <h2 style="font-size:14px;margin-bottom:10px;">Scope &amp; terms</h2>
+        <label class="fieldlabel">Scope / notes</label><textarea class="fieldinput" rows="3" oninput="quoteBuilderDraft.scopeText=this.value">${escapeHtml(d.scopeText)}</textarea>
+        <label class="fieldlabel" style="margin-top:10px;">Inclusions</label><textarea class="fieldinput" rows="2" oninput="quoteBuilderDraft.inclusionsText=this.value">${escapeHtml(d.inclusionsText)}</textarea>
+        <label class="fieldlabel" style="margin-top:10px;">Exclusions</label><textarea class="fieldinput" rows="2" oninput="quoteBuilderDraft.exclusionsText=this.value">${escapeHtml(d.exclusionsText)}</textarea>
+        <label class="fieldlabel" style="margin-top:10px;">Valid for (days)</label><input class="fieldinput" type="number" min="1" style="max-width:120px;" value="${d.validityDays}" oninput="quoteBuilderDraft.validityDays=this.value" />
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-outline" onclick="previewQuoteBuilderPdf()">Preview PDF</button>
+        <button class="btn btn-black" ${quoteBuilderSaving ? 'disabled' : ''} onclick="saveQuoteDraft()">${quoteBuilderSaving ? 'Saving…' : (d.quoteId ? 'Save changes' : 'Save draft')}</button>
+      </div>
+    `;
+  }
+
+  async function openQuoteDetail(id) {
+    selectedQuoteId = id; quoteDetailData = null; quoteDetailLoading = true; quoteBuilderOpen = false;
+    render();
+    try {
+      const res = await adminFetch('/api/quotes?action=get&id=' + encodeURIComponent(id));
+      const body = await res.json();
+      quoteDetailData = res.ok ? body : { error: body.error || 'Could not load this quote.' };
+    } catch (e) { quoteDetailData = { error: 'Could not load this quote.' }; }
+    quoteDetailLoading = false;
+    render();
+  }
+  function closeQuoteDetail() { selectedQuoteId = null; quoteDetailData = null; quoteIssuedLink = null; render(); }
+
+  async function issueSelectedQuote() {
+    if (!confirm('Issue this quote? A secure link will be generated for the customer.')) return;
+    try {
+      const res = await adminFetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'issue', quoteId: selectedQuoteId }) });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Could not issue this quote.'); return; }
+      quoteIssuedLink = data.url;
+      quotesTabData = null;
+      await openQuoteDetail(selectedQuoteId);
+    } catch (e) { alert('Could not issue this quote — check your connection.'); }
+  }
+  async function reviseSelectedQuote() {
+    if (!confirm('Create a new draft version of this quote? The current version will be marked superseded.')) return;
+    try {
+      const res = await adminFetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'revise', quoteId: selectedQuoteId }) });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Could not revise this quote.'); return; }
+      quotesTabData = null;
+      await openQuoteDetail(selectedQuoteId);
+    } catch (e) { alert('Could not revise this quote — check your connection.'); }
+  }
+  async function withdrawSelectedQuote() {
+    if (!confirm('Withdraw this quote? The customer link will stop working.')) return;
+    try {
+      const res = await adminFetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'withdraw', quoteId: selectedQuoteId }) });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Could not withdraw this quote.'); return; }
+      quotesTabData = null;
+      await openQuoteDetail(selectedQuoteId);
+    } catch (e) { alert('Could not withdraw this quote — check your connection.'); }
+  }
+  function editDraftQuote() {
+    const { quote } = quoteDetailData;
+    const v = quote.currentVersion;
+    quoteBuilderDraft = {
+      quoteId: quote.id, customerId: quote.customerId,
+      customerEmail: (quote.customer && quote.customer.email) || '', customerName: (quote.customer && quote.customer.name) || '', customerPhone: (quote.customer && quote.customer.phone) || '',
+      assignedStaffId: quote.assignedStaffId || '',
+      lineItems: (v.lineItems && v.lineItems.length ? v.lineItems : [blankLineItem()]).map(li => ({ ...li, id: li.id || 'li_' + Math.random().toString(36).slice(2) })),
+      scopeText: v.scopeText || '', inclusionsText: v.inclusionsText || '', exclusionsText: v.exclusionsText || '',
+      validityDays: v.validityDays || 30,
+      propertyAddress: (v.propertySnapshot && v.propertySnapshot.address) || '', propertySuburb: (v.propertySnapshot && v.propertySnapshot.suburb) || '',
+    };
+    quoteBuilderOpen = true; selectedQuoteId = null;
+    render();
+  }
+
+  function renderQuoteDetailView() {
+    if (quoteDetailLoading || !quoteDetailData) return '<div class="empty">Loading…</div>';
+    if (quoteDetailData.error) return `<div class="empty">${escapeHtml(quoteDetailData.error)}</div>`;
+    const { quote, versions, events } = quoteDetailData;
+    const v = quote.currentVersion;
+    return `
+      <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;margin-bottom:14px;" onclick="closeQuoteDetail()">← Back to Quotes</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h1 class="pagetitle">Quote #${quote.quoteNumber}</h1>
+        <span class="badge ${quoteStatusBadgeClass(quote.currentStatus)}">${escapeHtml(quote.currentStatus)}</span>
+      </div>
+      <p class="pagesub">${escapeHtml((quote.customer && quote.customer.name) || (quote.customer && quote.customer.email) || '')}</p>
+
+      ${quoteIssuedLink ? `<div class="detailcard" style="margin-bottom:16px;background:#EAF5EE;border-color:#B9DDC6;"><strong>Quote issued.</strong> Share this link with the customer:<br><input class="fieldinput" style="margin-top:8px;" readonly value="${escapeHtml(quoteIssuedLink)}" onclick="this.select()" /></div>` : ''}
+
+      ${v ? `
+        <div class="detailcard" style="margin-bottom:16px;">
+          <h2 style="font-size:14px;margin-bottom:10px;">Current version (v${v.versionNumber}, ${escapeHtml(v.status)})</h2>
+          <table>
+            <thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Amount</th></tr></thead>
+            <tbody>${(v.lineItems || []).map(li => `<tr><td>${escapeHtml(li.description)}</td><td>${li.qty}${li.unit ? ' ' + escapeHtml(li.unit) : ''}</td><td>${fmtCents(li.unitPriceCents)}</td><td>${fmtCents(li.lineTotalCents)}</td></tr>`).join('')}</tbody>
+          </table>
+          <div style="max-width:260px;margin-left:auto;margin-top:14px;font-size:13.5px;">
+            <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Subtotal (ex. GST)</span><span>${fmtCents(v.subtotalExGstCents)}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>GST (10%)</span><span>${fmtCents(v.gstCents)}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-weight:800;font-size:15px;"><span>Total</span><span>${fmtCents(v.totalIncGstCents)}</span></div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
+            ${v.status === 'draft' ? `<button class="btn btn-outline" onclick="editDraftQuote()">Edit draft</button><button class="btn btn-black" onclick="issueSelectedQuote()">Issue &amp; get link</button>` : ''}
+            ${quote.currentStatus === 'sent' ? `<button class="btn btn-outline" onclick="reviseSelectedQuote()">Revise (new version)</button><button class="btn btn-outline" onclick="withdrawSelectedQuote()">Withdraw</button>` : ''}
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="detailcard" style="margin-bottom:16px;">
+        <h2 style="font-size:14px;margin-bottom:10px;">Version history</h2>
+        ${versions.map(ver => `<div style="padding:8px 0;border-top:1px solid var(--line);font-size:13px;display:flex;justify-content:space-between;"><span>v${ver.versionNumber} — ${escapeHtml(ver.status)}</span><span>${fmtCents(ver.totalIncGstCents)}</span></div>`).join('')}
+      </div>
+
+      <div class="detailcard">
+        <h2 style="font-size:14px;margin-bottom:10px;">Activity</h2>
+        ${events.length === 0 ? '<div class="empty">No activity yet.</div>' : events.slice().reverse().map(ev => `<div style="padding:7px 0;border-top:1px solid var(--line);font-size:12.5px;color:var(--stone);"><strong style="color:var(--ink);">${escapeHtml(ev.eventType.replace(/_/g, ' '))}</strong> · ${escapeHtml(ev.actorRole)} · ${new Date(ev.createdAt).toLocaleString('en-AU')}</div>`).join('')}
+      </div>
+    `;
+  }
+
+  function renderQuotesTab() {
+    if (quoteBuilderOpen) return renderQuoteBuilder();
+    if (selectedQuoteId) return renderQuoteDetailView();
+    if (!quotesTabData) return '<h1 class="pagetitle">Quotes</h1><div class="empty">Loading…</div>';
+    if (quotesTabData.error) return `<h1 class="pagetitle">Quotes</h1><div class="empty">${escapeHtml(quotesTabData.error)}</div>`;
+    const rows = quotesTabData.rows;
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h1 class="pagetitle">Quotes</h1>
+        <button class="btn btn-black" style="width:auto;padding:9px 16px;" onclick="openNewQuoteBuilder()">＋ New Quote</button>
+      </div>
+      ${rows.length === 0 ? '<div class="empty">No quotes yet.</div>' : `
+        <table>
+          <thead><tr><th>#</th><th>Customer</th><th>Status</th><th>Total</th><th>Created</th></tr></thead>
+          <tbody>
+            ${rows.map(q => `
+              <tr class="jobrow" onclick="openQuoteDetail('${q.id}')">
+                <td>#${q.quoteNumber}</td>
+                <td>${escapeHtml((q.customer && q.customer.name) || (q.customer && q.customer.email) || '—')}</td>
+                <td><span class="badge ${quoteStatusBadgeClass(q.currentStatus)}">${escapeHtml(q.currentStatus)}</span></td>
+                <td>${q.currentVersion ? fmtCents(q.currentVersion.totalIncGstCents) : '—'}</td>
+                <td>${new Date(q.createdAt).toLocaleDateString('en-AU')}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      `}
     `;
   }
 

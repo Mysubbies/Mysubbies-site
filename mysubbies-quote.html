@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Your Mysubbies quote</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Same PDF stack/pattern as mysubbies-customer-portal.html's Payment
+     Receipt / Statement of Account export -- copied per this project's
+     self-contained-page convention (no shared JS files). -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root {
+    /* Same tokens as every other MySubbies page (mysubbies-website.html's
+       :root) -- kept in sync manually, no shared CSS file per convention. */
+    --ink: #151A26; --black: #14213D; --white: #FFFFFF; --paper: #F7F7F5;
+    --stone: #6B7280; --stone-light: #9CA3AF; --line: #E7E7E4; --good: #2F7A50; --warn: #B0592E;
+    --accent: #F5A623; --primary-light: #1F335A; --primary-pale: #E7EAF1; --danger: #C0392B;
+  }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  body { font-family:'Plus Jakarta Sans', system-ui, sans-serif; background: var(--paper); color: var(--ink); line-height:1.5; -webkit-font-smoothing:antialiased; }
+  h1, h2 { font-weight:800; letter-spacing:-0.02em; }
+  a { color:inherit; text-decoration:none; }
+
+  /* A -- compact header */
+  header { background:#fff; border-bottom:1px solid var(--line); }
+  .navwrap { max-width:900px; margin:0 auto; padding:0 20px; display:flex; align-items:center; justify-content:space-between; height:60px; }
+  .logo-word { font-weight:800; font-size:18px; color:var(--black); }
+  .logo-word .gold { color:#FF6A1A; }
+  .navlinks { display:flex; align-items:center; gap:18px; font-size:13px; color:var(--stone); }
+  .navlinks a:hover { color:var(--black); }
+
+  .wrap { max-width:760px; margin:0 auto; padding:28px 20px 60px; }
+
+  /* B -- quote summary */
+  .badge { display:inline-block; padding:4px 10px; border-radius:999px; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.02em; }
+  .badge-draft, .badge-withdrawn { background:#EDEDEA; color:var(--stone); }
+  .badge-sent { background:var(--primary-pale); color:var(--black); }
+  .badge-accepted { background:#E4F3EA; color:var(--good); }
+  .badge-declined, .badge-expired { background:#FBE9E6; color:var(--danger); }
+  .quotetitle { font-size:24px; margin:10px 0 4px; }
+  .quotemeta { font-size:13px; color:var(--stone); }
+  .summarygrid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:18px; }
+  @media (max-width:560px) { .summarygrid { grid-template-columns:1fr; } }
+  .summarybox { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .summarybox .label { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--stone-light); margin-bottom:4px; }
+  .summarybox .val { font-size:14px; font-weight:600; }
+
+  /* C -- document content */
+  .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:22px; margin-top:20px; }
+  .card h2 { font-size:16px; margin-bottom:12px; }
+  table.itemstable { width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.itemstable th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--stone-light); padding:0 0 8px; border-bottom:1px solid var(--line); }
+  table.itemstable td { padding:10px 0; border-bottom:1px solid var(--line); vertical-align:top; }
+  table.itemstable td.num, table.itemstable th.num { text-align:right; }
+  .totalsbox { margin-top:14px; margin-left:auto; max-width:280px; font-size:13.5px; }
+  .totalsbox .row { display:flex; justify-content:space-between; padding:5px 0; }
+  .totalsbox .row.total { border-top:1px solid var(--line); margin-top:6px; padding-top:10px; font-weight:800; font-size:16px; }
+  .textblock { font-size:13.5px; color:var(--ink); white-space:pre-wrap; line-height:1.6; }
+  .textblock + .textblock { margin-top:14px; }
+  .textlabel { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--stone-light); margin-bottom:6px; }
+
+  /* D -- actions */
+  .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:20px; }
+  .btn { border:none; border-radius:10px; padding:13px 20px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .btn-primary { background:#FF6A1A; color:var(--black); }
+  .btn-primary:hover { background:#E85A0A; }
+  .btn-outline { background:#fff; border:1.5px solid var(--line); color:var(--ink); }
+  .btn-outline:hover { border-color:var(--stone); }
+  .btn-link { background:none; color:var(--stone); text-decoration:underline; padding:13px 4px; }
+  .btn:disabled { opacity:.5; cursor:default; }
+
+  .modal-overlay { position:fixed; inset:0; background:rgba(20,33,61,.45); display:flex; align-items:center; justify-content:center; z-index:200; padding:16px; }
+  .modal { background:#fff; border-radius:14px; padding:24px; max-width:420px; width:100%; }
+  .modal h3 { font-size:17px; margin-bottom:14px; }
+  .field { margin-bottom:12px; }
+  .field label { display:block; font-size:12.5px; font-weight:600; margin-bottom:5px; }
+  .field input, .field textarea { width:100%; padding:10px 12px; border:1.5px solid var(--line); border-radius:8px; font-size:14px; font-family:inherit; }
+  .field textarea { resize:vertical; min-height:70px; }
+  .consentrow { display:flex; align-items:flex-start; gap:8px; font-size:12.5px; color:var(--stone); margin:12px 0; }
+  .consentrow input { margin-top:3px; }
+  .modal-actions { display:flex; gap:10px; margin-top:16px; }
+  .fielderror { color:var(--danger); font-size:12.5px; margin-top:6px; }
+
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--black); color:#fff; padding:12px 20px; border-radius:10px; font-size:13.5px; z-index:300; }
+
+  .invalidstate { text-align:center; padding:60px 20px; }
+  .invalidstate .icon { font-size:40px; margin-bottom:14px; }
+  .invalidstate h1 { font-size:20px; margin-bottom:8px; }
+  .invalidstate p { color:var(--stone); font-size:14px; }
+
+  .skeleton { background:#EDEDEA; border-radius:8px; height:16px; margin-bottom:8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="navwrap">
+    <div class="logo-word">My<span class="gold">Subbies</span></div>
+    <nav class="navlinks">
+      <a href="mysubbies-faq.html">Help</a>
+      <a href="mysubbies-customer-portal.html">Log in to your portal →</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap" id="app">
+  <div class="skeleton" style="width:120px;"></div>
+  <div class="skeleton" style="width:260px;height:26px;margin-top:10px;"></div>
+  <div class="skeleton" style="width:180px;"></div>
+</div>
+
+<div id="modalWrap"></div>
+<div id="toastWrap"></div>
+
+<script>
+  function escapeHtml(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  }
+  function fmtCents(c) { return '$' + ((c || 0) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function fmtDate(iso) { return iso ? new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'; }
+  function showToast(msg) {
+    const wrap = document.getElementById('toastWrap');
+    wrap.innerHTML = `<div class="toast">${escapeHtml(msg)}</div>`;
+    setTimeout(() => { wrap.innerHTML = ''; }, 3500);
+  }
+
+  // Same branded PDF helpers as mysubbies-customer-portal.html's Payment
+  // Receipt / Statement of Account (copied verbatim, per the no-shared-JS
+  // convention) -- this file renders from the already-fetched quote
+  // snapshot instead of live job/payment data.
+  const MYSUBBIES_LOCATION = 'Melbourne, VIC';
+  const PDF_NAVY = [20, 33, 61];
+  const PDF_PAPER = [247, 247, 245];
+  function gstBreakdown(totalIncGstCents) {
+    const gstCents = Math.round((totalIncGstCents || 0) / 11);
+    return { totalCents: totalIncGstCents || 0, gstCents, exGstCents: (totalIncGstCents || 0) - gstCents };
+  }
+  function pdfLetterhead(doc, { docType, docRef, dateStr, legalName, abn }) {
+    doc.setFillColor(...PDF_NAVY); doc.rect(0, 0, 210, 34, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
+    doc.text('MySubbies', 14, 16);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(200, 206, 220);
+    doc.text(`${legalName}  ·  ABN ${abn}  ·  ${MYSUBBIES_LOCATION}`, 14, 23);
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text(docType, 196, 15, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(200, 206, 220);
+    if (docRef) doc.text(docRef, 196, 21, { align: 'right' });
+    doc.text(`Issued ${dateStr}`, 196, 27, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+  }
+  function pdfFooter(doc, noteLine, legalName, abn) {
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      const h = doc.internal.pageSize.getHeight();
+      doc.setDrawColor(230, 230, 227); doc.setLineWidth(0.2);
+      doc.line(14, h - 18, 196, h - 18);
+      doc.setFontSize(7.5); doc.setTextColor(140, 140, 138);
+      doc.text(`${legalName} · ABN ${abn} · ${MYSUBBIES_LOCATION}`, 14, h - 12);
+      doc.text(noteLine, 14, h - 8);
+      doc.text(`Page ${i} of ${pageCount}`, 196, h - 8, { align: 'right' });
+    }
+  }
+  function pdfTotalsBox(doc, y, { exGstCents, gstCents, totalCents }, totalLabel) {
+    const boxX = 130, boxW = 66;
+    doc.setFontSize(9.5); doc.setTextColor(90, 90, 90); doc.setFont('helvetica', 'normal');
+    doc.text('Subtotal (ex. GST)', boxX, y);
+    doc.text(fmtCents(exGstCents), boxX + boxW, y, { align: 'right' });
+    doc.text('GST (10%)', boxX, y + 6);
+    doc.text(fmtCents(gstCents), boxX + boxW, y + 6, { align: 'right' });
+    doc.setDrawColor(220, 220, 217); doc.line(boxX, y + 9, boxX + boxW, y + 9);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.setTextColor(20, 33, 61);
+    doc.text(totalLabel || 'Total (inc. GST)', boxX, y + 17);
+    doc.text(fmtCents(totalCents), boxX + boxW, y + 17, { align: 'right' });
+    doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal');
+    return y + 24;
+  }
+
+  const TOKEN = new URLSearchParams(location.search).get('token') || '';
+  let quoteData = null;   // the fetched public quote payload, or null while loading
+  let loadError = null;   // { status, message } if the fetch failed
+
+  async function loadQuote() {
+    if (!TOKEN) { loadError = { status: 400, message: 'This link is missing its access code.' }; render(); return; }
+    try {
+      const res = await fetch('/api/quotes?token=' + encodeURIComponent(TOKEN));
+      const data = await res.json();
+      if (!res.ok) { loadError = { status: res.status, message: data.error || 'This link is no longer valid.' }; render(); return; }
+      quoteData = data;
+      render();
+    } catch (e) {
+      loadError = { status: 0, message: 'Could not load this quote — check your connection and try reloading.' };
+      render();
+    }
+  }
+
+  const STATUS_LABEL = { draft: 'Draft', sent: 'Awaiting your review', accepted: 'Accepted', declined: 'Declined', expired: 'Expired', withdrawn: 'Withdrawn' };
+  const STATUS_BADGE_CLASS = { draft: 'badge-draft', sent: 'badge-sent', accepted: 'badge-accepted', declined: 'badge-declined', expired: 'badge-expired', withdrawn: 'badge-withdrawn' };
+
+  function render() {
+    const app = document.getElementById('app');
+    if (loadError) {
+      app.innerHTML = `
+        <div class="invalidstate">
+          <div class="icon">🔒</div>
+          <h1>This link is no longer valid</h1>
+          <p>${escapeHtml(loadError.message)}</p>
+        </div>`;
+      return;
+    }
+    if (!quoteData) return; // still loading -- skeleton already showing
+
+    const q = quoteData;
+    const isActionable = q.versionStatus === 'issued';
+    const items = q.lineItems || [];
+
+    app.innerHTML = `
+      <span class="badge ${STATUS_BADGE_CLASS[q.status] || 'badge-draft'}">${escapeHtml(STATUS_LABEL[q.status] || q.status)}</span>
+      <h1 class="quotetitle">Your Mysubbies quote</h1>
+      <div class="quotemeta">Quote #${q.quoteNumber} · Version ${q.versionNumber}${q.versionStatus === 'superseded' ? ' (superseded by a newer version)' : ''}</div>
+
+      <div class="summarygrid">
+        <div class="summarybox"><div class="label">Issued by</div><div class="val">${escapeHtml((q.issuingEntity && q.issuingEntity.legalName) || 'Mysubbies')}</div></div>
+        <div class="summarybox"><div class="label">Prepared for</div><div class="val">${escapeHtml((q.customer && q.customer.name) || (q.customer && q.customer.email) || '—')}</div></div>
+        <div class="summarybox"><div class="label">Issued</div><div class="val">${fmtDate(q.issuedAt)}</div></div>
+        <div class="summarybox"><div class="label">Valid until</div><div class="val">${fmtDate(q.expiresAt)}</div></div>
+      </div>
+
+      ${q.property && q.property.address ? `<div class="summarybox" style="margin-top:14px;"><div class="label">Property</div><div class="val">${escapeHtml(q.property.address)}${q.property.suburb ? ', ' + escapeHtml(q.property.suburb) : ''}</div></div>` : ''}
+
+      <div class="card">
+        <h2>Scope of work</h2>
+        <table class="itemstable">
+          <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Amount</th></tr></thead>
+          <tbody>
+            ${items.map(it => `
+              <tr>
+                <td>${escapeHtml(it.description)}</td>
+                <td class="num">${it.qty}${it.unit ? ' ' + escapeHtml(it.unit) : ''}</td>
+                <td class="num">${fmtCents(it.unitPriceCents)}</td>
+                <td class="num">${fmtCents(it.lineTotalCents)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+        <div class="totalsbox">
+          <div class="row"><span>Subtotal (ex. GST)</span><span>${fmtCents(q.subtotalExGstCents)}</span></div>
+          <div class="row"><span>GST (10%)</span><span>${fmtCents(q.gstCents)}</span></div>
+          <div class="row total"><span>Total (inc. GST)</span><span>${fmtCents(q.totalIncGstCents)}</span></div>
+        </div>
+      </div>
+
+      ${(q.scopeText || q.inclusionsText || q.exclusionsText) ? `
+        <div class="card">
+          ${q.scopeText ? `<div class="textblock"><div class="textlabel">Notes</div>${escapeHtml(q.scopeText)}</div>` : ''}
+          ${q.inclusionsText ? `<div class="textblock"><div class="textlabel">Inclusions</div>${escapeHtml(q.inclusionsText)}</div>` : ''}
+          ${q.exclusionsText ? `<div class="textblock"><div class="textlabel">Exclusions</div>${escapeHtml(q.exclusionsText)}</div>` : ''}
+        </div>` : ''}
+
+      ${q.status === 'accepted' ? `<div class="card" style="background:#E4F3EA;border-color:#B9DDC6;"><strong>✓ Quote accepted</strong>${q.acceptedAt ? ` on ${fmtDate(q.acceptedAt)}` : ''}. We'll be in touch with next steps.</div>` : ''}
+      ${q.status === 'declined' ? `<div class="card" style="background:#FBE9E6;border-color:#F0C9C2;"><strong>This quote was declined.</strong> Contact us if that was a mistake or you'd like a revised quote.</div>` : ''}
+      ${q.status === 'expired' ? `<div class="card" style="background:#F5F5F3;"><strong>This quote has expired.</strong> Ask a question below and we can issue a new one.</div>` : ''}
+      ${q.status === 'withdrawn' ? `<div class="card" style="background:#F5F5F3;"><strong>This quote was withdrawn.</strong> Contact us if you have questions.</div>` : ''}
+      ${(q.versionStatus === 'superseded' && q.status !== 'accepted') ? `<div class="card" style="background:#FDF0D9;border-color:#F5D9A6;"><strong>A newer version of this quote has been issued.</strong> Please check your email for the latest link, or ask us below.</div>` : ''}
+
+      <div class="actions">
+        ${isActionable ? `<button class="btn btn-primary" onclick="openAcceptModal()">Review &amp; accept quote</button>` : ''}
+        ${isActionable ? `<button class="btn btn-outline" onclick="openDeclineModal()">Decline</button>` : ''}
+        <button class="btn btn-outline" onclick="downloadQuotePdf()">Download PDF</button>
+        <button class="btn btn-link" onclick="openQuestionModal()">Ask a question</button>
+      </div>
+    `;
+  }
+
+  // ---- Modals -------------------------------------------------------
+  function closeModal() { document.getElementById('modalWrap').innerHTML = ''; }
+
+  function openAcceptModal() {
+    document.getElementById('modalWrap').innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal">
+          <h3>Review &amp; accept this quote</h3>
+          <div class="field"><label>Your full name</label><input type="text" id="acceptName" /></div>
+          <div class="field"><label>Your email</label><input type="email" id="acceptEmail" /></div>
+          <label class="consentrow"><input type="checkbox" id="acceptConsent" /> I have reviewed the scope, pricing and terms above and accept this quote.</label>
+          <div id="acceptError" class="fielderror" style="display:none;"></div>
+          <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeModal()" style="flex:1;">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAccept()" style="flex:1;">Accept quote</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  async function submitAccept() {
+    const name = document.getElementById('acceptName').value.trim();
+    const email = document.getElementById('acceptEmail').value.trim();
+    const consent = document.getElementById('acceptConsent').checked;
+    const err = document.getElementById('acceptError');
+    if (!name || !email || !consent) {
+      err.textContent = 'Please enter your name, email and confirm you accept the quote.';
+      err.style.display = 'block';
+      return;
+    }
+    try {
+      const res = await fetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'accept', token: TOKEN, name, email, consent: true }) });
+      const data = await res.json();
+      if (!res.ok) { err.textContent = data.error || 'Could not accept this quote — please try again.'; err.style.display = 'block'; return; }
+      closeModal();
+      showToast('Quote accepted — thank you!');
+      await loadQuote();
+    } catch (e) { err.textContent = 'Could not accept this quote — check your connection and try again.'; err.style.display = 'block'; }
+  }
+
+  function openDeclineModal() {
+    document.getElementById('modalWrap').innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal">
+          <h3>Decline this quote</h3>
+          <div class="field"><label>Reason (optional)</label><textarea id="declineReason"></textarea></div>
+          <div id="declineError" class="fielderror" style="display:none;"></div>
+          <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeModal()" style="flex:1;">Cancel</button>
+            <button class="btn btn-primary" onclick="submitDecline()" style="flex:1;">Decline quote</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  async function submitDecline() {
+    const reason = document.getElementById('declineReason').value.trim();
+    const err = document.getElementById('declineError');
+    try {
+      const res = await fetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'decline', token: TOKEN, reason }) });
+      const data = await res.json();
+      if (!res.ok) { err.textContent = data.error || 'Could not decline this quote — please try again.'; err.style.display = 'block'; return; }
+      closeModal();
+      showToast('Quote declined.');
+      await loadQuote();
+    } catch (e) { err.textContent = 'Could not decline this quote — check your connection and try again.'; err.style.display = 'block'; }
+  }
+
+  function openQuestionModal() {
+    document.getElementById('modalWrap').innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal">
+          <h3>Ask a question</h3>
+          <div class="field"><label>Your name</label><input type="text" id="qName" /></div>
+          <div class="field"><label>Your email</label><input type="email" id="qEmail" /></div>
+          <div class="field"><label>Question</label><textarea id="qText"></textarea></div>
+          <div id="qError" class="fielderror" style="display:none;"></div>
+          <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeModal()" style="flex:1;">Cancel</button>
+            <button class="btn btn-primary" onclick="submitQuestion()" style="flex:1;">Send</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  async function submitQuestion() {
+    const name = document.getElementById('qName').value.trim();
+    const email = document.getElementById('qEmail').value.trim();
+    const question = document.getElementById('qText').value.trim();
+    const err = document.getElementById('qError');
+    if (!email || !question) { err.textContent = 'Please enter your email and a question.'; err.style.display = 'block'; return; }
+    try {
+      const res = await fetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'ask_question', token: TOKEN, name, email, question }) });
+      const data = await res.json();
+      if (!res.ok) { err.textContent = data.error || 'Could not send your question — please try again.'; err.style.display = 'block'; return; }
+      closeModal();
+      showToast('Question sent — we’ll reply by email.');
+    } catch (e) { err.textContent = 'Could not send your question — check your connection and try again.'; err.style.display = 'block'; }
+  }
+
+  // ---- PDF ------------------------------------------------------------
+  function downloadQuotePdf() {
+    if (!quoteData) return;
+    const q = quoteData;
+    const legalName = (q.issuingEntity && q.issuingEntity.legalName) || 'Mysubbies Holdings Pty Ltd';
+    const abn = (q.issuingEntity && q.issuingEntity.abn) || '';
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    pdfLetterhead(doc, { docType: 'QUOTE', docRef: `Quote #${q.quoteNumber} · v${q.versionNumber}`, dateStr: fmtDate(q.issuedAt || new Date().toISOString()), legalName, abn });
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(140);
+    doc.text('PREPARED FOR', 14, 46);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(20, 20, 20);
+    doc.text((q.customer && q.customer.name) || '—', 14, 52);
+    doc.setFontSize(9); doc.setTextColor(110);
+    doc.text((q.customer && q.customer.email) || '', 14, 57);
+
+    if (q.property && q.property.address) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(140);
+      doc.text('PROPERTY', 120, 46);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(20, 20, 20);
+      doc.text(q.property.address, 120, 52);
+      if (q.property.suburb) { doc.setFontSize(9); doc.setTextColor(110); doc.text(q.property.suburb, 120, 57); }
+    }
+
+    const rows = (q.lineItems || []).map(it => [it.description, `${it.qty}${it.unit ? ' ' + it.unit : ''}`, fmtCents(it.unitPriceCents), fmtCents(it.lineTotalCents)]);
+    doc.autoTable({
+      startY: 66, head: [['Description', 'Qty', 'Unit price', 'Amount']], body: rows,
+      styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: PDF_NAVY, textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: PDF_PAPER },
+      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+      theme: 'grid',
+    });
+    let finalY = doc.lastAutoTable.finalY || 70;
+    finalY = pdfTotalsBox(doc, finalY + 12, gstBreakdown(q.totalIncGstCents), 'Total (inc. GST)');
+
+    if (q.scopeText || q.inclusionsText || q.exclusionsText) {
+      if (finalY > 250) { doc.addPage(); finalY = 20; }
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
+      [['Notes', q.scopeText], ['Inclusions', q.inclusionsText], ['Exclusions', q.exclusionsText]].forEach(([label, text]) => {
+        if (!text) return;
+        doc.setFont('helvetica', 'bold'); doc.text(label, 14, finalY);
+        doc.setFont('helvetica', 'normal');
+        const lines = doc.splitTextToSize(text, 180);
+        doc.text(lines, 14, finalY + 5);
+        finalY += 5 + lines.length * 4.5 + 6;
+      });
+    }
+
+    pdfFooter(doc, `Valid until ${fmtDate(q.expiresAt)} · Not a tax invoice.`, legalName, abn);
+    doc.save(`mysubbies-quote-${q.quoteNumber}-v${q.versionNumber}.pdf`);
+  }
+
+  loadQuote();
+</script>
+</body>
+</html>

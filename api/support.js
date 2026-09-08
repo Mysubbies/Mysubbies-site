@@ -19,23 +19,11 @@
 // actively told, not just able to see it if they happen to open the tab.
 const { getSupabase } = require('./_lib/clients');
 const { requireAdmin } = require('./_lib/adminAuth');
-const { sendEmail, wrapEmail, escapeHtml, emailButton } = require('./_lib/email');
-
-const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || 'accounts@mysubbies.com.au';
-const ADMIN_URL = 'https://app.mysubbies.com.au/mysubbies-admin-portal.html';
-
-async function notifyAdmin({ eventType, title, body }) {
-  const supabase = getSupabase();
-  try {
-    await supabase.from('notifications').insert({ recipient_role: 'admin', event_type: eventType, title, body });
-  } catch (e) { console.error('notification insert error:', e); }
-  try {
-    await sendEmail({
-      to: ADMIN_NOTIFY_EMAIL, subject: title,
-      html: wrapEmail(`<h2 style="margin-top:0;">${escapeHtml(title)}</h2><p>${body}</p>${emailButton('Review in Admin →', ADMIN_URL)}`),
-    });
-  } catch (e) { console.error('admin notify email error:', e); }
-}
+const { escapeHtml } = require('./_lib/email');
+// notifyAdmin() moved to _lib/adminNotify.js (Sep 2026) so api/quotes.js's
+// 'ask_question' action can reuse the exact same admin-notification path
+// instead of duplicating it.
+const { notifyAdmin } = require('./_lib/adminNotify');
 
 module.exports = async (req, res) => {
   const supabase = getSupabase();
