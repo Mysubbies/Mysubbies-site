@@ -85,6 +85,33 @@
   .btn-link { background:none; color:var(--stone); text-decoration:underline; padding:13px 4px; }
   .btn:disabled { opacity:.5; cursor:default; }
 
+  /* Optional property cross-sell lives after the quote decision controls so
+     it never competes with acceptance. Cards use the live rate-card response;
+     this CSS only controls presentation. */
+  .recommendations { margin-top:38px; }
+  .recommendations-head h2 { color:var(--black); font-size:21px; }
+  .recommendations-head p { color:var(--stone); font-size:13px; margin-top:3px; }
+  .recommendation-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:16px; }
+  .recommendation-card { overflow:hidden; background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 8px 24px rgba(20,33,61,.06); }
+  .recommendation-card img { display:block; width:100%; aspect-ratio:16/10; object-fit:cover; background:var(--primary-pale); }
+  .recommendation-body { padding:15px 16px 17px; }
+  .recommendation-name { color:var(--black); font-size:14.5px; font-weight:800; }
+  .recommendation-price { min-height:20px; color:var(--stone); font-size:12.5px; margin-top:3px; }
+  .recommendation-link { display:inline-block; margin-top:10px; color:#D84F09; font-size:12.5px; font-weight:800; background:none; border:0; padding:0; cursor:pointer; font-family:inherit; }
+  .portal-cta { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-top:22px; padding:23px 25px; border-radius:18px; color:#fff; background:linear-gradient(135deg,#14213D,#1F335A); }
+  .portal-cta-copy { display:flex; align-items:center; gap:14px; }
+  .portal-cta-icon { width:42px; height:42px; flex:0 0 42px; display:grid; place-items:center; border-radius:12px; background:rgba(255,255,255,.1); font-size:21px; }
+  .portal-cta h2 { font-size:16px; }
+  .portal-cta p { color:#CBD2DF; font-size:12.5px; margin-top:3px; }
+  .portal-cta .btn { flex:0 0 auto; text-decoration:none; }
+  @media (max-width:620px) {
+    .recommendation-grid { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; margin-left:-20px; margin-right:-20px; padding:0 20px 8px; }
+    .recommendation-card { flex:0 0 min(76vw,260px); scroll-snap-align:start; }
+    .recommendation-card img { aspect-ratio:16/9; }
+    .portal-cta { align-items:flex-start; flex-direction:column; padding:20px; }
+    .portal-cta .btn { width:100%; }
+  }
+
   .modal-overlay { position:fixed; inset:0; background:rgba(20,33,61,.45); display:flex; align-items:center; justify-content:center; z-index:200; padding:16px; }
   .modal { background:#fff; border-radius:14px; padding:24px; max-width:420px; width:100%; }
   .modal h3 { font-size:17px; margin-bottom:14px; }
@@ -213,6 +240,38 @@
   const STATUS_LABEL = { draft: 'Draft', sent: 'Awaiting your review', accepted: 'Accepted', declined: 'Declined', expired: 'Expired', withdrawn: 'Withdrawn' };
   const STATUS_BADGE_CLASS = { draft: 'badge-draft', sent: 'badge-sent', accepted: 'badge-accepted', declined: 'badge-declined', expired: 'badge-expired', withdrawn: 'badge-withdrawn' };
 
+  function exploreRecommended(category) {
+    // This is a separate estimator journey. Only the public catalogue label
+    // crosses pages; no quote token, customer detail or quote mutation does.
+    localStorage.setItem('mysubbies_open_category', category);
+    window.location.href = 'mysubbies-website.html#categories';
+  }
+
+  function recommendationsHtml(recommendations) {
+    if (!Array.isArray(recommendations) || recommendations.length === 0) return '';
+    return `
+      <section class="recommendations" aria-labelledby="recommendationsTitle">
+        <div class="recommendations-head">
+          <h2 id="recommendationsTitle">More plans for your property?</h2>
+          <p>Optional services — not included in this quote.</p>
+        </div>
+        <div class="recommendation-grid">
+          ${recommendations.map(service => `<article class="recommendation-card">
+            <img src="${escapeHtml(service.image)}" alt="${escapeHtml(service.displayName)}" loading="lazy" onerror="this.onerror=null;this.src='images/categories/property-maintenance.jpg';" />
+            <div class="recommendation-body">
+              <div class="recommendation-name">${escapeHtml(service.displayName)}</div>
+              <div class="recommendation-price">${service.startingPriceDollars == null ? '' : `From $${Number(service.startingPriceDollars).toLocaleString('en-AU')}`}</div>
+              <button class="recommendation-link" onclick="exploreRecommended(decodeURIComponent('${encodeURIComponent(service.category)}'))">Explore service →</button>
+            </div>
+          </article>`).join('')}
+        </div>
+      </section>
+      <aside class="portal-cta">
+        <div class="portal-cta-copy"><div class="portal-cta-icon" aria-hidden="true">⌂</div><div><h2>Keep everything together in MySubbies</h2><p>Quotes, bookings, receipts and messages.</p></div></div>
+        <a class="btn btn-primary" href="mysubbies-customer-portal.html">Open my customer portal →</a>
+      </aside>`;
+  }
+
   function render() {
     const app = document.getElementById('app');
     if (loadError) {
@@ -296,6 +355,7 @@
         <button class="btn btn-outline" onclick="downloadQuotePdf()">Download PDF</button>
         <button class="btn btn-link" onclick="openQuestionModal()">Ask a question</button>
       </div>
+      ${recommendationsHtml(q.recommendations)}
     `;
   }
 

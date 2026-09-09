@@ -38,6 +38,7 @@ const { notifyAdmin } = require('./_lib/adminNotify');
 const { sendEmailWithResult, wrapEmail, escapeHtml, emailButton, emailDetailsTable } = require('./_lib/email');
 const { convertAcceptedQuoteToJob, QuoteConversionError } = require('./_lib/quoteToJob');
 const { paymentTermsFromVersion, quoteVersionContent } = require('./_lib/quotePersistence');
+const { getRecommendedServices } = require('./_lib/quoteRecommendations');
 
 const TOKEN_BYTES = 32;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
@@ -495,8 +496,17 @@ module.exports = async (req, res) => {
         const entity = version.issuing_entity_id
           ? (await supabase.from('issuing_entities').select('*').eq('id', version.issuing_entity_id).maybeSingle()).data
           : null;
+        // Cross-sell is optional enrichment only. A missing/outdated rate card
+        // must never prevent the secure quote itself from rendering.
+        let recommendations = [];
+        try {
+          const { data: rateCard } = await supabase.from('platform_rate_card').select('categories').eq('id', true).maybeSingle();
+          recommendations = getRecommendedServices(version.line_items, rateCard && rateCard.categories);
+        } catch (recommendationError) {
+          console.error('quote recommendations unavailable:', { code: recommendationError.code || 'unknown' });
+        }
         await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'viewed', actorRole: 'customer' });
-        res.status(200).json(serializePublic(quote, version, entity));
+        res.status(200).json({ ...serializePublic(quote, version, entity), recommendations });
         return;
       }
 
