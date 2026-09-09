@@ -81,10 +81,21 @@ async function sendEmailWithResult({ to, subject, html }) {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      console.error('Resend send failed:', res.status, text);
-      let providerMessage = '';
-      try { providerMessage = JSON.parse(text).message || ''; } catch (e) { /* not JSON */ }
-      return { ok: false, status: res.status, error: providerMessage || `The email provider rejected this send (status ${res.status}).` };
+      let providerCode = '';
+      try { providerCode = JSON.parse(text).name || ''; } catch (e) { /* not JSON */ }
+      // Never copy the provider response into logs or the browser. It can
+      // include recipient/sender details and is not part of our public API.
+      console.error('Resend send failed:', { status: res.status, code: providerCode || 'unknown' });
+      const configurationError = res.status === 401 || res.status === 403 ||
+        ['validation_error', 'restricted_api_key', 'invalid_api_key'].includes(providerCode);
+      return {
+        ok: false,
+        status: res.status,
+        code: configurationError ? 'email_configuration_error' : 'email_provider_rejected',
+        error: configurationError
+          ? 'Email delivery is not configured for this sender. Verify RESEND_API_KEY, the Resend sending domain, and RESEND_FROM_EMAIL in this Vercel environment.'
+          : `The email provider rejected this send (status ${res.status}).`,
+      };
     }
     return { ok: true };
   } catch (err) {

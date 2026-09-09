@@ -388,12 +388,22 @@ async function handleSendQuoteEmail(req, res, supabase) {
   if (!customerEmail) { res.status(400).json({ error: 'This quote has no customer email on file.' }); return; }
 
   const nowIso = new Date().toISOString();
-  await supabase.from('document_access_tokens').update({ revoked_at: nowIso })
+  const { error: revokeError } = await supabase.from('document_access_tokens').update({ revoked_at: nowIso })
     .eq('document_type', 'quote_version').eq('document_id', version.id).is('revoked_at', null);
+  if (revokeError) {
+    console.error('quote email token revoke failed:', { code: revokeError.code || 'unknown' });
+    res.status(500).json({ error: 'Could not prepare the secure quote link. No email was sent.' });
+    return;
+  }
   const rawToken = generateToken();
-  await supabase.from('document_access_tokens').insert({
+  const { error: tokenError } = await supabase.from('document_access_tokens').insert({
     document_type: 'quote_version', document_id: version.id, token_hash: hashToken(rawToken), expires_at: version.expires_at,
   });
+  if (tokenError) {
+    console.error('quote email token creation failed:', { code: tokenError.code || 'unknown' });
+    res.status(500).json({ error: 'Could not prepare the secure quote link. No email was sent.' });
+    return;
+  }
   const url = `${QUOTE_BASE_URL}?token=${encodeURIComponent(rawToken)}`;
 
   const customerName = (version.customer_snapshot && version.customer_snapshot.name) || '';
