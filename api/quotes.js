@@ -35,18 +35,31 @@ const { getSupabase } = require('./_lib/clients');
 const { requireAdmin } = require('./_lib/adminAuth');
 const { computeQuoteTotals } = require('./_lib/quoteMath');
 const { notifyAdmin } = require('./_lib/adminNotify');
-const { sendEmailWithResult, wrapEmail, escapeHtml, emailButton, emailDetailsTable } = require('./_lib/email');
+const { sendEmailWithResult, escapeHtml } = require('./_lib/email');
 const { convertAcceptedQuoteToJob, QuoteConversionError } = require('./_lib/quoteToJob');
 const { paymentTermsFromVersion, quoteVersionContent } = require('./_lib/quotePersistence');
-const { getRecommendedServices } = require('./_lib/quoteRecommendations');
+const { getRecommendedServices, identifyQuotedCategories } = require('./_lib/quoteRecommendations');
 const { quoteBaseUrl } = require('./_lib/quoteUrl');
+const { renderQuoteEmail } = require('./_lib/quoteEmail');
 
 const TOKEN_BYTES = 32;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const RATE_LIMIT_MAX_ATTEMPTS = 20;
 const TERMS_URL = 'https://app.mysubbies.com.au/mysubbies-terms.html';
 
-function fmtCentsServer(c) { return '$' + ((c || 0) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+async function loadRecommendations(supabase, version) {
+  try {
+    const { data: rateCard, error } = await supabase.from('platform_rate_card').select('categories').eq('id', true).maybeSingle();
+    if (error || !rateCard || !Array.isArray(rateCard.categories)) return { recommendations: [], sourceCategory: null };
+    return {
+      recommendations: getRecommendedServices(version.line_items, rateCard.categories),
+      sourceCategory: identifyQuotedCategories(version.line_items, rateCard.categories)[0] || null,
+    };
+  } catch (recommendationError) {
+    console.error('quote recommendations unavailable:', { code: recommendationError.code || 'unknown' });
+    return { recommendations: [], sourceCategory: null };
+  }
+}
 
 // Standard terms text, keyed by terms_version, returned to BOTH the admin
 // builder and the customer quote page so there is one server-side source
@@ -397,21 +410,11 @@ async function handleSendQuoteEmail(req, res, supabase) {
   }
   const url = `${quoteBaseUrl()}?token=${encodeURIComponent(rawToken)}`;
 
-  const customerName = (version.customer_snapshot && version.customer_snapshot.name) || '';
+  const { recommendations, sourceCategory } = await loadRecommendations(supabase, version);
   const emailResult = await sendEmailWithResult({
     to: customerEmail,
     subject: `Your Mysubbies quote is ready (Quote #${quote.quote_number})`,
-    html: wrapEmail(`
-      <p>Hi ${escapeHtml(customerName || 'there')},</p>
-      <p>Your Mysubbies quote is ready. Review the scope, pricing and next steps using the secure link below.</p>
-      ${emailButton('View your quote', url)}
-      ${emailDetailsTable([
-        { label: 'Quote', value: `#${quote.quote_number}` },
-        { label: 'Total', value: fmtCentsServer(version.total_inc_gst_cents) },
-        { label: 'Valid until', value: version.expires_at ? new Date(version.expires_at).toLocaleDateString('en-AU') : null },
-      ])}
-      <p style="margin-top:16px;">Questions? Just reply to this email or use "Ask a question" on the quote page.</p>
-    `),
+    html: renderQuoteEmail({ quote, version, secureQuoteUrl: url, recommendations, sourceCategory }),
   });
 
   // Unlike every other notification in this codebase (deliberately fire-
@@ -498,13 +501,7 @@ module.exports = async (req, res) => {
           : null;
         // Cross-sell is optional enrichment only. A missing/outdated rate card
         // must never prevent the secure quote itself from rendering.
-        let recommendations = [];
-        try {
-          const { data: rateCard } = await supabase.from('platform_rate_card').select('categories').eq('id', true).maybeSingle();
-          recommendations = getRecommendedServices(version.line_items, rateCard && rateCard.categories);
-        } catch (recommendationError) {
-          console.error('quote recommendations unavailable:', { code: recommendationError.code || 'unknown' });
-        }
+        const { recommendations } = await loadRecommendations(supabase, version);
         await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'viewed', actorRole: 'customer' });
         res.status(200).json({ ...serializePublic(quote, version, entity), recommendations });
         return;

@@ -4051,9 +4051,15 @@
   // handoff pattern as the two flags above, just calling
   // goToEstimatorWithCategory() instead of openFixSomething()/a cart rebuild.
   function initOpenCategoryIfRequested() {
-    const label = localStorage.getItem('mysubbies_open_category');
+    const params = new URLSearchParams(window.location.search);
+    const label = localStorage.getItem('mysubbies_open_category') || params.get('service');
     if (!label) return;
     localStorage.removeItem('mysubbies_open_category');
+    if (params.has('service')) {
+      params.delete('service');
+      const cleanQuery = params.toString();
+      history.replaceState(null, '', `${location.pathname}${cleanQuery ? '?' + cleanQuery : ''}${location.hash}`);
+    }
     goToEstimatorWithCategory(label);
   }
   initOpenCategoryIfRequested();
