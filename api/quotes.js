@@ -57,6 +57,31 @@ function getTermsText(version) {
   return STANDARD_QUOTE_TERMS[version] || STANDARD_QUOTE_TERMS.v1;
 }
 
+// payment_schedule_note shipped in the original CRM migration and is the
+// durable field available in Preview.  schema_v20 later added a plain text
+// column, but requiring that optional migration made the entire draft insert
+// fail on environments which correctly had only the core CRM schema.  Read
+// both shapes for old rows, and persist new saves in the original JSON field.
+function getPaymentTermsText(version) {
+  if (!version) return null;
+  if (typeof version.payment_terms_text === 'string') return version.payment_terms_text;
+  if (typeof version.payment_schedule_note === 'string') return version.payment_schedule_note;
+  return version.payment_schedule_note && typeof version.payment_schedule_note.text === 'string'
+    ? version.payment_schedule_note.text
+    : null;
+}
+function paymentScheduleNote(text) {
+  return text == null || text === '' ? null : { text: String(text) };
+}
+
+function workflowError(stage, message, cause) {
+  const error = new Error(message);
+  error.statusCode = 500;
+  error.workflowStage = stage;
+  error.cause = cause;
+  return error;
+}
+
 function getAnthropicClient() {
   if (!process.env.ANTHROPIC_API_KEY) return null;
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -156,7 +181,7 @@ function serializePublic(quote, version, issuingEntity) {
     scopeText: version.scope_text,
     inclusionsText: version.inclusions_text,
     exclusionsText: version.exclusions_text,
-    paymentTermsText: version.payment_terms_text,
+    paymentTermsText: getPaymentTermsText(version),
     termsVersion: version.terms_version,
     termsText: getTermsText(version.terms_version),
     termsUrl: TERMS_URL,
@@ -174,7 +199,7 @@ function serializeVersionAdmin(v) {
     customerSnapshot: v.customer_snapshot, propertySnapshot: v.property_snapshot, lineItems: v.line_items,
     subtotalExGstCents: v.subtotal_ex_gst_cents, gstCents: v.gst_cents, totalIncGstCents: v.total_inc_gst_cents,
     scopeText: v.scope_text, inclusionsText: v.inclusions_text, exclusionsText: v.exclusions_text,
-    paymentTermsText: v.payment_terms_text,
+    paymentTermsText: getPaymentTermsText(v),
     termsVersion: v.terms_version, termsText: getTermsText(v.terms_version), termsUrl: TERMS_URL, attachments: v.attachments, validityDays: v.validity_days,
     issuedAt: v.issued_at, expiresAt: v.expires_at, supersededByVersionId: v.superseded_by_version_id,
     acceptedAt: v.accepted_at, acceptedByName: v.accepted_by_name, acceptedByEmail: v.accepted_by_email,
@@ -240,12 +265,18 @@ async function handleCreateDraft(req, res, supabase) {
     line_items: totals.lineItems, subtotal_ex_gst_cents: totals.subtotalExGstCents,
     gst_cents: totals.gstCents, total_inc_gst_cents: totals.totalIncGstCents,
     scope_text: body.scopeText || null, inclusions_text: body.inclusionsText || null,
-    exclusions_text: body.exclusionsText || null, payment_terms_text: body.paymentTermsText || null,
+    exclusions_text: body.exclusionsText || null, payment_schedule_note: paymentScheduleNote(body.paymentTermsText),
     terms_version: 'v1', validity_days: body.validityDays || 30,
   }).select().single();
-  if (versionErr) throw versionErr;
+  if (versionErr) {
+    // Do not leave a header-only quote which subsequently reopens with no
+    // details (and causes the next click to create another quote).
+    await supabase.from('quotes').delete().eq('id', quote.id);
+    throw workflowError('persistence', 'Quote details could not be persisted.', versionErr);
+  }
 
-  await supabase.from('quotes').update({ current_version_id: version.id }).eq('id', quote.id);
+  const { error: linkErr } = await supabase.from('quotes').update({ current_version_id: version.id }).eq('id', quote.id);
+  if (linkErr) throw workflowError('persistence', 'Quote was saved but its current draft could not be linked.', linkErr);
   await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'draft_created', actorRole: 'admin' });
 
   res.status(200).json({ quote: serializeQuoteAdmin({ ...quote, current_version_id: version.id }, version, customer) });
@@ -271,11 +302,11 @@ async function handleUpdateDraft(req, res, supabase) {
     scope_text: body.scopeText !== undefined ? body.scopeText : version.scope_text,
     inclusions_text: body.inclusionsText !== undefined ? body.inclusionsText : version.inclusions_text,
     exclusions_text: body.exclusionsText !== undefined ? body.exclusionsText : version.exclusions_text,
-    payment_terms_text: body.paymentTermsText !== undefined ? body.paymentTermsText : version.payment_terms_text,
+    payment_schedule_note: body.paymentTermsText !== undefined ? paymentScheduleNote(body.paymentTermsText) : version.payment_schedule_note,
     validity_days: body.validityDays || version.validity_days,
     updated_at: new Date().toISOString(),
   }).eq('id', version.id).select().single();
-  if (updErr) throw updErr;
+  if (updErr) throw workflowError('persistence', 'Quote changes could not be persisted.', updErr);
   if (body.assignedStaffId !== undefined) {
     await supabase.from('quotes').update({ assigned_staff_id: body.assignedStaffId, updated_at: new Date().toISOString() }).eq('id', quote.id);
   }
@@ -300,16 +331,32 @@ async function handleIssue(req, res, supabase) {
 
   const nowIso = new Date().toISOString();
   const expiresAt = new Date(Date.now() + (version.validity_days || 30) * 24 * 60 * 60 * 1000).toISOString();
+  // Recompute from the persisted items immediately before issuance.  Preview,
+  // the secure document and the email therefore all use server-owned values.
+  const totals = computeQuoteTotals(version.line_items);
   const { data: updated, error: updErr } = await supabase.from('quote_versions').update({
     status: 'issued', issuing_entity_id: entity.id, issued_at: nowIso, expires_at: expiresAt, updated_at: nowIso,
+    line_items: totals.lineItems, subtotal_ex_gst_cents: totals.subtotalExGstCents,
+    gst_cents: totals.gstCents, total_inc_gst_cents: totals.totalIncGstCents,
   }).eq('id', version.id).select().single();
-  if (updErr) throw updErr;
-  await supabase.from('quotes').update({ current_status: 'sent', updated_at: nowIso }).eq('id', quote.id);
+  if (updErr) throw workflowError('persistence', 'Quote could not be marked as issued.', updErr);
+  const { error: statusErr } = await supabase.from('quotes').update({ current_status: 'sent', updated_at: nowIso }).eq('id', quote.id);
+  if (statusErr) throw workflowError('persistence', 'Quote version was issued but its status could not be updated.', statusErr);
 
   const rawToken = generateToken();
-  await supabase.from('document_access_tokens').insert({
+  const { error: tokenErr } = await supabase.from('document_access_tokens').insert({
     document_type: 'quote_version', document_id: version.id, token_hash: hashToken(rawToken), expires_at: expiresAt,
   });
+  if (tokenErr) {
+    // Issuance is not useful without its customer credential. Restore the
+    // editable state so the admin can retry instead of leaving a stuck
+    // "sent" quote with no usable link.
+    await supabase.from('quote_versions').update({
+      status: 'draft', issuing_entity_id: null, issued_at: null, expires_at: null, updated_at: new Date().toISOString(),
+    }).eq('id', version.id);
+    await supabase.from('quotes').update({ current_status: 'draft', updated_at: new Date().toISOString() }).eq('id', quote.id);
+    throw workflowError('secure_link', 'Quote was persisted, but its secure customer link could not be created. The quote remains a draft so you can retry.', tokenErr);
+  }
   await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'issued', actorRole: 'admin' });
 
   res.status(200).json({
@@ -335,7 +382,7 @@ async function handleRevise(req, res, supabase) {
     line_items: current.line_items, subtotal_ex_gst_cents: current.subtotal_ex_gst_cents,
     gst_cents: current.gst_cents, total_inc_gst_cents: current.total_inc_gst_cents,
     scope_text: current.scope_text, inclusions_text: current.inclusions_text, exclusions_text: current.exclusions_text,
-    payment_terms_text: current.payment_terms_text, terms_version: current.terms_version,
+    payment_schedule_note: current.payment_schedule_note, terms_version: current.terms_version,
     validity_days: current.validity_days,
   }).select().single();
   if (nvErr) throw nvErr;
@@ -365,8 +412,8 @@ async function handleWithdraw(req, res, supabase) {
 
 // Email the quote directly (Sep 2026, founder feedback: generating a link
 // to copy/forward manually was an extra, unnecessary step). Always issues
-// a FRESH token when (re)sending -- revokes whatever was active first, so
-// there is only ever one live link per version. This also means a resend
+// a FRESH token when (re)sending. After Resend accepts the email, older
+// tokens are revoked so there is only ever one live delivered link. This means a resend
 // naturally works with no special-case code: this same action can be
 // called again later (e.g. "the customer says they never got it") and it
 // just generates and sends a new link. The raw token is never recoverable
@@ -386,12 +433,13 @@ async function handleSendQuoteEmail(req, res, supabase) {
   if (!customerEmail) { res.status(400).json({ error: 'This quote has no customer email on file.' }); return; }
 
   const nowIso = new Date().toISOString();
-  await supabase.from('document_access_tokens').update({ revoked_at: nowIso })
-    .eq('document_type', 'quote_version').eq('document_id', version.id).is('revoked_at', null);
   const rawToken = generateToken();
-  await supabase.from('document_access_tokens').insert({
+  const { data: tokenRow, error: tokenErr } = await supabase.from('document_access_tokens').insert({
     document_type: 'quote_version', document_id: version.id, token_hash: hashToken(rawToken), expires_at: version.expires_at,
-  });
+  }).select('id').single();
+  if (tokenErr) {
+    throw workflowError('secure_link', 'Email was not attempted because a secure customer link could not be created.', tokenErr);
+  }
   const url = `${QUOTE_BASE_URL}?token=${encodeURIComponent(rawToken)}`;
 
   const customerName = (version.customer_snapshot && version.customer_snapshot.name) || '';
@@ -420,9 +468,17 @@ async function handleSendQuoteEmail(req, res, supabase) {
   // returned for manual sharing even when the email itself failed.
   if (!emailResult.ok) {
     await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'email_failed', actorRole: 'system', payload: { to: customerEmail, error: emailResult.error } });
-    res.status(502).json({ error: emailResult.error || 'Could not send the email.', url });
+    res.status(502).json({ stage: 'email_delivery', error: `Email delivery failed: ${emailResult.error || 'The provider did not accept the email.'}`, url });
     return;
   }
+
+  // Only invalidate the previous link after Resend has accepted the message.
+  // A provider failure leaves both the previously delivered link and the new
+  // manual-share fallback usable, rather than stranding the customer.
+  const { error: revokeErr } = await supabase.from('document_access_tokens').update({ revoked_at: nowIso })
+    .eq('document_type', 'quote_version').eq('document_id', version.id)
+    .neq('id', tokenRow.id).is('revoked_at', null);
+  if (revokeErr) console.error('Could not revoke prior quote links:', revokeErr);
 
   await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'emailed', actorRole: 'admin', payload: { to: customerEmail } });
   res.status(200).json({ ok: true, url, sentTo: customerEmail });
@@ -641,6 +697,17 @@ module.exports = async (req, res) => {
     res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('quotes error:', err);
-    res.status(500).json({ error: 'Could not process this request.' });
+    const stage = err.workflowStage || 'persistence';
+    const messages = {
+      persistence: 'Quote persistence failed.',
+      secure_link: 'Secure-link generation failed.',
+      email_delivery: 'Email delivery failed.',
+    };
+    res.status(err.statusCode || 500).json({ stage, error: err.message || messages[stage] });
   }
+};
+
+module.exports._test = {
+  getPaymentTermsText, paymentScheduleNote, workflowError, hashToken,
+  serializePublic, serializeVersionAdmin, serializeQuoteAdmin,
 };
