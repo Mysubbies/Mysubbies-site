@@ -1749,7 +1749,7 @@
   // local-only path above.
   async function hydrateRateCardFromServer() {
     try {
-      const res = await fetch('/api/rate-card');
+      const res = await fetch('/api/rate-card', { cache: 'no-store' });
       if (!res.ok) return;
       const { categories } = await res.json();
       if (!Array.isArray(categories) || categories.length === 0) return;
@@ -1777,6 +1777,17 @@
   // rendered as an icon tile instead of a broken <img>.
   const CATEGORY_FALLBACK_ICON = {};
 
+  // Main-category images are managed in Admin > Rate Card and travel in the
+  // same server-synced category record as names, tasks and Popular status.
+  // Existing checked-in category assets remain the default. If either an
+  // uploaded URL or a checked-in asset fails, swap to the category icon so
+  // customers never see a broken image tile.
+  function categoryCardImageHtml(category, slug) {
+    const src = category.photoUrl || category.photoDataUrl || `images/categories/${slug}.jpg`;
+    const fallback = CATEGORY_FALLBACK_ICON[slug] || category.icon || '🔧';
+    return `<img class="cc-photo" src="${escapeHtml(src)}" alt="${escapeHtml(category.label)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'" /><div class="cc-photo cc-photo-fallback cc-icon-sm cat-${slug}" style="aspect-ratio:4/3;width:100%;display:none;">${escapeHtml(fallback)}</div>`;
+  }
+
   // Renders the "Explore all services" grid from live CATEGORIES data --
   // same large photo-card style as Popular services (item asked for this
   // explicitly) -- and, since it reads real-time disabled state, a category
@@ -1793,9 +1804,7 @@
       // Subtitle is pulled straight from real task names on the rate card --
       // never invented copy, and it updates automatically as tasks change.
       const subtitle = enabledTasks.slice(0, 3).map(t => t.name).join(', ');
-      const photoHtml = CATEGORY_FALLBACK_ICON[slug]
-        ? `<div class="cc-photo cc-photo-fallback cc-icon-sm cat-${slug}" style="aspect-ratio:4/3;width:100%;">${CATEGORY_FALLBACK_ICON[slug]}</div>`
-        : `<img class="cc-photo" src="images/categories/${slug}.jpg" alt="${escapeHtml(c.label)}" loading="lazy" />`;
+      const photoHtml = categoryCardImageHtml(c, slug);
       return `<button class="catcard2" onclick="openSubCategoryGallery('${c.label.replace(/'/g, "\\'")}')">
         ${photoHtml}
         <div class="cc-body"><div class="cc-name">${escapeHtml(c.label)}</div>
@@ -1837,9 +1846,7 @@
       const enabledTasks = (c.tasks || []).filter(t => !t.disabled);
       const name = copy ? copy.name : escapeHtml(c.label);
       const sub = copy ? copy.sub : escapeHtml(enabledTasks.slice(0, 3).map(t => t.name).join(', '));
-      const photoHtml = CATEGORY_FALLBACK_ICON[slug]
-        ? `<div class="cc-photo cc-photo-fallback cc-icon-sm cat-${slug}" style="aspect-ratio:4/3;width:100%;">${CATEGORY_FALLBACK_ICON[slug]}</div>`
-        : `<img class="cc-photo" src="images/categories/${slug}.jpg" alt="${escapeHtml(c.label)}" loading="lazy" />`;
+      const photoHtml = categoryCardImageHtml(c, slug);
       return `<button class="catcard2" data-category="${escapeHtml(c.label)}" onclick="openSubCategoryGallery('${c.label.replace(/'/g, "\\'")}')">
         ${photoHtml}
         <div class="cc-body"><div class="cc-name">${name}</div>

@@ -186,11 +186,24 @@
   .rc-cat-list { border:1px solid var(--line); border-radius:12px; overflow:hidden; }
   .rc-cat { border-bottom:1px solid var(--line); }
   .rc-cat:last-child { border-bottom:none; }
-  .rc-cat-head { width:100%; display:flex; align-items:center; gap:10px; padding:13px 16px; background:#fff; border:none; cursor:pointer; text-align:left; font-family:inherit; }
+  .rc-cat-head { width:100%; display:flex; align-items:center; gap:12px; padding:14px 16px; background:#fff; border:none; text-align:left; font-family:inherit; }
+  .rc-cat-toggle { min-width:0; flex:1; display:flex; align-items:center; gap:12px; cursor:pointer; }
+  .rc-cat-actions { display:flex; align-items:center; gap:7px; flex-wrap:wrap; justify-content:flex-end; }
   .rc-cat-head:hover { background:var(--paper); }
   .rc-cat-chevron { display:inline-block; color:var(--stone-light); font-size:16px; transition:transform .15s ease; flex-shrink:0; }
   .rc-cat-open .rc-cat-chevron { transform:rotate(90deg); }
   .rc-cat-icon { flex-shrink:0; }
+  .rc-cat-thumb { width:52px; height:42px; border-radius:9px; object-fit:cover; border:1px solid var(--line); background:var(--paper); }
+  .rc-cat-thumb-fallback { display:grid; place-items:center; font-size:21px; color:var(--stone); }
+  .rc-cat-meta { min-width:0; flex:1; }
+  .rc-cat-submeta { display:flex; gap:8px; align-items:center; margin-top:3px; }
+  .rc-category-editor { display:grid; grid-template-columns:minmax(200px,1fr) 90px auto; gap:10px; align-items:end; background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px; }
+  .rc-field-label { display:block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--stone); margin-bottom:5px; }
+  .rc-category-photo-panel { display:flex; align-items:center; gap:12px; grid-column:1/-1; padding-top:2px; }
+  .rc-category-photo-copy { font-size:11.5px; color:var(--stone); line-height:1.45; }
+  .rc-add-category { border:1px solid #f0d49b; background:#fff9ec; border-radius:12px; padding:14px; margin-bottom:14px; }
+  .rc-add-category-grid { display:grid; grid-template-columns:minmax(180px,1fr) 90px auto; gap:10px; align-items:end; }
+  .rc-task-labels { display:grid; grid-template-columns:40px minmax(160px,1fr) 64px 94px auto; gap:8px; color:var(--stone); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:0 0 7px; }
   .rc-cat-name { flex:1; font-size:13.5px; font-weight:700; color:var(--ink); }
   .rc-cat-count { font-size:11.5px; color:var(--stone); white-space:nowrap; }
   .rc-cat-delete-btn { flex-shrink:0; font-size:11.5px; font-weight:600; padding:6px 12px; border-radius:999px; border:1px solid #F6D9D2; background:#fff; color:var(--warn); cursor:pointer; white-space:nowrap; }
@@ -211,6 +224,7 @@
   .rc-dollar { font-size:12px; color:var(--stone); padding:0 0 0 9px; }
   .rc-input-rate { width:72px; border:none; border-radius:0; padding:7px 9px 7px 4px; }
   .rc-held-badge { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--warn); background:#FDEDEA; padding:4px 9px; border-radius:999px; white-space:nowrap; }
+  .rc-active-badge { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--good); background:#EAF5EE; padding:4px 9px; border-radius:999px; white-space:nowrap; }
   .rc-hold-btn { font-size:11.5px; font-weight:600; padding:7px 13px; border-radius:999px; border:1px solid var(--line); background:#fff; color:var(--stone); cursor:pointer; white-space:nowrap; }
   .rc-hold-btn:hover { border-color:var(--stone-light); color:var(--ink); }
   .rc-delete-btn { font-size:11.5px; font-weight:600; padding:7px 13px; border-radius:999px; border:1px solid #F6D9D2; background:#fff; color:var(--warn); cursor:pointer; white-space:nowrap; }
@@ -238,6 +252,14 @@
      that there's a real pending change to save. */
   .rc-save-btn { font-size:11.5px; font-weight:600; padding:7px 13px; border-radius:999px; border:1px solid var(--line); background:#fff; color:var(--stone-light); cursor:not-allowed; white-space:nowrap; }
   .rc-save-btn:disabled { opacity:.6; }
+  @media (max-width:760px) {
+    .rc-cat-head { align-items:flex-start; flex-wrap:wrap; }
+    .rc-cat-toggle { width:100%; flex-basis:100%; }
+    .rc-cat-actions { width:100%; justify-content:flex-start; padding-left:64px; }
+    .rc-category-editor, .rc-add-category-grid { grid-template-columns:1fr; }
+    .rc-category-photo-panel { grid-column:auto; }
+    .rc-task-labels { display:none; }
+  }
   .rc-save-btn.rc-save-dirty { background:var(--black); border-color:var(--black); color:#fff; cursor:pointer; }
   .rc-saved-msg { font-size:11.5px; font-weight:600; color:var(--good); white-space:nowrap; }
   .msgbox { border:1px solid var(--line); border-radius:14px; padding:16px; margin-top:16px; background:#fff; max-width:520px; }
@@ -1973,7 +1995,7 @@
         showToast("Saved to the server, but this browser's local cache is full (too many photos) — reload the page if the rate card looks out of date.");
       }
     }
-    adminFetch('/api/rate-card', {
+    return adminFetch('/api/rate-card', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ categories }),
     }).catch(() => {});
@@ -2034,6 +2056,78 @@
   // see saveRateCard()) until Save is clicked. Keyed by category label +
   // real task index, same realIdx the rest of this file already uses so a
   // search-narrowed view can never edit the wrong task.
+  let rcCategoryDrafts = {};
+  let rcShowAddCategory = false;
+  let rcNewCategoryDraft = { label: '', icon: '🔧', popular: false };
+
+  function toggleAddCategoryForm() {
+    rcShowAddCategory = !rcShowAddCategory;
+    if (!rcShowAddCategory) rcNewCategoryDraft = { label: '', icon: '🔧', popular: false };
+    render();
+  }
+
+  function previewNewCategoryPhoto(event) {
+    const file = event.target.files && event.target.files[0];
+    const preview = document.getElementById('rcNewCategoryPreview');
+    if (!file || !preview) return;
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = 'block';
+  }
+
+  async function createCategory() {
+    const label = rcNewCategoryDraft.label.trim();
+    const err = document.getElementById('rcNewCategoryError');
+    if (!label) { if (err) err.textContent = 'Enter a category name.'; return; }
+    const categories = getRateCard();
+    if (categories.some(c => !c.deleted && c.label.toLowerCase() === label.toLowerCase())) {
+      if (err) err.textContent = 'A category with this name already exists.';
+      return;
+    }
+    const cat = { label, icon: rcNewCategoryDraft.icon.trim() || '🔧', popular: !!rcNewCategoryDraft.popular, tasks: [] };
+    categories.push(cat);
+    const fileInput = document.getElementById('rcNewCategoryPhoto');
+    const file = fileInput && fileInput.files && fileInput.files[0];
+    await saveRateCard(categories);
+    rcExpandedCategories.add(label);
+    rcShowAddCategory = false;
+    rcNewCategoryDraft = { label: '', icon: '🔧', popular: false };
+    render();
+    if (file) await queueCategoryPhotoUpload(label, file);
+    showToast('Category created. Add its first service/task below.');
+  }
+
+  function editCategoryField(catLabel, field, value) {
+    if (!rcCategoryDrafts[catLabel]) {
+      const cat = getRateCard().find(c => c.label === catLabel);
+      if (!cat) return;
+      rcCategoryDrafts[catLabel] = { label: cat.label, icon: cat.icon || '🔧' };
+    }
+    rcCategoryDrafts[catLabel][field] = value;
+  }
+
+  function saveCategoryDetails(catLabel) {
+    const draft = rcCategoryDrafts[catLabel];
+    if (!draft || !draft.label.trim()) return;
+    const categories = getRateCard();
+    const cat = categories.find(c => c.label === catLabel);
+    if (!cat) return;
+    const nextLabel = draft.label.trim();
+    if (categories.some(c => c !== cat && !c.deleted && c.label.toLowerCase() === nextLabel.toLowerCase())) {
+      showToast('Another category already uses that name.'); return;
+    }
+    cat.label = nextLabel;
+    cat.icon = draft.icon.trim() || '🔧';
+    delete rcCategoryDrafts[catLabel];
+    if (nextLabel !== catLabel) {
+      rcExpandedCategories.delete(catLabel); rcExpandedCategories.add(nextLabel);
+      if (rcAddingTaskCat === catLabel) rcAddingTaskCat = nextLabel;
+    }
+    saveRateCard(categories);
+    const list = document.getElementById('rcManageList');
+    if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
+    showToast('Category details saved.');
+  }
+
   let rcTaskDrafts = {};
   function rcRowId(catLabel, realIdx) { return realIdx + '_' + catLabel.replace(/[^a-zA-Z0-9]/g, ''); }
   function rcSetTaskDraft(catLabel, realIdx, field, value) {
@@ -2161,7 +2255,7 @@
       if (!cat) return;
       cat.tasks[realIdx].photoUrl = url;
       delete cat.tasks[realIdx].photoDataUrl;
-      saveRateCard(categories);
+      await saveRateCard(categories);
       const list = document.getElementById('rcManageList');
       if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
     } catch (err) {
@@ -2179,6 +2273,59 @@
     const list = document.getElementById('rcManageList');
     if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
   }
+  function onCategoryPhotoSelected(catLabel, event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    event.target.value = '';
+    queueCategoryPhotoUpload(catLabel, file);
+  }
+  function queueCategoryPhotoUpload(catLabel, file) {
+    rcPhotoUploadQueue = rcPhotoUploadQueue.then(() => uploadCategoryPhoto(catLabel, file)).catch(() => {});
+    return rcPhotoUploadQueue;
+  }
+  async function uploadCategoryPhoto(catLabel, file) {
+    try {
+      const dataUrl = await readAndResizePhoto(file);
+      showToast('Uploading category image…');
+      const res = await adminFetch('/api/rate-card', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'upload-photo', target: 'category', dataUrl, catLabel, taskName: '__category__' }),
+      });
+      if (!res.ok) throw new Error('upload failed');
+      const { url } = await res.json();
+      const categories = getRateCard();
+      const cat = categories.find(c => c.label === catLabel);
+      if (!cat) return;
+      // The upload endpoint has already persisted this field atomically;
+      // update only the local cache/UI here instead of re-posting the whole
+      // (potentially multi-megabyte) rate card a second time.
+      cat.photoUrl = url;
+      delete cat.photoDataUrl;
+      try { localStorage.setItem('mysubbies_ratecard', JSON.stringify(categories)); } catch (e) { /* server copy is authoritative */ }
+      const list = document.getElementById('rcManageList');
+      if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
+      showToast('Category image saved.');
+    } catch (err) { showToast('Could not upload the category image — try again.'); }
+  }
+  async function removeCategoryPhoto(catLabel, event) {
+    if (event) event.stopPropagation();
+    try {
+      const res = await adminFetch('/api/rate-card', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'remove-category-photo', catLabel }),
+      });
+      if (!res.ok) throw new Error('remove failed');
+      const categories = getRateCard();
+      const cat = categories.find(c => c.label === catLabel);
+      if (!cat) return;
+      delete cat.photoUrl; delete cat.photoDataUrl;
+      try { localStorage.setItem('mysubbies_ratecard', JSON.stringify(categories)); } catch (e) { /* server copy is authoritative */ }
+      const list = document.getElementById('rcManageList');
+      if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
+      showToast('Category image removed. The default image will be used.');
+    } catch (err) { showToast('Could not remove the category image — try again.'); }
+  }
+
   // One-time migration for photos uploaded before the Storage switch above
   // -- converts every remaining embedded photoDataUrl into a Storage
   // upload + photoUrl, entirely server-side (see rate-card.js's
@@ -3565,6 +3712,21 @@
             </div>
             <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;" onclick="migrateRateCardPhotos()">Migrate photos to cloud storage</button>
           </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+            <div><h3 style="font-size:16px;margin:0 0 3px;">Categories & services</h3><p style="font-size:11.5px;color:var(--stone);margin:0;">Open a category to edit its image, details and service rows.</p></div>
+            <button class="btn btn-black" style="width:auto;padding:9px 16px;" onclick="toggleAddCategoryForm()">${rcShowAddCategory ? 'Cancel' : '+ Add category'}</button>
+          </div>
+          ${rcShowAddCategory ? `<div class="rc-add-category">
+            <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Create main category</div>
+            <div class="rc-add-category-grid">
+              <label><span class="rc-field-label">Category name</span><input class="rc-input" style="width:100%;" placeholder="e.g. Epoxy" oninput="rcNewCategoryDraft.label=this.value"></label>
+              <label><span class="rc-field-label">Icon</span><input class="rc-input" style="width:100%;" value="${escapeHtml(rcNewCategoryDraft.icon)}" oninput="rcNewCategoryDraft.icon=this.value" maxlength="8"></label>
+              <label style="font-size:12px;color:var(--stone);padding-bottom:7px;"><input type="checkbox" onchange="rcNewCategoryDraft.popular=this.checked"> Popular</label>
+              <label style="grid-column:1/-1;"><span class="rc-field-label">Category image</span><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><img id="rcNewCategoryPreview" class="rc-cat-thumb" alt="Selected category image preview" style="display:none;"><input id="rcNewCategoryPhoto" type="file" accept="image/*" style="font-size:12px;" onchange="previewNewCategoryPhoto(event)"><span class="rc-category-photo-copy"> Optional. Previewed here and used on the public Services category card.</span></div></label>
+            </div>
+            <div id="rcNewCategoryError" style="color:var(--warn);font-size:12px;margin-top:8px;"></div>
+            <button class="btn btn-black" style="width:auto;padding:9px 16px;margin-top:10px;" onclick="createCategory()">Create category</button>
+          </div>` : ''}
           <input type="text" id="rcManageSearch" value="${escapeHtml(rcManageSearchQuery)}" oninput="onRcManageSearchInput(this)" placeholder="🔍 Search services or categories…" style="width:100%;font-size:13px;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:14px;font-family:inherit;" />
           <div id="rcManageList">${rateCardManageHtml(categories, rcManageSearchQuery)}</div>
         ` : `
@@ -3623,16 +3785,29 @@
       const disabledCount = c.tasksWithIdx.filter(({ t }) => t.disabled).length;
       return `
       <div class="rc-cat ${isOpen ? 'rc-cat-open' : ''}">
-        <div class="rc-cat-head" onclick="toggleRcCategory('${safeLabel}')">
-          <span class="rc-cat-chevron">›</span>
-          <span class="rc-cat-icon">${c.icon || ''}</span>
-          <span class="rc-cat-name">${escapeHtml(c.label)}</span>
-          <span class="rc-cat-count">${c.tasksWithIdx.length} task${c.tasksWithIdx.length === 1 ? '' : 's'}${disabledCount ? ` · ${disabledCount} held` : ''}</span>
-          <button type="button" class="rc-cat-popular-btn ${c.popular ? 'rc-cat-popular-on' : ''}" onclick="toggleCategoryPopular('${safeLabel}', event)" title="${c.popular ? 'Showing in Popular categories on the homepage' : 'Not shown in Popular categories on the homepage'}">${c.popular ? '★ Popular' : '☆ Popular'}</button>
-          <button type="button" class="rc-cat-delete-btn" onclick="deleteCategory('${safeLabel}', event)" title="Permanently delete this whole category">Delete category</button>
+        <div class="rc-cat-head">
+          <div class="rc-cat-toggle" onclick="toggleRcCategory('${safeLabel}')" role="button" tabindex="0">
+            <span class="rc-cat-chevron">›</span>
+            ${(c.photoUrl || c.photoDataUrl) ? `<img class="rc-cat-thumb" src="${escapeHtml(c.photoUrl || c.photoDataUrl)}" alt="">` : `<span class="rc-cat-thumb rc-cat-thumb-fallback">${escapeHtml(c.icon || '🔧')}</span>`}
+            <span class="rc-cat-meta"><span class="rc-cat-name">${escapeHtml(c.label)}</span><span class="rc-cat-submeta"><span class="rc-cat-count">${c.tasksWithIdx.length} service${c.tasksWithIdx.length === 1 ? '' : 's'}${disabledCount ? ` · ${disabledCount} held` : ''}</span></span></span>
+          </div>
+          <div class="rc-cat-actions">
+            <button type="button" class="rc-cat-popular-btn ${c.popular ? 'rc-cat-popular-on' : ''}" onclick="toggleCategoryPopular('${safeLabel}', event)" title="${c.popular ? 'Showing in Popular categories on the homepage' : 'Not shown in Popular categories on the homepage'}">${c.popular ? '★ Popular' : '☆ Popular'}</button>
+            <button type="button" class="rc-cat-delete-btn" onclick="deleteCategory('${safeLabel}', event)" title="Permanently delete this whole category">Delete</button>
+          </div>
         </div>
         ${isOpen ? `
         <div class="rc-cat-body">
+          <div class="rc-category-editor">
+            <label><span class="rc-field-label">Category name</span><input class="rc-input" style="width:100%;" value="${escapeHtml((rcCategoryDrafts[c.label] || {}).label || c.label)}" oninput="editCategoryField('${safeLabel}', 'label', this.value)"></label>
+            <label><span class="rc-field-label">Icon fallback</span><input class="rc-input" style="width:100%;" value="${escapeHtml((rcCategoryDrafts[c.label] || {}).icon || c.icon || '🔧')}" oninput="editCategoryField('${safeLabel}', 'icon', this.value)" maxlength="8"></label>
+            <button class="btn btn-black" style="width:auto;padding:8px 15px;" onclick="saveCategoryDetails('${safeLabel}')">Save details</button>
+            <div class="rc-category-photo-panel">
+              <div class="rc-photo-wrap">${(c.photoUrl || c.photoDataUrl) ? `<img class="rc-photo-thumb" src="${escapeHtml(c.photoUrl || c.photoDataUrl)}" onclick="document.getElementById('rcCategoryPhoto-${rcRowId(c.label, 'cat')}').click()" title="Replace category image"><button class="rc-photo-remove" onclick="removeCategoryPhoto('${safeLabel}', event)" title="Remove category image">✕</button>` : `<button class="rc-photo-add" onclick="document.getElementById('rcCategoryPhoto-${rcRowId(c.label, 'cat')}').click()" title="Add category image">📷</button>`}<input id="rcCategoryPhoto-${rcRowId(c.label, 'cat')}" type="file" accept="image/*" hidden onchange="onCategoryPhotoSelected('${safeLabel}', event)"></div>
+              <div><strong style="font-size:12px;">Main category image</strong><div class="rc-category-photo-copy">Shown on the public Services card. Click the thumbnail to ${c.photoUrl || c.photoDataUrl ? 'replace' : 'upload'} it.</div></div>
+            </div>
+          </div>
+          ${c.tasksWithIdx.length ? `<div class="rc-task-labels"><span>Image</span><span>Service / task</span><span>Unit</span><span>Price</span><span>Status & actions</span></div>` : '<div style="font-size:12px;color:var(--stone);margin-bottom:8px;">No services yet. Add the first service/task below.</div>'}
           ${c.tasksWithIdx.map(({ t, realIdx }) => {
             const draft = rcTaskDrafts[c.label + '__' + realIdx];
             const nameVal = draft ? draft.name : t.name;
@@ -3659,7 +3834,7 @@
                   <span class="rc-dollar">$</span>
                   <input type="number" value="${rateVal}" oninput="rcSetTaskDraft('${safeLabel}', ${realIdx}, 'rate', this.value)" class="rc-input rc-input-rate" ${t.disabled ? 'disabled' : ''} />
                 </div>
-                ${t.disabled ? '<span class="rc-held-badge">Held</span>' : ''}
+                ${t.disabled ? '<span class="rc-held-badge">Held</span>' : '<span class="rc-active-badge">Active</span>'}
                 <button onclick="toggleServiceDisabled('${safeLabel}', ${realIdx})" class="rc-hold-btn">${t.disabled ? 'Unhold' : 'Hold'}</button>
                 <button onclick="deleteTask('${safeLabel}', ${realIdx}, event)" class="rc-delete-btn" title="Permanently delete this task">Delete</button>
                 <button id="rcSaveBtn-${rowId}" onclick="saveTaskRow('${safeLabel}', ${realIdx})" class="rc-save-btn" ${draft ? '' : 'disabled'}>Save</button>
@@ -3704,7 +3879,7 @@
               </div>
             </div>
           ` : `
-            <button class="btn btn-outline" style="width:auto;padding:7px 14px;font-size:12.5px;margin-top:4px;" onclick="openAddTaskForm('${safeLabel}')">+ Add task</button>
+            <button class="btn btn-outline" style="width:auto;padding:7px 14px;font-size:12.5px;margin-top:4px;" onclick="openAddTaskForm('${safeLabel}')">+ Add service / task</button>
           `}
         </div>
         ` : ''}
