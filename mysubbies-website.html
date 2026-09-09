@@ -953,8 +953,15 @@
                 <div class="chiprow-est" id="estAccessChips"></div>
               </div>
 
-              <label class="est-field-label">How urgent is this job?</label>
-              <input type="text" id="estUrgencyText" placeholder="e.g. ASAP, within 2 weeks, no rush" oninput="selectedUrgency = this.value" />
+              <label class="est-field-label">When do you need this done?</label>
+              <div class="chiprow-est" id="estUrgencyChips">
+                <button type="button" class="chip-est" onclick="selectUrgency('ASAP', this)">ASAP</button>
+                <button type="button" class="chip-est" onclick="selectUrgency('Within a week', this)">Within a week</button>
+                <button type="button" class="chip-est" onclick="selectUrgency('Within 2 weeks', this)">Within 2 weeks</button>
+                <button type="button" class="chip-est" onclick="selectUrgency('Flexible', this)">Flexible</button>
+              </div>
+              <input type="text" id="estUrgencyText" placeholder="Optional timing details" oninput="onUrgencyDetailInput(this.value)" />
+              <div class="est-hint">Timing helps us match the job and does not change the estimated price.</div>
 
               <label class="est-field-label">Add photos (optional)</label>
               <p class="est-photo-note">Uploading photos helps us confirm that the selected service and assumptions match your property. Your displayed price remains subject to the stated scope, exclusions and site assumptions. No variation can be charged without your approval.</p>
@@ -2783,6 +2790,61 @@
     'Insulation Installation': 'e.g. "ceiling batt insulation", "wall batt insulation", "underfloor insulation"',
   };
 
+  // Phase 1 service-aware quantity questions. Presentation only: every
+  // answer still resolves to the same qtyValues string and the unchanged
+  // rate × quantity / minimum-job-price calculation below. Categories not
+  // listed here continue through qtyHintForUnit() exactly as before.
+  const SERVICE_AWARE_PHASE1_CATEGORIES = new Set([
+    'Handyman', 'Cleaning', 'Gardening & Lawn Mowing', 'Fencing', 'Decking',
+    'Plumbing', 'Electrical', 'Courier Services'
+  ]);
+
+  function serviceAwareQuestion(cat, task) {
+    if (!cat || !task || !SERVICE_AWARE_PHASE1_CATEGORIES.has(cat.label)) return null;
+    const unit = String(task.unit || '').trim().toLowerCase();
+    const name = String(task.name || '').toLowerCase();
+    if (cat.label === 'Courier Services') return { kind:'courier' };
+    if (unit === 'job') return {
+      kind:'fixed', fixedQuantity:1,
+      question:'No quantity needed',
+      hint:'This service is priced as one complete job.'
+    };
+    if (unit === 'm²') {
+      let subject = 'area';
+      if (cat.label === 'Decking') subject = 'deck';
+      else if (cat.label === 'Cleaning') subject = 'area to be pressure cleaned';
+      return { kind:'area', question:`What are the ${subject} dimensions?`, hint:"Enter the length and width in metres — we’ll calculate the square metres." };
+    }
+    if (unit === 'lm') {
+      const subject = cat.label === 'Fencing' ? 'fence' : (name.includes('barrier') ? 'barrier' : 'total');
+      return { kind:'number', question:`What is the approximate ${subject} length?`, label:'linear metres', placeholder:'e.g. 12', hint:'Enter the length in metres. An exact number is needed for an instant estimated price.' };
+    }
+    if (unit === 'hour') return { kind:'number', question:'How many hours should we allow?', label:'hours', placeholder:'e.g. 2', hint:'Enter the number of hours to price. If you are unsure, photos and job details can help us review the scope.' };
+    if (unit.includes('visit')) return { kind:'number', question:'How many visits would you like to book?', label:'visits', placeholder:'e.g. 1', hint:'Enter 1 for a one-off visit. A visit count is needed for an instant estimated price.' };
+    if (unit.includes('clean')) return { kind:'number', question:'How many properties need this clean?', label:'cleans', placeholder:'e.g. 1', hint:'Enter 1 for one property. A count is needed for an instant estimated price.' };
+    if (unit.includes('load')) return { kind:'number', question:'How many loads need to be removed?', label:task.unit, placeholder:'e.g. 1', hint:'Enter the estimated number of loads. An exact number is needed for an instant estimated price.' };
+    const labels = {
+      gate:'gates', item:'items', step:'steps', window:'windows', point:'points', switch:'switches',
+      fitting:'fittings', light:'lights', fan:'fans', alarm:'alarms', circuit:'circuits', appliance:'appliances',
+      unit:'units', device:'devices', breaker:'breakers', tap:'taps', toilet:'toilets', shower:'showers',
+      fixture:'fixtures', valve:'valves', hose:'connectors', trap:'traps', waste:'waste outlets', dwelling:'properties',
+      tv:'TVs', door:'doors'
+    };
+    const countLabel = labels[unit] || (unit ? unit + 's' : 'items');
+    let question = `How many ${countLabel} need this service?`;
+    if (cat.label === 'Handyman' && name.includes('flat-pack')) question = 'How many furniture items need assembly?';
+    else if (cat.label === 'Handyman' && name.includes('picture')) question = 'How many pictures or mirrors need hanging?';
+    else if (cat.label === 'Electrical' && unit === 'point') question = 'How many electrical points need this work?';
+    return { kind:'number', question, label:countLabel, placeholder:'e.g. 1', hint:`Enter the number of ${countLabel}. An exact count is needed for an instant estimated price.` };
+  }
+
+  function quantityQuestionFor(cat, task) {
+    const aware = serviceAwareQuestion(cat, task);
+    if (aware) return aware;
+    const legacy = qtyHintForUnit(task.unit);
+    return { kind:task.unit === 'm²' ? 'area' : 'legacy', question:task.name, label:legacy.label, placeholder:legacy.placeholder, hint:legacy.hint };
+  }
+
   // ============================================================
   // Priced comparison group (Sep 2026) -- Step 2 now leads with a single
   // size/quantity field and shows every task sharing the category's most
@@ -2863,15 +2925,21 @@
       initCourierPlacesAutocomplete();
       return;
     }
+    const question = quantityQuestionFor(c, estPrimaryGroup.tasks[0]);
+    const isArea = question.kind === 'area';
+    const isFixed = question.kind === 'fixed';
     document.getElementById('estPrimaryQtyHint').style.display = 'block';
-    const isArea = estPrimaryGroup.unit === 'm²';
-    document.getElementById('estPrimaryQty').style.display = isArea ? 'none' : 'block';
+    document.getElementById('estPrimaryQty').style.display = (isArea || isFixed) ? 'none' : 'block';
     document.getElementById('estPrimaryLW').style.display = isArea ? 'grid' : 'none';
-    const hint = qtyHintForUnit(estPrimaryGroup.unit);
-    document.getElementById('estPrimaryQtyLabel').textContent = isArea ? 'Size' : 'Size / quantity (' + hint.label + ')';
-    document.getElementById('estPrimaryQty').placeholder = hint.placeholder;
-    document.getElementById('estPrimaryQtyHint').textContent = hint.hint;
+    document.getElementById('estPrimaryQtyLabel').textContent = question.question;
+    document.getElementById('estPrimaryQty').placeholder = question.placeholder || '';
+    document.getElementById('estPrimaryQty').inputMode = question.kind === 'number' ? 'decimal' : 'text';
+    document.getElementById('estPrimaryQtyHint').textContent = question.hint || '';
     document.getElementById('estPrimaryQtyHint').classList.remove('est-lw-total');
+    if (isFixed) {
+      document.getElementById('estPrimaryQty').value = String(question.fixedQuantity);
+      renderPrimaryOptionCards(question.fixedQuantity);
+    }
   }
   // Length x Width for m² primary-group tasks -- combines into
   // #estPrimaryQty's existing value ("6x5") so onPrimaryQtyInput() and
@@ -2947,7 +3015,8 @@
     // Single-select within the primary group -- two same-unit primary
     // options can't both apply to the same physical job/footprint.
     estPrimaryGroup.tasks.forEach(t => { if (t.name !== task.name) { selectedTierSet.delete(t.name); qtyValues.delete(t.name); } });
-    const qtyRaw = document.getElementById('estPrimaryQty').value.trim();
+    const question = quantityQuestionFor(selectedCat, task);
+    const qtyRaw = question.kind === 'fixed' ? String(question.fixedQuantity) : document.getElementById('estPrimaryQty').value.trim();
     selectedTierSet.set(task.name, task);
     if (qtyRaw) qtyValues.set(task.name, qtyRaw);
     renderQtyRows();
@@ -3165,7 +3234,7 @@
     // Small/single-task categories with no primary group fall back to
     // showing everything here, same as the picker's old full behaviour.
     tierWrap.style.display = secondaryTasks.length ? 'block' : 'none';
-    document.getElementById('estTierWrapLabel').textContent = estPrimaryGroup ? 'Other services in this category' : 'Choose the specific job';
+    document.getElementById('estTierWrapLabel').textContent = SERVICE_AWARE_PHASE1_CATEGORIES.has(c.label) ? (estPrimaryGroup ? `Anything else to add in ${c.label}?` : 'Which service do you need?') : (estPrimaryGroup ? 'Other services in this category' : 'Choose the specific job');
     const quickMatchInput = document.getElementById('estTierQuickMatch');
     quickMatchInput.value = '';
     quickMatchInput.placeholder = 'Type what you need, ' + (CATEGORY_QUICKMATCH_HINTS[c.label] || 'e.g. "replace a power point"');
@@ -3555,7 +3624,12 @@
     const primaryNames = new Set(estPrimaryGroup ? estPrimaryGroup.tasks.map(t => t.name) : []);
     wrap.innerHTML = Array.from(selectedTierSet.values()).filter(t => !primaryNames.has(t.name)).map(t => {
       const hint = qtyHintForUnit(t.unit);
+      const question = quantityQuestionFor(selectedCat, t);
       const val = qtyValues.get(t.name) || '';
+      if (question.kind === 'fixed') {
+        qtyValues.set(t.name, String(question.fixedQuantity));
+        return `<div class="est-qty-row"><label class="est-field-label">${escapeHtml(t.name)}</label><div class="est-hint">${escapeHtml(question.hint)}</div></div>`;
+      }
       // Sept 2026: m² tasks get the same Length x Width split as the
       // primary comparison group above, instead of one field expecting
       // either a raw total or a "6m x 5m" string. Both inputs share
@@ -3568,7 +3642,7 @@
         const totalText = dims ? '= ' + (Number(dims[1]) * Number(dims[2])).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' m²' : hint.hint;
         return `
           <div class="est-qty-row">
-            <label class="est-field-label">${escapeHtml(t.name)} <span class="unit">(m²)</span></label>
+            <label class="est-field-label">${escapeHtml(question.question)} <span class="unit">(${escapeHtml(t.name)})</span></label>
             <div class="est-lw-row">
               <input type="text" class="est-qty-row-input" data-task="${escapeHtml(t.name)}" data-dim="len" placeholder="Length (m)" value="${escapeHtml(lenVal)}" oninput="onQtyRowLWInput(this)" />
               <input type="text" class="est-qty-row-input" data-task="${escapeHtml(t.name)}" data-dim="wid" placeholder="Width (m)" value="${escapeHtml(widVal)}" oninput="onQtyRowLWInput(this)" />
@@ -3579,9 +3653,9 @@
       }
       return `
         <div class="est-qty-row">
-          <label class="est-field-label">${escapeHtml(t.name)} <span class="unit">(${escapeHtml(hint.label)})</span></label>
-          <input type="text" class="est-qty-row-input" data-task="${escapeHtml(t.name)}" placeholder="${escapeHtml(hint.placeholder)}" value="${escapeHtml(val)}" oninput="qtyValues.set(this.dataset.task, this.value); this.style.borderColor=''" />
-          <div class="est-hint">${escapeHtml(hint.hint)}</div>
+          <label class="est-field-label">${escapeHtml(question.question)} <span class="unit">(${escapeHtml(t.name)})</span></label>
+          <input type="${question.kind === 'number' ? 'number' : 'text'}" inputmode="${question.kind === 'number' ? 'decimal' : 'text'}" min="${question.kind === 'number' ? '0.01' : ''}" step="any" class="est-qty-row-input" data-task="${escapeHtml(t.name)}" placeholder="${escapeHtml(question.placeholder)}" value="${escapeHtml(val)}" oninput="qtyValues.set(this.dataset.task, this.value); this.style.borderColor=''" />
+          <div class="est-hint">${escapeHtml(question.hint)}</div>
         </div>
       `;
     }).join('');
@@ -3957,6 +4031,17 @@
 
   const ACCESS_OPTIONS = ['Easy access', 'Narrow / restricted access', 'Not sure'];
   let selectedSite = null, selectedAccess = null, selectedUrgency = null;
+  let selectedUrgencyOption = '';
+  function selectUrgency(value, button) {
+    selectedUrgencyOption = value;
+    document.querySelectorAll('#estUrgencyChips .chip-est').forEach(b => b.classList.toggle('selected', b === button));
+    const detail = document.getElementById('estUrgencyText').value.trim();
+    selectedUrgency = detail ? `${value} — ${detail}` : value;
+  }
+  function onUrgencyDetailInput(value) {
+    const detail = value.trim();
+    selectedUrgency = selectedUrgencyOption ? (detail ? `${selectedUrgencyOption} — ${detail}` : selectedUrgencyOption) : detail;
+  }
 
   // "What's currently on the site?" and "Site access" only matter for jobs
   // involving trucks, heavy materials, or equipment getting onto the
