@@ -1,6 +1,6 @@
 // GET  /api/rate-card
 // POST /api/rate-card { categories }                                  (admin-gated, normal save)
-// POST /api/rate-card { action:'upload-photo', dataUrl, catLabel, taskName } (admin-gated)
+// POST /api/rate-card { action:'upload-photo', dataUrl, catLabel, taskName } (admin-gated, task or category image)
 // POST /api/rate-card { action:'migrate-photos' }                     (admin-gated, one-time)
 //
 // The single authoritative copy of the rate card (see
@@ -100,6 +100,11 @@ module.exports = async (req, res) => {
         await ensurePhotoBucket(supabase);
         let migrated = 0;
         for (const cat of categories) {
+          if (cat.photoDataUrl && !cat.photoUrl) {
+            cat.photoUrl = await uploadPhoto(supabase, cat.label, '__category__', cat.photoDataUrl);
+            delete cat.photoDataUrl;
+            migrated++;
+          }
           for (const task of cat.tasks || []) {
             if (task.photoDataUrl && !task.photoUrl) {
               task.photoUrl = await uploadPhoto(supabase, cat.label, task.name, task.photoDataUrl);
