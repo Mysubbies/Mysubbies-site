@@ -17,8 +17,10 @@ For the complete quote-to-job flow, production must contain:
 6. `supabase/schema_v19_quotes_crm.sql` — issuing entities, staff, quotes,
    immutable quote versions, quote events, secure document tokens, access
    attempt rate limiting, and `inquiries.quote_id`.
-7. `supabase/schema_v20_quote_payment_terms.sql` — customer-visible payment
-   terms text on quote versions.
+The quote payment-schedule text is stored in the existing v19
+`quote_versions.payment_schedule_note` JSONB column. The application does not
+require `schema_v20_quote_payment_terms.sql` and does not write its optional
+`payment_terms_text` column.
 
 The repository convention remains to apply the base schema and every committed
 `schema_v*.sql` migration in numeric order. The list above calls out the direct

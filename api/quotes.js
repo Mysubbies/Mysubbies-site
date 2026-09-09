@@ -37,6 +37,7 @@ const { computeQuoteTotals } = require('./_lib/quoteMath');
 const { notifyAdmin } = require('./_lib/adminNotify');
 const { sendEmailWithResult, wrapEmail, escapeHtml, emailButton, emailDetailsTable } = require('./_lib/email');
 const { convertAcceptedQuoteToJob, QuoteConversionError } = require('./_lib/quoteToJob');
+const { paymentTermsFromVersion, quoteVersionContent } = require('./_lib/quotePersistence');
 
 const TOKEN_BYTES = 32;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
@@ -158,7 +159,7 @@ function serializePublic(quote, version, issuingEntity) {
     scopeText: version.scope_text,
     inclusionsText: version.inclusions_text,
     exclusionsText: version.exclusions_text,
-    paymentTermsText: version.payment_terms_text,
+    paymentTermsText: paymentTermsFromVersion(version),
     termsVersion: version.terms_version,
     termsText: getTermsText(version.terms_version),
     termsUrl: TERMS_URL,
@@ -176,7 +177,7 @@ function serializeVersionAdmin(v) {
     customerSnapshot: v.customer_snapshot, propertySnapshot: v.property_snapshot, lineItems: v.line_items,
     subtotalExGstCents: v.subtotal_ex_gst_cents, gstCents: v.gst_cents, totalIncGstCents: v.total_inc_gst_cents,
     scopeText: v.scope_text, inclusionsText: v.inclusions_text, exclusionsText: v.exclusions_text,
-    paymentTermsText: v.payment_terms_text,
+    paymentTermsText: paymentTermsFromVersion(v),
     termsVersion: v.terms_version, termsText: getTermsText(v.terms_version), termsUrl: TERMS_URL, attachments: v.attachments, validityDays: v.validity_days,
     issuedAt: v.issued_at, expiresAt: v.expires_at, supersededByVersionId: v.superseded_by_version_id,
     acceptedAt: v.accepted_at, acceptedByName: v.accepted_by_name, acceptedByEmail: v.accepted_by_email,
@@ -238,11 +239,7 @@ async function handleCreateDraft(req, res, supabase) {
   const { data: version, error: versionErr } = await supabase.from('quote_versions').insert({
     quote_id: quote.id, version_number: 1, status: 'draft',
     customer_snapshot: { name: customer.name, email: customer.email, phone: customer.phone },
-    property_snapshot: body.propertySnapshot || null,
-    line_items: totals.lineItems, subtotal_ex_gst_cents: totals.subtotalExGstCents,
-    gst_cents: totals.gstCents, total_inc_gst_cents: totals.totalIncGstCents,
-    scope_text: body.scopeText || null, inclusions_text: body.inclusionsText || null,
-    exclusions_text: body.exclusionsText || null, payment_terms_text: body.paymentTermsText || null,
+    ...quoteVersionContent(body, totals),
     terms_version: 'v1', validity_days: body.validityDays || 30,
   }).select().single();
   if (versionErr) throw versionErr;
@@ -267,14 +264,7 @@ async function handleUpdateDraft(req, res, supabase) {
   }
   const totals = computeQuoteTotals(body.lineItems);
   const { data: updated, error: updErr } = await supabase.from('quote_versions').update({
-    property_snapshot: body.propertySnapshot !== undefined ? body.propertySnapshot : version.property_snapshot,
-    line_items: totals.lineItems, subtotal_ex_gst_cents: totals.subtotalExGstCents,
-    gst_cents: totals.gstCents, total_inc_gst_cents: totals.totalIncGstCents,
-    scope_text: body.scopeText !== undefined ? body.scopeText : version.scope_text,
-    inclusions_text: body.inclusionsText !== undefined ? body.inclusionsText : version.inclusions_text,
-    exclusions_text: body.exclusionsText !== undefined ? body.exclusionsText : version.exclusions_text,
-    payment_terms_text: body.paymentTermsText !== undefined ? body.paymentTermsText : version.payment_terms_text,
-    validity_days: body.validityDays || version.validity_days,
+    ...quoteVersionContent(body, totals, version),
     updated_at: new Date().toISOString(),
   }).eq('id', version.id).select().single();
   if (updErr) throw updErr;
@@ -337,7 +327,7 @@ async function handleRevise(req, res, supabase) {
     line_items: current.line_items, subtotal_ex_gst_cents: current.subtotal_ex_gst_cents,
     gst_cents: current.gst_cents, total_inc_gst_cents: current.total_inc_gst_cents,
     scope_text: current.scope_text, inclusions_text: current.inclusions_text, exclusions_text: current.exclusions_text,
-    payment_terms_text: current.payment_terms_text, terms_version: current.terms_version,
+    payment_schedule_note: current.payment_schedule_note || null, terms_version: current.terms_version,
     validity_days: current.validity_days,
   }).select().single();
   if (nvErr) throw nvErr;
