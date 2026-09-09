@@ -10,6 +10,7 @@
 // POST { action:'issue', quoteId }                                      (admin)
 // POST { action:'revise', quoteId }                                     (admin -- from 'sent' only)
 // POST { action:'withdraw', quoteId }                                   (admin -- from 'sent' only)
+// POST { action:'push_to_portal', quoteId }                             (admin -- accepted quote only, idempotent)
 // POST { action:'create_staff', name, email }                           (admin)
 // POST { action:'update_staff', id, name, email, active }               (admin)
 //
@@ -34,15 +35,31 @@ const { getSupabase } = require('./_lib/clients');
 const { requireAdmin } = require('./_lib/adminAuth');
 const { computeQuoteTotals } = require('./_lib/quoteMath');
 const { notifyAdmin } = require('./_lib/adminNotify');
-const { sendEmailWithResult, wrapEmail, escapeHtml, emailButton, emailDetailsTable } = require('./_lib/email');
+const { sendEmailWithResult, escapeHtml } = require('./_lib/email');
+const { convertAcceptedQuoteToJob, QuoteConversionError } = require('./_lib/quoteToJob');
+const { paymentTermsFromVersion, quoteVersionContent } = require('./_lib/quotePersistence');
+const { getRecommendedServices, identifyQuotedCategories } = require('./_lib/quoteRecommendations');
+const { quoteBaseUrl } = require('./_lib/quoteUrl');
+const { renderQuoteEmail } = require('./_lib/quoteEmail');
 
 const TOKEN_BYTES = 32;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const RATE_LIMIT_MAX_ATTEMPTS = 20;
-const QUOTE_BASE_URL = 'https://app.mysubbies.com.au/mysubbies-quote.html';
 const TERMS_URL = 'https://app.mysubbies.com.au/mysubbies-terms.html';
 
-function fmtCentsServer(c) { return '$' + ((c || 0) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+async function loadRecommendations(supabase, version) {
+  try {
+    const { data: rateCard, error } = await supabase.from('platform_rate_card').select('categories').eq('id', true).maybeSingle();
+    if (error || !rateCard || !Array.isArray(rateCard.categories)) return { recommendations: [], sourceCategory: null };
+    return {
+      recommendations: getRecommendedServices(version.line_items, rateCard.categories),
+      sourceCategory: identifyQuotedCategories(version.line_items, rateCard.categories)[0] || null,
+    };
+  } catch (recommendationError) {
+    console.error('quote recommendations unavailable:', { code: recommendationError.code || 'unknown' });
+    return { recommendations: [], sourceCategory: null };
+  }
+}
 
 // Standard terms text, keyed by terms_version, returned to BOTH the admin
 // builder and the customer quote page so there is one server-side source
@@ -156,7 +173,7 @@ function serializePublic(quote, version, issuingEntity) {
     scopeText: version.scope_text,
     inclusionsText: version.inclusions_text,
     exclusionsText: version.exclusions_text,
-    paymentTermsText: version.payment_terms_text,
+    paymentTermsText: paymentTermsFromVersion(version),
     termsVersion: version.terms_version,
     termsText: getTermsText(version.terms_version),
     termsUrl: TERMS_URL,
@@ -174,7 +191,7 @@ function serializeVersionAdmin(v) {
     customerSnapshot: v.customer_snapshot, propertySnapshot: v.property_snapshot, lineItems: v.line_items,
     subtotalExGstCents: v.subtotal_ex_gst_cents, gstCents: v.gst_cents, totalIncGstCents: v.total_inc_gst_cents,
     scopeText: v.scope_text, inclusionsText: v.inclusions_text, exclusionsText: v.exclusions_text,
-    paymentTermsText: v.payment_terms_text,
+    paymentTermsText: paymentTermsFromVersion(v),
     termsVersion: v.terms_version, termsText: getTermsText(v.terms_version), termsUrl: TERMS_URL, attachments: v.attachments, validityDays: v.validity_days,
     issuedAt: v.issued_at, expiresAt: v.expires_at, supersededByVersionId: v.superseded_by_version_id,
     acceptedAt: v.accepted_at, acceptedByName: v.accepted_by_name, acceptedByEmail: v.accepted_by_email,
@@ -236,11 +253,7 @@ async function handleCreateDraft(req, res, supabase) {
   const { data: version, error: versionErr } = await supabase.from('quote_versions').insert({
     quote_id: quote.id, version_number: 1, status: 'draft',
     customer_snapshot: { name: customer.name, email: customer.email, phone: customer.phone },
-    property_snapshot: body.propertySnapshot || null,
-    line_items: totals.lineItems, subtotal_ex_gst_cents: totals.subtotalExGstCents,
-    gst_cents: totals.gstCents, total_inc_gst_cents: totals.totalIncGstCents,
-    scope_text: body.scopeText || null, inclusions_text: body.inclusionsText || null,
-    exclusions_text: body.exclusionsText || null, payment_terms_text: body.paymentTermsText || null,
+    ...quoteVersionContent(body, totals),
     terms_version: 'v1', validity_days: body.validityDays || 30,
   }).select().single();
   if (versionErr) throw versionErr;
@@ -265,14 +278,7 @@ async function handleUpdateDraft(req, res, supabase) {
   }
   const totals = computeQuoteTotals(body.lineItems);
   const { data: updated, error: updErr } = await supabase.from('quote_versions').update({
-    property_snapshot: body.propertySnapshot !== undefined ? body.propertySnapshot : version.property_snapshot,
-    line_items: totals.lineItems, subtotal_ex_gst_cents: totals.subtotalExGstCents,
-    gst_cents: totals.gstCents, total_inc_gst_cents: totals.totalIncGstCents,
-    scope_text: body.scopeText !== undefined ? body.scopeText : version.scope_text,
-    inclusions_text: body.inclusionsText !== undefined ? body.inclusionsText : version.inclusions_text,
-    exclusions_text: body.exclusionsText !== undefined ? body.exclusionsText : version.exclusions_text,
-    payment_terms_text: body.paymentTermsText !== undefined ? body.paymentTermsText : version.payment_terms_text,
-    validity_days: body.validityDays || version.validity_days,
+    ...quoteVersionContent(body, totals, version),
     updated_at: new Date().toISOString(),
   }).eq('id', version.id).select().single();
   if (updErr) throw updErr;
@@ -314,7 +320,7 @@ async function handleIssue(req, res, supabase) {
 
   res.status(200).json({
     quote: serializeQuoteAdmin({ ...quote, current_status: 'sent' }, updated, null),
-    token: rawToken, url: `${QUOTE_BASE_URL}?token=${encodeURIComponent(rawToken)}`,
+    token: rawToken, url: `${quoteBaseUrl()}?token=${encodeURIComponent(rawToken)}`,
   });
 }
 
@@ -335,7 +341,7 @@ async function handleRevise(req, res, supabase) {
     line_items: current.line_items, subtotal_ex_gst_cents: current.subtotal_ex_gst_cents,
     gst_cents: current.gst_cents, total_inc_gst_cents: current.total_inc_gst_cents,
     scope_text: current.scope_text, inclusions_text: current.inclusions_text, exclusions_text: current.exclusions_text,
-    payment_terms_text: current.payment_terms_text, terms_version: current.terms_version,
+    payment_schedule_note: current.payment_schedule_note || null, terms_version: current.terms_version,
     validity_days: current.validity_days,
   }).select().single();
   if (nvErr) throw nvErr;
@@ -386,29 +392,29 @@ async function handleSendQuoteEmail(req, res, supabase) {
   if (!customerEmail) { res.status(400).json({ error: 'This quote has no customer email on file.' }); return; }
 
   const nowIso = new Date().toISOString();
-  await supabase.from('document_access_tokens').update({ revoked_at: nowIso })
+  const { error: revokeError } = await supabase.from('document_access_tokens').update({ revoked_at: nowIso })
     .eq('document_type', 'quote_version').eq('document_id', version.id).is('revoked_at', null);
+  if (revokeError) {
+    console.error('quote email token revoke failed:', { code: revokeError.code || 'unknown' });
+    res.status(500).json({ error: 'Could not prepare the secure quote link. No email was sent.' });
+    return;
+  }
   const rawToken = generateToken();
-  await supabase.from('document_access_tokens').insert({
+  const { error: tokenError } = await supabase.from('document_access_tokens').insert({
     document_type: 'quote_version', document_id: version.id, token_hash: hashToken(rawToken), expires_at: version.expires_at,
   });
-  const url = `${QUOTE_BASE_URL}?token=${encodeURIComponent(rawToken)}`;
+  if (tokenError) {
+    console.error('quote email token creation failed:', { code: tokenError.code || 'unknown' });
+    res.status(500).json({ error: 'Could not prepare the secure quote link. No email was sent.' });
+    return;
+  }
+  const url = `${quoteBaseUrl()}?token=${encodeURIComponent(rawToken)}`;
 
-  const customerName = (version.customer_snapshot && version.customer_snapshot.name) || '';
+  const { recommendations, sourceCategory } = await loadRecommendations(supabase, version);
   const emailResult = await sendEmailWithResult({
     to: customerEmail,
     subject: `Your Mysubbies quote is ready (Quote #${quote.quote_number})`,
-    html: wrapEmail(`
-      <p>Hi ${escapeHtml(customerName || 'there')},</p>
-      <p>Your Mysubbies quote is ready. Review the scope, pricing and next steps using the secure link below.</p>
-      ${emailButton('View your quote', url)}
-      ${emailDetailsTable([
-        { label: 'Quote', value: `#${quote.quote_number}` },
-        { label: 'Total', value: fmtCentsServer(version.total_inc_gst_cents) },
-        { label: 'Valid until', value: version.expires_at ? new Date(version.expires_at).toLocaleDateString('en-AU') : null },
-      ])}
-      <p style="margin-top:16px;">Questions? Just reply to this email or use "Ask a question" on the quote page.</p>
-    `),
+    html: renderQuoteEmail({ quote, version, secureQuoteUrl: url, recommendations, sourceCategory }),
   });
 
   // Unlike every other notification in this codebase (deliberately fire-
@@ -493,8 +499,11 @@ module.exports = async (req, res) => {
         const entity = version.issuing_entity_id
           ? (await supabase.from('issuing_entities').select('*').eq('id', version.issuing_entity_id).maybeSingle()).data
           : null;
+        // Cross-sell is optional enrichment only. A missing/outdated rate card
+        // must never prevent the secure quote itself from rendering.
+        const { recommendations } = await loadRecommendations(supabase, version);
         await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'viewed', actorRole: 'customer' });
-        res.status(200).json(serializePublic(quote, version, entity));
+        res.status(200).json({ ...serializePublic(quote, version, entity), recommendations });
         return;
       }
 
@@ -543,8 +552,27 @@ module.exports = async (req, res) => {
       ]);
       const versionById = new Map((versions || []).map(v => [v.id, v]));
       const customerById = new Map((customers || []).map(c => [c.id, c]));
+      const quoteIds = (quoteRows || []).map(row => row.id);
+      const [{ data: recentEvents }, { data: openQuestions }] = quoteIds.length ? await Promise.all([
+        supabase.from('quote_events').select('quote_id, event_type, created_at').in('quote_id', quoteIds).order('created_at', { ascending: false }),
+        supabase.from('inquiries').select('quote_id').in('quote_id', quoteIds).eq('status', 'open'),
+      ]) : [{ data: [] }, { data: [] }];
+      const activityByQuote = new Map();
+      for (const event of recentEvents || []) {
+        const activity = activityByQuote.get(event.quote_id) || { questionCount: 0, lastActivityAt: null };
+        if (!activity.lastActivityAt) activity.lastActivityAt = event.created_at;
+        activityByQuote.set(event.quote_id, activity);
+      }
+      for (const inquiry of openQuestions || []) {
+        const activity = activityByQuote.get(inquiry.quote_id) || { questionCount: 0, lastActivityAt: null };
+        activity.questionCount++;
+        activityByQuote.set(inquiry.quote_id, activity);
+      }
       res.status(200).json({
-        quotes: (quoteRows || []).map(q2 => serializeQuoteAdmin(q2, versionById.get(q2.current_version_id) || null, customerById.get(q2.customer_id) || null)),
+        quotes: (quoteRows || []).map(q2 => ({
+          ...serializeQuoteAdmin(q2, versionById.get(q2.current_version_id) || null, customerById.get(q2.customer_id) || null),
+          ...(activityByQuote.get(q2.id) || { questionCount: 0, lastActivityAt: q2.updated_at }),
+        })),
       });
       return;
     }
@@ -611,6 +639,21 @@ module.exports = async (req, res) => {
       if (action === 'revise') { await handleRevise(req, res, supabase); return; }
       if (action === 'withdraw') { await handleWithdraw(req, res, supabase); return; }
       if (action === 'send_quote_email') { await handleSendQuoteEmail(req, res, supabase); return; }
+      if (action === 'push_to_portal') {
+        try {
+          const converted = await convertAcceptedQuoteToJob(supabase, (req.body || {}).quoteId);
+          await logQuoteEvent(supabase, { quoteId: converted.quote.id, quoteVersionId: converted.quote.current_version_id,
+            eventType: converted.alreadyConverted ? 'portal_push_retried' : 'pushed_to_portal', actorRole: 'admin',
+            payload: { jobId: converted.job && converted.job.id } });
+          res.status(200).json({ ok: true, jobId: converted.job && converted.job.id, alreadyConverted: converted.alreadyConverted });
+        } catch (conversionError) {
+          if (conversionError instanceof QuoteConversionError) {
+            res.status(conversionError.statusCode).json({ error: conversionError.message }); return;
+          }
+          throw conversionError;
+        }
+        return;
+      }
       if (action === 'ai_draft_text') { await handleAiDraftText(req, res); return; }
 
       if (action === 'create_staff') {

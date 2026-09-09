@@ -441,7 +441,10 @@
     } catch (e) {
       console.error('localStorage quota exceeded saving jobs:', e);
     }
-    fetch('/api/sync-jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobs }) }).catch(() => {});
+    getCustomerAccessToken().then(token => token && fetch('/api/sync-jobs', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ role: 'customer', jobs }),
+    })).catch(() => {});
   }
   // Runs once before the first render: pulls this customer's jobs from
   // Supabase and merges them into localStorage, so a job created on another
@@ -460,7 +463,9 @@
     const email = getCurrentCustomerEmail();
     if (!email) return true;
     try {
-      const res = await fetch('/api/get-jobs?customerEmail=' + encodeURIComponent(email));
+      const token = await getCustomerAccessToken();
+      if (!token) return false;
+      const res = await fetch('/api/get-jobs?customerEmail=1', { headers: { Authorization: 'Bearer ' + token } });
       if (!res.ok) return false;
       const { jobs: remoteJobs } = await res.json();
       if (!Array.isArray(remoteJobs) || remoteJobs.length === 0) return true;
@@ -1891,6 +1896,7 @@
     { label: 'Cleaning', catLabel: 'Cleaning', photo: 'images/categories/cleaning.jpg' },
     { label: 'Garden care', catLabel: 'Gardening & Lawn Mowing', photo: 'images/categories/gardening-lawn-mowing.jpg' },
     { label: 'Outdoor projects', catLabel: 'Decking', photo: 'images/categories/decking.jpg' },
+    { label: 'Painting', catLabel: 'Painting', photo: 'images/categories/painting.jpg' },
   ];
   function goToCategoryInEstimator(catLabel) {
     localStorage.setItem('mysubbies_open_category', catLabel);
@@ -2016,7 +2022,7 @@
     if (allJobs.length === 0) {
       wrap.innerHTML = `
         <div class="hero-panel">
-          <h2>What can we help you with today?</h2>
+          <h2>What needs sorting?</h2>
           <p>From everyday repairs to bigger home improvements, start with the job you need sorted.</p>
           <div class="hero-panel-actions">
             <a class="btn btn-black" style="width:auto;" href="mysubbies-website.html#estimate">Book your first service</a>
@@ -2039,7 +2045,15 @@
     const active = withProgress.filter(x => x.progress.label !== 'Completed').map(x => x.j);
     const hasActive = active.length > 0;
 
-    let html = '';
+    let html = `
+      <div class="hero-panel">
+        <h2>What needs sorting?</h2>
+        <p>Book trusted help for the next job around your home, or tell us about a larger project.</p>
+        <div class="hero-panel-actions">
+          <a class="btn btn-black" style="width:auto;" href="mysubbies-website.html#estimate">Book a service</a>
+          <button class="btn btn-outline" style="width:auto;" onclick="openProjectEnquiryForm()">Plan a larger project</button>
+        </div>
+      </div>`;
     if (flagged.length > 0) {
       html += `<div class="action-needed-card"><div class="anc-label">Needs your attention</div>${flagged.map(j => bookingCardHtml(j, email)).join('')}</div>`;
     }
@@ -2051,15 +2065,7 @@
       }
       html += `<a class="btn btn-outline" style="width:auto;margin-bottom:24px;" onclick="goToDashSection('bookings')">View all bookings →</a>`;
     } else {
-      html += `
-        <div class="hero-panel">
-          <h2>Ready for your next home job?</h2>
-          <p>Browse services or plan something bigger for your place.</p>
-          <div class="hero-panel-actions">
-            <a class="btn btn-black" style="width:auto;" href="mysubbies-website.html#estimate">Book a service</a>
-            <button class="btn btn-outline" style="width:auto;" onclick="goToDashSection('bookings')">View past bookings</button>
-          </div>
-        </div>`;
+      html += `<button class="btn btn-outline" style="width:auto;margin-bottom:24px;" onclick="goToDashSection('bookings')">View past bookings →</button>`;
     }
     html += `<div class="section-head">Popular services</div>${categoryCardsHtml()}`;
     html += projectPanelHtml();

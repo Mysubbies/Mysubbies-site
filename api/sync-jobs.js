@@ -1,70 +1,64 @@
 // POST /api/sync-jobs
-// Body: { jobs: [ <full localStorage job object>, ... ] }
+// Body: { jobs: [local display records] }
 //
-// Mirrors the full job record (messages, photos, payment-stage ticks,
-// variations — everything) into Supabase so it's visible from any device,
-// not just the browser that created it. Called by every page's saveJobs()
-// after it writes to localStorage, so it fires on every mutation without
-// needing each individual button handler (accept job, send message, tick a
-// payment stage, add a variation...) to know about the backend.
-//
-// IMPORTANT: this never touches the `status`, `base_price_cents`,
-// `deposit_pct` or `deposit_amount_cents` columns on an existing row —
-// those are the real payment state, owned exclusively by
-// create-deposit-intent.js (locks the price in) and stripe-webhook.js
-// (marks it paid). This endpoint only ever writes `full_record` (the
-// entire local job object, for display) and a couple of lookup columns.
-// A job that doesn't exist yet in the table (e.g. a multi-category bundle,
-// which never goes through the real Stripe flow — see CLAUDE.md) gets a
-// reasonable one-time default for those payment columns on first insert
-// only, derived from the local job's own paymentSchedule/paidStages.
-//
-// Property Profiles (added Aug 2026): this is also the single choke point
-// that sees every job mutation from all 4 portals, so it's the natural
-// place to auto-populate the property_profiles/property_history tables —
-// no separate client-side wiring needed. See CLAUDE.md and
-// supabase/schema_v5_property_profiles.sql for the full writeup. A job
-// counts as "genuinely complete" when every stage in its own paymentSchedule
-// has been ticked in paidStages — jobs.status/'completed' is never actually
-// reached anywhere in this codebase, so it can't be used as the signal here.
+// Legacy portals still save a local array, but that array is no longer an
+// authoritative replacement for jobs.full_record. Authenticated users may
+// only append their own messages and update a small set of non-financial
+// display/request fields. Structured database columns remain authoritative
+// for identity, assignment, pricing and payment state.
 const { getSupabase } = require('./_lib/clients');
+const { verifyAdminAuth } = require('./_lib/adminAuth');
+const { requireAccount } = require('./_lib/userAuth');
+const { PROTECTED_FIELDS, mergePermittedMutation, restoreStructuredFields, initialRecord } = require('./_lib/jobMutationSecurity');
 
-function normalizeAddress(addr) {
-  return String(addr || '').trim().toLowerCase().replace(/\s+/g, ' ');
+function requestedRole(req) {
+  const role = req.body && req.body.role;
+  return role === 'customer' || role === 'contractor' ? role : null;
 }
 
-function isJobComplete(job) {
-  return Array.isArray(job.paymentSchedule) && job.paymentSchedule.length > 0
-    && job.paymentSchedule.every(s => job.paidStages && job.paidStages[s.key]);
+function adminRecord(existing, submitted) {
+  const prior = existing.full_record || {};
+  // Admin may perform operational assignment/status/display edits, but even
+  // an authenticated browser cannot overwrite financial/payment evidence.
+  const merged = { ...prior, ...submitted };
+  for (const key of PROTECTED_FIELDS) merged[key] = prior[key];
+  // These two are explicit admin operations, rather than browser authority
+  // over pricing/payment state.
+  merged.contractor = submitted.contractor || null;
+  const adminOperationalStatuses = new Set(['feed', 'assigned', 'cancellation_requested', 'cancelled']);
+  merged.status = adminOperationalStatuses.has(submitted.status) ? submitted.status : prior.status;
+  return restoreStructuredFields(merged, {
+    ...existing,
+    contractor_email: submitted.contractorEmail || null,
+  });
+}
+
+function normalizeAddress(address) {
+  return String(address || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 async function syncPropertyProfile(supabase, job) {
   const normalized = normalizeAddress(job.address);
   if (!normalized) return;
+  const { data: profile, error } = await supabase.from('property_profiles').upsert({
+    normalized_address: normalized,
+    address: job.address,
+    suburb: job.suburb || null,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'normalized_address' }).select('id').single();
+  if (error || !profile) return;
 
-  const { data: profile, error: profileErr } = await supabase
-    .from('property_profiles')
-    .upsert({
-      normalized_address: normalized,
-      address: job.address,
-      suburb: job.suburb || null,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'normalized_address' })
-    .select('id')
-    .single();
-  if (profileErr || !profile) return;
-
-  if (!isJobComplete(job)) return;
-
-  const taskSummary = Array.isArray(job.items) && job.items.length
-    ? job.items.map(i => i.taskName).filter(Boolean).join(', ')
-    : null;
-
+  // Completion state below is the previously stored, protected snapshot;
+  // mergePermittedMutation never accepts paidStages/paymentSchedule from
+  // this request.
+  const complete = Array.isArray(job.paymentSchedule) && job.paymentSchedule.length
+    && job.paymentSchedule.every(stage => job.paidStages && job.paidStages[stage.key]);
+  if (!complete) return;
   await supabase.from('property_history').upsert({
     property_id: profile.id,
     job_id: job.id,
     category: job.category,
-    task_summary: taskSummary,
+    task_summary: Array.isArray(job.items) ? job.items.map(item => item.taskName).filter(Boolean).join(', ') : null,
     contractor_email: job.contractorEmail || null,
     contractor_name: job.contractor || null,
     amount_paid_cents: Math.round((job.basePrice || 0) * 100) || null,
@@ -74,61 +68,74 @@ async function syncPropertyProfile(supabase, job) {
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+  const { jobs } = req.body || {};
+  if (!Array.isArray(jobs) || jobs.length === 0) {
+    res.status(400).json({ error: 'jobs must be a non-empty array.' }); return;
+  }
 
   try {
-    const { jobs } = req.body || {};
-    if (!Array.isArray(jobs) || jobs.length === 0) {
-      res.status(400).json({ error: 'jobs must be a non-empty array.' });
-      return;
-    }
-
     const supabase = getSupabase();
-    const results = [];
+    const isAdmin = verifyAdminAuth(req);
+    const role = isAdmin ? 'admin' : requestedRole(req);
+    if (!role) { res.status(400).json({ error: 'role must be customer or contractor.' }); return; }
+    const auth = isAdmin ? null : await requireAccount(supabase, req, role);
+    if (auth && !auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
+    const email = auth ? String(auth.account.email).toLowerCase() : null;
 
-    for (const job of jobs.slice(0, 200)) {
-      if (!job || !job.id || !job.category) continue;
-
-      const { data: existing } = await supabase.from('jobs').select('id').eq('id', job.id).maybeSingle();
-
-      if (existing) {
-        await supabase.from('jobs').update({
-          full_record: job,
-          customer_email: job.customerEmail || null,
-          contractor_email: job.contractorEmail || null,
-          suburb: job.suburb || null,
-          updated_at: new Date().toISOString(),
-        }).eq('id', job.id);
-      } else {
-        const depositStage = Array.isArray(job.paymentSchedule)
-          ? job.paymentSchedule.find(s => s.key === 'deposit') || job.paymentSchedule[0]
-          : null;
-        const depositPct = depositStage ? depositStage.pct : 5;
-        const basePriceCents = Math.round((job.basePrice || 0) * 100);
-        const depositAmountCents = Math.round(basePriceCents * (depositPct / 100));
-        const depositAlreadyPaid = !!(job.paidStages && job.paidStages.deposit);
-
-        await supabase.from('jobs').insert({
-          id: job.id,
-          category: job.category,
-          suburb: job.suburb || null,
-          contractor_email: job.contractorEmail || null,
-          base_price_cents: basePriceCents || 1,
-          deposit_pct: depositPct,
-          deposit_amount_cents: depositAmountCents || 1,
-          status: depositAlreadyPaid ? 'deposit_paid' : 'pending_deposit',
-          full_record: job,
-          customer_email: job.customerEmail || null,
-        });
+    // Read and authorize the whole batch before any write. This avoids a
+    // partial mutation when localStorage contains another account's record.
+    const rows = [];
+    for (const submitted of jobs.slice(0, 200)) {
+      if (!submitted || !submitted.id) continue;
+      const { data: existing, error } = await supabase.from('jobs').select('*').eq('id', submitted.id).maybeSingle();
+      if (error) throw error;
+      if (!existing) { res.status(409).json({ error: 'Job must be created by an authoritative booking flow before it can be synced.' }); return; }
+      if (role === 'customer' && String(existing.customer_email || '').toLowerCase() !== email) {
+        res.status(403).json({ error: 'You cannot modify another customer’s job.' }); return;
       }
-      results.push(job.id);
-
-      // Never let a Property Profile hiccup break the actual job sync this
-      // endpoint exists for — same "swallow and continue" approach notify.js
-      // uses for its own non-critical side effects.
-      try { await syncPropertyProfile(supabase, job); } catch (e) { console.error('property-profile sync error:', e); }
+      if (role === 'contractor' && existing.contractor_email && String(existing.contractor_email).toLowerCase() !== email) {
+        res.status(403).json({ error: 'You cannot modify another contractor’s job.' }); return;
+      }
+      const accepting = role === 'contractor' && !existing.contractor_email
+        && submitted.status === 'assigned' && !!submitted.contractorEmail;
+      if (role === 'contractor' && !existing.contractor_email && !accepting) continue;
+      rows.push({ existing, submitted, accepting });
     }
 
-    res.status(200).json({ synced: results.length });
+    const synced = [];
+    for (const { existing, submitted, accepting } of rows) {
+      let storedRecord;
+      if (role === 'admin') {
+        const record = adminRecord(existing, submitted);
+        storedRecord = record;
+        const { error } = await supabase.from('jobs').update({
+          full_record: record,
+          contractor_email: submitted.contractorEmail || null,
+          suburb: submitted.suburb || existing.suburb || null,
+          updated_at: new Date().toISOString(),
+        }).eq('id', existing.id);
+        if (error) throw error;
+      } else {
+        const prior = existing.full_record || initialRecord(submitted, existing, auth);
+        let record = mergePermittedMutation(prior, submitted, role);
+        const update = { updated_at: new Date().toISOString() };
+        if (accepting) {
+          update.contractor_email = email;
+          record = { ...record, contractorEmail: email, contractor: submitted.contractor || null, status: 'assigned' };
+        }
+        record = restoreStructuredFields(record, { ...existing, contractor_email: accepting ? email : existing.contractor_email });
+        storedRecord = record;
+        update.full_record = record;
+        let query = supabase.from('jobs').update(update).eq('id', existing.id);
+        if (accepting) query = query.is('contractor_email', null);
+        const { error } = await query;
+        if (error) throw error;
+      }
+      synced.push(existing.id);
+      try { await syncPropertyProfile(supabase, storedRecord); }
+      catch (profileError) { console.error('property-profile sync error:', profileError); }
+    }
+    res.status(200).json({ synced: synced.length });
   } catch (err) {
     console.error('sync-jobs error:', err);
     res.status(500).json({ error: 'Could not sync jobs.' });
