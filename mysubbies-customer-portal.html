@@ -542,6 +542,10 @@
   // instead of a silent "no bookings" that looks identical to a genuinely
   // new customer -- see renderMyHome()/renderBookingsList().
   let jobsLoadState = 'loading'; // 'loading' | 'ready' | 'error'
+  // Homepage larger-project CTA deep-links into this existing enquiry form.
+  // The query survives login; it is consumed only after the authenticated
+  // dashboard (and its projectEnquiryFormWrap) has rendered.
+  let pendingProjectEnquiry = new URLSearchParams(window.location.search).get('project-enquiry') === '1';
 
   function openPaymentHistory() { showingPaymentHistory = true; showingPropertyProfile = false; dashSection = 'payments'; render(); }
   function closePaymentHistory() { showingPaymentHistory = false; dashSection = 'home'; render(); }
@@ -1835,7 +1839,16 @@
   // individually is the safe way to keep the active-tab highlight in sync
   // without touching the many existing call sites that already call
   // render().
-  function render() { renderInner(); updateMobileTabbar(); updateAcctAvatar(); }
+  function render() {
+    renderInner();
+    updateMobileTabbar();
+    updateAcctAvatar();
+    if (pendingProjectEnquiry && getCurrentCustomerEmail() && document.getElementById('projectEnquiryFormWrap')) {
+      pendingProjectEnquiry = false;
+      window.history.replaceState({}, '', window.location.pathname);
+      setTimeout(openProjectEnquiryForm, 0);
+    }
+  }
   function updateAcctAvatar() {
     const el = document.getElementById('acctAvatarInitial');
     const email = getCurrentCustomerEmail();

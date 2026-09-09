@@ -4,20 +4,20 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Book Trusted Local Tradies in Melbourne | MySubbies</title>
-<meta name="description" content="Get an instant, estimated price for decking, fencing, electrical, plumbing and 27 other trade categories in Melbourne. No bidding wars, no lead fees, no chasing quotes — approve and book a vetted contractor in minutes." />
+<meta name="description" content="Book trusted local professionals for home repairs, maintenance, gardening and outdoor jobs across Melbourne, with an estimated price instantly." />
 <link rel="canonical" href="https://www.mysubbies.com.au/" />
 <meta name="robots" content="index, follow" />
 
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="MySubbies" />
 <meta property="og:title" content="MySubbies — Instant Trade Prices in Melbourne" />
-<meta property="og:description" content="Choose your job, see the price, book. A dedicated contractor panel for Melbourne homes — instant pricing, no bidding, no lead fees." />
+<meta property="og:description" content="Book trusted local professionals for home repairs, maintenance, gardening and outdoor jobs across Melbourne, with an estimated price instantly." />
 <meta property="og:url" content="https://www.mysubbies.com.au/" />
 <meta property="og:locale" content="en_AU" />
 
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="MySubbies — Instant Trade Prices in Melbourne" />
-<meta name="twitter:description" content="Choose your job, see the price, book. No bidding wars, no lead fees, no chasing quotes." />
+<meta name="twitter:description" content="Book trusted local professionals across Melbourne and get an estimated price instantly." />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -147,6 +147,25 @@
   .estimator-search-results.show { display:block; }
   .estimator-search-result { display:block; width:100%; text-align:left; padding:11px 16px; font-size:14px; color:var(--ink); background:none; border:none; border-bottom:1px solid var(--paper); cursor:pointer; }
   .estimator-search-result:hover { background: var(--paper); }
+
+  .quick-services { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .quick-services button { min-height:42px; padding:9px 13px; border:1px solid var(--line); border-radius:999px; background:#fff; color:var(--black); font:600 12.5px 'Plus Jakarta Sans',sans-serif; cursor:pointer; }
+  .quick-services button:hover, .quick-services button:focus-visible { border-color:var(--black); background:var(--primary-pale); outline:none; }
+  .launch-paths { padding:48px 0; background:var(--paper); }
+  .launch-paths-grid { display:grid; grid-template-columns:1.35fr .85fr; gap:24px; align-items:stretch; }
+  .launch-how, .project-quote-card { border:1px solid var(--line); border-radius:20px; background:#fff; padding:28px; }
+  .launch-how h2, .project-quote-card h2 { font-size:clamp(24px,3vw,34px); color:var(--black); margin-bottom:20px; }
+  .launch-steps { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  .launch-step-number { width:30px; height:30px; display:grid; place-items:center; border-radius:50%; background:var(--accent-pale); color:var(--black); font-size:13px; font-weight:800; margin-bottom:10px; }
+  .launch-step h3 { font-size:15px; margin-bottom:6px; }
+  .launch-step p, .project-quote-card p { color:var(--stone); font-size:13.5px; line-height:1.6; }
+  .project-quote-card { background:var(--black); color:#fff; display:flex; flex-direction:column; justify-content:center; }
+  .project-quote-card h2 { color:#fff; margin-bottom:10px; }
+  .project-quote-card p { color:rgba(255,255,255,.78); margin-bottom:20px; }
+  .project-quote-card .btn { align-self:flex-start; white-space:normal; text-align:center; }
+  @media (max-width:800px) { .launch-paths-grid { grid-template-columns:1fr; } .launch-steps { grid-template-columns:1fr; } }
+  @media (max-width:520px) { .quick-services { display:grid; grid-template-columns:1fr 1fr; } .quick-services button { width:100%; padding-inline:8px; } .launch-how, .project-quote-card { padding:22px 18px; } }
+
   .estimator-row-2col { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   @media (max-width: 520px) { .estimator-row-2col { grid-template-columns:1fr; } }
   .est-qty-row { margin-bottom:12px; }
@@ -188,6 +207,8 @@
   .chip-est.selected { border-color: var(--black); background: var(--black); color:#fff; }
   .chip-est-photo { display:inline-flex; align-items:center; gap:8px; padding:5px 14px 5px 5px; }
   .chip-est-thumb { width:28px; height:28px; border-radius:50%; object-fit:cover; flex-shrink:0; }
+  .chip-est-price { font-size:11px; font-weight:700; color:var(--stone); margin-left:3px; white-space:nowrap; }
+  .chip-est.selected .chip-est-price { color:rgba(255,255,255,.75); }
   #estCartWrap { margin-bottom: 4px; }
   .cart-item { background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:8px; }
   .cart-item-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
@@ -356,7 +377,8 @@
   .fs-confidence { font-size:11.5px; color:var(--stone); margin-top:10px; }
 
   .steps { display:grid; grid-template-columns:repeat(4, 1fr); gap:28px; }
-  @media (max-width: 900px) { .steps { grid-template-columns:1fr 1fr; } }
+  .protection-steps { grid-template-columns:repeat(3, 1fr); }
+  @media (max-width: 900px) { .steps, .protection-steps { grid-template-columns:1fr 1fr; } }
   @media (max-width: 560px) { .steps { grid-template-columns:1fr; } }
   .step .idx { font-weight:800; font-size:12.5px; color:var(--black); margin-bottom:14px; width:28px; height:28px; border-radius:50%; background:var(--primary-pale); display:flex; align-items:center; justify-content:center; }
   .step h3 { font-size:18px; margin-bottom:8px; color: var(--black); }
@@ -434,7 +456,7 @@
   .house-health-copy p { color:var(--stone); font-size:13.5px; line-height:1.55; max-width:650px; }
   .house-health-copy .health-kicker { color:#2f7a50; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; margin-bottom:5px; }
   .house-health-btn { background:#eef6ef; color:#1e633e; border:1px solid #cfe2d4; }
-  .popular-jobs-section { padding:50px 0; background:linear-gradient(180deg,#fffaf4,#fff); }
+  .popular-jobs-section { padding:42px 0 14px; background:linear-gradient(180deg,#fffaf4,#fff); }
   .section-title-row { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-bottom:20px; }
   .section-title-row h2 { font-size:25px; color:var(--black); }
   .section-title-row a { font-size:13px; font-weight:700; color:var(--black); }
@@ -510,7 +532,7 @@
     .catgrid-popular .catcard2 .cc-body { padding:9px 10px 12px; }
     .catgrid-popular .catcard2 .cc-name { font-size:12.5px; text-align:left; }
     .catgrid-popular .catcard2 .cc-sub { display:block; font-size:11px; }
-    .popular-jobs-section { padding:30px 0; }
+    .popular-jobs-section { padding:26px 0 10px; }
     .section-title-row h2 { font-size:20px; }
     .popular-job-grid { display:flex; overflow-x:auto; gap:12px; padding-bottom:8px; scroll-snap-type:x mandatory; scrollbar-width:none; }
     .popular-job-card { min-width:210px; scroll-snap-align:start; }
@@ -778,12 +800,12 @@
       <a class="navlink" href="#categories">Services</a>
       <a class="navlink" href="#how">How it works</a>
       <a class="navlink" href="#protection">Customer protection</a>
-      <a class="navlink" href="#contractors">For professionals</a>
-      <a class="navlink" href="mysubbies-customer-portal.html">My Jobs</a>
+      <a class="navlink" href="#contractors">Become a Contractor</a>
+      <a class="navlink" href="mysubbies-customer-portal.html">My Bookings</a>
     </nav>
     <div class="navctas">
       <a class="navlink" href="mysubbies-customer-portal.html" style="margin-right:2px;">Log in</a>
-      <a class="btn btn-white" href="#estimate">Get an estimated price instantly</a>
+      <a class="btn btn-white" href="#estimate">Get an instant price</a>
     </div>
     <button class="mobiletoggle" id="mobileToggleBtn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
     <a class="app-bell" href="mysubbies-customer-portal.html" aria-label="Notifications"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg></a>
@@ -792,11 +814,11 @@
     <a class="navlink" href="#categories" onclick="closeMobileMenu()">Services</a>
     <a class="navlink" href="#how" onclick="closeMobileMenu()">How it works</a>
     <a class="navlink" href="#protection" onclick="closeMobileMenu()">Customer protection</a>
-    <a class="navlink" href="#contractors" onclick="closeMobileMenu()">For professionals</a>
-    <a class="navlink" href="mysubbies-customer-portal.html">My Jobs</a>
+    <a class="navlink" href="#contractors" onclick="closeMobileMenu()">Become a Contractor</a>
+    <a class="navlink" href="mysubbies-customer-portal.html">My Bookings</a>
     <div class="mobilemenu-ctas">
       <a class="btn btn-ghost-onblack" href="mysubbies-customer-portal.html">Log in</a>
-      <a class="btn btn-white" href="#estimate" onclick="closeMobileMenu()">Get an estimated price instantly</a>
+      <a class="btn btn-white" href="#estimate" onclick="closeMobileMenu()">Get an instant price</a>
     </div>
   </div>
 </header>
@@ -821,8 +843,8 @@
     </div>
     <div class="app-hero-grid">
       <div class="app-hero-copy">
-        <h1>Your personal tradie, Get an instant quote.</h1>
-        <p class="lede">Book trusted local tradies for home repairs, maintenance, gardening and small outdoor jobs—all in one place.</p>
+        <h1>Need a tradie? Get an instant price.</h1>
+        <p class="lede">Book trusted local professionals for home repairs, maintenance, gardening and outdoor jobs across Melbourne.</p>
 
         <!-- Estimator (Sep 2026) -- moved here from its own section further
              down the page (was <section id="get-quote">) so the actual
@@ -846,6 +868,16 @@
               <div class="estimator-search-wrap">
                 <input type="text" id="estCategoryInput" placeholder="e.g. decking, electrical, tiling…" autocomplete="off" oninput="onCatSearch()" />
                 <div class="estimator-search-results" id="estCatResults"></div>
+              </div>
+              <div class="quick-services" aria-label="Quick service choices">
+                <button type="button" onclick="chooseQuickService('Handyman')">Handyman</button>
+                <button type="button" onclick="chooseQuickService('Cleaning')">Cleaning</button>
+                <button type="button" onclick="chooseQuickService('Gardening &amp; Lawn Mowing')">Gardening</button>
+                <button type="button" onclick="chooseQuickService('Fencing')">Fencing</button>
+                <button type="button" onclick="chooseQuickService('Decking')">Decking</button>
+                <button type="button" onclick="chooseQuickService('Handyman', 'flat-pack assembly')">Furniture Assembly</button>
+                <button type="button" onclick="chooseQuickService('Courier Services')">Same-Day Courier</button>
+                <button type="button" onclick="heroBrowseServices()">More</button>
               </div>
 
               <div id="estRefImage" style="display:none;margin-bottom:14px;"></div>
@@ -953,8 +985,15 @@
                 <div class="chiprow-est" id="estAccessChips"></div>
               </div>
 
-              <label class="est-field-label">How urgent is this job?</label>
-              <input type="text" id="estUrgencyText" placeholder="e.g. ASAP, within 2 weeks, no rush" oninput="selectedUrgency = this.value" />
+              <label class="est-field-label">When do you need this done?</label>
+              <div class="chiprow-est" id="estUrgencyChips">
+                <button type="button" class="chip-est" onclick="selectUrgency('ASAP', this)">ASAP</button>
+                <button type="button" class="chip-est" onclick="selectUrgency('Within a week', this)">Within a week</button>
+                <button type="button" class="chip-est" onclick="selectUrgency('Within 2 weeks', this)">Within 2 weeks</button>
+                <button type="button" class="chip-est" onclick="selectUrgency('Flexible', this)">Flexible</button>
+              </div>
+              <input type="text" id="estUrgencyText" placeholder="Optional timing details" oninput="onUrgencyDetailInput(this.value)" />
+              <div class="est-hint">Timing helps us match the job and does not change the estimated price.</div>
 
               <label class="est-field-label">Add photos (optional)</label>
               <p class="est-photo-note">Uploading photos helps us confirm that the selected service and assumptions match your property. Your displayed price remains subject to the stated scope, exclusions and site assumptions. No variation can be charged without your approval.</p>
@@ -997,13 +1036,31 @@
     </div>
 
     <div class="app-trust-row" aria-label="MySubbies protections">
-      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 9.8 8 11 4.6-1.2 8-6 8-11V5Z"/><path d="m9 12 2 2 4-4"/></svg>Verified<br>Tradies</div>
-      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 9.8 8 11 4.6-1.2 8-6 8-11V5Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>Insured<br>&amp; Checked</div>
-      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m3 12 9-9 9 9-9 9Z"/><path d="M12 7v10M15 9.5c0-1.3-1.3-2-3-2s-3 .7-3 2 1.3 2 3 2 3 .7 3 2-1.3 2-3 2-3-.7-3-2"/></svg>Upfront<br>Pricing</div>
+      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 9.8 8 11 4.6-1.2 8-6 8-11V5Z"/><path d="m9 12 2 2 4-4"/></svg>Approved<br>Contractors</div>
+      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 9.8 8 11 4.6-1.2 8-6 8-11V5Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>Applications<br>Reviewed</div>
+      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m3 12 9-9 9 9-9 9Z"/><path d="M12 7v10M15 9.5c0-1.3-1.3-2-3-2s-3 .7-3 2 1.3 2 3 2 3 .7 3 2-1.3 2-3 2-3-.7-3-2"/></svg>Estimated<br>Pricing</div>
       <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="9" width="16" height="12" rx="2"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15" r="1"/></svg>Secure<br>Payments</div>
-      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 13a8 8 0 0 1 16 0"/><path d="M4 13v4h3v-5H4M20 13v4h-3v-5h3M17 19c-1 2-3 2-5 2"/></svg>Australian<br>Support</div>
+      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 13a8 8 0 0 1 16 0"/><path d="M4 13v4h3v-5H4M20 13v4h-3v-5h3M17 19c-1 2-3 2-5 2"/></svg>In-app<br>Support</div>
     </div>
    </div>
+  </div>
+</section>
+
+<section class="launch-paths" id="how">
+  <div class="wrap launch-paths-grid">
+    <div class="launch-how reveal">
+      <h2>Home jobs without the runaround.</h2>
+      <div class="launch-steps">
+        <div class="launch-step"><div class="launch-step-number">1</div><h3>Tell us what you need</h3><p>Choose a service and give us the details.</p></div>
+        <div class="launch-step"><div class="launch-step-number">2</div><h3>We match the right professional</h3><p>MySubbies connects the job with a suitable local professional.</p></div>
+        <div class="launch-step"><div class="launch-step-number">3</div><h3>Track your job through MySubbies</h3><p>Keep your booking, updates and job progress together.</p></div>
+      </div>
+    </div>
+    <aside class="project-quote-card reveal" aria-labelledby="project-quote-title">
+      <h2 id="project-quote-title">Need a larger job quoted?</h2>
+      <p>Planning fencing, decking, landscaping, renovations or another larger property project? Tell us what you need and we'll review the project and prepare a quote.</p>
+      <a class="btn btn-white btn-lg" href="mysubbies-customer-portal.html?project-enquiry=1">Request a project quote →</a>
+    </aside>
   </div>
 </section>
 
@@ -1068,31 +1125,18 @@
   </div>
 </section>
 
-<section id="how">
-  <div class="wrap">
-    <div class="cat-head reveal">
-      <h2>How MySubbies works.</h2>
-    </div>
-    <div class="steps">
-      <div class="step reveal"><div class="idx">01</div><h3>Tell us what you need</h3><p>Choose a service, describe the problem or upload a photo.</p></div>
-      <div class="step reveal"><div class="idx">02</div><h3>See your estimated price</h3><p>Receive a transparent estimate based on the selected service, quantity and site assumptions.</p></div>
-      <div class="step reveal"><div class="idx">03</div><h3>Get matched</h3><p>Your job is offered to a suitable vetted professional — not placed into an open bidding war.</p></div>
-      <div class="step reveal"><div class="idx">04</div><h3>Track it to completion</h3><p>Communicate, approve authorised stages and manage the job through MySubbies.</p></div>
-    </div>
-  </div>
-</section>
+
 
 <section id="protection">
   <div class="wrap">
     <div class="cat-head reveal">
-      <h2>Customer protection, built in.</h2>
-      <p>Real safeguards on every job — not just a badge in the header.</p>
+      <h2>Support through MySubbies.</h2>
+      <p>Tools that are available in your booking and account today.</p>
     </div>
-    <div class="steps">
-      <div class="step reveal"><div class="idx">01</div><h3>Vetted before they're approved</h3><p>Every contractor's ABN, trade licence (where applicable) and public liability insurance are reviewed before they join the panel — not just self-declared.</p></div>
-      <div class="step reveal"><div class="idx">02</div><h3>You approve every payment</h3><p>Money releases in stages as work progresses. Your contractor submits evidence at each stage, you review it, and nothing is charged without your approval — you're never asked to pay the full amount upfront.</p></div>
-      <div class="step reveal"><div class="idx">03</div><h3>Extra oversight on large jobs</h3><p>For jobs $20,000 and over, a dedicated MySubbies inspector reviews the completed work before it's marked done — on top of your own review as the customer.</p></div>
-      <div class="step reveal"><div class="idx">04</div><h3>Real support if something goes wrong</h3><p>Report a problem directly from My Jobs, or message our support team in the app. We review every report and can pause payment release while it's investigated.</p></div>
+    <div class="steps protection-steps">
+      <div class="step reveal"><div class="idx">01</div><h3>Applications reviewed before approval</h3><p>Contractors apply through MySubbies and must be approved in the admin workflow before they can receive matched jobs.</p></div>
+      <div class="step reveal"><div class="idx">02</div><h3>Review requested payment stages</h3><p>When a contractor requests an eligible payment stage, you can review the request and choose to pay or raise an issue.</p></div>
+      <div class="step reveal"><div class="idx">03</div><h3>Support and issue reporting</h3><p>Report a problem from My Bookings or contact MySubbies through the in-app support thread so the team can review it.</p></div>
     </div>
   </div>
 </section>
@@ -1104,8 +1148,8 @@
     <p>Tell us the job, get an estimated price on the spot, and approve it — no waiting days for three different tradies to call you back.</p>
     <ul class="split-list">
       <li><span class="tick">✓</span> Instant, GST-inclusive pricing</li>
-      <li><span class="tick">✓</span> One matched, vetted contractor — not a bidding war</li>
-      <li><span class="tick">✓</span> Payment released in stages as work progresses, not upfront</li>
+      <li><span class="tick">✓</span> One matched, approved contractor — not a bidding war</li>
+      <li><span class="tick">✓</span> Payment stages tracked as work progresses, rather than one upfront payment</li>
       <li><span class="tick">✓</span> Message your contractor directly in the app</li>
     </ul>
     <a class="btn btn-black btn-lg" href="#estimate">Get an estimated price instantly →</a>
@@ -1117,7 +1161,7 @@
     <ul class="split-list">
       <li><span class="tick">✓</span> No lead fees, ever</li>
       <li><span class="tick">✓</span> No bidding against other contractors</li>
-      <li><span class="tick">✓</span> Paid in stages as the job progresses</li>
+      <li><span class="tick">✓</span> Stage-based payment tracking as the job progresses</li>
     </ul>
     <a class="btn btn-white" href="mysubbies-contractor-landing.html" id="contractors">Apply to join the panel →</a>
     <div style="margin-top:12px;font-size:13px;color:rgba(255,255,255,0.65);">Already a contractor? <a href="mysubbies-contractor-portal.html" style="color:#fff;font-weight:600;text-decoration:underline;">Log in →</a></div>
@@ -2120,7 +2164,7 @@
     if (estPrimaryGroup && estPrimaryGroup.tasks.some(t => t.name === task.name)) {
       renderPrimaryOptionCards(null);
     } else {
-      const chipBtn = Array.from(document.querySelectorAll('#estTierChips .chip-est')).find(b => b.textContent.trim() === task.name);
+      const chipBtn = Array.from(document.querySelectorAll('#estTierChips .chip-est')).find(b => b.dataset.taskName === task.name);
       if (chipBtn) chipBtn.classList.add('selected');
     }
     showEstStep(2);
@@ -2131,6 +2175,22 @@
   // Something modal it opened into (openFixSomething()), which already
   // offers photo upload itself. Fix Something is still reachable via the
   // "Other" category card and the mobile tab bar's FAB.
+  function chooseQuickService(categoryLabel, taskQuery) {
+    const cat = CATEGORIES.find(c => c.label === categoryLabel && (c.tasks || []).some(t => !t.disabled && !t.unavailable));
+    if (!cat) { heroBrowseServices(); return; }
+    if (taskQuery) {
+      const query = taskQuery.toLowerCase();
+      const task = (cat.tasks || []).find(t => !t.disabled && !t.unavailable &&
+        (t.name.toLowerCase().includes(query) || (t.searchTags || []).some(tag => String(tag).toLowerCase().includes(query))));
+      if (task) {
+        selectSubCategoryAndGoToStep2(cat.label, task.name);
+        return;
+      }
+    }
+    selectCat(cat);
+    showEstStep(2);
+  }
+
   function heroBrowseServices() {
     const el = document.getElementById('categories');
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2642,7 +2702,7 @@
         <h3>Got it — we're on it</h3>
         <div class="fs-result">
           <p style="font-size:14px;line-height:1.6;">${escapeHtml(data.reason || 'This needs a quick human check before we can confirm a price.')}</p>
-          <p style="font-size:13px;color:var(--stone);margin-top:12px;">Head to <a href="mysubbies-booking.html" style="text-decoration:underline;">My Jobs</a> and register an account so we can follow up with your price — or browse the categories and book directly if you already know what you need.</p>
+          <p style="font-size:13px;color:var(--stone);margin-top:12px;">Head to <a href="mysubbies-booking.html" style="text-decoration:underline;">My Bookings</a> and register an account so we can follow up with your price — or browse the categories and book directly if you already know what you need.</p>
         </div>
         <button class="btn btn-outline btn-full" style="width:100%;margin-top:16px;" onclick="closeFixSomething()">Close</button>
       `;
@@ -2783,6 +2843,118 @@
     'Insulation Installation': 'e.g. "ceiling batt insulation", "wall batt insulation", "underfloor insulation"',
   };
 
+  // Phase 1 service-aware quantity questions. Presentation only: every
+  // answer still resolves to the same qtyValues string and the unchanged
+  // rate × quantity / minimum-job-price calculation below. Categories not
+  // listed here continue through qtyHintForUnit() exactly as before.
+  const SERVICE_AWARE_PHASE1_CATEGORIES = new Set([
+    'Handyman', 'Cleaning', 'Gardening & Lawn Mowing', 'Fencing', 'Decking',
+    'Plumbing', 'Electrical', 'Courier Services'
+  ]);
+
+  // Returns the unit that owns the customer's quantity without mutating
+  // the rate-card task or the unit stored in the booking payload. This
+  // normalises harmless unit spelling/casing drift and protects known
+  // mixed-unit services from inheriting their category's dominant measure.
+  function pricingUnitForTask(cat, task) {
+    const raw = String(task && task.unit || '').trim().toLowerCase();
+    const name = String(task && task.name || '').toLowerCase();
+    const normalized = {
+      'linear metre':'lm', 'linear metres':'lm', 'meter':'lm', 'meters':'lm', 'metre':'lm', 'metres':'lm',
+      'sqm':'m²', 'm2':'m²', 'square metre':'m²', 'square metres':'m²',
+      'per gate':'gate', 'each gate':'gate', 'each':'item', 'per item':'item',
+      'per hour':'hour', 'hr':'hour', 'hrs':'hour', 'hours':'hour',
+      'per visit':'visit', 'per job':'job'
+    }[raw] || raw;
+    if (cat && cat.label === 'Fencing' && /\bgates?\b/.test(name)) return 'gate';
+    if (cat && cat.label === 'Decking' && /\bstairs?|steps?\b/.test(name)) return 'step';
+    if (cat && cat.label === 'Decking' && /\bbalustrade\b/.test(name)) return 'lm';
+    return normalized;
+  }
+
+  function serviceAwareQuestion(cat, task) {
+    if (!cat || !task || !SERVICE_AWARE_PHASE1_CATEGORIES.has(cat.label)) return null;
+    const unit = pricingUnitForTask(cat, task);
+    const name = String(task.name || '').toLowerCase();
+    if (cat.label === 'Courier Services') return { kind:'courier' };
+    if (unit === 'job') return {
+      kind:'fixed', fixedQuantity:1,
+      question:'No quantity needed',
+      hint:'This service is priced as one complete job.'
+    };
+    if (unit === 'm²') {
+      let subject = 'area';
+      if (cat.label === 'Decking') subject = 'deck';
+      else if (cat.label === 'Cleaning') subject = 'area to be pressure cleaned';
+      return { kind:'area', question:`What are the ${subject} dimensions?`, hint:"Enter the length and width in metres — we’ll calculate the square metres." };
+    }
+    if (unit === 'lm') {
+      const subject = cat.label === 'Fencing' ? 'fence' : (name.includes('barrier') ? 'barrier' : 'total');
+      return { kind:'number', question:`What is the approximate ${subject} length?`, label:'linear metres', placeholder:'e.g. 12', hint:'Enter the length in metres. An exact number is needed for an instant estimated price.' };
+    }
+    if (unit === 'hour') return { kind:'number', question:'How many hours should we allow?', label:'hours', placeholder:'e.g. 2', hint:'Enter the number of hours to price. If you are unsure, photos and job details can help us review the scope.' };
+    if (unit.includes('visit')) return { kind:'number', question:'How many visits would you like to book?', label:'visits', placeholder:'e.g. 1', hint:'Enter 1 for a one-off visit. A visit count is needed for an instant estimated price.' };
+    if (unit.includes('clean')) return { kind:'number', question:'How many properties need this clean?', label:'cleans', placeholder:'e.g. 1', hint:'Enter 1 for one property. A count is needed for an instant estimated price.' };
+    if (unit.includes('load')) return { kind:'number', question:'How many loads need to be removed?', label:task.unit, placeholder:'e.g. 1', hint:'Enter the estimated number of loads. An exact number is needed for an instant estimated price.' };
+    const labels = {
+      gate:'gates', item:'items', each:'items', step:'steps', window:'windows', point:'points', switch:'switches',
+      fitting:'fittings', light:'lights', fan:'fans', alarm:'alarms', circuit:'circuits', appliance:'appliances',
+      unit:'units', device:'devices', breaker:'breakers', tap:'taps', toilet:'toilets', shower:'showers',
+      fixture:'fixtures', valve:'valves', hose:'connectors', trap:'traps', waste:'waste outlets', dwelling:'properties',
+      tv:'TVs', door:'doors'
+    };
+    const countLabel = labels[unit] || (unit ? unit + 's' : 'items');
+    let question = `How many ${countLabel} need this service?`;
+    if (cat.label === 'Handyman' && name.includes('flat-pack')) question = 'How many furniture items need assembly?';
+    else if (cat.label === 'Handyman' && name.includes('picture')) question = 'How many pictures or mirrors need hanging?';
+    else if (cat.label === 'Electrical' && unit === 'point') question = 'How many electrical points need this work?';
+    return { kind:'number', question, label:countLabel, placeholder:'e.g. 1', defaultQuantity:['gate','item','each'].includes(unit) ? 1 : null, hint:`Enter the number of ${countLabel}. An exact count is needed for an instant estimated price.` };
+  }
+
+  function quantityQuestionFor(cat, task) {
+    const aware = serviceAwareQuestion(cat, task);
+    if (aware) return aware;
+    const legacy = qtyHintForUnit(task.unit);
+    return { kind:task.unit === 'm²' ? 'area' : 'legacy', question:task.name, label:legacy.label, placeholder:legacy.placeholder, hint:legacy.hint };
+  }
+
+  // Natural-language task matching must never treat an unrelated category
+  // measurement as this task's quantity. For example, "34m Colorbond fence
+  // plus a single gate" contains 34, but 34 belongs to the lm fence task,
+  // not the per-gate task. Only prefill when the number is explicitly paired
+  // with an alias for the matched task's own unit. The normal quantity fields
+  // still use parseQuantity() unchanged after the customer answers them.
+  function parseTaskSpecificQuantity(raw, unit) {
+    const text = String(raw || '').trim().toLowerCase();
+    const u = String(unit || '').trim().toLowerCase();
+    if (!text) return null;
+    if (u === 'job') return 1;
+    if (u === 'm²') {
+      const dims = text.match(/(\d+(?:\.\d+)?)\s*m?\s*[x×*]\s*(\d+(?:\.\d+)?)\s*m?/);
+      if (dims) return Number(dims[1]) * Number(dims[2]);
+      const area = text.match(/(\d+(?:\.\d+)?)\s*(?:m²|m2|sqm|square\s*met(?:re|er)s?)/);
+      return area ? Number(area[1]) : null;
+    }
+    const aliases = {
+      lm:'(?:lm|linear\\s*met(?:re|er)s?|met(?:re|er)s?|m)(?![²2³3])',
+      hour:'(?:hours?|hrs?)', visit:'visits?', clean:'cleans?', load:'loads?', 'trailer load':'(?:trailer\\s*)?loads?',
+      gate:'gates?', item:'items?|flat[ -]?packs?|furniture(?:\\s+items?)?', step:'steps?', window:'windows?',
+      point:'points?', switch:'switch(?:es)?', fitting:'fittings?', light:'lights?', fan:'fans?', alarm:'alarms?',
+      circuit:'circuits?', appliance:'appliances?', unit:'units?', device:'devices?', breaker:'breakers?',
+      tap:'taps?', toilet:'toilets?', shower:'showers?', fixture:'fixtures?', valve:'valves?', hose:'(?:hoses?|connectors?)',
+      trap:'traps?', waste:'(?:wastes?|outlets?)', dwelling:'(?:dwellings?|properties?)', tv:'tvs?', door:'doors?',
+      bin:'bins?', day:'days?', tree:'trees?', stump:'stumps?', treatment:'treatments?', inspection:'inspections?',
+      'call-out':'call[ -]?outs?', lock:'locks?', cylinder:'cylinders?', patch:'patches?', sheet:'sheets?', panel:'panels?',
+      wall:'walls?', room:'rooms?', tile:'tiles?', board:'boards?'
+    };
+    const alias = aliases[u];
+    if (!alias) return null;
+    const afterNumber = new RegExp(`(\\d+(?:\\.\\d+)?)\\s*${alias}`, 'i').exec(text);
+    if (afterNumber) return Number(afterNumber[1]);
+    const beforeNumber = new RegExp(`${alias}\\s*[:x-]?\\s*(\\d+(?:\\.\\d+)?)`, 'i').exec(text);
+    return beforeNumber ? Number(beforeNumber[1]) : null;
+  }
+
   // ============================================================
   // Priced comparison group (Sep 2026) -- Step 2 now leads with a single
   // size/quantity field and shows every task sharing the category's most
@@ -2817,7 +2989,10 @@
     const priced = cat.tasks.filter(t => !t.disabled && !t.unavailable && typeof t.rate === 'number' && t.name !== companionName);
     if (priced.length < 2) return null;
     const byUnit = {};
-    priced.forEach(t => { (byUnit[t.unit] = byUnit[t.unit] || []).push(t); });
+    priced.forEach(t => {
+      const unit = pricingUnitForTask(cat, t);
+      (byUnit[unit] = byUnit[unit] || []).push(t);
+    });
     let bestUnit = null;
     Object.keys(byUnit).forEach(unit => { if (!bestUnit || byUnit[unit].length > byUnit[bestUnit].length) bestUnit = unit; });
     if (!bestUnit || byUnit[bestUnit].length < 2) return null;
@@ -2863,15 +3038,24 @@
       initCourierPlacesAutocomplete();
       return;
     }
+    const question = quantityQuestionFor(c, estPrimaryGroup.tasks[0]);
+    const isArea = question.kind === 'area';
+    const isFixed = question.kind === 'fixed';
     document.getElementById('estPrimaryQtyHint').style.display = 'block';
-    const isArea = estPrimaryGroup.unit === 'm²';
-    document.getElementById('estPrimaryQty').style.display = isArea ? 'none' : 'block';
+    document.getElementById('estPrimaryQty').style.display = (isArea || isFixed) ? 'none' : 'block';
     document.getElementById('estPrimaryLW').style.display = isArea ? 'grid' : 'none';
-    const hint = qtyHintForUnit(estPrimaryGroup.unit);
-    document.getElementById('estPrimaryQtyLabel').textContent = isArea ? 'Size' : 'Size / quantity (' + hint.label + ')';
-    document.getElementById('estPrimaryQty').placeholder = hint.placeholder;
-    document.getElementById('estPrimaryQtyHint').textContent = hint.hint;
+    document.getElementById('estPrimaryQtyLabel').textContent = question.question;
+    document.getElementById('estPrimaryQty').placeholder = question.placeholder || '';
+    document.getElementById('estPrimaryQty').inputMode = question.kind === 'number' ? 'decimal' : 'text';
+    document.getElementById('estPrimaryQtyHint').textContent = question.hint || '';
     document.getElementById('estPrimaryQtyHint').classList.remove('est-lw-total');
+    if (isFixed) {
+      document.getElementById('estPrimaryQty').value = String(question.fixedQuantity);
+      renderPrimaryOptionCards(question.fixedQuantity);
+    } else if (question.defaultQuantity) {
+      document.getElementById('estPrimaryQty').value = String(question.defaultQuantity);
+      renderPrimaryOptionCards(question.defaultQuantity);
+    }
   }
   // Length x Width for m² primary-group tasks -- combines into
   // #estPrimaryQty's existing value ("6x5") so onPrimaryQtyInput() and
@@ -2947,7 +3131,8 @@
     // Single-select within the primary group -- two same-unit primary
     // options can't both apply to the same physical job/footprint.
     estPrimaryGroup.tasks.forEach(t => { if (t.name !== task.name) { selectedTierSet.delete(t.name); qtyValues.delete(t.name); } });
-    const qtyRaw = document.getElementById('estPrimaryQty').value.trim();
+    const question = quantityQuestionFor(selectedCat, task);
+    const qtyRaw = question.kind === 'fixed' ? String(question.fixedQuantity) : document.getElementById('estPrimaryQty').value.trim();
     selectedTierSet.set(task.name, task);
     if (qtyRaw) qtyValues.set(task.name, qtyRaw);
     renderQtyRows();
@@ -3165,7 +3350,7 @@
     // Small/single-task categories with no primary group fall back to
     // showing everything here, same as the picker's old full behaviour.
     tierWrap.style.display = secondaryTasks.length ? 'block' : 'none';
-    document.getElementById('estTierWrapLabel').textContent = estPrimaryGroup ? 'Other services in this category' : 'Choose the specific job';
+    document.getElementById('estTierWrapLabel').textContent = SERVICE_AWARE_PHASE1_CATEGORIES.has(c.label) ? (estPrimaryGroup ? `Anything else to add in ${c.label}?` : 'Which service do you need?') : (estPrimaryGroup ? 'Other services in this category' : 'Choose the specific job');
     const quickMatchInput = document.getElementById('estTierQuickMatch');
     quickMatchInput.value = '';
     quickMatchInput.placeholder = 'Type what you need, ' + (CATEGORY_QUICKMATCH_HINTS[c.label] || 'e.g. "replace a power point"');
@@ -3173,9 +3358,11 @@
     document.getElementById('estTierMatchLine').className = 'est-match-line';
     const chips = document.getElementById('estTierChips');
     chips.innerHTML = '';
+    chips.style.display = secondaryTasks.length ? 'flex' : 'none';
     secondaryTasks.forEach(t => {
       const btn = document.createElement('button');
       btn.className = 'chip-est';
+      btn.dataset.taskName = t.name;
       if (t.unavailable) {
         btn.disabled = true;
         btn.style.opacity = '0.45';
@@ -3194,11 +3381,15 @@
           img.className = 'chip-est-thumb';
           img.alt = '';
           btn.appendChild(img);
-          const label = document.createElement('span');
-          label.textContent = t.name;
-          btn.appendChild(label);
-        } else {
-          btn.textContent = t.name;
+        }
+        const label = document.createElement('span');
+        label.textContent = t.name;
+        btn.appendChild(label);
+        if (typeof t.rate === 'number') {
+          const price = document.createElement('span');
+          price.className = 'chip-est-price';
+          price.textContent = `$${Number(t.rate).toLocaleString()} / ${pricingUnitForTask(c, t)}`;
+          btn.appendChild(price);
         }
         // Toggle, not radio \u2014 customers can pick several tasks from this
         // category at once (e.g. Deck stairs + Balustrade), each priced
@@ -3242,7 +3433,7 @@
   function removeTierSelection(name) {
     selectedTierSet.delete(name);
     qtyValues.delete(name);
-    const chipBtn = Array.from(document.querySelectorAll('#estTierChips .chip-est')).find(b => b.textContent.trim() === name);
+    const chipBtn = Array.from(document.querySelectorAll('#estTierChips .chip-est')).find(b => b.dataset.taskName === name);
     if (chipBtn) chipBtn.classList.remove('selected');
     renderQtyRows();
     renderSelectedPills();
@@ -3292,7 +3483,7 @@
       }
       const result = estFindTaskMatches(estSecondaryTasks(selectedCat), query);
       if (result.type === 'single') {
-        estSetQuickMatchAutoTask(result.task, parseQuantity(query, result.task.unit));
+        estSetQuickMatchAutoTask(result.task, parseTaskSpecificQuantity(query, pricingUnitForTask(selectedCat, result.task)));
         return;
       }
       if (result.type === 'ambiguous') {
@@ -3333,7 +3524,7 @@
     matchLine.className = 'est-match-line found';
     const chips = document.getElementById('estTierChips');
     chips.querySelectorAll('.chip-est').forEach(b => {
-      if (b.textContent.trim() === match.name) b.classList.add('selected');
+      if (b.dataset.taskName === match.name) b.classList.add('selected');
     });
   }
 
@@ -3354,7 +3545,7 @@
     if (estQuickMatchAutoTaskName && estQuickMatchAutoTaskName !== task.name && selectedTierSet.has(estQuickMatchAutoTaskName)) {
       selectedTierSet.delete(estQuickMatchAutoTaskName);
       qtyValues.delete(estQuickMatchAutoTaskName);
-      const prevChip = Array.from(document.querySelectorAll('#estTierChips .chip-est')).find(b => b.textContent.trim() === estQuickMatchAutoTaskName);
+      const prevChip = Array.from(document.querySelectorAll('#estTierChips .chip-est')).find(b => b.dataset.taskName === estQuickMatchAutoTaskName);
       if (prevChip) prevChip.classList.remove('selected');
     }
     estQuickMatchAutoTaskName = task.name;
@@ -3374,7 +3565,7 @@
     const matchLine = document.getElementById('estTierMatchLine');
     matchLine.className = 'est-match-line ambiguous';
     const optionsHtml = tasks.map(t => {
-      const qty = parseQuantity(query, t.unit);
+      const qty = parseTaskSpecificQuantity(query, pricingUnitForTask(selectedCat, t));
       let priceLabel;
       if (qty && qty > 0) {
         const raw = Math.round(qty * t.rate);
@@ -3401,7 +3592,7 @@
     if (!selectedCat) return;
     const task = selectedCat.tasks.find(t => t.name === taskName);
     if (!task) return;
-    estSetQuickMatchAutoTask(task, parseQuantity(estLastAmbiguousQuery, task.unit));
+    estSetQuickMatchAutoTask(task, parseTaskSpecificQuantity(estLastAmbiguousQuery, pricingUnitForTask(selectedCat, task)));
   }
 
   async function estRequestAiTaskMatch(query) {
@@ -3425,7 +3616,7 @@
 
       if (data.matched && data.taskName) {
         const task = selectedCat.tasks.find(t => t.name === data.taskName);
-        if (task) { estSetQuickMatchAutoTask(task, parseQuantity(query, task.unit)); return; }
+        if (task) { estSetQuickMatchAutoTask(task, parseTaskSpecificQuantity(query, pricingUnitForTask(selectedCat, task))); return; }
       }
 
       if (data.aiEstimate) {
@@ -3555,20 +3746,27 @@
     const primaryNames = new Set(estPrimaryGroup ? estPrimaryGroup.tasks.map(t => t.name) : []);
     wrap.innerHTML = Array.from(selectedTierSet.values()).filter(t => !primaryNames.has(t.name)).map(t => {
       const hint = qtyHintForUnit(t.unit);
-      const val = qtyValues.get(t.name) || '';
+      const question = quantityQuestionFor(selectedCat, t);
+      const effectiveUnit = pricingUnitForTask(selectedCat, t);
+      const val = qtyValues.get(t.name) || (question.defaultQuantity ? String(question.defaultQuantity) : '');
+      if (!qtyValues.has(t.name) && question.defaultQuantity) qtyValues.set(t.name, String(question.defaultQuantity));
+      if (question.kind === 'fixed') {
+        qtyValues.set(t.name, String(question.fixedQuantity));
+        return `<div class="est-qty-row"><label class="est-field-label">${escapeHtml(t.name)}</label><div class="est-hint">${escapeHtml(question.hint)}</div></div>`;
+      }
       // Sept 2026: m² tasks get the same Length x Width split as the
       // primary comparison group above, instead of one field expecting
       // either a raw total or a "6m x 5m" string. Both inputs share
       // data-task and combine into the exact same "LxW" value qtyValues
       // already stores -- calculateSelectedItems()/parseQuantity() need no
       // changes at all.
-      if (t.unit === 'm²') {
+      if (effectiveUnit === 'm²') {
         const dims = val.match(/^(\d+\.?\d*)\s*x\s*(\d+\.?\d*)$/i);
         const lenVal = dims ? dims[1] : '', widVal = dims ? dims[2] : '';
         const totalText = dims ? '= ' + (Number(dims[1]) * Number(dims[2])).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' m²' : hint.hint;
         return `
           <div class="est-qty-row">
-            <label class="est-field-label">${escapeHtml(t.name)} <span class="unit">(m²)</span></label>
+            <label class="est-field-label">${escapeHtml(question.question)} <span class="unit">(${escapeHtml(t.name)})</span></label>
             <div class="est-lw-row">
               <input type="text" class="est-qty-row-input" data-task="${escapeHtml(t.name)}" data-dim="len" placeholder="Length (m)" value="${escapeHtml(lenVal)}" oninput="onQtyRowLWInput(this)" />
               <input type="text" class="est-qty-row-input" data-task="${escapeHtml(t.name)}" data-dim="wid" placeholder="Width (m)" value="${escapeHtml(widVal)}" oninput="onQtyRowLWInput(this)" />
@@ -3579,9 +3777,9 @@
       }
       return `
         <div class="est-qty-row">
-          <label class="est-field-label">${escapeHtml(t.name)} <span class="unit">(${escapeHtml(hint.label)})</span></label>
-          <input type="text" class="est-qty-row-input" data-task="${escapeHtml(t.name)}" placeholder="${escapeHtml(hint.placeholder)}" value="${escapeHtml(val)}" oninput="qtyValues.set(this.dataset.task, this.value); this.style.borderColor=''" />
-          <div class="est-hint">${escapeHtml(hint.hint)}</div>
+          <label class="est-field-label">${escapeHtml(question.question)} <span class="unit">(${escapeHtml(t.name)})</span></label>
+          <input type="${question.kind === 'number' ? 'number' : 'text'}" inputmode="${question.kind === 'number' ? 'decimal' : 'text'}" min="${question.kind === 'number' ? '0.01' : ''}" step="any" class="est-qty-row-input" data-task="${escapeHtml(t.name)}" placeholder="${escapeHtml(question.placeholder)}" value="${escapeHtml(val)}" oninput="qtyValues.set(this.dataset.task, this.value); this.style.borderColor=''" />
+          <div class="est-hint">${escapeHtml(question.hint)}</div>
         </div>
       `;
     }).join('');
@@ -3690,14 +3888,14 @@
     // same measurement — still editable in the qty row like any other.
     if (!qtyValues.get(task.name)) {
       const matchingQty = Array.from(selectedTierSet.values())
-        .find(t => t.unit === task.unit && qtyValues.get(t.name));
+        .find(t => pricingUnitForTask(selectedCat, t) === pricingUnitForTask(selectedCat, task) && qtyValues.get(t.name));
       if (matchingQty) qtyValues.set(task.name, qtyValues.get(matchingQty.name));
     }
     selectedTierSet.set(task.name, task);
     renderQtyRows();
     renderSelectedPills();
     const chips = document.getElementById('estTierChips');
-    if (chips) chips.querySelectorAll('.chip-est').forEach(b => { if (b.textContent.trim() === task.name) b.classList.add('selected'); });
+    if (chips) chips.querySelectorAll('.chip-est').forEach(b => { if (b.dataset.taskName === task.name) b.classList.add('selected'); });
   }
 
   function dismissRemovalPrompt(taskName) {
@@ -3765,7 +3963,7 @@
         ? document.getElementById('estPrimaryQty')
         : document.querySelector(`.est-qty-row-input[data-task="${cssEscapeAttr(t.name)}"]`);
       const qtyRaw = qtyValues.get(t.name) || '';
-      const qty = qtyRaw ? parseQuantity(qtyRaw, t.unit) : null;
+      const qty = qtyRaw ? parseQuantity(qtyRaw, pricingUnitForTask(selectedCat, t)) : null;
       if (!qty) { if (input) { input.style.borderColor = '#B4232C'; input.focus(); } return; }
       const rawBase = Math.round(qty * t.rate);
       const minApplied = !!(t.minJobPrice && rawBase < t.minJobPrice);
@@ -3957,6 +4155,17 @@
 
   const ACCESS_OPTIONS = ['Easy access', 'Narrow / restricted access', 'Not sure'];
   let selectedSite = null, selectedAccess = null, selectedUrgency = null;
+  let selectedUrgencyOption = '';
+  function selectUrgency(value, button) {
+    selectedUrgencyOption = value;
+    document.querySelectorAll('#estUrgencyChips .chip-est').forEach(b => b.classList.toggle('selected', b === button));
+    const detail = document.getElementById('estUrgencyText').value.trim();
+    selectedUrgency = detail ? `${value} — ${detail}` : value;
+  }
+  function onUrgencyDetailInput(value) {
+    const detail = value.trim();
+    selectedUrgency = selectedUrgencyOption ? (detail ? `${selectedUrgencyOption} — ${detail}` : selectedUrgencyOption) : detail;
+  }
 
   // "What's currently on the site?" and "Site access" only matter for jobs
   // involving trucks, heavy materials, or equipment getting onto the
@@ -4051,9 +4260,15 @@
   // handoff pattern as the two flags above, just calling
   // goToEstimatorWithCategory() instead of openFixSomething()/a cart rebuild.
   function initOpenCategoryIfRequested() {
-    const label = localStorage.getItem('mysubbies_open_category');
+    const params = new URLSearchParams(window.location.search);
+    const label = localStorage.getItem('mysubbies_open_category') || params.get('service');
     if (!label) return;
     localStorage.removeItem('mysubbies_open_category');
+    if (params.has('service')) {
+      params.delete('service');
+      const cleanQuery = params.toString();
+      history.replaceState(null, '', `${location.pathname}${cleanQuery ? '?' + cleanQuery : ''}${location.hash}`);
+    }
     goToEstimatorWithCategory(label);
   }
   initOpenCategoryIfRequested();
