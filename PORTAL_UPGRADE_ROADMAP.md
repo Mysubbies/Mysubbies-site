@@ -5,7 +5,7 @@ existing static HTML/CSS/JavaScript architecture remains in place.
 
 ## Next recommended phase: accepted quote handoff
 
-1. Add an explicit, admin-confirmed **Convert to job** action for accepted
+1. Add an explicit, admin-confirmed **Push to Portal** action for accepted
    quotes. It should create the structured job server-side, retain the accepted
    immutable quote version, and never infer payment terms from browser state.
 2. Add a real invoice object and lifecycle before enabling the Invoices

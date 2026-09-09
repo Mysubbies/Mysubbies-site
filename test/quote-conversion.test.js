@@ -64,17 +64,32 @@ test('accepted conversion builds job identity and price from immutable version',
   assert.equal(insertedJob.deposit_pct, 10);
 });
 
-test('convert_to_job API is admin-only; customer/public callers cannot cross the boundary', async () => {
+test('push_to_portal API is admin-only; customer/public callers cannot cross the boundary', async () => {
   clients.getSupabase = () => ({ from() { return query({ data: { id: 'q', current_status: 'sent', job_id: null }, error: null }); } });
   delete require.cache[require.resolve('../api/quotes')];
   const handler = require('../api/quotes');
   const invoke = token => new Promise(resolve => {
-    const req = { method: 'POST', body: { action: 'convert_to_job', quoteId: 'q' }, headers: token ? { authorization: `Bearer ${token}` } : {} };
+    const req = { method: 'POST', body: { action: 'push_to_portal', quoteId: 'q' }, headers: token ? { authorization: `Bearer ${token}` } : {} };
     const res = { code: 200, status(code) { this.code = code; return this; }, json(body) { resolve({ status: this.code, body }); } };
     handler(req, res);
   });
   assert.equal((await invoke()).status, 401);
   process.env.ADMIN_SESSION_SECRET = 'quote-test-secret';
   assert.equal((await invoke(signAdminToken())).status, 409);
+  delete process.env.ADMIN_SESSION_SECRET;
+});
+
+test('legacy convert action cannot publish a quote', async () => {
+  clients.getSupabase = () => ({ from() { return query({ data: null, error: null }); } });
+  delete require.cache[require.resolve('../api/quotes')];
+  const handler = require('../api/quotes');
+  process.env.ADMIN_SESSION_SECRET = 'quote-test-secret';
+  const response = await new Promise(resolve => {
+    const req = { method: 'POST', body: { action: 'convert_to_job', quoteId: 'q' }, headers: { authorization: `Bearer ${signAdminToken()}` } };
+    const res = { code: 200, status(code) { this.code = code; return this; }, json(body) { resolve({ status: this.code, body }); } };
+    handler(req, res);
+  });
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error, 'Unknown action.');
   delete process.env.ADMIN_SESSION_SECRET;
 });

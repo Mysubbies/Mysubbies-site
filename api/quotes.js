@@ -10,7 +10,7 @@
 // POST { action:'issue', quoteId }                                      (admin)
 // POST { action:'revise', quoteId }                                     (admin -- from 'sent' only)
 // POST { action:'withdraw', quoteId }                                   (admin -- from 'sent' only)
-// POST { action:'convert_to_job', quoteId }                             (admin -- accepted quote only, idempotent)
+// POST { action:'push_to_portal', quoteId }                             (admin -- accepted quote only, idempotent)
 // POST { action:'create_staff', name, email }                           (admin)
 // POST { action:'update_staff', id, name, email, active }               (admin)
 //
@@ -639,11 +639,11 @@ module.exports = async (req, res) => {
       if (action === 'revise') { await handleRevise(req, res, supabase); return; }
       if (action === 'withdraw') { await handleWithdraw(req, res, supabase); return; }
       if (action === 'send_quote_email') { await handleSendQuoteEmail(req, res, supabase); return; }
-      if (action === 'convert_to_job') {
+      if (action === 'push_to_portal') {
         try {
           const converted = await convertAcceptedQuoteToJob(supabase, (req.body || {}).quoteId);
           await logQuoteEvent(supabase, { quoteId: converted.quote.id, quoteVersionId: converted.quote.current_version_id,
-            eventType: converted.alreadyConverted ? 'job_conversion_retried' : 'converted_to_job', actorRole: 'admin',
+            eventType: converted.alreadyConverted ? 'portal_push_retried' : 'pushed_to_portal', actorRole: 'admin',
             payload: { jobId: converted.job && converted.job.id } });
           res.status(200).json({ ok: true, jobId: converted.job && converted.job.id, alreadyConverted: converted.alreadyConverted });
         } catch (conversionError) {

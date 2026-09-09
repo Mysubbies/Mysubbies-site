@@ -1461,7 +1461,7 @@
             </div>` : ''}
           ${acceptedQuoteCount ? `
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #F0D89B;">
-              <span style="font-size:13px;">⚠ ${acceptedQuoteCount} accepted quote${acceptedQuoteCount === 1 ? '' : 's'} awaiting job conversion</span>
+              <span style="font-size:13px;">⚠ ${acceptedQuoteCount} accepted quote${acceptedQuoteCount === 1 ? '' : 's'} waiting to be pushed to the portal</span>
               <button class="btn btn-outline" style="width:auto;flex-shrink:0;padding:6px 12px;font-size:12px;" onclick="tab='quotes'; render();">Review</button>
             </div>` : ''}
           ${quoteQuestionCount ? `
@@ -2850,16 +2850,16 @@
       await openQuoteDetail(selectedQuoteId);
     } catch (e) { alert('Could not withdraw this quote — check your connection.'); }
   }
-  async function convertSelectedQuoteToJob() {
-    if (!confirm('Convert this accepted quote into a job? The accepted version and total will be used exactly as recorded.')) return;
+  async function pushSelectedQuoteToPortal() {
+    if (!confirm('Push this accepted quote to the MySubbies portal?\n\nThis will create the operational job and make it available for contractor allocation. The accepted quote version and total will be used exactly as recorded.')) return;
     try {
-      const res = await adminFetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'convert_to_job', quoteId: selectedQuoteId }) });
+      const res = await adminFetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'push_to_portal', quoteId: selectedQuoteId }) });
       const data = await res.json();
-      if (!res.ok) { alert(data.error || 'Could not convert this quote.'); return; }
+      if (!res.ok) { alert(data.error || 'Could not push this quote to the portal.'); return; }
       quotesTabData = null;
       await openQuoteDetail(selectedQuoteId);
-      alert(data.alreadyConverted ? 'This quote is already linked to its job.' : 'Job created from the accepted quote.');
-    } catch (e) { alert('Could not convert this quote — check your connection.'); }
+      alert(data.alreadyConverted ? `This quote was already pushed as job ${data.jobId || ''}.` : `Pushed to MySubbies operations as job ${data.jobId || ''}.`);
+    } catch (e) { alert('Could not push this quote to the portal — check your connection.'); }
   }
   function openLinkedQuoteJob(jobId) { selectedJobId = jobId; tab = 'overview'; render(); }
   function downloadIssuedQuotePdf() {
@@ -2953,7 +2953,7 @@
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-weight:800;font-size:15px;"><span>Total</span><span>${fmtCents(v.totalIncGstCents)}</span></div>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
-            ${quote.currentStatus === 'accepted' ? (quote.jobId ? `<button class="btn btn-black" onclick="openLinkedQuoteJob('${quote.jobId}')">View linked job →</button>` : `<button class="btn btn-black" onclick="convertSelectedQuoteToJob()">Convert to job →</button>`) : ''}
+            ${quote.currentStatus === 'accepted' ? (quote.jobId ? `<button class="btn btn-black" onclick="openLinkedQuoteJob('${quote.jobId}')">View portal job ${escapeHtml(quote.jobId)} →</button>` : `<button class="btn btn-black" onclick="pushSelectedQuoteToPortal()">Push to Portal →</button>`) : ''}
             ${v.status === 'draft' ? `
               <button class="btn btn-outline" onclick="editDraftQuote()">Edit draft</button>
               <button class="btn btn-black" ${quoteEmailSending ? 'disabled' : ''} onclick="issueAndEmailSelectedQuote()">${quoteEmailSending ? 'Sending…' : '📧 Issue & email to customer'}</button>
@@ -3012,7 +3012,7 @@
       </div>
       ${(acceptedToConvert.length || questions.length) ? `<div class="quote-card" style="border-color:#F3C671;background:#FFFBF2;">
         <div class="quote-card-title"><h2>Needs a decision</h2><span class="badge badge-feed">${acceptedToConvert.length + questions.length} action${acceptedToConvert.length + questions.length === 1 ? '' : 's'}</span></div>
-        ${acceptedToConvert.map(q => `<button class="detailcard" style="display:flex;justify-content:space-between;align-items:center;width:100%;max-width:none;margin-bottom:8px;text-align:left;cursor:pointer;padding:13px;" onclick="openQuoteDetail('${q.id}')"><span><strong>Accepted quote #${q.quoteNumber}</strong><br><small style="color:var(--stone);">${escapeHtml((q.customer && (q.customer.name || q.customer.email)) || '')} · ready to convert</small></span><span>Convert to job →</span></button>`).join('')}
+        ${acceptedToConvert.map(q => `<button class="detailcard" style="display:flex;justify-content:space-between;align-items:center;width:100%;max-width:none;margin-bottom:8px;text-align:left;cursor:pointer;padding:13px;" onclick="openQuoteDetail('${q.id}')"><span><strong>Accepted quote #${q.quoteNumber}</strong><br><small style="color:var(--stone);">${escapeHtml((q.customer && (q.customer.name || q.customer.email)) || '')} · held in CRM until you publish it</small></span><span>Push to Portal →</span></button>`).join('')}
         ${questions.map(q => `<button class="detailcard" style="display:flex;justify-content:space-between;align-items:center;width:100%;max-width:none;margin-bottom:8px;text-align:left;cursor:pointer;padding:13px;" onclick="tab='inquiries';render();"><span><strong>${q.questionCount} customer question${q.questionCount === 1 ? '' : 's'} on quote #${q.quoteNumber}</strong><br><small style="color:var(--stone);">Open Support to review</small></span><span>Review →</span></button>`).join('')}
       </div>` : ''}
       ${rows.length === 0 ? '<div class="empty">No quotes yet.</div>' : `
