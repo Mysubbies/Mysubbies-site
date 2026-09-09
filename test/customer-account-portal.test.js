@@ -45,3 +45,26 @@ test('public and portal navigation consistently uses My Bookings', () => {
   assert.match(website, /mysubbies-customer-portal\.html\?signup=1/);
   for (const label of ['My Home', 'My Bookings', 'Home Maintenance', 'Payments', 'Help']) assert.match(portal, new RegExp(`>${label}<`));
 });
+
+test('My Home popular-service cards deep-link into the existing estimator with the selected category', () => {
+  const expectedMappings = [
+    ['Home repairs', 'Handyman'],
+    ['Cleaning', 'Cleaning'],
+    ['Garden care', 'Gardening & Lawn Mowing'],
+    ['Outdoor projects', 'Decking'],
+    ['Painting', 'Painting'],
+  ];
+  for (const [label, category] of expectedMappings) {
+    assert.match(portal, new RegExp(`label: '${label.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}', catLabel: '${category.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}'`));
+    assert.match(website, new RegExp(`label:'${category.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}'`));
+  }
+  assert.match(portal, /mysubbies-website\.html\?service=\$\{encodeURIComponent\(catLabel\)\}#estimate/);
+  assert.match(website, /params\.get\('service'\)/);
+  assert.match(website, /goToEstimatorWithCategory\(label\)/);
+});
+
+test('My Home general and project CTAs retain their intended destinations', () => {
+  assert.match(portal, /href="mysubbies-website\.html#estimate">Book your first service/);
+  assert.match(portal, /href="mysubbies-website\.html#categories">Explore all services/);
+  assert.match(portal, /onclick="openProjectEnquiryForm\(\)">Request a project quote/);
+});

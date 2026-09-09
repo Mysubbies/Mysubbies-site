@@ -1930,8 +1930,12 @@
     { label: 'Painting', catLabel: 'Painting', photo: 'images/categories/painting.jpg' },
   ];
   function goToCategoryInEstimator(catLabel) {
-    localStorage.setItem('mysubbies_open_category', catLabel);
-    window.location.href = 'mysubbies-website.html#categories';
+    // Use the homepage estimator's existing `service` deep link rather than
+    // landing on the generic category gallery. The homepage consumes this
+    // parameter with initOpenCategoryIfRequested() and calls its established
+    // goToEstimatorWithCategory()/selectCat() path, so pricing and selection
+    // behavior remain owned by the production estimator.
+    window.location.href = `mysubbies-website.html?service=${encodeURIComponent(catLabel)}#estimate`;
   }
   function categoryCardsHtml() {
     return `<div class="cat-card-grid">
