@@ -375,7 +375,8 @@
   .fs-confidence { font-size:11.5px; color:var(--stone); margin-top:10px; }
 
   .steps { display:grid; grid-template-columns:repeat(4, 1fr); gap:28px; }
-  @media (max-width: 900px) { .steps { grid-template-columns:1fr 1fr; } }
+  .protection-steps { grid-template-columns:repeat(3, 1fr); }
+  @media (max-width: 900px) { .steps, .protection-steps { grid-template-columns:1fr 1fr; } }
   @media (max-width: 560px) { .steps { grid-template-columns:1fr; } }
   .step .idx { font-weight:800; font-size:12.5px; color:var(--black); margin-bottom:14px; width:28px; height:28px; border-radius:50%; background:var(--primary-pale); display:flex; align-items:center; justify-content:center; }
   .step h3 { font-size:18px; margin-bottom:8px; color: var(--black); }
@@ -453,7 +454,7 @@
   .house-health-copy p { color:var(--stone); font-size:13.5px; line-height:1.55; max-width:650px; }
   .house-health-copy .health-kicker { color:#2f7a50; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; margin-bottom:5px; }
   .house-health-btn { background:#eef6ef; color:#1e633e; border:1px solid #cfe2d4; }
-  .popular-jobs-section { padding:50px 0; background:linear-gradient(180deg,#fffaf4,#fff); }
+  .popular-jobs-section { padding:42px 0 14px; background:linear-gradient(180deg,#fffaf4,#fff); }
   .section-title-row { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-bottom:20px; }
   .section-title-row h2 { font-size:25px; color:var(--black); }
   .section-title-row a { font-size:13px; font-weight:700; color:var(--black); }
@@ -529,7 +530,7 @@
     .catgrid-popular .catcard2 .cc-body { padding:9px 10px 12px; }
     .catgrid-popular .catcard2 .cc-name { font-size:12.5px; text-align:left; }
     .catgrid-popular .catcard2 .cc-sub { display:block; font-size:11px; }
-    .popular-jobs-section { padding:30px 0; }
+    .popular-jobs-section { padding:26px 0 10px; }
     .section-title-row h2 { font-size:20px; }
     .popular-job-grid { display:flex; overflow-x:auto; gap:12px; padding-bottom:8px; scroll-snap-type:x mandatory; scrollbar-width:none; }
     .popular-job-card { min-width:210px; scroll-snap-align:start; }
@@ -802,7 +803,7 @@
     </nav>
     <div class="navctas">
       <a class="navlink" href="mysubbies-customer-portal.html" style="margin-right:2px;">Log in</a>
-      <a class="btn btn-white" href="#estimate">Get an estimated price instantly</a>
+      <a class="btn btn-white" href="#estimate">Get an instant price</a>
     </div>
     <button class="mobiletoggle" id="mobileToggleBtn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
     <a class="app-bell" href="mysubbies-customer-portal.html" aria-label="Notifications"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg></a>
@@ -815,7 +816,7 @@
     <a class="navlink" href="mysubbies-customer-portal.html">My Bookings</a>
     <div class="mobilemenu-ctas">
       <a class="btn btn-ghost-onblack" href="mysubbies-customer-portal.html">Log in</a>
-      <a class="btn btn-white" href="#estimate" onclick="closeMobileMenu()">Get an estimated price instantly</a>
+      <a class="btn btn-white" href="#estimate" onclick="closeMobileMenu()">Get an instant price</a>
     </div>
   </div>
 </header>
@@ -1026,11 +1027,11 @@
     </div>
 
     <div class="app-trust-row" aria-label="MySubbies protections">
-      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 9.8 8 11 4.6-1.2 8-6 8-11V5Z"/><path d="m9 12 2 2 4-4"/></svg>Verified<br>Tradies</div>
-      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 9.8 8 11 4.6-1.2 8-6 8-11V5Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>Credentials<br>Reviewed</div>
+      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 9.8 8 11 4.6-1.2 8-6 8-11V5Z"/><path d="m9 12 2 2 4-4"/></svg>Approved<br>Contractors</div>
+      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 4 5v6c0 5 3.4 9.8 8 11 4.6-1.2 8-6 8-11V5Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>Applications<br>Reviewed</div>
       <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m3 12 9-9 9 9-9 9Z"/><path d="M12 7v10M15 9.5c0-1.3-1.3-2-3-2s-3 .7-3 2 1.3 2 3 2 3 .7 3 2-1.3 2-3 2-3-.7-3-2"/></svg>Estimated<br>Pricing</div>
       <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="9" width="16" height="12" rx="2"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15" r="1"/></svg>Secure<br>Payments</div>
-      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 13a8 8 0 0 1 16 0"/><path d="M4 13v4h3v-5H4M20 13v4h-3v-5h3M17 19c-1 2-3 2-5 2"/></svg>Australian<br>Support</div>
+      <div class="app-trust-item"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 13a8 8 0 0 1 16 0"/><path d="M4 13v4h3v-5H4M20 13v4h-3v-5h3M17 19c-1 2-3 2-5 2"/></svg>In-app<br>Support</div>
     </div>
    </div>
   </div>
@@ -1120,14 +1121,13 @@
 <section id="protection">
   <div class="wrap">
     <div class="cat-head reveal">
-      <h2>Customer protection, built in.</h2>
-      <p>Real safeguards on every job — not just a badge in the header.</p>
+      <h2>Support through MySubbies.</h2>
+      <p>Tools that are available in your booking and account today.</p>
     </div>
-    <div class="steps">
-      <div class="step reveal"><div class="idx">01</div><h3>Vetted before they're approved</h3><p>Every contractor's ABN, trade licence (where applicable) and public liability insurance are reviewed before they join the panel — not just self-declared.</p></div>
-      <div class="step reveal"><div class="idx">02</div><h3>You approve every payment</h3><p>Money releases in stages as work progresses. Your contractor submits evidence at each stage, you review it, and nothing is charged without your approval — you're never asked to pay the full amount upfront.</p></div>
-      <div class="step reveal"><div class="idx">03</div><h3>Extra oversight on large jobs</h3><p>For jobs $20,000 and over, a dedicated MySubbies inspector reviews the completed work before it's marked done — on top of your own review as the customer.</p></div>
-      <div class="step reveal"><div class="idx">04</div><h3>Real support if something goes wrong</h3><p>Report a problem directly from My Bookings, or message our support team in the app. We review every report and can pause payment release while it's investigated.</p></div>
+    <div class="steps protection-steps">
+      <div class="step reveal"><div class="idx">01</div><h3>Applications reviewed before approval</h3><p>Contractors apply through MySubbies and must be approved in the admin workflow before they can receive matched jobs.</p></div>
+      <div class="step reveal"><div class="idx">02</div><h3>Review requested payment stages</h3><p>When a contractor requests an eligible payment stage, you can review the request and choose to pay or raise an issue.</p></div>
+      <div class="step reveal"><div class="idx">03</div><h3>Support and issue reporting</h3><p>Report a problem from My Bookings or contact MySubbies through the in-app support thread so the team can review it.</p></div>
     </div>
   </div>
 </section>
