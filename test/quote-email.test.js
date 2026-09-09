@@ -30,6 +30,8 @@ test('premium quote email includes customer, quote summary, total and secure CTA
   assert.match(html, /\$1,234\.50/);
   assert.match(html, /https:\/\/preview\.example\/mysubbies-quote\.html\?token=secure-token/);
   assert.match(html, /View &amp; accept your quote/);
+  assert.match(html, /\.primary-button:hover,\.primary-button:active\{background:#E6BF00!important\}/);
+  assert.match(html, /class="primary-button"[^>]*background:#FFD400;color:#111111/);
   assert.match(html, /Richmond/);
 });
 

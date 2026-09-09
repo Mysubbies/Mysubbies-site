@@ -49,6 +49,7 @@ function renderQuoteEmail({ quote, version, secureQuoteUrl, recommendations = []
   const cards = recommendations.slice(0, 3).map(item => recommendationCell(item, secureQuoteUrl)).join('');
 
   return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+    .primary-button:hover,.primary-button:active{background:#E6BF00!important}
     @media only screen and (max-width:600px){.email-shell{width:100%!important}.email-pad{padding-left:20px!important;padding-right:20px!important}.recommendation-column{display:block!important;width:100%!important}.primary-button{display:block!important;text-align:center!important}.trust-item{display:block!important;padding:4px 0!important}}
   </style></head><body style="margin:0;padding:0;background:#F3F4F6;font-family:Arial,'Helvetica Neue',sans-serif;color:#151A26;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4F6;"><tr><td align="center" style="padding:24px 10px;">
@@ -69,7 +70,7 @@ function renderQuoteEmail({ quote, version, secureQuoteUrl, recommendations = []
             <div style="margin-top:5px;font-size:12px;color:#6B7280;">Valid until: ${version.expires_at ? new Date(version.expires_at).toLocaleDateString('en-AU') : 'See quote'}</div>
           </td></tr>
         </table>
-        <a class="primary-button" href="${escapeHtml(secureQuoteUrl)}" style="display:inline-block;margin-top:20px;background:#FF6A1A;color:#14213D;text-decoration:none;border-radius:999px;padding:14px 24px;font-size:14px;font-weight:800;">View &amp; accept your quote →</a>
+        <a class="primary-button" href="${escapeHtml(secureQuoteUrl)}" style="display:inline-block;margin-top:20px;background:#FFD400;color:#111111;text-decoration:none;border-radius:999px;padding:14px 24px;font-size:14px;font-weight:800;">View &amp; accept your quote →</a>
         <p style="margin:12px 0 0;color:#6B7280;font-size:12px;line-height:19px;">Review the full scope, inclusions, pricing and terms securely online.</p>
       </td></tr>
       <tr><td class="email-pad" style="padding:4px 34px 25px;"><table role="presentation" width="100%"><tr style="font-size:11px;color:#4B5563;"><td class="trust-item">✓ Vetted professionals</td><td class="trust-item">✓ Upfront pricing</td><td class="trust-item">✓ Secure payments</td><td class="trust-item">✓ Australian support</td></tr></table></td></tr>
