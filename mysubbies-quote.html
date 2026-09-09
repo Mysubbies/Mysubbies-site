@@ -252,7 +252,7 @@
     return `
       <section class="recommendations" aria-labelledby="recommendationsTitle">
         <div class="recommendations-head">
-          <h2 id="recommendationsTitle">More plans for your property?</h2>
+          <h2 id="recommendationsTitle">More plans for your home?</h2>
           <p>Optional services — not included in this quote.</p>
         </div>
         <div class="recommendation-grid">
@@ -260,7 +260,7 @@
             <img src="${escapeHtml(service.image)}" alt="${escapeHtml(service.displayName)}" loading="lazy" onerror="this.onerror=null;this.src='images/categories/property-maintenance.jpg';" />
             <div class="recommendation-body">
               <div class="recommendation-name">${escapeHtml(service.displayName)}</div>
-              <div class="recommendation-price">${service.startingPriceDollars == null ? '' : `From $${Number(service.startingPriceDollars).toLocaleString('en-AU')}`}</div>
+              <div class="recommendation-price">${service.startingPriceDollars == null ? 'Get an estimate' : `From $${Number(service.startingPriceDollars).toLocaleString('en-AU')}`}</div>
               <button class="recommendation-link" onclick="exploreRecommended(decodeURIComponent('${encodeURIComponent(service.category)}'))">Explore service →</button>
             </div>
           </article>`).join('')}

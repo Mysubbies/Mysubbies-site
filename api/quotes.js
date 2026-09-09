@@ -39,11 +39,11 @@ const { sendEmailWithResult, wrapEmail, escapeHtml, emailButton, emailDetailsTab
 const { convertAcceptedQuoteToJob, QuoteConversionError } = require('./_lib/quoteToJob');
 const { paymentTermsFromVersion, quoteVersionContent } = require('./_lib/quotePersistence');
 const { getRecommendedServices } = require('./_lib/quoteRecommendations');
+const { quoteBaseUrl } = require('./_lib/quoteUrl');
 
 const TOKEN_BYTES = 32;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const RATE_LIMIT_MAX_ATTEMPTS = 20;
-const QUOTE_BASE_URL = process.env.QUOTE_BASE_URL || 'https://app.mysubbies.com.au/mysubbies-quote.html';
 const TERMS_URL = 'https://app.mysubbies.com.au/mysubbies-terms.html';
 
 function fmtCentsServer(c) { return '$' + ((c || 0) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -307,7 +307,7 @@ async function handleIssue(req, res, supabase) {
 
   res.status(200).json({
     quote: serializeQuoteAdmin({ ...quote, current_status: 'sent' }, updated, null),
-    token: rawToken, url: `${QUOTE_BASE_URL}?token=${encodeURIComponent(rawToken)}`,
+    token: rawToken, url: `${quoteBaseUrl()}?token=${encodeURIComponent(rawToken)}`,
   });
 }
 
@@ -395,7 +395,7 @@ async function handleSendQuoteEmail(req, res, supabase) {
     res.status(500).json({ error: 'Could not prepare the secure quote link. No email was sent.' });
     return;
   }
-  const url = `${QUOTE_BASE_URL}?token=${encodeURIComponent(rawToken)}`;
+  const url = `${quoteBaseUrl()}?token=${encodeURIComponent(rawToken)}`;
 
   const customerName = (version.customer_snapshot && version.customer_snapshot.name) || '';
   const emailResult = await sendEmailWithResult({
