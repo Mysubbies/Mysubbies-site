@@ -1,6 +1,7 @@
 // GET  /api/rate-card
 // POST /api/rate-card { categories }                                  (admin-gated, normal save)
-// POST /api/rate-card { action:'upload-photo', dataUrl, catLabel, taskName } (admin-gated, task or category image)
+// POST /api/rate-card { action:'upload-photo', dataUrl, catLabel, taskName, target? } (admin-gated)
+// POST /api/rate-card { action:'remove-category-photo', catLabel }       (admin-gated)
 // POST /api/rate-card { action:'migrate-photos' }                     (admin-gated, one-time)
 //
 // The single authoritative copy of the rate card (see
@@ -63,6 +64,9 @@ module.exports = async (req, res) => {
   const supabase = getSupabase();
 
   if (req.method === 'GET') {
+    // The public catalogue must see a just-replaced category image on its
+    // next refresh rather than reuse a cached rate-card response.
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
     try {
       const { data, error } = await supabase.from('platform_rate_card').select('categories, updated_at').eq('id', true).maybeSingle();
       if (error) throw error;
@@ -80,14 +84,54 @@ module.exports = async (req, res) => {
 
     if (action === 'upload-photo') {
       try {
-        const { dataUrl, catLabel, taskName } = req.body || {};
+        const { dataUrl, catLabel, taskName, target } = req.body || {};
         if (!dataUrl) { res.status(400).json({ error: 'dataUrl is required.' }); return; }
         await ensurePhotoBucket(supabase);
         const url = await uploadPhoto(supabase, catLabel, taskName, dataUrl);
+        if (target === 'category') {
+          // Persist category images in this same server-side operation. The
+          // previous client uploaded the file, then separately re-posted the
+          // entire rate-card blob. Large cards containing legacy embedded
+          // task photos can exceed Vercel's body limit, so that second request
+          // could fail while the admin still showed its optimistic local URL.
+          const { data, error } = await supabase.from('platform_rate_card').select('categories').eq('id', true).maybeSingle();
+          if (error) throw error;
+          const categories = (data && data.categories) || [];
+          const category = categories.find(cat => cat.label === catLabel && !cat.deleted);
+          if (!category) { res.status(404).json({ error: 'Category not found.' }); return; }
+          category.photoUrl = url;
+          delete category.photoDataUrl;
+          const { error: saveError } = await supabase.from('platform_rate_card').upsert({
+            id: true, categories, updated_by: 'admin', updated_at: new Date().toISOString(),
+          });
+          if (saveError) throw saveError;
+        }
         res.status(200).json({ url });
       } catch (err) {
         console.error('rate-card upload-photo error:', err);
         res.status(500).json({ error: 'Could not upload the photo.' });
+      }
+      return;
+    }
+
+    if (action === 'remove-category-photo') {
+      try {
+        const { catLabel } = req.body || {};
+        const { data, error } = await supabase.from('platform_rate_card').select('categories').eq('id', true).maybeSingle();
+        if (error) throw error;
+        const categories = (data && data.categories) || [];
+        const category = categories.find(cat => cat.label === catLabel && !cat.deleted);
+        if (!category) { res.status(404).json({ error: 'Category not found.' }); return; }
+        delete category.photoUrl;
+        delete category.photoDataUrl;
+        const { error: saveError } = await supabase.from('platform_rate_card').upsert({
+          id: true, categories, updated_by: 'admin', updated_at: new Date().toISOString(),
+        });
+        if (saveError) throw saveError;
+        res.status(200).json({ removed: true });
+      } catch (err) {
+        console.error('rate-card remove-category-photo error:', err);
+        res.status(500).json({ error: 'Could not remove the category photo.' });
       }
       return;
     }

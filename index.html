@@ -1749,7 +1749,7 @@
   // local-only path above.
   async function hydrateRateCardFromServer() {
     try {
-      const res = await fetch('/api/rate-card');
+      const res = await fetch('/api/rate-card', { cache: 'no-store' });
       if (!res.ok) return;
       const { categories } = await res.json();
       if (!Array.isArray(categories) || categories.length === 0) return;

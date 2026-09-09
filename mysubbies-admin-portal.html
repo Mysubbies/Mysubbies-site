@@ -2289,30 +2289,41 @@
       showToast('Uploading category image…');
       const res = await adminFetch('/api/rate-card', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'upload-photo', dataUrl, catLabel, taskName: '__category__' }),
+        body: JSON.stringify({ action: 'upload-photo', target: 'category', dataUrl, catLabel, taskName: '__category__' }),
       });
       if (!res.ok) throw new Error('upload failed');
       const { url } = await res.json();
       const categories = getRateCard();
       const cat = categories.find(c => c.label === catLabel);
       if (!cat) return;
+      // The upload endpoint has already persisted this field atomically;
+      // update only the local cache/UI here instead of re-posting the whole
+      // (potentially multi-megabyte) rate card a second time.
       cat.photoUrl = url;
       delete cat.photoDataUrl;
-      await saveRateCard(categories);
+      try { localStorage.setItem('mysubbies_ratecard', JSON.stringify(categories)); } catch (e) { /* server copy is authoritative */ }
       const list = document.getElementById('rcManageList');
       if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
       showToast('Category image saved.');
     } catch (err) { showToast('Could not upload the category image — try again.'); }
   }
-  function removeCategoryPhoto(catLabel, event) {
+  async function removeCategoryPhoto(catLabel, event) {
     if (event) event.stopPropagation();
-    const categories = getRateCard();
-    const cat = categories.find(c => c.label === catLabel);
-    if (!cat) return;
-    delete cat.photoUrl; delete cat.photoDataUrl;
-    saveRateCard(categories);
-    const list = document.getElementById('rcManageList');
-    if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
+    try {
+      const res = await adminFetch('/api/rate-card', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'remove-category-photo', catLabel }),
+      });
+      if (!res.ok) throw new Error('remove failed');
+      const categories = getRateCard();
+      const cat = categories.find(c => c.label === catLabel);
+      if (!cat) return;
+      delete cat.photoUrl; delete cat.photoDataUrl;
+      try { localStorage.setItem('mysubbies_ratecard', JSON.stringify(categories)); } catch (e) { /* server copy is authoritative */ }
+      const list = document.getElementById('rcManageList');
+      if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
+      showToast('Category image removed. The default image will be used.');
+    } catch (err) { showToast('Could not remove the category image — try again.'); }
   }
 
   // One-time migration for photos uploaded before the Storage switch above
