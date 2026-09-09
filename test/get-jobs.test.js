@@ -111,3 +111,17 @@ test('valid admin read retains existing requireAdmin protection', async () => {
   assert.deepEqual(response.body.jobs, [{ id: 'admin-visible', jobNumber: 4 }]);
   delete process.env.ADMIN_SESSION_SECRET;
 });
+
+test('authenticated customer with zero bookings receives an empty jobs array', async () => {
+  const db = supabaseFor({ user: { id: 'auth-new' }, customer: { id: 'new', auth_user_id: 'auth-new', email: 'new@example.com' }, customerJobs: [] });
+  const response = await invoke(loadHandler(db), { customerEmail: '1' }, 'valid');
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body, { jobs: [] });
+});
+
+test('expired customer session is rejected without querying private jobs', async () => {
+  const db = supabaseFor({ customerJobs: [{ full_record: { id: 'private' }, job_number: 8 }] });
+  const response = await invoke(loadHandler(db), { customerEmail: '1' }, 'expired');
+  assert.equal(response.status, 401);
+  assert.equal(db.calls.some(call => call[0] === 'eq' && call[1] === 'customer_email'), false);
+});
