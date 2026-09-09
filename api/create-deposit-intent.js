@@ -15,6 +15,7 @@
 // persisted and ignores whatever the client sends for price/category.
 const { getStripe, getSupabase } = require('./_lib/clients');
 const { resolveScheduleForJob, ScheduleValidationError } = require('./_lib/paymentSchedule');
+const { requireAccount } = require('./_lib/userAuth');
 
 // GET ?email=... -- referral-credit preview (Sep 2026, "Give $50, Get
 // $50"), read by mysubbies-booking.html's payment-schedule review screen
@@ -42,15 +43,22 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
   try {
-    const { jobId, category, suburb, contractorEmail, basePriceCents, accepted, customerId, customerEmail, termsVersion } = req.body || {};
+    const { jobId, category, suburb, contractorEmail, basePriceCents, accepted, termsVersion } = req.body || {};
     if (!jobId || !category || !basePriceCents) {
       res.status(400).json({ error: 'jobId, category and basePriceCents are required.' });
       return;
     }
 
     const supabase = getSupabase();
+    const auth = await requireAccount(supabase, req, 'customer');
+    if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
+    const authenticatedCustomerEmail = String(auth.account.email).toLowerCase();
+    const authenticatedCustomerId = auth.account.id;
 
     let job = (await supabase.from('jobs').select('*').eq('id', jobId).maybeSingle()).data;
+    if (job && job.customer_email && String(job.customer_email).toLowerCase() !== authenticatedCustomerEmail) {
+      res.status(403).json({ error: 'This job belongs to another customer.' }); return;
+    }
     let schedule = job ? (await supabase.from('job_payment_schedules').select('*').eq('job_id', jobId)
       .order('version', { ascending: false }).limit(1).maybeSingle()).data : null;
 
@@ -76,10 +84,10 @@ module.exports = async (req, res) => {
       // never reduces the charge below $1 (Stripe's practical minimum).
       // Best-effort: a lookup failure here must never block the booking
       // itself, it just means the discount doesn't apply this time.
-      if (customerEmail) {
+      if (authenticatedCustomerEmail) {
         try {
           const { data: credits } = await supabase.from('customer_credits').select('*')
-            .eq('customer_email', customerEmail).eq('status', 'available').order('created_at', { ascending: true });
+            .eq('customer_email', authenticatedCustomerEmail).eq('status', 'available').order('created_at', { ascending: true });
           if (credits && credits.length) {
             const cap = Math.max(0, depositMilestone.amount_cents - 100);
             let remaining = cap, appliedCents = 0;
@@ -103,6 +111,8 @@ module.exports = async (req, res) => {
           .from('jobs')
           .insert({
             id: jobId, category, suburb: suburb || null, contractor_email: contractorEmail || null,
+            customer_id: authenticatedCustomerId,
+            customer_email: authenticatedCustomerEmail,
             base_price_cents: basePriceCents,
             deposit_pct: resolved.deposit_pct,
             deposit_amount_cents: depositMilestone.amount_cents,
@@ -131,7 +141,7 @@ module.exports = async (req, res) => {
           deposit_amount_cents: depositMilestone.amount_cents,
           status: isActive ? 'active' : 'pending_admin_schedule',
           accepted_at: isActive ? nowIso : null,
-          accepted_by_customer_id: isActive ? (customerId || null) : null,
+          accepted_by_customer_id: isActive ? authenticatedCustomerId : null,
           accepted_ip: isActive ? ip : null,
           accepted_user_agent: isActive ? userAgent : null,
           terms_version: isActive ? (termsVersion || null) : null,
@@ -157,13 +167,13 @@ module.exports = async (req, res) => {
       if (isActive) {
         await supabase.from('payment_schedule_versions').insert({
           job_payment_schedule_id: schedule.id, version_number: schedule.version,
-          milestones_snapshot: milestoneRows, reason: 'initial', created_by: customerId || 'customer',
+          milestones_snapshot: milestoneRows, reason: 'initial', created_by: authenticatedCustomerId,
         });
       }
       await supabase.from('payment_audit_logs').insert({
         entity_type: 'job_payment_schedule', entity_id: schedule.id,
         action: isActive ? 'schedule_created_and_accepted' : 'schedule_pending_admin_review',
-        actor_role: 'customer', actor_id: customerId || null,
+        actor_role: 'customer', actor_id: authenticatedCustomerId,
         after_state: { status: schedule.status, schedule_type: resolved.schedule_type, deposit_pct: resolved.deposit_pct },
       });
     }
