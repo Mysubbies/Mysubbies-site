@@ -2174,18 +2174,13 @@
   // offers photo upload itself. Fix Something is still reachable via the
   // "Other" category card and the mobile tab bar's FAB.
   function chooseQuickService(categoryLabel, taskQuery) {
-    const cat = CATEGORIES.find(c => c.label === categoryLabel && (c.tasks || []).some(t => !t.disabled && !t.unavailable));
+    const cat = CATEGORIES.find(c => c.label === categoryLabel && (c.tasks || []).some(t => !t.disabled));
     if (!cat) { heroBrowseServices(); return; }
-    if (taskQuery) {
-      const query = taskQuery.toLowerCase();
-      const task = (cat.tasks || []).find(t => !t.disabled && !t.unavailable &&
-        (t.name.toLowerCase().includes(query) || (t.searchTags || []).some(tag => String(tag).toLowerCase().includes(query))));
-      if (task) {
-        selectSubCategoryAndGoToStep2(cat.label, task.name);
-        return;
-      }
-    }
     selectCat(cat);
+    if (taskQuery) {
+      const input = document.getElementById('estTierQuickMatch');
+      if (input) { input.value = taskQuery; onTierQuickMatch(); }
+    }
     showEstStep(2);
   }
 
