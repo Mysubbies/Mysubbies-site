@@ -36,7 +36,7 @@ test('existing customer login still uses Supabase password authentication', () =
 test('booking-created and manually-created accounts share Supabase customer identity', () => {
   assert.match(booking, /sb\.auth\.signUp\(\{ email, password \}\)/);
   assert.match(booking, /auth_user_id: data\.user\.id, email/);
-  assert.match(portal, /auth_user_id: data\.user\.id, email, name, phone/);
+  assert.match(portal, /fetch\('\/api\/customer-register'/);
   assert.match(booking, /customerId: pending\.customer\.customerDbId/);
 });
 

@@ -2942,12 +2942,17 @@
     const { data, error } = await sb.auth.signUp({ email, password, options: { data: { first_name: firstName, last_name: lastName, phone } } });
     if (error) { errorBox.textContent = error.message.toLowerCase().includes('already') ? 'An account with this email already exists. Log in instead.' : error.message; button.disabled = false; button.textContent = 'Create account →'; return; }
     if (!data.user) { errorBox.textContent = 'We could not create your account. Please try again.'; button.disabled = false; return; }
-    const { data: profile, error: profileError } = await sb.from('customers').insert({ auth_user_id: data.user.id, email, name, phone }).select().single();
-    if (profileError) { await sb.auth.signOut(); errorBox.textContent = 'Your login was created, but the customer profile could not be linked. Please contact support before booking.'; button.disabled = false; button.textContent = 'Create account →'; return; }
+    if (!data.session) { app.innerHTML = `<div class="loginbox"><h1>Check your email</h1><p>Your login has been kept. Confirm your email address, then log in to finish linking your customer profile.</p><button class="btn btn-black btn-full" onclick="renderLogin()">Back to log in</button></div>`; return; }
+    const profileResponse = await fetch('/api/customer-register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + data.session.access_token },
+      body: JSON.stringify({ firstName, lastName, phone }),
+    });
+    const profileResult = await profileResponse.json();
+    if (!profileResponse.ok) { errorBox.textContent = profileResult.error || 'Could not link your customer profile.'; button.disabled = false; button.textContent = 'Create account →'; return; }
     const customers = getCustomers();
-    customers[email] = { name, phone, email, customerDbId: profile.id, createdAt: new Date().toISOString() };
+    customers[email] = { name, phone, email, customerDbId: profileResult.customer.id, createdAt: new Date().toISOString() };
     saveCustomers(customers);
-    if (!data.session) { app.innerHTML = `<div class="loginbox"><h1>Check your email</h1><p>Confirm your email address, then return here to log in.</p><button class="btn btn-black btn-full" onclick="renderLogin()">Back to log in</button></div>`; return; }
     localStorage.setItem('mysubbies_customer_email', email);
     jobsLoadState = 'ready'; dashSection = 'home'; render();
   }
@@ -3012,6 +3017,16 @@
         const { data: profile } = await sb.from('customers').select('*').eq('auth_user_id', data.user.id).maybeSingle();
         if (profile) {
           customers[email] = { ...account, name: profile.name || account?.name, phone: profile.phone || account?.phone, email, password };
+          saveCustomers(customers);
+        } else {
+          const metadata = data.user.user_metadata || {};
+          const linkResponse = await fetch('/api/customer-register', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + data.session.access_token },
+            body: JSON.stringify({ firstName: metadata.first_name, lastName: metadata.last_name, phone: metadata.phone }),
+          });
+          const linkResult = await linkResponse.json();
+          if (!linkResponse.ok) { document.getElementById('loginError').textContent = linkResult.error || 'Could not link your customer profile.'; return; }
+          customers[email] = { ...account, name: linkResult.customer.name, phone: linkResult.customer.phone, email, customerDbId: linkResult.customer.id };
           saveCustomers(customers);
         }
       }
