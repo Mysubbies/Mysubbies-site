@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MySubbies — My Jobs</title>
+<title>MySubbies — My Home</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -113,8 +113,8 @@
   .btn-outline:hover { border-color:var(--black); background:var(--paper); }
   .btn:disabled, .btn:disabled:hover { opacity:.45; cursor:not-allowed; box-shadow:none; background:var(--black); transform:none; }
   .btn-full { width:100%; }
-  input[type=text], input[type=email], input[type=password] { width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:15px; border:1.5px solid var(--line); border-radius:10px; padding:13px 14px; outline:none; margin-bottom:12px; transition:border-color .15s ease, box-shadow .15s ease; }
-  input[type=text]:focus, input[type=email]:focus, input[type=password]:focus { border-color:var(--black); box-shadow:0 0 0 3px rgba(20,33,61,0.08); }
+  input[type=text], input[type=email], input[type=tel], input[type=password] { width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:15px; border:1.5px solid var(--line); border-radius:10px; padding:13px 14px; outline:none; margin-bottom:12px; transition:border-color .15s ease, box-shadow .15s ease; }
+  input[type=text]:focus, input[type=email]:focus, input[type=tel]:focus, input[type=password]:focus { border-color:var(--black); box-shadow:0 0 0 3px rgba(20,33,61,0.08); }
   .loginbox { background:#fff; border:1px solid var(--line); border-radius:18px; padding:28px; margin-top:60px; box-shadow:0 8px 24px rgba(20,33,61,0.07); }
   .loginbox h1 { font-size:22px; margin-bottom:8px; }
   .loginbox p { color:var(--stone); font-size:14px; margin-bottom:20px; }
@@ -461,20 +461,21 @@
   // identically -- see jobsLoadState.
   async function hydrateJobsFromServer() {
     const email = getCurrentCustomerEmail();
-    if (!email) return true;
+    if (!email) return 'ready';
     try {
       const token = await getCustomerAccessToken();
-      if (!token) return false;
+      if (!token) return 'expired';
       const res = await fetch('/api/get-jobs?customerEmail=1', { headers: { Authorization: 'Bearer ' + token } });
-      if (!res.ok) return false;
+      if (res.status === 401) return 'expired';
+      if (!res.ok) return 'error';
       const { jobs: remoteJobs } = await res.json();
-      if (!Array.isArray(remoteJobs) || remoteJobs.length === 0) return true;
+      if (!Array.isArray(remoteJobs) || remoteJobs.length === 0) return 'ready';
       const localJobs = getJobs();
       const byId = new Map(localJobs.map(j => [j.id, j]));
       remoteJobs.forEach(rj => { if (rj && rj.id) byId.set(rj.id, rj); });
       localStorage.setItem('mysubbies_jobs', JSON.stringify(Array.from(byId.values())));
-      return true;
-    } catch (e) { return false; /* offline -- local cache still works */ }
+      return 'ready';
+    } catch (e) { return 'error'; /* offline -- local cache still works */ }
   }
 
   // Manual refresh (Aug 2026) -- re-pulls jobs from Supabase and re-renders,
@@ -488,7 +489,9 @@
     manualRefreshInFlight = true;
     const icon = document.getElementById('refreshIcon');
     if (icon) icon.classList.add('spinning');
-    hydrateJobsFromServer().then(() => {
+    hydrateJobsFromServer().then((state) => {
+      if (state === 'expired') return handleExpiredSession();
+      jobsLoadState = state;
       render();
       showToast('Refreshed');
     }).catch(() => {}).finally(() => {
@@ -507,6 +510,13 @@
     catch (e) { console.error('localStorage quota exceeded saving customers:', e); }
   }
   function getCurrentCustomerEmail() { return localStorage.getItem('mysubbies_customer_email'); }
+
+  function handleExpiredSession() {
+    localStorage.removeItem('mysubbies_customer_email');
+    loginNotice = 'Your session has expired. Please log in again.';
+    jobsLoadState = 'loading';
+    render();
+  }
 
   // Same publishable/safe-to-expose Supabase key as booking.html and the
   // contractor pages — protected by RLS, not secrecy.
@@ -542,10 +552,12 @@
   // instead of a silent "no bookings" that looks identical to a genuinely
   // new customer -- see renderMyHome()/renderBookingsList().
   let jobsLoadState = 'loading'; // 'loading' | 'ready' | 'error'
+  let loginNotice = '';
   // Homepage larger-project CTA deep-links into this existing enquiry form.
   // The query survives login; it is consumed only after the authenticated
   // dashboard (and its projectEnquiryFormWrap) has rendered.
   let pendingProjectEnquiry = new URLSearchParams(window.location.search).get('project-enquiry') === '1';
+  let pendingSignup = new URLSearchParams(window.location.search).get('signup') === '1';
 
   function openPaymentHistory() { showingPaymentHistory = true; showingPropertyProfile = false; dashSection = 'payments'; render(); }
   function closePaymentHistory() { showingPaymentHistory = false; dashSection = 'home'; render(); }
@@ -1799,17 +1811,23 @@
   // focus on one bucket instead of scrolling past everything.
   const JOB_STATUS_FILTERS = [
     { key: 'all', label: 'All' },
-    { key: 'feed', label: 'Awaiting contractor' },
-    { key: 'assigned', label: 'Assigned' },
+    { key: 'upcoming', label: 'Upcoming' },
+    { key: 'in_progress', label: 'In progress' },
     { key: 'cancellation_requested', label: 'Cancellation requested' },
     { key: 'completed', label: 'Completed' },
     { key: 'cancelled', label: 'Cancelled' },
   ];
   let jobStatusFilter = 'all';
+  function bookingMatchesFilter(job, filter) {
+    if (filter === 'all') return true;
+    if (filter === 'upcoming') return ['feed', 'offered', 'accepted', 'assigned'].includes(job.status);
+    if (filter === 'in_progress') return ['in_progress', 'started', 'completion_submitted'].includes(job.status);
+    return job.status === filter;
+  }
   function jobStatusFilterChipsHtml(jobs) {
     return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
       ${JOB_STATUS_FILTERS.map(f => {
-        const count = f.key === 'all' ? jobs.length : jobs.filter(j => j.status === f.key).length;
+        const count = jobs.filter(j => bookingMatchesFilter(j, f.key)).length;
         const active = jobStatusFilter === f.key;
         return `<button onclick="jobStatusFilter='${f.key}'; render();" style="padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;border:1.5px solid ${active ? 'var(--ink)' : 'var(--line)'};background:${active ? 'var(--ink)' : '#fff'};color:${active ? '#fff' : 'var(--ink)'};cursor:pointer;">${f.label} (${count})</button>`;
       }).join('')}
@@ -1887,7 +1905,7 @@
   }
   function renderInner() {
     const email = getCurrentCustomerEmail();
-    if (!email) { renderLogin(); return; }
+    if (!email) { if (pendingSignup) { pendingSignup = false; renderSignup(); } else renderLogin(); return; }
     if (customerPrefsData === null && !customerPrefsLoading) loadCustomerPrefs(email);
     if (selectedJobId) { renderDetail(email); return; }
     if (showingPaymentHistory) { renderPaymentHistory(email); return; }
@@ -1912,8 +1930,12 @@
     { label: 'Painting', catLabel: 'Painting', photo: 'images/categories/painting.jpg' },
   ];
   function goToCategoryInEstimator(catLabel) {
-    localStorage.setItem('mysubbies_open_category', catLabel);
-    window.location.href = 'mysubbies-website.html#categories';
+    // Use the homepage estimator's existing `service` deep link rather than
+    // landing on the generic category gallery. The homepage consumes this
+    // parameter with initOpenCategoryIfRequested() and calls its established
+    // goToEstimatorWithCategory()/selectCat() path, so pricing and selection
+    // behavior remain owned by the production estimator.
+    window.location.href = `mysubbies-website.html?service=${encodeURIComponent(catLabel)}#estimate`;
   }
   function categoryCardsHtml() {
     return `<div class="cat-card-grid">
@@ -1972,12 +1994,14 @@
     const priceHtml = (j.priceLow || j.basePrice)
       ? `<div class="bcard-price">$${(j.priceLow || j.basePrice).toLocaleString()}</div>`
       : `<div class="bcard-price-tbc">Price pending</div>`;
+    const bookedDate = j.scheduledWindowStart || j.scheduledAt || j.createdAt;
+    const dateText = bookedDate ? new Date(bookedDate).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: j.scheduledWindowStart || j.scheduledAt ? 'short' : undefined }) : '';
     return `
       <div class="bcard" tabindex="0" role="button" aria-label="View booking: ${escapeHtml(j.category)}" onclick="selectedJobId='${j.id}'; render();" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectedJobId='${j.id}';render();}">
         <div class="bcard-top">
           <div>
             <div class="bcard-title">${escapeHtml(j.category)}${jobHasUnreadMessage(j) ? ` <span style="color:var(--warn);font-size:10px;">●</span>` : ''}</div>
-            <div class="bcard-meta">${j.jobNumber ? 'Job #' + j.jobNumber + ' · ' : ''}${escapeHtml(j.suburb || j.address || '')}</div>
+            <div class="bcard-meta">${j.jobNumber ? 'Booking #' + j.jobNumber + ' · ' : ''}${dateText ? escapeHtml(dateText) + ' · ' : ''}${escapeHtml(j.suburb || '')}</div>
           </div>
           ${priceHtml}
         </div>
@@ -2035,11 +2059,11 @@
     if (allJobs.length === 0) {
       wrap.innerHTML = `
         <div class="hero-panel">
-          <h2>What needs sorting?</h2>
-          <p>From everyday repairs to bigger home improvements, start with the job you need sorted.</p>
+          <h2>Welcome to MySubbies</h2>
+          <p>You haven't booked anything yet.</p>
           <div class="hero-panel-actions">
             <a class="btn btn-black" style="width:auto;" href="mysubbies-website.html#estimate">Book your first service</a>
-            <button class="btn btn-outline" style="width:auto;" onclick="openProjectEnquiryForm()">Plan a larger project</button>
+            <button class="btn btn-outline" style="width:auto;" onclick="openProjectEnquiryForm()">Request a project quote</button>
           </div>
         </div>
         <div class="section-head">Popular services</div>
@@ -2089,8 +2113,9 @@
     jobsLoadState = 'loading';
     renderHomeMain(getCurrentCustomerEmail());
     if (dashSection === 'bookings') renderBookingsListInner(getCurrentCustomerEmail());
-    hydrateJobsFromServer().then((ok) => {
-      jobsLoadState = ok ? 'ready' : 'error';
+    hydrateJobsFromServer().then((state) => {
+      if (state === 'expired') return handleExpiredSession();
+      jobsLoadState = state;
       render();
     });
   }
@@ -2132,7 +2157,7 @@
       return;
     }
     let html = jobStatusFilterChipsHtml(allJobs) + jobSearchBoxHtml();
-    const statusFiltered = jobStatusFilter === 'all' ? allJobs : allJobs.filter(j => j.status === jobStatusFilter);
+    const statusFiltered = allJobs.filter(j => bookingMatchesFilter(j, jobStatusFilter));
     const jobsFiltered = statusFiltered.filter(j => jobMatchesSearch(j, jobSearchQuery));
     if (statusFiltered.length === 0) {
       html += `<div class="empty">No bookings in this status.</div>`;
@@ -2873,16 +2898,67 @@
   function renderLogin() {
     app.innerHTML = `
       <div class="loginbox">
-        <h1>Log in to My Jobs</h1>
-        <p>Use the email and password you registered with when you booked a job.</p>
+        <h1>Log in to MySubbies</h1>
+        <p>Access My Home and your bookings.</p>
+        ${loginNotice ? `<div class="note" style="margin-bottom:14px;">${escapeHtml(loginNotice)}</div>` : ''}
         <input type="email" id="loginEmail" placeholder="Email" />
         <input type="password" id="loginPassword" placeholder="Password" />
         <div id="loginError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
         <button class="btn btn-black btn-full" onclick="doLogin()">Log in →</button>
-        <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:14px;">
-          <a onclick="renderForgotPassword()" style="text-decoration:underline;cursor:pointer;">Forgot password?</a>
-        </div>
+        <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:14px;"><a onclick="renderForgotPassword()" style="text-decoration:underline;cursor:pointer;">Forgot password?</a></div>
+        <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:14px;">Don't have an account? <a onclick="renderSignup()" style="text-decoration:underline;cursor:pointer;font-weight:700;">Create account</a></div>
       </div>`;
+  }
+  function renderSignup() {
+    loginNotice = '';
+    app.innerHTML = `
+      <div class="loginbox">
+        <h1>Create your MySubbies account</h1>
+        <p>No booking or payment is required.</p>
+        <div class="row2"><input type="text" id="signupFirstName" placeholder="First name" /><input type="text" id="signupLastName" placeholder="Last name" /></div>
+        <input type="email" id="signupEmail" placeholder="Email" />
+        <input type="tel" id="signupMobile" placeholder="Mobile" />
+        <input type="password" id="signupPassword" placeholder="Password" />
+        <input type="password" id="signupConfirmPassword" placeholder="Confirm password" />
+        <label style="display:flex;gap:8px;align-items:flex-start;margin:4px 0 16px;font-size:13px;"><input type="checkbox" id="signupTerms" style="width:auto;margin-top:2px;" /> <span>I agree to the <a href="mysubbies-privacy-policy.html" target="_blank">Privacy Policy</a> and <a href="mysubbies-terms.html" target="_blank">Terms &amp; Conditions</a>.</span></label>
+        <div id="signupError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
+        <button class="btn btn-black btn-full" id="signupButton" onclick="doSignup()">Create account →</button>
+        <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:14px;">Already have an account? <a onclick="renderLogin()" style="text-decoration:underline;cursor:pointer;font-weight:700;">Log in</a></div>
+      </div>`;
+  }
+  async function doSignup() {
+    const firstName = document.getElementById('signupFirstName').value.trim();
+    const lastName = document.getElementById('signupLastName').value.trim();
+    const email = document.getElementById('signupEmail').value.trim().toLowerCase();
+    const phone = document.getElementById('signupMobile').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    const confirmPassword = document.getElementById('signupConfirmPassword').value;
+    const agreed = document.getElementById('signupTerms').checked;
+    const errorBox = document.getElementById('signupError');
+    if (!firstName || !lastName || !email || !phone || !password || !confirmPassword) { errorBox.textContent = 'Please complete every field.'; return; }
+    if (password !== confirmPassword) { errorBox.textContent = 'Passwords do not match.'; return; }
+    if (password.length < 8) { errorBox.textContent = 'Password must be at least 8 characters.'; return; }
+    if (!agreed) { errorBox.textContent = 'Please agree to the Privacy Policy and Terms & Conditions.'; return; }
+    if (!sb) { errorBox.textContent = 'Account creation is temporarily unavailable. Please try again.'; return; }
+    const button = document.getElementById('signupButton');
+    button.disabled = true; button.textContent = 'Creating account…';
+    const name = `${firstName} ${lastName}`;
+    const { data, error } = await sb.auth.signUp({ email, password, options: { data: { first_name: firstName, last_name: lastName, phone } } });
+    if (error) { errorBox.textContent = error.message.toLowerCase().includes('already') ? 'An account with this email already exists. Log in instead.' : error.message; button.disabled = false; button.textContent = 'Create account →'; return; }
+    if (!data.user) { errorBox.textContent = 'We could not create your account. Please try again.'; button.disabled = false; return; }
+    if (!data.session) { app.innerHTML = `<div class="loginbox"><h1>Check your email</h1><p>Your login has been kept. Confirm your email address, then log in to finish linking your customer profile.</p><button class="btn btn-black btn-full" onclick="renderLogin()">Back to log in</button></div>`; return; }
+    const profileResponse = await fetch('/api/customer-register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + data.session.access_token },
+      body: JSON.stringify({ firstName, lastName, phone }),
+    });
+    const profileResult = await profileResponse.json();
+    if (!profileResponse.ok) { errorBox.textContent = profileResult.error || 'Could not link your customer profile.'; button.disabled = false; button.textContent = 'Create account →'; return; }
+    const customers = getCustomers();
+    customers[email] = { name, phone, email, customerDbId: profileResult.customer.id, createdAt: new Date().toISOString() };
+    saveCustomers(customers);
+    localStorage.setItem('mysubbies_customer_email', email);
+    jobsLoadState = 'ready'; dashSection = 'home'; render();
   }
   function renderForgotPassword() {
     app.innerHTML = `
@@ -2946,6 +3022,16 @@
         if (profile) {
           customers[email] = { ...account, name: profile.name || account?.name, phone: profile.phone || account?.phone, email, password };
           saveCustomers(customers);
+        } else {
+          const metadata = data.user.user_metadata || {};
+          const linkResponse = await fetch('/api/customer-register', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + data.session.access_token },
+            body: JSON.stringify({ firstName: metadata.first_name, lastName: metadata.last_name, phone: metadata.phone }),
+          });
+          const linkResult = await linkResponse.json();
+          if (!linkResponse.ok) { document.getElementById('loginError').textContent = linkResult.error || 'Could not link your customer profile.'; return; }
+          customers[email] = { ...account, name: linkResult.customer.name, phone: linkResult.customer.phone, email, customerDbId: linkResult.customer.id };
+          saveCustomers(customers);
         }
       }
     }
@@ -2979,12 +3065,15 @@
     // before this login existed — it needs to run again now that we know
     // who's logged in, or a first login on a fresh device shows "0 jobs"
     // even though jobs exist on the server. Found via live testing.
-    const ok = await hydrateJobsFromServer();
-    jobsLoadState = ok ? 'ready' : 'error';
+    loginNotice = '';
+    const state = await hydrateJobsFromServer();
+    if (state === 'expired') return handleExpiredSession();
+    jobsLoadState = state;
     dashSection = 'home'; // lands on the My Home dashboard after login
     render();
   }
-  function logout() {
+  async function logout() {
+    if (sb) await sb.auth.signOut();
     localStorage.removeItem('mysubbies_customer_email');
     selectedJobId = null;
     render();
@@ -3146,10 +3235,28 @@
   // new customer (0 jobs) and a slow/offline load never look identical --
   // render() only runs once hydrate settles either way, matching the
   // pre-existing render() call shape here.
-  hydrateJobsFromServer().then((ok) => {
-    jobsLoadState = ok ? 'ready' : 'error';
-    render();
-  });
+  async function bootstrapCustomerSession() {
+    if (!sb) { jobsLoadState = 'error'; render(); return; }
+    const { data, error } = await sb.auth.getSession();
+    const session = !error && data && data.session;
+    if (!session) {
+      if (getCurrentCustomerEmail()) loginNotice = 'Your session has expired. Please log in again.';
+      localStorage.removeItem('mysubbies_customer_email');
+      jobsLoadState = 'loading'; render(); return;
+    }
+    const email = String(session.user.email || '').toLowerCase();
+    localStorage.setItem('mysubbies_customer_email', email);
+    const { data: profile } = await sb.from('customers').select('*').eq('auth_user_id', session.user.id).maybeSingle();
+    if (profile) {
+      const customers = getCustomers();
+      customers[email] = { ...customers[email], name: profile.name, phone: profile.phone, email, customerDbId: profile.id };
+      saveCustomers(customers);
+    }
+    const state = await hydrateJobsFromServer();
+    if (state === 'expired') return handleExpiredSession();
+    jobsLoadState = state; render();
+  }
+  bootstrapCustomerSession();
   { const __email = getCurrentCustomerEmail(); hydrateDisputesFromServer(__email); hydrateInquiriesFromServer(__email).then(() => { if (document.getElementById('inquiryFormWrap')) renderInquiryPanel(); }); }
 </script>
 <script>
