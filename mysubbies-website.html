@@ -2845,6 +2845,43 @@
     return { kind:task.unit === 'm²' ? 'area' : 'legacy', question:task.name, label:legacy.label, placeholder:legacy.placeholder, hint:legacy.hint };
   }
 
+  // Natural-language task matching must never treat an unrelated category
+  // measurement as this task's quantity. For example, "34m Colorbond fence
+  // plus a single gate" contains 34, but 34 belongs to the lm fence task,
+  // not the per-gate task. Only prefill when the number is explicitly paired
+  // with an alias for the matched task's own unit. The normal quantity fields
+  // still use parseQuantity() unchanged after the customer answers them.
+  function parseTaskSpecificQuantity(raw, unit) {
+    const text = String(raw || '').trim().toLowerCase();
+    const u = String(unit || '').trim().toLowerCase();
+    if (!text) return null;
+    if (u === 'job') return 1;
+    if (u === 'm²') {
+      const dims = text.match(/(\d+(?:\.\d+)?)\s*m?\s*[x×*]\s*(\d+(?:\.\d+)?)\s*m?/);
+      if (dims) return Number(dims[1]) * Number(dims[2]);
+      const area = text.match(/(\d+(?:\.\d+)?)\s*(?:m²|m2|sqm|square\s*met(?:re|er)s?)/);
+      return area ? Number(area[1]) : null;
+    }
+    const aliases = {
+      lm:'(?:lm|linear\\s*met(?:re|er)s?|met(?:re|er)s?|m)(?![²2³3])',
+      hour:'(?:hours?|hrs?)', visit:'visits?', clean:'cleans?', load:'loads?', 'trailer load':'(?:trailer\\s*)?loads?',
+      gate:'gates?', item:'items?|flat[ -]?packs?|furniture(?:\\s+items?)?', step:'steps?', window:'windows?',
+      point:'points?', switch:'switch(?:es)?', fitting:'fittings?', light:'lights?', fan:'fans?', alarm:'alarms?',
+      circuit:'circuits?', appliance:'appliances?', unit:'units?', device:'devices?', breaker:'breakers?',
+      tap:'taps?', toilet:'toilets?', shower:'showers?', fixture:'fixtures?', valve:'valves?', hose:'(?:hoses?|connectors?)',
+      trap:'traps?', waste:'(?:wastes?|outlets?)', dwelling:'(?:dwellings?|properties?)', tv:'tvs?', door:'doors?',
+      bin:'bins?', day:'days?', tree:'trees?', stump:'stumps?', treatment:'treatments?', inspection:'inspections?',
+      'call-out':'call[ -]?outs?', lock:'locks?', cylinder:'cylinders?', patch:'patches?', sheet:'sheets?', panel:'panels?',
+      wall:'walls?', room:'rooms?', tile:'tiles?', board:'boards?'
+    };
+    const alias = aliases[u];
+    if (!alias) return null;
+    const afterNumber = new RegExp(`(\\d+(?:\\.\\d+)?)\\s*${alias}`, 'i').exec(text);
+    if (afterNumber) return Number(afterNumber[1]);
+    const beforeNumber = new RegExp(`${alias}\\s*[:x-]?\\s*(\\d+(?:\\.\\d+)?)`, 'i').exec(text);
+    return beforeNumber ? Number(beforeNumber[1]) : null;
+  }
+
   // ============================================================
   // Priced comparison group (Sep 2026) -- Step 2 now leads with a single
   // size/quantity field and shows every task sharing the category's most
@@ -3361,7 +3398,7 @@
       }
       const result = estFindTaskMatches(estSecondaryTasks(selectedCat), query);
       if (result.type === 'single') {
-        estSetQuickMatchAutoTask(result.task, parseQuantity(query, result.task.unit));
+        estSetQuickMatchAutoTask(result.task, parseTaskSpecificQuantity(query, result.task.unit));
         return;
       }
       if (result.type === 'ambiguous') {
@@ -3443,7 +3480,7 @@
     const matchLine = document.getElementById('estTierMatchLine');
     matchLine.className = 'est-match-line ambiguous';
     const optionsHtml = tasks.map(t => {
-      const qty = parseQuantity(query, t.unit);
+      const qty = parseTaskSpecificQuantity(query, t.unit);
       let priceLabel;
       if (qty && qty > 0) {
         const raw = Math.round(qty * t.rate);
@@ -3470,7 +3507,7 @@
     if (!selectedCat) return;
     const task = selectedCat.tasks.find(t => t.name === taskName);
     if (!task) return;
-    estSetQuickMatchAutoTask(task, parseQuantity(estLastAmbiguousQuery, task.unit));
+    estSetQuickMatchAutoTask(task, parseTaskSpecificQuantity(estLastAmbiguousQuery, task.unit));
   }
 
   async function estRequestAiTaskMatch(query) {
@@ -3494,7 +3531,7 @@
 
       if (data.matched && data.taskName) {
         const task = selectedCat.tasks.find(t => t.name === data.taskName);
-        if (task) { estSetQuickMatchAutoTask(task, parseQuantity(query, task.unit)); return; }
+        if (task) { estSetQuickMatchAutoTask(task, parseTaskSpecificQuantity(query, task.unit)); return; }
       }
 
       if (data.aiEstimate) {

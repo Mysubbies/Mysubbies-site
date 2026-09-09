@@ -71,3 +71,54 @@ test('existing pricing formula and courier mechanism remain unchanged', () => {
 test('homepage mirrors remain byte-for-byte identical', () => {
   assert.deepEqual(fs.readFileSync('index.html'), fs.readFileSync('mysubbies-website.html'));
 });
+
+function loadTaskQuantityParser() {
+  const source = extractBetween(
+    'const SERVICE_AWARE_PHASE1_CATEGORIES',
+    '  // ============================================================\n  // Priced comparison group'
+  );
+  const context = {};
+  vm.runInNewContext(`${source}\nglobalThis.parseTaskSpecificQuantity = parseTaskSpecificQuantity;`, context);
+  return context.parseTaskSpecificQuantity;
+}
+
+function loadDefaultCategories() {
+  const declaration = 'const DEFAULT_CATEGORIES = ';
+  const start = homepage.indexOf(declaration) + declaration.length;
+  const end = homepage.indexOf('\n  ];', start) + 4;
+  return vm.runInNewContext(homepage.slice(start, end));
+}
+
+test('mixed-unit natural language quantities stay with their own service unit', () => {
+  const parse = loadTaskQuantityParser();
+  assert.equal(parse('34m Colorbond fence plus a single gate', 'lm'), 34);
+  assert.equal(parse('34m Colorbond fence plus a single gate', 'gate'), null);
+  assert.equal(parse('6m x 5m deck with 3 steps', 'm²'), 30);
+  assert.equal(parse('6m x 5m deck with 3 steps', 'step'), 3);
+  assert.equal(parse('pressure clean 24m² and wash 8 windows', 'm²'), 24);
+  assert.equal(parse('pressure clean 24m² and wash 8 windows', 'window'), 8);
+  assert.equal(parse('garden tidy for 4 hours over 2 visits', 'hour'), 4);
+  assert.equal(parse('garden tidy for 4 hours over 2 visits', 'visit'), 2);
+  assert.equal(parse('install 6 points and connect 2 appliances', 'point'), 6);
+  assert.equal(parse('install 6 points and connect 2 appliances', 'appliance'), 2);
+  assert.equal(parse('replace 3 taps and 1 toilet', 'tap'), 3);
+  assert.equal(parse('replace 3 taps and 1 toilet', 'toilet'), 1);
+  assert.equal(parse('34m fence and unblock a drain', 'job'), 1);
+});
+
+test('category measurement cannot prefill differently-unitized services', () => {
+  const parse = loadTaskQuantityParser();
+  const phase1 = new Set(['Handyman', 'Cleaning', 'Gardening & Lawn Mowing', 'Fencing', 'Decking', 'Plumbing', 'Electrical']);
+  for (const category of loadDefaultCategories().filter(c => phase1.has(c.label))) {
+    const active = category.tasks.filter(t => !t.disabled && !t.unavailable && typeof t.rate === 'number');
+    const byUnit = new Map();
+    for (const task of active) byUnit.set(task.unit, [...(byUnit.get(task.unit) || []), task]);
+    if (byUnit.size < 2) continue;
+    const [primaryUnit] = [...byUnit.entries()].sort((a, b) => b[1].length - a[1].length)[0];
+    const queryUnit = primaryUnit === 'm²' ? 'm²' : primaryUnit === 'lm' ? 'm' : ` ${primaryUnit}`;
+    const categoryMeasurement = `34${queryUnit}`;
+    for (const task of active.filter(t => t.unit !== primaryUnit && t.unit !== 'job')) {
+      assert.equal(parse(categoryMeasurement, task.unit), null, `${category.label}: ${categoryMeasurement} leaked into ${task.name} (${task.unit})`);
+    }
+  }
+});
