@@ -72,6 +72,7 @@
   .totalsbox .row { display:flex; justify-content:space-between; padding:5px 0; }
   .totalsbox .row.total { border-top:1px solid var(--line); margin-top:6px; padding-top:10px; font-weight:800; font-size:16px; }
   .textblock { font-size:13.5px; color:var(--ink); white-space:pre-wrap; line-height:1.6; }
+  .item-description { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.55; }
   .textblock + .textblock { margin-top:14px; }
   .textlabel { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--stone-light); margin-bottom:6px; }
 
@@ -178,7 +179,7 @@
     const gstCents = Math.round((totalIncGstCents || 0) / 11);
     return { totalCents: totalIncGstCents || 0, gstCents, exGstCents: (totalIncGstCents || 0) - gstCents };
   }
-  function pdfLetterhead(doc, { docType, docRef, dateStr, legalName, abn }) {
+  function pdfLetterhead(doc, { docType, docRef, dateStr, validUntil, legalName, abn }) {
     doc.setFillColor(...PDF_NAVY); doc.rect(0, 0, 210, 34, 'F');
     doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
     doc.text('MySubbies', 14, 16);
@@ -189,6 +190,7 @@
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(200, 206, 220);
     if (docRef) doc.text(docRef, 196, 21, { align: 'right' });
     doc.text(`Issued ${dateStr}`, 196, 27, { align: 'right' });
+    if (validUntil) { doc.setTextColor(255, 106, 26); doc.setFont('helvetica', 'bold'); doc.text(`VALID UNTIL ${validUntil}`, 196, 32, { align: 'right' }); }
     doc.setTextColor(0, 0, 0);
   }
   function pdfFooter(doc, noteLine, legalName, abn) {
@@ -205,18 +207,35 @@
     }
   }
   function pdfTotalsBox(doc, y, { exGstCents, gstCents, totalCents }, totalLabel) {
-    const boxX = 130, boxW = 66;
-    doc.setFontSize(9.5); doc.setTextColor(90, 90, 90); doc.setFont('helvetica', 'normal');
-    doc.text('Subtotal (ex. GST)', boxX, y);
-    doc.text(fmtCents(exGstCents), boxX + boxW, y, { align: 'right' });
-    doc.text('GST (10%)', boxX, y + 6);
-    doc.text(fmtCents(gstCents), boxX + boxW, y + 6, { align: 'right' });
-    doc.setDrawColor(220, 220, 217); doc.line(boxX, y + 9, boxX + boxW, y + 9);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.setTextColor(20, 33, 61);
-    doc.text(totalLabel || 'Total (inc. GST)', boxX, y + 17);
-    doc.text(fmtCents(totalCents), boxX + boxW, y + 17, { align: 'right' });
+    const boxX = 112, boxW = 84;
+    doc.setFillColor(...PDF_NAVY); doc.roundedRect(boxX, y - 4, boxW, 29, 2, 2, 'F');
+    doc.setFontSize(8.5); doc.setTextColor(210, 216, 229); doc.setFont('helvetica', 'normal');
+    doc.text('Subtotal ex GST', boxX + 6, y + 2); doc.text(fmtCents(exGstCents), boxX + boxW - 6, y + 2, { align: 'right' });
+    doc.text('GST (10%)', boxX + 6, y + 8); doc.text(fmtCents(gstCents), boxX + boxW - 6, y + 8, { align: 'right' });
+    doc.setDrawColor(255, 106, 26); doc.setLineWidth(0.7); doc.line(boxX + 6, y + 12, boxX + boxW - 6, y + 12);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(255, 255, 255);
+    doc.text((totalLabel || 'TOTAL INC GST').toUpperCase(), boxX + 6, y + 20); doc.text(fmtCents(totalCents), boxX + boxW - 6, y + 20, { align: 'right' });
     doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal');
     return y + 24;
+  }
+  function pdfDescription(item) {
+    const parts = String(item.description || '').split(/\r?\n/);
+    const title = parts.shift() || 'Quoted service';
+    const details = parts.join('\n').trim();
+    const measurement = item.lengthM && item.widthM
+      ? `Measurements: ${item.lengthM}m × ${item.widthM}m = ${Number(item.calculatedAreaM2 || item.qty).toFixed(2)} m²`
+      : item.lengthM && String(item.unit || '').toLowerCase() === 'lm' ? `Measurements: ${item.lengthM} linear metres` : '';
+    return { title, details, measurement };
+  }
+  function pdfProposalTable(doc, items, startY) {
+    const rows = items.map(item => ['', `${item.qty}${item.unit ? ' ' + item.unit : ''}`, fmtCents(item.unitPriceCents), fmtCents(item.lineTotalCents)]);
+    doc.autoTable({ startY, head: [['Description', 'Qty / Unit', 'Unit Price', 'Amount']], body: rows,
+      margin: { left:14, right:14, bottom:24 }, styles: { fontSize:8.5, cellPadding:4, valign:'top', overflow:'linebreak' },
+      headStyles: { fillColor:PDF_NAVY, textColor:255, fontStyle:'bold' }, alternateRowStyles: { fillColor:PDF_PAPER },
+      columnStyles: { 0:{cellWidth:108}, 1:{cellWidth:18,halign:'right'}, 2:{cellWidth:25,halign:'right'}, 3:{cellWidth:29,halign:'right'} }, theme:'grid',
+      didParseCell(data) { if (data.section === 'body' && data.column.index === 0) { const d=pdfDescription(items[data.row.index]); data.cell.text=[]; data.cell.styles.minCellHeight=10 + doc.splitTextToSize(d.title,100).length*4 + doc.splitTextToSize(d.details,100).length*3.8 + (d.measurement?5:0); } },
+      didDrawCell(data) { if (data.section !== 'body' || data.column.index !== 0) return; const d=pdfDescription(items[data.row.index]); let y=data.cell.y+5; doc.setTextColor(...PDF_NAVY); doc.setFont('helvetica','bold'); doc.setFontSize(9); const title=doc.splitTextToSize(d.title,100); doc.text(title,data.cell.x+4,y); y+=title.length*4+2; if(d.details){doc.setTextColor(65);doc.setFont('helvetica','normal');doc.setFontSize(8.5);const lines=doc.splitTextToSize(d.details,100);doc.text(lines,data.cell.x+4,y);y+=lines.length*3.8+2;} if(d.measurement){doc.setTextColor(...PDF_NAVY);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text(doc.splitTextToSize(d.measurement,100),data.cell.x+4,y);} }
+    });
   }
 
   const TOKEN = new URLSearchParams(location.search).get('token') || '';
@@ -314,7 +333,7 @@
           <tbody>
             ${items.map(it => `
               <tr>
-                <td>${escapeHtml(it.description)}</td>
+                <td class="item-description">${escapeHtml(it.description)}</td>
                 <td class="num">${it.qty}${it.unit ? ' ' + escapeHtml(it.unit) : ''}</td>
                 <td class="num">${fmtCents(it.unitPriceCents)}</td>
                 <td class="num">${fmtCents(it.lineTotalCents)}</td>
@@ -464,56 +483,45 @@
     const abn = (q.issuingEntity && q.issuingEntity.abn) || '';
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    pdfLetterhead(doc, { docType: 'QUOTE', docRef: `Quote #${q.quoteNumber} · v${q.versionNumber}`, dateStr: fmtDate(q.issuedAt || new Date().toISOString()), legalName, abn });
+    pdfLetterhead(doc, { docType: 'PROJECT PROPOSAL', docRef: `Quote #${q.quoteNumber} · v${q.versionNumber}`, dateStr: fmtDate(q.issuedAt || new Date().toISOString()), validUntil: fmtDate(q.expiresAt), legalName, abn });
 
     doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(140);
     doc.text('PREPARED FOR', 14, 46);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(20, 20, 20);
     doc.text((q.customer && q.customer.name) || '—', 14, 52);
-    doc.setFontSize(9); doc.setTextColor(110);
-    doc.text((q.customer && q.customer.email) || '', 14, 57);
+    doc.setFontSize(9); doc.setTextColor(90);
+    const property = q.property || {}, customer = q.customer || {};
+    const location = [property.address, [property.suburb, property.postcode].filter(Boolean).join(' ')].filter(Boolean);
+    const contact = [customer.email, customer.phone || customer.mobile].filter(Boolean);
+    doc.text([...location, ...contact], 14, 58);
 
-    if (q.property && q.property.address) {
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(140);
-      doc.text('PROPERTY', 120, 46);
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(20, 20, 20);
-      doc.text(q.property.address, 120, 52);
-      if (q.property.suburb) { doc.setFontSize(9); doc.setTextColor(110); doc.text(q.property.suburb, 120, 57); }
-    }
-
-    const rows = (q.lineItems || []).map(it => [it.description, `${it.qty}${it.unit ? ' ' + it.unit : ''}`, fmtCents(it.unitPriceCents), fmtCents(it.lineTotalCents)]);
-    doc.autoTable({
-      startY: 66, head: [['Description', 'Qty', 'Unit price', 'Amount']], body: rows,
-      styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: PDF_NAVY, textColor: 255, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: PDF_PAPER },
-      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
-      theme: 'grid',
-    });
+    pdfProposalTable(doc, q.lineItems || [], 58 + (location.length + contact.length) * 4 + 5);
     let finalY = doc.lastAutoTable.finalY || 70;
     finalY = pdfTotalsBox(doc, finalY + 12, gstBreakdown(q.totalIncGstCents), 'Total (inc. GST)');
 
-    const sections = [
-      ['Notes', q.scopeText], ['Inclusions', q.inclusionsText], ['Exclusions', q.exclusionsText],
-      ['Payment schedule', q.paymentTermsText],
-      ['Terms & conditions', q.termsText, q.termsUrl],
-    ];
+    const sections = [['Scope of Works', q.scopeText], ['Inclusions', q.inclusionsText], ['Exclusions', q.exclusionsText], ['Terms / Important Information', [q.paymentTermsText, q.termsText].filter(Boolean).join('\n\n'), q.termsUrl]];
+    doc.addPage(); let sectionY = 24;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
     sections.forEach(([label, text, url]) => {
       if (!text) return;
-      if (finalY > 250) { doc.addPage(); finalY = 20; }
-      doc.setFont('helvetica', 'bold'); doc.text(label, 14, finalY);
-      doc.setFont('helvetica', 'normal');
       const lines = doc.splitTextToSize(text, 180);
-      doc.text(lines, 14, finalY + 5);
-      finalY += 5 + lines.length * 4.5;
+      if (sectionY + 12 + lines.length * 4.5 > 265) { doc.addPage(); sectionY = 24; }
+      doc.setDrawColor(255,106,26); doc.setLineWidth(0.8); doc.line(14,sectionY-4,25,sectionY-4);
+      doc.setTextColor(...PDF_NAVY); doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.text(label, 14, sectionY);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9); doc.setTextColor(60); doc.text(lines, 14, sectionY + 6);
+      sectionY += 10 + lines.length * 4.5;
       if (url) {
         doc.setTextColor(30, 60, 150);
-        doc.textWithLink('Read the full Mysubbies Platform Terms →', 14, finalY + 3, { url });
+        doc.textWithLink('Read the full Mysubbies Platform Terms →', 14, sectionY, { url });
         doc.setTextColor(60, 60, 60);
-        finalY += 6;
+        sectionY += 6;
       }
-      finalY += 6;
+      sectionY += 7;
     });
+    if (sectionY > 245) { doc.addPage(); sectionY = 24; }
+    doc.setDrawColor(255,106,26); doc.line(14,sectionY-4,25,sectionY-4); doc.setTextColor(...PDF_NAVY); doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('Quote Acceptance',14,sectionY);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(60); doc.text(q.status === 'accepted' ? `Accepted${q.acceptedAt ? ` on ${fmtDate(q.acceptedAt)}` : ''}` : q.status === 'declined' ? 'Declined' : 'Review and accept this proposal securely using the link supplied by MySubbies.',14,sectionY+7);
 
     pdfFooter(doc, `Valid until ${fmtDate(q.expiresAt)} · Not a tax invoice.`, legalName, abn);
     doc.save(`mysubbies-quote-${q.quoteNumber}-v${q.versionNumber}.pdf`);

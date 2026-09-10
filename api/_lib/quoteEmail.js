@@ -64,7 +64,10 @@ function renderQuoteEmail({ quote, version, secureQuoteUrl, recommendations = []
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7F7F5;border:1px solid #E7E7E4;border-radius:12px;">
           <tr><td style="padding:19px 20px;">
             <div style="font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Quote #${escapeHtml(quote.quote_number)}</div>
-            <div style="margin-top:8px;font-size:14px;line-height:21px;color:#14213D;">${escapeHtml(description)}</div>
+            <div style="margin-top:6px;font-size:12px;color:#6B7280;">Prepared for ${escapeHtml(customer.name || customer.email || 'Customer')}</div>
+            <div style="margin-top:8px;font-size:14px;line-height:21px;color:#14213D;">${escapeHtml(description).replace(/\r\n?|\n/g, '<br>')}</div>
+            ${version.scope_text ? `<div style="margin-top:14px;font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Scope</div><div style="margin-top:5px;font-size:13px;line-height:20px;color:#14213D;">${escapeHtml(version.scope_text).replace(/\r\n?|\n/g, '<br>')}</div>` : ''}
+            ${version.inclusions_text ? `<div style="margin-top:14px;font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Inclusions</div><div style="margin-top:5px;font-size:13px;line-height:20px;color:#14213D;">${escapeHtml(version.inclusions_text).replace(/\r\n?|\n/g, '<br>')}</div>` : ''}
             <div style="margin-top:14px;font-size:12px;color:#6B7280;">Total (inc. GST)</div>
             <div style="font-size:25px;line-height:32px;font-weight:800;color:#14213D;">${money(version.total_inc_gst_cents)}</div>
             <div style="margin-top:5px;font-size:12px;color:#6B7280;">Valid until: ${version.expires_at ? new Date(version.expires_at).toLocaleDateString('en-AU') : 'See quote'}</div>
