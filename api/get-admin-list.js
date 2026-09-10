@@ -10,6 +10,7 @@
 // no credential at all.
 const { getSupabase } = require('./_lib/clients');
 const { requireAdmin } = require('./_lib/adminAuth');
+const { isEligible, suburbToRegion } = require('./_lib/jobLifecycle');
 
 module.exports = async (req, res) => {
   if (req.method !== 'GET') { res.status(405).json({ error: 'Method not allowed' }); return; }
@@ -18,6 +19,43 @@ module.exports = async (req, res) => {
   try {
     const { type } = req.query || {};
     const supabase = getSupabase();
+
+    if (type === 'automation-dashboard') {
+      const since = new Date(Date.now() - 30 * 86400000).toISOString();
+      const [{ data: exceptions, error: exceptionError }, { data: workflows, error: workflowError }, { data: jobs, error: jobsError }, { data: contractors, error: contractorError }] = await Promise.all([
+        supabase.from('ops_exceptions').select('*').in('status', ['open', 'acknowledged']).order('created_at', { ascending: true }).limit(200),
+        supabase.from('job_workflows').select('state'),
+        supabase.from('jobs').select('id,category,suburb,created_at').gte('created_at', since).neq('status', 'cancelled'),
+        supabase.from('contractors').select('id,email,status,categories,suburb_ids,reliability_score,full_application'),
+      ]);
+      if (exceptionError || workflowError || jobsError || contractorError) throw (exceptionError || workflowError || jobsError || contractorError);
+      const coverage = new Map();
+      for (const job of jobs || []) {
+        const zone = suburbToRegion(job.suburb) || `Unmapped: ${job.suburb || 'Unknown'}`;
+        const key = `${zone}\u0000${job.category || 'Unknown'}`;
+        const entry = coverage.get(key) || { zone, suburb: job.suburb, category: job.category || 'Unknown', demand30d: 0 };
+        entry.demand30d += 1;
+        coverage.set(key, entry);
+      }
+      const signals = [];
+      for (const entry of coverage.values()) {
+        entry.approvedContractors = (contractors || []).filter(c => isEligible(entry, c)).length;
+        entry.shortage = entry.approvedContractors < 2;
+        signals.push(entry);
+        await supabase.from('coverage_signals').upsert({
+          zone: entry.zone, category: entry.category, approved_contractors: entry.approvedContractors,
+          demand_30d: entry.demand30d, shortage: entry.shortage,
+          marketing_context: { demandWindowDays: 30, purpose: 'future-demand-driven-marketing' }, calculated_at: new Date().toISOString(),
+        }, { onConflict: 'zone,category' });
+        if (entry.shortage) await supabase.from('recruitment_triggers').upsert({
+          zone: entry.zone, category: entry.category, reason: 'Fewer than two eligible approved contractors for recent demand',
+          demand_30d: entry.demand30d, approved_contractors: entry.approvedContractors, status: 'open', updated_at: new Date().toISOString(),
+        }, { onConflict: 'zone,category,status' });
+      }
+      const byState = (workflows || []).reduce((out, row) => ({ ...out, [row.state]: (out[row.state] || 0) + 1 }), {});
+      res.status(200).json({ summary: { workflows: (workflows || []).length, matching: byState.matching || 0, awaitingIntake: byState.awaiting_intake || 0, exceptions: (exceptions || []).length, shortages: signals.filter(s => s.shortage).length }, exceptions: exceptions || [], coverage: signals.sort((a, b) => Number(b.shortage) - Number(a.shortage) || b.demand30d - a.demand30d) });
+      return;
+    }
 
     if (type === 'applications') {
       // Was `.select('full_application').not('full_application', 'is',

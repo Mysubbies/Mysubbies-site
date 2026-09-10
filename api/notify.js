@@ -1,5 +1,5 @@
 // POST /api/notify
-// Body: { type: 'job-assigned' | 'stage-requested' | 'new-job-available' | 'contractor-application-submitted' | 'job-message', ...type-specific fields }
+// Body: { type: 'stage-requested' | 'contractor-application-submitted' | 'job-message', ...type-specific fields }
 //
 // Combines what were separate notify-job-assigned.js / notify-stage-requested.js
 // endpoints into one file — Vercel's Hobby plan caps a deployment at 12
@@ -14,23 +14,9 @@
 //   of prose, using whatever the customer entered in the estimator.
 // stage-requested: { customerEmail, category, stageLabel } — fired from
 //   mysubbies-contractor-portal.html's requestStageApproval().
-// new-job-available: { category, suburb, taskName, items, qty, unit,
-//   urgency, basePrice } — fired from
-//   mysubbies-booking.html once a job is created. Added Aug 2026: until
-//   this existed, a contractor had NO way to learn a new job existed
-//   except opening the portal and checking the Job Feed tab themselves —
-//   no email, SMS or push of any kind. Looks up matching contractors
-//   itself (same trade-match rule the Job Feed already filters by --
-//   approved status + trades array includes this category) rather than
-//   trusting a client-supplied recipient list. Sep 2026: now includes a
-//   details table (quantity, urgency, access/site notes) and a photo when
-//   the customer attached one -- suburb only, not the full street address,
-//   which stays hidden from contractors until they actually accept (same
-//   boundary as the Job Feed / job detail page). photoThumb is a small
-//   client-resized JPEG (see resizeImageDataUrl() in
-//   mysubbies-booking.html), never the customer's raw upload — this fans
-//   out to every matching contractor, so keeping it small at the source
-//   matters here more than almost anywhere else in this codebase.
+// new-job-available remains only as an authenticated compatibility path for
+// multi-category bundles, which do not yet create one authoritative server
+// job per category. Single-category dispatch uses the lifecycle worker.
 // contractor-application-submitted: { business, contact, email, phone,
 //   trades } — fired from mysubbies-contractor-signup.html once a new
 //   application is saved. Added Aug 2026: until this existed, admin had
@@ -41,11 +27,13 @@
 //   contact address so this works with zero extra Vercel config.
 const { sendEmail, wrapEmail, escapeHtml, emailDetailsTable, emailButton } = require('./_lib/email');
 const { getSupabase } = require('./_lib/clients');
+const { requireAccount } = require('./_lib/userAuth');
+const { jobMatchesContractorArea } = require('./_lib/serviceAreas');
 
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || 'accounts@mysubbies.com.au';
 
 // A clean "Task — qty unit" line (or one per line for a multi-item job),
-// shared by job-assigned and new-job-available so a recipient sees the
+// shared by notification types so a recipient sees the
 // actual scope of the job, not just its category name. Falls back to the
 // top-level qty/unit a single-item job already carries when no items
 // array was sent.
@@ -63,35 +51,6 @@ function itemsSummaryHtml(items, qty, unit) {
 // fail-open rule for an unmapped suburb) so a contractor never gets
 // emailed about a job their own in-app Job Feed wouldn't even show them.
 // See that file's comment for the full reasoning.
-const CONTRACTOR_REGIONS = ['Northern Melbourne', 'Western Melbourne', 'Inner/CBD Melbourne', 'Southern Melbourne', 'Eastern Melbourne'];
-const SUBURB_TO_REGION = {
-  'coburg':'Northern Melbourne','preston':'Northern Melbourne','reservoir':'Northern Melbourne','thornbury':'Northern Melbourne','northcote':'Northern Melbourne','fairfield':'Northern Melbourne','alphington':'Northern Melbourne','ivanhoe':'Northern Melbourne','heidelberg':'Northern Melbourne','bundoora':'Northern Melbourne','mill park':'Northern Melbourne','epping':'Northern Melbourne','south morang':'Northern Melbourne','whittlesea':'Northern Melbourne','craigieburn':'Northern Melbourne','broadmeadows':'Northern Melbourne','fawkner':'Northern Melbourne','brunswick':'Northern Melbourne','brunswick east':'Northern Melbourne','brunswick west':'Northern Melbourne','pascoe vale':'Northern Melbourne','glenroy':'Northern Melbourne','tullamarine':'Northern Melbourne','greenvale':'Northern Melbourne','roxburgh park':'Northern Melbourne','campbellfield':'Northern Melbourne','thomastown':'Northern Melbourne','lalor':'Northern Melbourne','watsonia':'Northern Melbourne','greensborough':'Northern Melbourne','eltham':'Northern Melbourne','diamond creek':'Northern Melbourne','doreen':'Northern Melbourne','kingsbury':'Northern Melbourne','macleod':'Northern Melbourne','yallambie':'Northern Melbourne',
-  'frankston':'Southern Melbourne','dandenong':'Southern Melbourne','cranbourne':'Southern Melbourne','mordialloc':'Southern Melbourne','chelsea':'Southern Melbourne','carrum':'Southern Melbourne','bentleigh':'Southern Melbourne','bentleigh east':'Southern Melbourne','cheltenham':'Southern Melbourne','moorabbin':'Southern Melbourne','brighton':'Southern Melbourne','sandringham':'Southern Melbourne','hampton':'Southern Melbourne','mentone':'Southern Melbourne','parkdale':'Southern Melbourne','aspendale':'Southern Melbourne','edithvale':'Southern Melbourne','seaford':'Southern Melbourne','langwarrin':'Southern Melbourne','skye':'Southern Melbourne','berwick':'Southern Melbourne','narre warren':'Southern Melbourne','pakenham':'Southern Melbourne','officer':'Southern Melbourne','hallam':'Southern Melbourne','clayton':'Southern Melbourne','springvale':'Southern Melbourne','noble park':'Southern Melbourne','keysborough':'Southern Melbourne','doveton':'Southern Melbourne','endeavour hills':'Southern Melbourne','hastings':'Southern Melbourne','mornington':'Southern Melbourne','mount eliza':'Southern Melbourne','somerville':'Southern Melbourne','rosebud':'Southern Melbourne','carnegie':'Southern Melbourne','murrumbeena':'Southern Melbourne','hughesdale':'Southern Melbourne','ormond':'Southern Melbourne','mckinnon':'Southern Melbourne','elwood':'Southern Melbourne',
-  'box hill':'Eastern Melbourne','camberwell':'Eastern Melbourne','hawthorn':'Eastern Melbourne','kew':'Eastern Melbourne','balwyn':'Eastern Melbourne','doncaster':'Eastern Melbourne','templestowe':'Eastern Melbourne','ringwood':'Eastern Melbourne','croydon':'Eastern Melbourne','bayswater':'Eastern Melbourne','boronia':'Eastern Melbourne','ferntree gully':'Eastern Melbourne','knox':'Eastern Melbourne','wantirna':'Eastern Melbourne','vermont':'Eastern Melbourne','mitcham':'Eastern Melbourne','blackburn':'Eastern Melbourne','nunawading':'Eastern Melbourne','glen waverley':'Eastern Melbourne','mount waverley':'Eastern Melbourne','ashburton':'Eastern Melbourne','ashwood':'Eastern Melbourne','chadstone':'Eastern Melbourne','oakleigh':'Eastern Melbourne','malvern':'Eastern Melbourne','malvern east':'Eastern Melbourne','armadale':'Eastern Melbourne','toorak':'Eastern Melbourne','canterbury':'Eastern Melbourne','surrey hills':'Eastern Melbourne','mont albert':'Eastern Melbourne','burwood':'Eastern Melbourne','forest hill':'Eastern Melbourne','heathmont':'Eastern Melbourne','belgrave':'Eastern Melbourne','upwey':'Eastern Melbourne','lilydale':'Eastern Melbourne','mooroolbark':'Eastern Melbourne','chirnside park':'Eastern Melbourne','warrandyte':'Eastern Melbourne','rowville':'Eastern Melbourne','scoresby':'Eastern Melbourne','bayswater north':'Eastern Melbourne',
-  'footscray':'Western Melbourne','yarraville':'Western Melbourne','seddon':'Western Melbourne','kingsville':'Western Melbourne','williamstown':'Western Melbourne','newport':'Western Melbourne','spotswood':'Western Melbourne','altona':'Western Melbourne','altona north':'Western Melbourne','laverton':'Western Melbourne','point cook':'Western Melbourne','werribee':'Western Melbourne','hoppers crossing':'Western Melbourne','tarneit':'Western Melbourne','truganina':'Western Melbourne','sunshine':'Western Melbourne','sunshine west':'Western Melbourne','braybrook':'Western Melbourne','deer park':'Western Melbourne','caroline springs':'Western Melbourne','melton':'Western Melbourne','bacchus marsh':'Western Melbourne','st albans':'Western Melbourne','keilor':'Western Melbourne','keilor east':'Western Melbourne','keilor downs':'Western Melbourne','sydenham':'Western Melbourne','taylors lakes':'Western Melbourne','delahey':'Western Melbourne','ardeer':'Western Melbourne','albion':'Western Melbourne','maidstone':'Western Melbourne','maribyrnong':'Western Melbourne','west footscray':'Western Melbourne','tottenham':'Western Melbourne',
-  'melbourne':'Inner/CBD Melbourne','melbourne cbd':'Inner/CBD Melbourne','southbank':'Inner/CBD Melbourne','docklands':'Inner/CBD Melbourne','south yarra':'Inner/CBD Melbourne','prahran':'Inner/CBD Melbourne','windsor':'Inner/CBD Melbourne','st kilda':'Inner/CBD Melbourne','st kilda east':'Inner/CBD Melbourne','balaclava':'Inner/CBD Melbourne','richmond':'Inner/CBD Melbourne','cremorne':'Inner/CBD Melbourne','abbotsford':'Inner/CBD Melbourne','collingwood':'Inner/CBD Melbourne','fitzroy':'Inner/CBD Melbourne','fitzroy north':'Inner/CBD Melbourne','carlton':'Inner/CBD Melbourne','carlton north':'Inner/CBD Melbourne','parkville':'Inner/CBD Melbourne','north melbourne':'Inner/CBD Melbourne','west melbourne':'Inner/CBD Melbourne','east melbourne':'Inner/CBD Melbourne','flemington':'Inner/CBD Melbourne','kensington':'Inner/CBD Melbourne','south melbourne':'Inner/CBD Melbourne','port melbourne':'Inner/CBD Melbourne','albert park':'Inner/CBD Melbourne','middle park':'Inner/CBD Melbourne',
-};
-function suburbToRegion(suburb) {
-  if (!suburb) return null;
-  const key = String(suburb).toLowerCase().trim();
-  if (SUBURB_TO_REGION[key]) return SUBURB_TO_REGION[key];
-  for (const s in SUBURB_TO_REGION) {
-    if (key.includes(s)) return SUBURB_TO_REGION[s];
-  }
-  return null;
-}
-function jobMatchesContractorArea(jobSuburb, application) {
-  const regions = (application && application.regions) || [];
-  if (!regions.length) return true;
-  if (!jobSuburb) return true;
-  const jobSuburbLower = String(jobSuburb).toLowerCase();
-  const freeSuburbs = ((application && application.suburbs) || []).filter(s => !CONTRACTOR_REGIONS.includes(s));
-  if (freeSuburbs.some(s => { const sl = String(s).toLowerCase().trim(); return sl && (jobSuburbLower.includes(sl) || sl.includes(jobSuburbLower)); })) return true;
-  const jobRegion = suburbToRegion(jobSuburb);
-  if (!jobRegion) return true;
-  return regions.includes(jobRegion);
-}
-
 // In-app notification-center row (supabase/schema_v13_notifications.sql),
 // written alongside the email each branch below already sends — this is
 // the in-app half of the same notification, read by the bell icon/panel
@@ -112,32 +71,10 @@ module.exports = async (req, res) => {
     const { type } = req.body || {};
 
     if (type === 'job-assigned') {
-      const { customerEmail, category, suburb, address, contractorName, jobId, items, qty, unit, urgency, basePrice } = req.body || {};
-      if (!customerEmail || !category) { res.status(400).json({ error: 'customerEmail and category are required.' }); return; }
-      await sendEmail({
-        to: customerEmail,
-        subject: `A contractor has been matched to your ${category} job`,
-        html: wrapEmail(`
-          <h2 style="margin-top:0;">Good news — you're matched!</h2>
-          <p>${contractorName ? `<strong>${escapeHtml(contractorName)}</strong> has` : 'A vetted contractor has'} accepted your <strong>${escapeHtml(category)}</strong> job${suburb ? ` in <strong>${escapeHtml(suburb)}</strong>` : ''}.</p>
-          ${emailDetailsTable([
-            { label: 'Job', value: escapeHtml(category) },
-            { label: 'Quantity', value: itemsSummaryHtml(items, qty, unit) },
-            { label: 'Address', value: address ? escapeHtml(address) : (suburb ? escapeHtml(suburb) : '') },
-            { label: 'Urgency', value: urgency ? escapeHtml(urgency) : '' },
-            { label: 'Price', value: basePrice != null ? `$${Number(basePrice).toLocaleString()}` : '' },
-            { label: 'Contractor', value: contractorName ? escapeHtml(contractorName) : '' },
-          ])}
-          <p>You can message them directly and track progress any time in My Jobs.</p>
-          ${emailButton('Open My Jobs →', 'https://app.mysubbies.com.au/mysubbies-customer-portal.html')}
-        `),
-      });
-      await writeNotification({
-        recipient_role: 'customer', recipient_email: customerEmail, event_type: 'job-assigned',
-        title: 'Contractor matched', body: `${contractorName || 'A contractor'} accepted your ${category} job${suburb ? ' in ' + suburb : ''}.`,
-        link_job_id: jobId || null,
-      });
-      res.status(200).json({ sent: true });
+      // Assignment notifications are emitted from the authenticated,
+      // conditional assignment in sync-jobs; browser-authored recipient and
+      // job details are not accepted here.
+      res.status(410).json({ error: 'Browser-initiated assignment notification has been retired.' });
       return;
     }
 
@@ -158,6 +95,8 @@ module.exports = async (req, res) => {
     }
 
     if (type === 'new-job-available') {
+      const auth = await requireAccount(getSupabase(), req, 'customer');
+      if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
       const { category, suburb, taskName, items, qty, unit, urgency, basePrice } = req.body || {};
       if (!category) { res.status(400).json({ error: 'category is required.' }); return; }
       // Same 82% figure shown everywhere else a contractor sees a job's

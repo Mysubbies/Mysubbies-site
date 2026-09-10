@@ -1,6 +1,7 @@
 {
   "crons": [
-    { "path": "/api/weekly-payout", "schedule": "0 1 * * 1" }
+    { "path": "/api/weekly-payout", "schedule": "0 1 * * 1" },
+    { "path": "/api/job-lifecycle", "schedule": "*/10 * * * *" }
   ],
   "rewrites": [
     { "source": "/", "destination": "/mysubbies-website.html" },

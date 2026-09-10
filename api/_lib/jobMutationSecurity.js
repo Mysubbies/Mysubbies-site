@@ -9,6 +9,7 @@ const PROTECTED_FIELDS = new Set([
 
 const CUSTOMER_FIELDS = new Set([
   'address', 'suburb', 'site', 'access', 'urgency', 'customerRating',
+  'intakeContactPreference', 'intakeParkingNotes', 'intakeAvailability', 'intakeCompletedAt',
   'customerReview', 'cancellationReason', 'cancellationRequestedAt',
   'cancellationRequestedBy',
 ]);
@@ -40,6 +41,12 @@ function mergePermittedMutation(existing, submitted, role) {
   const allowed = role === 'customer' ? CUSTOMER_FIELDS : role === 'contractor' ? CONTRACTOR_FIELDS : new Set();
   for (const key of allowed) {
     if (Object.prototype.hasOwnProperty.call(submitted, key)) result[key] = submitted[key];
+  }
+  if (role === 'customer') {
+    if (Object.prototype.hasOwnProperty.call(submitted, 'intakeAvailability')) result.intakeAvailability = String(submitted.intakeAvailability || '').trim().slice(0, 500);
+    if (Object.prototype.hasOwnProperty.call(submitted, 'intakeParkingNotes')) result.intakeParkingNotes = String(submitted.intakeParkingNotes || '').trim().slice(0, 1000);
+    if (Object.prototype.hasOwnProperty.call(submitted, 'intakeContactPreference')) result.intakeContactPreference = String(submitted.intakeContactPreference || '').trim().slice(0, 100);
+    if (Object.prototype.hasOwnProperty.call(submitted, 'intakeCompletedAt')) result.intakeCompletedAt = new Date().toISOString();
   }
   result.messages = safeMessages(existing.messages, submitted.messages, role);
   if (role === 'contractor') result.internalMessages = safeMessages(existing.internalMessages, submitted.internalMessages, role);
