@@ -72,6 +72,7 @@
   .totalsbox .row { display:flex; justify-content:space-between; padding:5px 0; }
   .totalsbox .row.total { border-top:1px solid var(--line); margin-top:6px; padding-top:10px; font-weight:800; font-size:16px; }
   .textblock { font-size:13.5px; color:var(--ink); white-space:pre-wrap; line-height:1.6; }
+  .item-description { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.55; }
   .textblock + .textblock { margin-top:14px; }
   .textlabel { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--stone-light); margin-bottom:6px; }
 
@@ -314,7 +315,7 @@
           <tbody>
             ${items.map(it => `
               <tr>
-                <td>${escapeHtml(it.description)}</td>
+                <td class="item-description">${escapeHtml(it.description)}</td>
                 <td class="num">${it.qty}${it.unit ? ' ' + escapeHtml(it.unit) : ''}</td>
                 <td class="num">${fmtCents(it.unitPriceCents)}</td>
                 <td class="num">${fmtCents(it.lineTotalCents)}</td>

@@ -49,10 +49,14 @@ test('configured quote email sends the selected verified from address', async ()
   global.fetch = async (url, options) => { request = { url, options }; return { ok: true }; };
   try {
     const { sendEmailWithResult } = loadEmail('MySubbies Quotes <quotes@example.test>');
-    const result = await sendEmailWithResult({ to: 'customer@example.com', subject: 'Quote', html: '<p>Quote</p>' });
+    const result = await sendEmailWithResult({ to: 'customer@example.com', bcc: 'accounts@mysubbies.com.au', subject: 'Quote', html: '<p>Quote</p>' });
     assert.equal(result.ok, true);
     assert.equal(request.url, 'https://api.resend.com/emails');
-    assert.equal(JSON.parse(request.options.body).from, 'MySubbies Quotes <quotes@example.test>');
+    const payload = JSON.parse(request.options.body);
+    assert.equal(payload.from, 'MySubbies Quotes <quotes@example.test>');
+    assert.equal(payload.to, 'customer@example.com');
+    assert.equal(payload.bcc, 'accounts@mysubbies.com.au');
+    assert.doesNotMatch(payload.html, /accounts@mysubbies\.com\.au/);
   } finally {
     global.fetch = originalFetch;
     delete process.env.RESEND_API_KEY;

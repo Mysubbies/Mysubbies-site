@@ -10,6 +10,8 @@ function email(overrides = {}) {
       customer_snapshot: { name: 'Ava Nguyen' },
       property_snapshot: { suburb: 'Richmond' },
       line_items: [{ description: 'Garden clean-up' }],
+      scope_text: 'Prepare garden beds\nRemove green waste',
+      inclusions_text: 'Labour\nMaterials',
       total_inc_gst_cents: 123450,
       expires_at: '2026-10-10T00:00:00.000Z',
     },
@@ -33,6 +35,9 @@ test('premium quote email includes customer, quote summary, total and secure CTA
   assert.match(html, /\.primary-button:hover,\.primary-button:active\{background:#E6BF00!important\}/);
   assert.match(html, /class="primary-button"[^>]*background:#FFD400;color:#111111/);
   assert.match(html, /Richmond/);
+  assert.match(html, /Prepared for Ava Nguyen/);
+  assert.match(html, /Prepare garden beds<br>Remove green waste/);
+  assert.match(html, /Labour<br>Materials/);
 });
 
 test('email recommendations show authoritative rates and estimate fallback', () => {
@@ -55,6 +60,20 @@ test('recommendations do not change the displayed quote total', () => {
   const withRecommendations = email();
   assert.match(withoutRecommendations, /\$1,234\.50/);
   assert.match(withRecommendations, /\$1,234\.50/);
+});
+
+test('multiline quote descriptions retain their formatting in email', () => {
+  const html = email({
+    version: {
+      customer_snapshot: { name: 'Ava Nguyen' },
+      property_snapshot: {},
+      line_items: [{ description: '• Supply fencing\n\n• Posts concreted into ground' }],
+      total_inc_gst_cents: 10000,
+    },
+    sourceCategory: null,
+    recommendations: [],
+  });
+  assert.ok(html.includes('• Supply fencing<br><br>• Posts concreted into ground'));
 });
 
 test('customer, service and recommendation content is HTML escaped', () => {

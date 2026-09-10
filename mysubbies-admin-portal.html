@@ -89,6 +89,12 @@
   .fieldinput { width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:13.5px; color:var(--ink); border:1.5px solid var(--line); border-radius:8px; padding:9px 11px; outline:none; background:#fff; }
   .fieldinput:focus { border-color:var(--black); }
   textarea.fieldinput { resize:vertical; }
+  .quote-description-input { min-height:142px; line-height:1.55; overflow-y:hidden; resize:none; }
+  .quote-scope-input { min-height:190px; line-height:1.55; overflow-y:hidden; resize:none; }
+  .quote-preserve-lines { white-space:pre-wrap; overflow-wrap:anywhere; }
+  .quote-area-fields { display:grid; grid-template-columns:1fr 1fr minmax(180px,1.2fr); gap:10px; align-items:end; margin:10px 0; padding:12px; background:#F7F7F5; border-radius:9px; }
+  .quote-area-fields[hidden] { display:none; }
+  .quote-calculated-area { min-height:39px; display:flex; align-items:center; padding:9px 11px; border:1.5px solid var(--line); border-radius:8px; background:#EEF1F6; font-size:13px; font-weight:800; }
   .quote-workflow { display:flex; align-items:center; gap:8px; margin:4px 0 24px; overflow-x:auto; padding-bottom:3px; }
   .quote-workflow-step { display:flex; align-items:center; gap:7px; white-space:nowrap; color:var(--stone); font-size:11.5px; font-weight:700; }
   .quote-workflow-step::before { content:''; width:9px; height:9px; border-radius:50%; background:#D8DCE3; }
@@ -126,6 +132,8 @@
     .quote-line-head { display:none; }
     .quote-line { grid-template-columns:1fr 74px 90px; }
     .quote-line > *:first-child { grid-column:1/-1; }
+    .quote-area-fields { grid-template-columns:1fr 1fr; }
+    .quote-calculated-area { grid-column:1/-1; }
   }
   .badge-active { background:#EAF5EE; color:var(--good); }
   .badge-deactivated { background:#FDEDEA; color:var(--warn); }
@@ -2617,7 +2625,7 @@
   }
 
   function blankLineItem() {
-    return { id: 'li_' + Math.random().toString(36).slice(2), rateCardItemId: null, description: '', qty: 1, unit: '', unitPriceCents: 0, taxTreatment: 'gst_inclusive_10' };
+    return { id: 'li_' + Math.random().toString(36).slice(2), rateCardItemId: null, description: '', qty: 1, unit: '', unitPriceCents: 0, taxTreatment: 'gst_inclusive_10', lengthM: null, widthM: null, calculatedAreaM2: null };
   }
   function openNewQuoteBuilder() {
     quoteBuilderDraft = { quoteId: null, customerId: null, customerEmail: '', customerName: '', customerPhone: '', assignedStaffId: '', lineItems: [blankLineItem()], scopeText: '', inclusionsText: '', exclusionsText: '', paymentTermsText: '', validityDays: 30, propertyAddress: '', propertySuburb: '' };
@@ -2670,14 +2678,65 @@
     quoteBuilderPreviewOpen = true; render();
   }
   function closeQuoteBuilderPreview() { quoteBuilderPreviewOpen = false; render(); }
-  function addQuoteLineItem() { quoteBuilderDraft.lineItems.push(blankLineItem()); render(); }
-  function removeQuoteLineItem(id) { quoteBuilderDraft.lineItems = quoteBuilderDraft.lineItems.filter(li => li.id !== id); render(); }
+  // Full render() calls replace #app. Keep structural quote-editor actions
+  // anchored to the same viewport position after the DOM changes height.
+  function renderQuoteBuilderInPlace() {
+    const x = window.scrollX, y = window.scrollY;
+    render();
+    window.scrollTo(x, y);
+    requestAnimationFrame(() => window.scrollTo(x, y));
+  }
+  function addQuoteLineItem() { quoteBuilderDraft.lineItems.push(blankLineItem()); renderQuoteBuilderInPlace(); }
+  function removeQuoteLineItem(id) { quoteBuilderDraft.lineItems = quoteBuilderDraft.lineItems.filter(li => li.id !== id); renderQuoteBuilderInPlace(); }
   function onQuoteLineItemField(id, field, value) {
     const li = quoteBuilderDraft.lineItems.find(x => x.id === id);
     if (!li) return;
     if (field === 'qty') li.qty = Number(value) || 0;
     else if (field === 'unitPriceDollars') li.unitPriceCents = Math.round((Number(value) || 0) * 100);
     else li[field] = value;
+  }
+  function isSquareMetreUnit(unit) {
+    return String(unit || '').trim().toLowerCase() === 'm²';
+  }
+  function onQuoteUnitField(id, value) {
+    const li = quoteBuilderDraft.lineItems.find(x => x.id === id);
+    if (!li) return;
+    li.unit = value;
+    const areaFields = document.getElementById('quoteAreaFields_' + id);
+    if (areaFields) areaFields.hidden = !isSquareMetreUnit(value);
+    if (!isSquareMetreUnit(value)) {
+      li.lengthM = null; li.widthM = null; li.calculatedAreaM2 = null;
+      const qtyInput = document.getElementById('quoteQty_' + id);
+      if (qtyInput) qtyInput.readOnly = false;
+    }
+  }
+  function onQuoteAreaMeasurement(id, field, value) {
+    const li = quoteBuilderDraft.lineItems.find(x => x.id === id);
+    if (!li || !isSquareMetreUnit(li.unit)) return;
+    const measurement = Number(value);
+    li[field] = Number.isFinite(measurement) && measurement > 0 ? measurement : null;
+    li.calculatedAreaM2 = li.lengthM && li.widthM
+      ? Math.round(li.lengthM * li.widthM * 10000) / 10000
+      : null;
+    if (li.calculatedAreaM2) li.qty = li.calculatedAreaM2;
+    const qtyInput = document.getElementById('quoteQty_' + id);
+    if (qtyInput) {
+      qtyInput.readOnly = Boolean(li.calculatedAreaM2);
+      if (li.calculatedAreaM2) qtyInput.value = li.calculatedAreaM2;
+    }
+    const areaOutput = document.getElementById('quoteArea_' + id);
+    if (areaOutput) areaOutput.textContent = li.calculatedAreaM2
+      ? `Calculated area: ${li.calculatedAreaM2.toFixed(2)} m²`
+      : 'Enter length and width';
+    updateQuoteBuilderTotals();
+  }
+  function autoGrowQuoteTextarea(el) {
+    // Resizing can make mobile browsers scroll the caret into view. Restore
+    // the viewport while leaving the focused element and selection untouched.
+    const x = window.scrollX, y = window.scrollY;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+    window.scrollTo(x, y);
   }
   function onQuoteRateCardPick(id, taskKey) {
     const li = quoteBuilderDraft.lineItems.find(x => x.id === id);
@@ -2691,6 +2750,9 @@
     li.description = task.name;
     li.unit = task.unit || '';
     li.unitPriceCents = Math.round((Number(task.rate) || 0) * 100);
+    if (!isSquareMetreUnit(li.unit)) {
+      li.lengthM = null; li.widthM = null; li.calculatedAreaM2 = null;
+    }
     render();
   }
   function quoteBuilderTotalsPreview() {
@@ -2723,14 +2785,15 @@
     if (!d.customerEmail) { alert('Enter a customer email.'); return; }
     const validItems = d.lineItems.filter(li => li.description && li.description.trim());
     if (validItems.length === 0) { alert('Add at least one line item with a description.'); return; }
-    quoteBuilderSaving = true; render();
+    quoteBuilderSaving = true;
+    document.querySelectorAll('[data-quote-save]').forEach(button => { button.disabled = true; button.textContent = 'Saving…'; });
     const body = {
       action: d.quoteId ? 'update_draft' : 'create_draft',
       quoteId: d.quoteId || undefined,
       customerId: d.customerId || undefined,
       newCustomer: d.customerId ? undefined : { name: d.customerName, email: d.customerEmail, phone: d.customerPhone },
       assignedStaffId: d.assignedStaffId || null,
-      lineItems: validItems.map(li => ({ id: li.id, rateCardItemId: li.rateCardItemId, description: li.description, qty: li.qty, unit: li.unit, unitPriceCents: li.unitPriceCents, taxTreatment: li.taxTreatment })),
+      lineItems: validItems.map(li => ({ id: li.id, rateCardItemId: li.rateCardItemId, description: li.description, qty: li.qty, unit: li.unit, unitPriceCents: li.unitPriceCents, taxTreatment: li.taxTreatment, lengthM: li.lengthM, widthM: li.widthM, calculatedAreaM2: li.calculatedAreaM2 })),
       scopeText: d.scopeText, inclusionsText: d.inclusionsText, exclusionsText: d.exclusionsText,
       paymentTermsText: d.paymentTermsText,
       validityDays: Number(d.validityDays) || 30,
@@ -2740,12 +2803,12 @@
       const res = await adminFetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await res.json();
       quoteBuilderSaving = false;
-      if (!res.ok) { alert(data.error || 'Could not save this draft.'); render(); return; }
+      if (!res.ok) { alert(data.error || 'Could not save this draft.'); renderQuoteBuilderInPlace(); return; }
       quoteBuilderOpen = false; quoteBuilderDraft = null;
       quotesTabData = null;
       await loadQuotesTab();
       await openQuoteDetail(data.quote.id);
-    } catch (e) { quoteBuilderSaving = false; alert('Could not save this draft — check your connection.'); render(); }
+    } catch (e) { quoteBuilderSaving = false; alert('Could not save this draft — check your connection.'); renderQuoteBuilderInPlace(); }
   }
 
   function previewQuoteBuilderPdf() {
@@ -2846,11 +2909,16 @@
               ${rateCard.map(cat => `<optgroup label="${escapeHtml(cat.label)}">${(cat.tasks || []).filter(t => !t.disabled && !t.unavailable).map(t => `<option value="${escapeHtml(cat.label)}|||${escapeHtml(t.name)}" ${li.rateCardItemId === t.name ? 'selected' : ''}>${escapeHtml(t.name)} (${fmtCents(Math.round((t.rate || 0) * 100))}/${escapeHtml(t.unit || '')})</option>`).join('')}</optgroup>`).join('')}
             </select>
             <div style="display:grid;grid-template-columns:2fr 0.7fr 0.7fr 0.9fr auto;gap:8px;align-items:end;">
-              <div><label class="fieldlabel">Description</label><input class="fieldinput" value="${escapeHtml(li.description)}" oninput="onQuoteLineItemField('${li.id}','description',this.value)" /></div>
-              <div><label class="fieldlabel">Qty</label><input class="fieldinput" type="number" min="0" step="0.01" value="${li.qty}" oninput="onQuoteLineItemField('${li.id}','qty',this.value); updateQuoteBuilderTotals();" /></div>
-              <div><label class="fieldlabel">Unit</label><input class="fieldinput" value="${escapeHtml(li.unit)}" oninput="onQuoteLineItemField('${li.id}','unit',this.value)" /></div>
+              <div><label class="fieldlabel">Description / Materials &amp; Inclusions</label><textarea class="fieldinput quote-description-input" rows="6" onfocus="autoGrowQuoteTextarea(this)" oninput="onQuoteLineItemField('${li.id}','description',this.value); autoGrowQuoteTextarea(this)">${escapeHtml(li.description)}</textarea></div>
+              <div><label class="fieldlabel">Qty</label><input class="fieldinput" id="quoteQty_${li.id}" type="number" min="0" step="0.01" value="${li.qty}" ${li.calculatedAreaM2 ? 'readonly' : ''} oninput="onQuoteLineItemField('${li.id}','qty',this.value); updateQuoteBuilderTotals();" /></div>
+              <div><label class="fieldlabel">Unit</label><input class="fieldinput" value="${escapeHtml(li.unit)}" oninput="onQuoteUnitField('${li.id}',this.value)" /></div>
               <div><label class="fieldlabel">Unit price ($)</label><input class="fieldinput" type="number" min="0" step="0.01" value="${(li.unitPriceCents / 100).toFixed(2)}" oninput="onQuoteLineItemField('${li.id}','unitPriceDollars',this.value); updateQuoteBuilderTotals();" /></div>
               <button class="btn btn-outline" style="padding:10px;" onclick="removeQuoteLineItem('${li.id}')" title="Remove">✕</button>
+            </div>
+            <div class="quote-area-fields" id="quoteAreaFields_${li.id}" aria-label="Area measurements" ${isSquareMetreUnit(li.unit) ? '' : 'hidden'}>
+              <div><label class="fieldlabel" for="quoteLength_${li.id}">Length (m)</label><input class="fieldinput" id="quoteLength_${li.id}" type="number" inputmode="decimal" min="0" step="0.01" value="${li.lengthM || ''}" oninput="onQuoteAreaMeasurement('${li.id}','lengthM',this.value)" /></div>
+              <div><label class="fieldlabel" for="quoteWidth_${li.id}">Width (m)</label><input class="fieldinput" id="quoteWidth_${li.id}" type="number" inputmode="decimal" min="0" step="0.01" value="${li.widthM || ''}" oninput="onQuoteAreaMeasurement('${li.id}','widthM',this.value)" /></div>
+              <div><label class="fieldlabel">Calculated Area (m²)</label><output class="quote-calculated-area" id="quoteArea_${li.id}">${li.calculatedAreaM2 ? `Calculated area: ${Number(li.calculatedAreaM2).toFixed(2)} m²` : 'Enter length and width'}</output></div>
             </div>
             <div style="font-size:12px;color:var(--stone);margin-top:6px;">Line total: <span id="lineTotal_${li.id}">${fmtCents(Math.round((Number(li.qty) || 1) * li.unitPriceCents))}</span> (GST inclusive)</div>
           </div>
@@ -2865,9 +2933,9 @@
           <button class="btn btn-outline" style="width:auto;padding:7px 12px;font-size:12px;" ${aiDraftLoading ? 'disabled' : ''} onclick="aiDraftQuoteText()">${aiDraftLoading ? 'Drafting…' : '✨ Draft with AI'}</button>
         </div>
         <div style="font-size:11.5px;color:var(--stone);margin-bottom:10px;">Type a few short notes below, then click "Draft with AI" to expand them into full professional text -- review and edit the result before saving. Nothing is sent to the customer until you click Issue.</div>
-        <label class="fieldlabel">Scope / notes</label><textarea class="fieldinput" rows="3" oninput="quoteBuilderDraft.scopeText=this.value">${escapeHtml(d.scopeText)}</textarea>
-        <label class="fieldlabel" style="margin-top:10px;">Inclusions</label><textarea class="fieldinput" rows="2" oninput="quoteBuilderDraft.inclusionsText=this.value">${escapeHtml(d.inclusionsText)}</textarea>
-        <label class="fieldlabel" style="margin-top:10px;">Exclusions</label><textarea class="fieldinput" rows="2" oninput="quoteBuilderDraft.exclusionsText=this.value">${escapeHtml(d.exclusionsText)}</textarea>
+        <label class="fieldlabel">Scope of Works / Notes / Inclusions</label><textarea class="fieldinput quote-scope-input" rows="8" onfocus="autoGrowQuoteTextarea(this)" oninput="quoteBuilderDraft.scopeText=this.value; autoGrowQuoteTextarea(this)">${escapeHtml(d.scopeText)}</textarea>
+        <label class="fieldlabel" style="margin-top:10px;">Inclusions</label><textarea class="fieldinput" rows="5" oninput="quoteBuilderDraft.inclusionsText=this.value; autoGrowQuoteTextarea(this)">${escapeHtml(d.inclusionsText)}</textarea>
+        <label class="fieldlabel" style="margin-top:10px;">Exclusions</label><textarea class="fieldinput" rows="5" oninput="quoteBuilderDraft.exclusionsText=this.value; autoGrowQuoteTextarea(this)">${escapeHtml(d.exclusionsText)}</textarea>
         <label class="fieldlabel" style="margin-top:10px;">Payment schedule</label><textarea class="fieldinput" rows="2" placeholder="e.g. 10% deposit on acceptance, 40% at frame stage, 50% on completion" oninput="quoteBuilderDraft.paymentTermsText=this.value">${escapeHtml(d.paymentTermsText)}</textarea>
         <label class="fieldlabel" style="margin-top:10px;">Valid for (days)</label><input class="fieldinput" type="number" min="1" style="max-width:120px;" value="${d.validityDays}" oninput="quoteBuilderDraft.validityDays=this.value" />
         <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:11.5px;color:var(--stone);">
@@ -2886,7 +2954,7 @@
           <div style="font-size:13px;font-weight:800;margin-bottom:5px;">Ready for review?</div>
           <p style="font-size:11.5px;color:var(--stone);margin-bottom:14px;">Preview exactly what the customer will see before saving and sending.</p>
           <button class="btn btn-black" style="width:100%;margin-bottom:8px;" onclick="openQuoteBuilderPreview()">Preview &amp; Send →</button>
-          <button class="btn btn-outline" style="width:100%;" ${quoteBuilderSaving ? 'disabled' : ''} onclick="saveQuoteDraft()">${quoteBuilderSaving ? 'Saving…' : (d.quoteId ? 'Save changes' : 'Save draft')}</button>
+          <button class="btn btn-outline" data-quote-save style="width:100%;" ${quoteBuilderSaving ? 'disabled' : ''} onclick="saveQuoteDraft()">${quoteBuilderSaving ? 'Saving…' : (d.quoteId ? 'Save changes' : 'Save draft')}</button>
           <button class="btn btn-outline" style="width:100%;margin-top:8px;" onclick="previewQuoteBuilderPdf()">Download draft PDF</button>
         </div>
       </aside></div>
@@ -2901,11 +2969,13 @@
       <div class="quote-preview-top"><div class="logo-word" style="color:#fff;font-size:22px;">My<span class="gold">Subbies</span></div><div style="text-align:right;"><strong>QUOTE</strong><div style="font-size:11px;color:#BFC7D6;">Draft preview</div></div></div>
       <div class="quote-preview-body">
         <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:24px;"><div><div class="fieldlabel">Prepared for</div><strong>${escapeHtml(d.customerName || d.customerEmail)}</strong><div style="font-size:12px;color:var(--stone);">${escapeHtml(d.customerEmail)}</div></div><div style="text-align:right;"><div class="fieldlabel">Valid for</div><strong>${Number(d.validityDays) || 30} days</strong></div></div>
-        <table><thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${items.map(li => `<tr><td>${escapeHtml(li.description)}</td><td>${li.qty} ${escapeHtml(li.unit || '')}</td><td>${fmtCents(li.unitPriceCents)}</td><td><strong>${fmtCents(Math.round((Number(li.qty) || 1) * li.unitPriceCents))}</strong></td></tr>`).join('')}</tbody></table>
+        <table><thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${items.map(li => `<tr><td class="quote-preserve-lines">${escapeHtml(li.description)}</td><td>${li.qty} ${escapeHtml(li.unit || '')}</td><td>${fmtCents(li.unitPriceCents)}</td><td><strong>${fmtCents(Math.round((Number(li.qty) || 1) * li.unitPriceCents))}</strong></td></tr>`).join('')}</tbody></table>
         <div style="max-width:300px;margin:18px 0 24px auto;"><div class="row"><span class="l">Subtotal ex. GST</span><span class="r">${fmtCents(totals.exGstCents)}</span></div><div class="row"><span class="l">GST</span><span class="r">${fmtCents(totals.gstCents)}</span></div><div class="row" style="font-size:17px;"><strong>Total</strong><strong>${fmtCents(totals.totalCents)}</strong></div></div>
         ${d.scopeText ? `<div class="fieldlabel">Scope &amp; notes</div><div style="white-space:pre-wrap;font-size:13px;margin-bottom:18px;">${escapeHtml(d.scopeText)}</div>` : ''}
+        ${d.inclusionsText ? `<div class="fieldlabel">Inclusions</div><div style="white-space:pre-wrap;font-size:13px;margin-bottom:18px;">${escapeHtml(d.inclusionsText)}</div>` : ''}
+        ${d.exclusionsText ? `<div class="fieldlabel">Exclusions</div><div style="white-space:pre-wrap;font-size:13px;margin-bottom:18px;">${escapeHtml(d.exclusionsText)}</div>` : ''}
         <div style="background:#EEF1F6;border-radius:10px;padding:12px;font-size:11.5px;color:var(--stone);">This is an internal preview. Save the draft to continue to the secure email and customer acceptance step.</div>
-      </div><div class="quote-preview-actions"><button class="btn btn-outline" onclick="closeQuoteBuilderPreview()">Keep editing</button><button class="btn btn-black" ${quoteBuilderSaving ? 'disabled' : ''} onclick="saveQuoteDraft()">${quoteBuilderSaving ? 'Saving…' : 'Save draft & continue to send →'}</button></div>
+      </div><div class="quote-preview-actions"><button class="btn btn-outline" onclick="closeQuoteBuilderPreview()">Keep editing</button><button class="btn btn-black" data-quote-save ${quoteBuilderSaving ? 'disabled' : ''} onclick="saveQuoteDraft()">${quoteBuilderSaving ? 'Saving…' : 'Save draft & continue to send →'}</button></div>
     </div></div>`;
   }
 
@@ -3092,7 +3162,7 @@
           <h2 style="font-size:14px;margin-bottom:10px;">Current version (v${v.versionNumber}, ${escapeHtml(v.status)})</h2>
           <table>
             <thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Amount</th></tr></thead>
-            <tbody>${(v.lineItems || []).map(li => `<tr><td>${escapeHtml(li.description)}</td><td>${li.qty}${li.unit ? ' ' + escapeHtml(li.unit) : ''}</td><td>${fmtCents(li.unitPriceCents)}</td><td>${fmtCents(li.lineTotalCents)}</td></tr>`).join('')}</tbody>
+            <tbody>${(v.lineItems || []).map(li => `<tr><td class="quote-preserve-lines">${escapeHtml(li.description)}</td><td>${li.qty}${li.unit ? ' ' + escapeHtml(li.unit) : ''}</td><td>${fmtCents(li.unitPriceCents)}</td><td>${fmtCents(li.lineTotalCents)}</td></tr>`).join('')}</tbody>
           </table>
           <div style="max-width:260px;margin-left:auto;margin-top:14px;font-size:13.5px;">
             <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Subtotal (ex. GST)</span><span>${fmtCents(v.subtotalExGstCents)}</span></div>
@@ -4611,7 +4681,14 @@
       });
     });
   }
-  window.addEventListener('storage', (e) => { if (e.key === 'mysubbies_jobs') { checkForNewMessages(); render(); } });
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'mysubbies_jobs') {
+      checkForNewMessages();
+      // An unrelated job update from another tab must never replace the
+      // quote form while an admin is in the middle of typing.
+      if (!quoteBuilderOpen) render();
+    }
+  });
   setInterval(checkForNewMessages, 3000);
 
   // checkForNewMessages() above only ever sees what's already sitting in

@@ -13,8 +13,23 @@
 // Never trust a client-submitted total: api/quotes.js calls
 // computeQuoteTotals() on every draft save and again at issue time,
 // discarding whatever the browser sent for lineTotalCents/subtotal/gst.
+function positiveMeasurement(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function calculateAreaQuantity(lengthM, widthM) {
+  const length = positiveMeasurement(lengthM);
+  const width = positiveMeasurement(widthM);
+  return length && width ? Math.round(length * width * 10000) / 10000 : null;
+}
+
 function computeLineItem(raw) {
-  const qty = Number(raw && raw.qty) > 0 ? Number(raw.qty) : 1;
+  const areaUnit = String(raw && raw.unit || '').trim().toLowerCase() === 'm²';
+  const lengthM = areaUnit ? positiveMeasurement(raw && raw.lengthM) : null;
+  const widthM = areaUnit ? positiveMeasurement(raw && raw.widthM) : null;
+  const calculatedAreaM2 = areaUnit ? calculateAreaQuantity(lengthM, widthM) : null;
+  const qty = calculatedAreaM2 || (Number(raw && raw.qty) > 0 ? Number(raw.qty) : 1);
   const unitPriceCents = Math.max(0, Math.round(Number(raw && raw.unitPriceCents) || 0));
   const taxTreatment = (raw && raw.taxTreatment === 'gst_exclusive') ? 'gst_exclusive' : 'gst_inclusive_10';
   const rawLineCents = Math.round(qty * unitPriceCents);
@@ -38,6 +53,9 @@ function computeLineItem(raw) {
     unit: (raw && raw.unit) || '',
     unitPriceCents,
     taxTreatment,
+    ...(lengthM ? { lengthM } : {}),
+    ...(widthM ? { widthM } : {}),
+    ...(calculatedAreaM2 ? { calculatedAreaM2 } : {}),
     lineTotalCents,
     exGstCents,
     gstCents,
@@ -55,4 +73,4 @@ function computeQuoteTotals(rawLineItems) {
   return { lineItems, subtotalExGstCents, gstCents, totalIncGstCents };
 }
 
-module.exports = { computeQuoteTotals };
+module.exports = { calculateAreaQuantity, computeQuoteTotals };

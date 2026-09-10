@@ -69,7 +69,7 @@ function wrapEmail(bodyHtml) {
 // sendEmail() exactly but returns the real outcome instead of only
 // logging it -- used by api/quotes.js's send_quote_email action, nothing
 // else needs to change.
-async function sendEmailWithResult({ to, subject, html }) {
+async function sendEmailWithResult({ to, bcc, subject, html }) {
   if (!process.env.RESEND_API_KEY) {
     return { ok: false, error: 'Email sending is not configured yet (RESEND_API_KEY is not set in Vercel).' };
   }
@@ -77,7 +77,7 @@ async function sendEmailWithResult({ to, subject, html }) {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM_EMAIL, to, subject, html }),
+      body: JSON.stringify({ from: FROM_EMAIL, to, ...(bcc ? { bcc } : {}), subject, html }),
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');

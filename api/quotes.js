@@ -413,6 +413,10 @@ async function handleSendQuoteEmail(req, res, supabase) {
   const { recommendations, sourceCategory } = await loadRecommendations(supabase, version);
   const emailResult = await sendEmailWithResult({
     to: customerEmail,
+    // One Resend delivery with an internal BCC gives Accounts the exact
+    // customer email and secure link without exposing the internal address
+    // or accidentally sending the customer a duplicate message.
+    bcc: 'accounts@mysubbies.com.au',
     subject: `Your Mysubbies quote is ready (Quote #${quote.quote_number})`,
     html: renderQuoteEmail({ quote, version, secureQuoteUrl: url, recommendations, sourceCategory }),
   });
