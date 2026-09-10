@@ -10,6 +10,7 @@ const { getSupabase } = require('./_lib/clients');
 const { verifyAdminAuth } = require('./_lib/adminAuth');
 const { requireAccount } = require('./_lib/userAuth');
 const { PROTECTED_FIELDS, mergePermittedMutation, restoreStructuredFields, initialRecord } = require('./_lib/jobMutationSecurity');
+const { processJob, logJobEvent } = require('./_lib/jobLifecycle');
 
 function requestedRole(req) {
   const role = req.body && req.body.role;
@@ -98,6 +99,17 @@ module.exports = async (req, res) => {
       }
       const accepting = role === 'contractor' && !existing.contractor_email
         && submitted.status === 'assigned' && !!submitted.contractorEmail;
+      if (accepting) {
+        const { data: contractor, error: contractorError } = await supabase.from('contractors').select('id,status,business_name').eq('email', email).maybeSingle();
+        if (contractorError) throw contractorError;
+        if (!contractor || !['approved', 'preferred'].includes(contractor.status)) { res.status(403).json({ error: 'An approved contractor profile is required.' }); return; }
+        const { data: offer, error: offerError } = await supabase.from('job_offers').select('id,status,expires_at').eq('job_id', existing.id).eq('contractor_id', contractor.id).eq('status', 'pending').maybeSingle();
+        if (offerError) throw offerError;
+        if (!offer || (offer.expires_at && new Date(offer.expires_at) < new Date())) {
+          res.status(409).json({ error: 'This job offer is no longer available to your account.' }); return;
+        }
+        submitted._acceptedOffer = { id: offer.id, contractorId: contractor.id, businessName: contractor.business_name || null };
+      }
       if (role === 'contractor' && !existing.contractor_email && !accepting) continue;
       rows.push({ existing, submitted, accepting });
     }
@@ -121,7 +133,7 @@ module.exports = async (req, res) => {
         const update = { updated_at: new Date().toISOString() };
         if (accepting) {
           update.contractor_email = email;
-          record = { ...record, contractorEmail: email, contractor: submitted.contractor || null, status: 'assigned' };
+          record = { ...record, contractorEmail: email, contractor: submitted._acceptedOffer.businessName, status: 'assigned' };
         }
         record = restoreStructuredFields(record, { ...existing, contractor_email: accepting ? email : existing.contractor_email });
         storedRecord = record;
@@ -130,10 +142,29 @@ module.exports = async (req, res) => {
         if (accepting) query = query.is('contractor_email', null);
         const { error } = await query;
         if (error) throw error;
+        if (accepting) {
+          const { data: assigned } = await supabase.from('jobs').select('contractor_email,customer_email,category,suburb').eq('id', existing.id).single();
+          if (String(assigned.contractor_email || '').toLowerCase() !== email) continue;
+          await supabase.from('job_offers').update({ status: 'accepted', responded_at: new Date().toISOString() }).eq('id', submitted._acceptedOffer.id).eq('status', 'pending');
+          await supabase.from('job_offers').update({ status: 'expired', responded_at: new Date().toISOString() }).eq('job_id', existing.id).eq('status', 'pending');
+          await supabase.from('job_workflows').update({ state: 'assigned', next_retry_at: null, updated_at: new Date().toISOString() }).eq('job_id', existing.id);
+          await supabase.from('ops_exceptions').update({ status: 'resolved', resolved_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('job_id', existing.id).eq('status', 'open');
+          await supabase.from('notifications').insert([
+            { recipient_role: 'customer', recipient_email: assigned.customer_email, event_type: 'job-assigned', title: 'Your contractor is matched', body: `${submitted._acceptedOffer.businessName || 'A vetted contractor'} accepted your ${assigned.category} job.`, link_job_id: existing.id },
+            { recipient_role: 'admin', event_type: 'job-assigned', title: 'Job matched automatically', body: `${assigned.category} in ${assigned.suburb || 'Melbourne'} was accepted.`, link_job_id: existing.id },
+          ]);
+          await logJobEvent(supabase, existing.id, 'contractor_accepted', { contractorId: submitted._acceptedOffer.contractorId }, ['customer', 'contractor', 'admin']);
+        }
       }
       synced.push(existing.id);
       try { await syncPropertyProfile(supabase, storedRecord); }
       catch (profileError) { console.error('property-profile sync error:', profileError); }
+      if (role === 'customer' && !existing.contractor_email) {
+        try {
+          const { data: current } = await supabase.from('jobs').select('id,category,suburb,customer_email,contractor_email,base_price_cents,full_record,status').eq('id', existing.id).single();
+          await processJob(supabase, current);
+        } catch (lifecycleError) { console.error('job lifecycle start error:', lifecycleError); }
+      }
     }
     res.status(200).json({ synced: synced.length });
   } catch (err) {

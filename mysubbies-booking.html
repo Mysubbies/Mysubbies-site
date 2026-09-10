@@ -632,21 +632,17 @@
     saveJobs(jobs);
     localStorage.removeItem('mysubbies_pending_quote');
 
-    // Fire-and-forget, one per created job (a bundle notifies each trade's
-    // contractors separately) — never blocks the confirmation screen over
-    // an email hiccup, same posture as every other /api/notify call in
-    // this codebase. Added Aug 2026: until this existed, a contractor had
-    // no way to learn a new job existed except opening the portal and
-    // checking the Job Feed tab themselves. Sep 2026: now sends the real
-    // minimum offer details (category, quantity, suburb and urgency).
-    // Access instructions, site notes and customer photos are deliberately
-    // withheld until the accepting contractor is authoritatively assigned.
-    createdJobs.forEach(async (job) => {
+    // Bundles do not yet have one authoritative server job per category, so
+    // retain their authenticated compatibility dispatch. Single-category
+    // jobs dispatch only through the canonical lifecycle worker.
+    if (isBundle) createdJobs.forEach(async (job) => {
       const taskName = job.items && job.items.length === 1 ? job.items[0].taskName
         : job.items && job.items.length > 1 ? job.items.length + ' items'
         : null;
+      const token = await getBookingAccessToken();
+      if (!token) return;
       fetch('/api/notify', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({
           type: 'new-job-available', category: job.category, suburb: job.suburb, taskName,
           items: (job.items || []).map(i => ({ taskName: i.taskName, qty: i.qty, unit: i.unit })),

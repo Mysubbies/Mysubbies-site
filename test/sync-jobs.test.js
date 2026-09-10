@@ -8,19 +8,21 @@ function chain(result, onUpdate) {
   const q = {
     select() { return q; }, eq() { return q; }, is() { return q; },
     maybeSingle() { return Promise.resolve(result); },
+    single() { return Promise.resolve(result); },
     update(value) { if (onUpdate) onUpdate(value); return q; },
     then(resolve) { return Promise.resolve(result).then(resolve); },
   };
   return q;
 }
 
-function fakeSupabase({ user, customer, contractor, job, updates }) {
+function fakeSupabase({ user, customer, contractor, job, offer, updates }) {
   return {
     auth: { getUser: async () => user ? { data: { user }, error: null } : { data: null, error: new Error('invalid') } },
     from(table) {
       if (table === 'customers') return chain({ data: customer || null, error: null });
       if (table === 'contractors') return chain({ data: contractor || null, error: null });
       if (table === 'jobs') return chain({ data: job || null, error: null }, value => updates.push(value));
+      if (table === 'job_offers') return chain({ data: offer || null, error: null });
       throw new Error(`Unexpected table ${table}`);
     },
   };
@@ -109,9 +111,10 @@ test('new display record derives protected state from structured job and account
 test('authenticated contractor acceptance binds assignment to authenticated email', async () => {
   const updates = [];
   const available = { ...structured, contractor_email: null, full_record: { ...structured.full_record, contractorEmail: null, contractor: null, status: 'feed' } };
-  const db = fakeSupabase({ user: { id: 'auth-trade' }, contractor: { email: 'realtrade@example.com' }, job: available, updates });
+  const db = fakeSupabase({ user: { id: 'auth-trade' }, contractor: { id: 'contractor-1', email: 'realtrade@example.com', status: 'approved', business_name: 'Verified Trade' }, offer: { id: 'offer-1', status: 'pending' }, job: available, updates });
   const response = await invoke(loadHandler(db), { role: 'contractor', jobs: [{ id: 'job-1', status: 'assigned', contractorEmail: 'forged@example.com', contractor: 'Real Trade' }] }, 'valid');
   assert.equal(response.status, 200);
   assert.equal(updates[0].contractor_email, 'realtrade@example.com');
   assert.equal(updates[0].full_record.contractorEmail, 'realtrade@example.com');
+  assert.equal(updates[0].full_record.contractor, 'Verified Trade');
 });

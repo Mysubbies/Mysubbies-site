@@ -2252,6 +2252,16 @@
         ${j.status !== 'cancelled' ? `<a style="font-size:12.5px;font-weight:600;text-decoration:underline;color:var(--stone);cursor:pointer;" onclick="getHelpWithBooking('${j.id}')">Get help with this booking</a>` : ''}
         <div class="row" style="margin-top:12px;"><span class="l">Estimated cost</span><span class="r">$${(j.priceLow||j.basePrice||0).toLocaleString()}</span></div>
         <div class="row"><span class="l">Contractor</span><span class="r">${j.contractor ? escapeHtml(j.contractor) : 'Awaiting acceptance'}</span></div>
+        ${!j.contractor && j.status === 'feed' ? `
+          <div style="margin-top:14px;padding:14px;background:var(--paper);border-radius:10px;">
+            <div style="font-weight:700;font-size:14px;">Post-booking details</div>
+            <p style="font-size:12px;color:var(--stone);margin:4px 0 10px;">Keep these current so matching and site handover can run without delays.</p>
+            <label style="font-size:12px;display:block;margin-bottom:4px;">Best times for the work</label>
+            <input id="intakeAvailability" value="${escapeHtml(j.intakeAvailability || '')}" placeholder="e.g. Weekdays after 8am" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;">
+            <label style="font-size:12px;display:block;margin-bottom:4px;">Parking or arrival notes</label>
+            <textarea id="intakeParkingNotes" maxlength="1000" placeholder="Optional" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;min-height:64px;">${escapeHtml(j.intakeParkingNotes || '')}</textarea>
+            <button class="btn btn-black btn-full" style="margin-top:8px;" onclick="savePostBookingIntake('${j.id}')">Save details</button>
+          </div>` : ''}
         ${j.contractor && !['cancellation_requested', 'cancelled'].includes(j.status) ? `<div id="milestoneSectionWrap"><div class="note">Loading payment schedule…</div></div>` : ''}
         ${j.status === 'completed' ? renderRatingSection(j) : ''}
         ${j.status === 'completed' ? `<button class="btn btn-black btn-full" style="margin-top:12px;" onclick="bookAgain('${j.id}')">Book again →</button>` : ''}
@@ -2306,6 +2316,17 @@
     markJobMessagesSeen(j.id);
     wireNotifyButton();
     if (j.contractor && !['cancellation_requested', 'cancelled'].includes(j.status)) renderMilestoneSection(j.id);
+  }
+
+  function savePostBookingIntake(jobId) {
+    const jobs = getJobs();
+    const job = jobs.find(item => item.id === jobId);
+    if (!job) return;
+    job.intakeAvailability = document.getElementById('intakeAvailability').value.trim();
+    job.intakeParkingNotes = document.getElementById('intakeParkingNotes').value.trim();
+    job.intakeCompletedAt = new Date().toISOString();
+    saveJobs(jobs);
+    showToast('Post-booking details saved.');
   }
 
   // Fetches the real backend-calculated schedule (api/job-payment-schedule.js)

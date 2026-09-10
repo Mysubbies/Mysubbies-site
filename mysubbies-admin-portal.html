@@ -1377,6 +1377,7 @@
     return `
       <div class="welcome-head"><h1>Operations</h1><p>Live work requiring coordination across jobs, contractors, support and payments.</p></div>
       ${actionRequiredHtml}
+      ${automationDashboardHtml()}
       <div class="statgrid">
         <button class="statcard" style="text-align:left;cursor:pointer;" onclick="tab='overview';jobStatusFilter='feed';render();"><div class="num">${unassigned.length}</div><div class="lab">Unassigned jobs</div></button>
         <button class="statcard" style="text-align:left;cursor:pointer;" onclick="tab='overview';jobStatusFilter='assigned';render();"><div class="num">${active.length}</div><div class="lab">Active jobs</div></button>
@@ -1384,6 +1385,37 @@
         <button class="statcard" style="text-align:left;cursor:pointer;" onclick="tab='support';render();"><div class="num">${getDisputes().filter(d => d.status === 'open').length + getInquiries().filter(i => i.status === 'open').length}</div><div class="lab">Open support items</div></button>
       </div>
       <div class="detailcard" style="max-width:none;"><h2 style="font-size:16px;margin-bottom:12px;">Unassigned work</h2>${unassigned.length ? jobsTableHtml(unassigned.slice(0, 8)) : '<div class="empty" style="padding:30px 0;">No jobs are waiting for a contractor.</div>'}</div>`;
+  }
+
+  let automationDashboardData = null;
+  let automationDashboardLoading = false;
+  async function loadAutomationDashboard() {
+    if (automationDashboardLoading) return;
+    automationDashboardLoading = true;
+    try {
+      const res = await adminFetch('/api/get-admin-list?type=automation-dashboard');
+      if (!res.ok) throw new Error('Automation dashboard request failed');
+      automationDashboardData = await res.json();
+    } catch (e) { automationDashboardData = { error: true, summary: {}, exceptions: [], coverage: [] }; }
+    automationDashboardLoading = false;
+    render();
+  }
+  function automationDashboardHtml() {
+    if (!automationDashboardData) return '<div class="detailcard"><h2 style="font-size:16px;">Job automation</h2><div class="empty">Loading lifecycle summary…</div></div>';
+    if (automationDashboardData.error) return '<div class="detailcard"><h2 style="font-size:16px;">Job automation</h2><div class="note">Automation data is unavailable. Confirm schema v21 has been applied.</div></div>';
+    const d = automationDashboardData, s = d.summary || {};
+    return `<div class="detailcard" style="max-width:none;margin-bottom:16px;">
+      <h2 style="font-size:16px;margin-bottom:4px;">Automation-first lifecycle</h2>
+      <p class="jobmeta" style="margin-bottom:12px;">Live intake, matching retries, exceptions and 30-day contractor coverage. Shortage signals are retained for recruitment and future demand-driven marketing.</p>
+      <div class="statgrid"><div class="statcard"><div class="num">${s.matching || 0}</div><div class="lab">Matching now</div></div><div class="statcard"><div class="num">${s.awaitingIntake || 0}</div><div class="lab">Awaiting intake</div></div><div class="statcard"><div class="num">${s.exceptions || 0}</div><div class="lab">Ops exceptions</div></div><div class="statcard"><div class="num">${s.shortages || 0}</div><div class="lab">Coverage shortages</div></div></div>
+      <h3 style="font-size:14px;margin:14px 0 6px;">Ops exception queue</h3>${d.exceptions.length ? d.exceptions.map(x => `<div class="row"><span class="l"><strong>${escapeHtml(x.exception_type)}</strong><br>${escapeHtml(x.summary)}</span><button class="btn btn-outline" style="width:auto;padding:6px 10px;font-size:11px;" onclick="resolveAutomationException('${x.id}')">Resolve</button></div>`).join('') : '<div class="empty" style="padding:14px;">No lifecycle exceptions.</div>'}
+      <h3 style="font-size:14px;margin:14px 0 6px;">Coverage by zone and category</h3>${d.coverage.length ? d.coverage.slice(0,20).map(x => `<div class="row"><span class="l">${x.shortage ? '⚠ ' : '✓ '}${escapeHtml(x.category)} · ${escapeHtml(x.zone)}</span><span class="r">${x.approvedContractors} contractor${x.approvedContractors === 1 ? '' : 's'} / ${x.demand30d} jobs (30d)</span></div>`).join('') : '<div class="empty" style="padding:14px;">Coverage will appear as demand arrives.</div>'}
+    </div>`;
+  }
+  async function resolveAutomationException(id) {
+    await adminFetch('/api/job-lifecycle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'resolve-exception', id }) });
+    automationDashboardData = null;
+    loadAutomationDashboard();
   }
 
   function renderProjectsTab(jobs) {
@@ -1436,6 +1468,7 @@
     if ((tab === 'customers' || tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !customersTabData && !customersTabLoading) loadCustomersTab();
     if ((tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !quotesTabData && !quotesTabLoading) loadQuotesTab();
     if (!staffListData && !staffListLoading) loadStaffList();
+    if (tab === 'operations' && !automationDashboardData && !automationDashboardLoading) loadAutomationDashboard();
     if (tab === 'messages' && !messageThreadsData && !messageThreadsLoading) loadMessageThreads();
     if (tab === 'reports' && !contractorPayoutsData && !contractorPayoutsLoading) loadContractorPayouts();
     const paymentBadgeCount = paymentTabData ? (paymentTabData.disputedMilestones || []).length + (paymentTabData.pendingScheduleJobs || []).length : 0;
