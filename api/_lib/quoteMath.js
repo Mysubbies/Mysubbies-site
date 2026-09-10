@@ -26,10 +26,12 @@ function calculateAreaQuantity(lengthM, widthM) {
 
 function computeLineItem(raw) {
   const areaUnit = String(raw && raw.unit || '').trim().toLowerCase() === 'm²';
-  const lengthM = areaUnit ? positiveMeasurement(raw && raw.lengthM) : null;
+  const linearUnit = String(raw && raw.unit || '').trim().toLowerCase() === 'lm';
+  const lengthM = areaUnit || linearUnit ? positiveMeasurement(raw && raw.lengthM) : null;
   const widthM = areaUnit ? positiveMeasurement(raw && raw.widthM) : null;
   const calculatedAreaM2 = areaUnit ? calculateAreaQuantity(lengthM, widthM) : null;
-  const qty = calculatedAreaM2 || (Number(raw && raw.qty) > 0 ? Number(raw.qty) : 1);
+  const measuredQty = calculatedAreaM2 || (linearUnit ? lengthM : null);
+  const qty = measuredQty || (Number(raw && raw.qty) > 0 ? Number(raw.qty) : 1);
   const unitPriceCents = Math.max(0, Math.round(Number(raw && raw.unitPriceCents) || 0));
   const taxTreatment = (raw && raw.taxTreatment === 'gst_exclusive') ? 'gst_exclusive' : 'gst_inclusive_10';
   const rawLineCents = Math.round(qty * unitPriceCents);

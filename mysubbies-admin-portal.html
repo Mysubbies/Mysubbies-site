@@ -94,6 +94,8 @@
   .quote-preserve-lines { white-space:pre-wrap; overflow-wrap:anywhere; }
   .quote-area-fields { display:grid; grid-template-columns:1fr 1fr minmax(180px,1.2fr); gap:10px; align-items:end; margin:10px 0; padding:12px; background:#F7F7F5; border-radius:9px; }
   .quote-area-fields[hidden] { display:none; }
+  .quote-linear-fields[hidden] { display:none; }
+  .quote-linear-fields { margin:10px 0; padding:12px; background:#F7F7F5; border-radius:9px; max-width:260px; }
   .quote-calculated-area { min-height:39px; display:flex; align-items:center; padding:9px 11px; border:1.5px solid var(--line); border-radius:8px; background:#EEF1F6; font-size:13px; font-weight:800; }
   .quote-workflow { display:flex; align-items:center; gap:8px; margin:4px 0 24px; overflow-x:auto; padding-bottom:3px; }
   .quote-workflow-step { display:flex; align-items:center; gap:7px; white-space:nowrap; color:var(--stone); font-size:11.5px; font-weight:700; }
@@ -2698,16 +2700,41 @@
   function isSquareMetreUnit(unit) {
     return String(unit || '').trim().toLowerCase() === 'm²';
   }
+  function isLinearMetreUnit(unit) {
+    return String(unit || '').trim().toLowerCase() === 'lm';
+  }
+  function quoteUnitOptions(selectedUnit) {
+    const units = ['m²', 'LM', 'each', 'hour', 'visit', 'gate', 'item', 'job', 'point', 'fitting', 'light', 'window', 'day', 'bin', 'clean'];
+    getRateCard().forEach(category => (category.tasks || []).forEach(task => {
+      const unit = String(task.unit || '').trim();
+      if (unit && !units.some(existing => existing.toLowerCase() === unit.toLowerCase())) units.push(unit);
+    }));
+    const selected = String(selectedUnit || '');
+    if (selected && !units.some(unit => unit.toLowerCase() === selected.toLowerCase())) units.push(selected);
+    return `<option value="">— Select unit —</option>` + units.map(unit =>
+      `<option value="${escapeHtml(unit)}" ${unit.toLowerCase() === selected.toLowerCase() ? 'selected' : ''}>${escapeHtml(unit)}</option>`
+    ).join('');
+  }
   function onQuoteUnitField(id, value) {
     const li = quoteBuilderDraft.lineItems.find(x => x.id === id);
     if (!li) return;
     li.unit = value;
     const areaFields = document.getElementById('quoteAreaFields_' + id);
     if (areaFields) areaFields.hidden = !isSquareMetreUnit(value);
-    if (!isSquareMetreUnit(value)) {
+    const linearFields = document.getElementById('quoteLinearFields_' + id);
+    if (linearFields) linearFields.hidden = !isLinearMetreUnit(value);
+    if (!isSquareMetreUnit(value) && !isLinearMetreUnit(value)) {
       li.lengthM = null; li.widthM = null; li.calculatedAreaM2 = null;
       const qtyInput = document.getElementById('quoteQty_' + id);
       if (qtyInput) qtyInput.readOnly = false;
+    } else if (isLinearMetreUnit(value)) {
+      li.widthM = null; li.calculatedAreaM2 = null;
+      if (li.lengthM) {
+        li.qty = li.lengthM;
+        const qtyInput = document.getElementById('quoteQty_' + id);
+        if (qtyInput) { qtyInput.value = li.lengthM.toFixed(2); qtyInput.readOnly = true; }
+        updateQuoteBuilderTotals();
+      }
     }
   }
   function onQuoteAreaMeasurement(id, field, value) {
@@ -2722,12 +2749,25 @@
     const qtyInput = document.getElementById('quoteQty_' + id);
     if (qtyInput) {
       qtyInput.readOnly = Boolean(li.calculatedAreaM2);
-      if (li.calculatedAreaM2) qtyInput.value = li.calculatedAreaM2;
+      if (li.calculatedAreaM2) qtyInput.value = li.calculatedAreaM2.toFixed(2);
     }
     const areaOutput = document.getElementById('quoteArea_' + id);
     if (areaOutput) areaOutput.textContent = li.calculatedAreaM2
       ? `Calculated area: ${li.calculatedAreaM2.toFixed(2)} m²`
       : 'Enter length and width';
+    updateQuoteBuilderTotals();
+  }
+  function onQuoteLinearMeasurement(id, value) {
+    const li = quoteBuilderDraft.lineItems.find(x => x.id === id);
+    if (!li || !isLinearMetreUnit(li.unit)) return;
+    const length = Number(value);
+    li.lengthM = Number.isFinite(length) && length > 0 ? length : null;
+    if (li.lengthM) li.qty = li.lengthM;
+    const qtyInput = document.getElementById('quoteQty_' + id);
+    if (qtyInput) {
+      qtyInput.readOnly = Boolean(li.lengthM);
+      if (li.lengthM) qtyInput.value = li.lengthM.toFixed(2);
+    }
     updateQuoteBuilderTotals();
   }
   function autoGrowQuoteTextarea(el) {
@@ -2750,7 +2790,7 @@
     li.description = task.name;
     li.unit = task.unit || '';
     li.unitPriceCents = Math.round((Number(task.rate) || 0) * 100);
-    if (!isSquareMetreUnit(li.unit)) {
+    if (!isSquareMetreUnit(li.unit) && !isLinearMetreUnit(li.unit)) {
       li.lengthM = null; li.widthM = null; li.calculatedAreaM2 = null;
     }
     render();
@@ -2910,8 +2950,8 @@
             </select>
             <div style="display:grid;grid-template-columns:2fr 0.7fr 0.7fr 0.9fr auto;gap:8px;align-items:end;">
               <div><label class="fieldlabel">Description / Materials &amp; Inclusions</label><textarea class="fieldinput quote-description-input" rows="6" onfocus="autoGrowQuoteTextarea(this)" oninput="onQuoteLineItemField('${li.id}','description',this.value); autoGrowQuoteTextarea(this)">${escapeHtml(li.description)}</textarea></div>
-              <div><label class="fieldlabel">Qty</label><input class="fieldinput" id="quoteQty_${li.id}" type="number" min="0" step="0.01" value="${li.qty}" ${li.calculatedAreaM2 ? 'readonly' : ''} oninput="onQuoteLineItemField('${li.id}','qty',this.value); updateQuoteBuilderTotals();" /></div>
-              <div><label class="fieldlabel">Unit</label><input class="fieldinput" value="${escapeHtml(li.unit)}" oninput="onQuoteUnitField('${li.id}',this.value)" /></div>
+              <div><label class="fieldlabel">Qty</label><input class="fieldinput" id="quoteQty_${li.id}" type="number" min="0" step="0.01" value="${li.calculatedAreaM2 || (isLinearMetreUnit(li.unit) && li.lengthM) ? Number(li.qty).toFixed(2) : li.qty}" ${li.calculatedAreaM2 || (isLinearMetreUnit(li.unit) && li.lengthM) ? 'readonly' : ''} oninput="onQuoteLineItemField('${li.id}','qty',this.value); updateQuoteBuilderTotals();" /></div>
+              <div><label class="fieldlabel">Unit</label><select class="fieldinput" onchange="onQuoteUnitField('${li.id}',this.value)">${quoteUnitOptions(li.unit)}</select></div>
               <div><label class="fieldlabel">Unit price ($)</label><input class="fieldinput" type="number" min="0" step="0.01" value="${(li.unitPriceCents / 100).toFixed(2)}" oninput="onQuoteLineItemField('${li.id}','unitPriceDollars',this.value); updateQuoteBuilderTotals();" /></div>
               <button class="btn btn-outline" style="padding:10px;" onclick="removeQuoteLineItem('${li.id}')" title="Remove">✕</button>
             </div>
@@ -2919,6 +2959,9 @@
               <div><label class="fieldlabel" for="quoteLength_${li.id}">Length (m)</label><input class="fieldinput" id="quoteLength_${li.id}" type="number" inputmode="decimal" min="0" step="0.01" value="${li.lengthM || ''}" oninput="onQuoteAreaMeasurement('${li.id}','lengthM',this.value)" /></div>
               <div><label class="fieldlabel" for="quoteWidth_${li.id}">Width (m)</label><input class="fieldinput" id="quoteWidth_${li.id}" type="number" inputmode="decimal" min="0" step="0.01" value="${li.widthM || ''}" oninput="onQuoteAreaMeasurement('${li.id}','widthM',this.value)" /></div>
               <div><label class="fieldlabel">Calculated Area (m²)</label><output class="quote-calculated-area" id="quoteArea_${li.id}">${li.calculatedAreaM2 ? `Calculated area: ${Number(li.calculatedAreaM2).toFixed(2)} m²` : 'Enter length and width'}</output></div>
+            </div>
+            <div class="quote-linear-fields" id="quoteLinearFields_${li.id}" aria-label="Linear measurement" ${isLinearMetreUnit(li.unit) ? '' : 'hidden'}>
+              <label class="fieldlabel" for="quoteLinearLength_${li.id}">Length (m)</label><input class="fieldinput" id="quoteLinearLength_${li.id}" type="number" inputmode="decimal" min="0" step="0.01" value="${li.lengthM || ''}" oninput="onQuoteLinearMeasurement('${li.id}',this.value)" />
             </div>
             <div style="font-size:12px;color:var(--stone);margin-top:6px;">Line total: <span id="lineTotal_${li.id}">${fmtCents(Math.round((Number(li.qty) || 1) * li.unitPriceCents))}</span> (GST inclusive)</div>
           </div>
