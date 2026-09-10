@@ -488,7 +488,7 @@
     const gstCents = Math.round((totalIncGstCents || 0) / 11);
     return { totalCents: totalIncGstCents || 0, gstCents, exGstCents: (totalIncGstCents || 0) - gstCents };
   }
-  function pdfLetterhead(doc, { docType, docRef, dateStr, legalName, abn }) {
+  function pdfLetterhead(doc, { docType, docRef, dateStr, validUntil, legalName, abn }) {
     doc.setFillColor(...PDF_NAVY); doc.rect(0, 0, 210, 34, 'F');
     doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
     doc.text('MySubbies', 14, 16);
@@ -499,6 +499,7 @@
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(200, 206, 220);
     if (docRef) doc.text(docRef, 196, 21, { align: 'right' });
     doc.text(`Issued ${dateStr}`, 196, 27, { align: 'right' });
+    if (validUntil) { doc.setTextColor(255, 106, 26); doc.setFont('helvetica', 'bold'); doc.text(`VALID UNTIL ${validUntil}`, 196, 32, { align: 'right' }); }
     doc.setTextColor(0, 0, 0);
   }
   function pdfFooter(doc, noteLine, legalName, abn) {
@@ -515,18 +516,30 @@
     }
   }
   function pdfTotalsBox(doc, y, { exGstCents, gstCents, totalCents }, totalLabel) {
-    const boxX = 130, boxW = 66;
-    doc.setFontSize(9.5); doc.setTextColor(90, 90, 90); doc.setFont('helvetica', 'normal');
-    doc.text('Subtotal (ex. GST)', boxX, y);
-    doc.text(fmtCents(exGstCents), boxX + boxW, y, { align: 'right' });
-    doc.text('GST (10%)', boxX, y + 6);
-    doc.text(fmtCents(gstCents), boxX + boxW, y + 6, { align: 'right' });
-    doc.setDrawColor(220, 220, 217); doc.line(boxX, y + 9, boxX + boxW, y + 9);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.setTextColor(20, 33, 61);
-    doc.text(totalLabel || 'Total (inc. GST)', boxX, y + 17);
-    doc.text(fmtCents(totalCents), boxX + boxW, y + 17, { align: 'right' });
+    const boxX = 112, boxW = 84;
+    doc.setFillColor(...PDF_NAVY); doc.roundedRect(boxX, y - 4, boxW, 29, 2, 2, 'F');
+    doc.setFontSize(8.5); doc.setTextColor(210,216,229); doc.setFont('helvetica','normal');
+    doc.text('Subtotal ex GST',boxX+6,y+2); doc.text(fmtCents(exGstCents),boxX+boxW-6,y+2,{align:'right'});
+    doc.text('GST (10%)',boxX+6,y+8); doc.text(fmtCents(gstCents),boxX+boxW-6,y+8,{align:'right'});
+    doc.setDrawColor(255,106,26); doc.setLineWidth(.7); doc.line(boxX+6,y+12,boxX+boxW-6,y+12);
+    doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(255);
+    doc.text((totalLabel || 'TOTAL INC GST').toUpperCase(),boxX+6,y+20); doc.text(fmtCents(totalCents),boxX+boxW-6,y+20,{align:'right'});
     doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal');
     return y + 24;
+  }
+  function pdfQuoteDescription(item) {
+    const parts=String(item.description||'').split(/\r?\n/), title=parts.shift()||'Quoted service', details=parts.join('\n').trim();
+    const measurement=item.lengthM&&item.widthM?`Measurements: ${item.lengthM}m × ${item.widthM}m = ${Number(item.calculatedAreaM2||item.qty).toFixed(2)} m²`:item.lengthM&&String(item.unit||'').toLowerCase()==='lm'?`Measurements: ${item.lengthM} linear metres`:'';
+    return {title,details,measurement};
+  }
+  function pdfQuoteItemsTable(doc,items,startY) {
+    const rows=items.map(item=>['',`${item.qty}${item.unit?' '+item.unit:''}`,fmtCents(item.unitPriceCents),fmtCents(item.lineTotalCents == null ? Math.round((Number(item.qty)||1)*item.unitPriceCents) : item.lineTotalCents)]);
+    doc.autoTable({startY,head:[['Description','Qty / Unit','Unit Price','Amount']],body:rows,margin:{left:14,right:14,bottom:24},styles:{fontSize:8.5,cellPadding:4,valign:'top',overflow:'linebreak'},headStyles:{fillColor:PDF_NAVY,textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:PDF_PAPER},columnStyles:{0:{cellWidth:108},1:{cellWidth:18,halign:'right'},2:{cellWidth:25,halign:'right'},3:{cellWidth:29,halign:'right'}},theme:'grid',didParseCell(data){if(data.section==='body'&&data.column.index===0){const d=pdfQuoteDescription(items[data.row.index]);data.cell.text=[];data.cell.styles.minCellHeight=10+doc.splitTextToSize(d.title,100).length*4+doc.splitTextToSize(d.details,100).length*3.8+(d.measurement?5:0);}},didDrawCell(data){if(data.section!=='body'||data.column.index!==0)return;const d=pdfQuoteDescription(items[data.row.index]);let y=data.cell.y+5;doc.setTextColor(...PDF_NAVY);doc.setFont('helvetica','bold');doc.setFontSize(9);const title=doc.splitTextToSize(d.title,100);doc.text(title,data.cell.x+4,y);y+=title.length*4+2;if(d.details){doc.setTextColor(65);doc.setFont('helvetica','normal');doc.setFontSize(8.5);const lines=doc.splitTextToSize(d.details,100);doc.text(lines,data.cell.x+4,y);y+=lines.length*3.8+2;}if(d.measurement){doc.setTextColor(...PDF_NAVY);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text(doc.splitTextToSize(d.measurement,100),data.cell.x+4,y);}}});
+  }
+  function pdfProposalSections(doc, sections, acceptanceText) {
+    doc.addPage(); let y=24;
+    sections.forEach(([label,text,url])=>{if(!text)return;const lines=doc.splitTextToSize(text,180);if(y+12+lines.length*4.2>265){doc.addPage();y=24;}doc.setDrawColor(255,106,26);doc.setLineWidth(.8);doc.line(14,y-4,25,y-4);doc.setTextColor(...PDF_NAVY);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(label,14,y);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(60);doc.text(lines,14,y+6);y+=10+lines.length*4.2;if(url){doc.setTextColor(30,60,150);doc.textWithLink('Read the full Mysubbies Platform Terms →',14,y,{url});y+=6;}y+=7;});
+    if(y>245){doc.addPage();y=24;}doc.setDrawColor(255,106,26);doc.line(14,y-4,25,y-4);doc.setTextColor(...PDF_NAVY);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('Quote Acceptance',14,y);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(60);doc.text(acceptanceText,14,y+7);
   }
 
   // Coerces a contractor field expected to be an array (trades, suburbs)
@@ -2856,42 +2869,20 @@
     const items = d.lineItems.filter(li => li.description && li.description.trim());
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    pdfLetterhead(doc, { docType: 'QUOTE (DRAFT)', docRef: null, dateStr: new Date().toLocaleDateString('en-AU'), legalName: 'Mysubbies Holdings Pty Ltd', abn: '69 693 675 268' });
+    pdfLetterhead(doc, { docType: 'PROJECT PROPOSAL (DRAFT)', docRef: null, dateStr: new Date().toLocaleDateString('en-AU'), validUntil: `${Number(d.validityDays)||30} days from issue`, legalName: 'Mysubbies Holdings Pty Ltd', abn: '69 693 675 268' });
     doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(140);
     doc.text('PREPARED FOR', 14, 46);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(20, 20, 20);
-    doc.text(d.customerName || d.customerEmail || '—', 14, 52);
-    const rows = items.map(li => [li.description, `${li.qty}${li.unit ? ' ' + li.unit : ''}`, fmtCents(li.unitPriceCents), fmtCents(Math.round((Number(li.qty) || 1) * li.unitPriceCents))]);
-    doc.autoTable({
-      startY: 62, head: [['Description', 'Qty', 'Unit price', 'Amount']], body: rows,
-      styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: PDF_NAVY, textColor: 255, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: PDF_PAPER }, columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } }, theme: 'grid',
-    });
+    doc.text(d.customerName || d.customerEmail || '—', 14, 52); doc.setFontSize(9); doc.setTextColor(90);
+    const prepared=[d.propertyAddress,[d.propertySuburb,d.propertyPostcode].filter(Boolean).join(' '),d.customerEmail,d.customerPhone].filter(Boolean); doc.text(prepared,14,58);
+    pdfQuoteItemsTable(doc,items,62+prepared.length*4);
     let finalY = doc.lastAutoTable.finalY || 66;
     finalY = pdfTotalsBox(doc, finalY + 12, quoteBuilderTotalsPreview(), 'Total (inc. GST)');
 
-    const sections = [
-      ['Scope', d.scopeText], ['Inclusions', d.inclusionsText], ['Exclusions', d.exclusionsText],
-      ['Payment schedule', d.paymentTermsText],
-      ['Terms & conditions', STANDARD_QUOTE_TERMS_V1, 'https://app.mysubbies.com.au/mysubbies-terms.html'],
-    ];
-    sections.forEach(([label, text, url]) => {
-      if (!text) return;
-      if (finalY > 255) { doc.addPage(); finalY = 20; }
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
-      doc.text(label, 14, finalY);
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(80, 80, 80);
-      const lines = doc.splitTextToSize(text, 180);
-      doc.text(lines, 14, finalY + 5);
-      finalY += 5 + lines.length * 4;
-      if (url) {
-        doc.setTextColor(30, 60, 150);
-        doc.textWithLink('Read the full Mysubbies Platform Terms →', 14, finalY + 3, { url });
-        doc.setTextColor(80, 80, 80);
-        finalY += 6;
-      }
-      finalY += 8;
-    });
+    pdfProposalSections(doc, [
+      ['Scope of Works', d.scopeText], ['Inclusions', d.inclusionsText], ['Exclusions', d.exclusionsText],
+      ['Terms / Important Information', [d.paymentTermsText, STANDARD_QUOTE_TERMS_V1].filter(Boolean).join('\n\n'), 'https://app.mysubbies.com.au/mysubbies-terms.html'],
+    ], 'This is a draft proposal. Save and issue it before customer acceptance.');
 
     pdfFooter(doc, 'DRAFT PREVIEW -- not yet issued to the customer.', 'Mysubbies Holdings Pty Ltd', '69 693 675 268');
     doc.save('mysubbies-quote-draft-preview.pdf');
@@ -3127,43 +3118,19 @@
     const v = quote.currentVersion;
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    pdfLetterhead(doc, { docType: 'QUOTE', docRef: `Quote #${quote.quoteNumber} · v${v.versionNumber}`, dateStr: v.issuedAt ? new Date(v.issuedAt).toLocaleDateString('en-AU') : new Date().toLocaleDateString('en-AU'), legalName: 'Mysubbies Holdings Pty Ltd', abn: '69 693 675 268' });
+    pdfLetterhead(doc, { docType: 'PROJECT PROPOSAL', docRef: `Quote #${quote.quoteNumber} · v${v.versionNumber}`, dateStr: v.issuedAt ? new Date(v.issuedAt).toLocaleDateString('en-AU') : new Date().toLocaleDateString('en-AU'), validUntil: v.expiresAt ? new Date(v.expiresAt).toLocaleDateString('en-AU') : '—', legalName: 'Mysubbies Holdings Pty Ltd', abn: '69 693 675 268' });
     doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(140);
     doc.text('PREPARED FOR', 14, 46);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(20, 20, 20);
-    doc.text((quote.customer && quote.customer.name) || '—', 14, 52);
-    doc.setFontSize(9); doc.setTextColor(110);
-    doc.text((quote.customer && quote.customer.email) || '', 14, 57);
-    const rows = (v.lineItems || []).map(li => [li.description, `${li.qty}${li.unit ? ' ' + li.unit : ''}`, fmtCents(li.unitPriceCents), fmtCents(li.lineTotalCents)]);
-    doc.autoTable({
-      startY: 66, head: [['Description', 'Qty', 'Unit price', 'Amount']], body: rows,
-      styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: PDF_NAVY, textColor: 255, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: PDF_PAPER }, columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } }, theme: 'grid',
-    });
+    doc.text((quote.customer && quote.customer.name) || '—', 14, 52); doc.setFontSize(9); doc.setTextColor(90);
+    const property=v.propertySnapshot||{}, customer=quote.customer||{}; const prepared=[property.address,[property.suburb,property.postcode].filter(Boolean).join(' '),customer.email,customer.phone||customer.mobile].filter(Boolean); doc.text(prepared,14,58);
+    pdfQuoteItemsTable(doc,v.lineItems||[],62+prepared.length*4);
     let finalY = doc.lastAutoTable.finalY || 70;
     finalY = pdfTotalsBox(doc, finalY + 12, { exGstCents: v.subtotalExGstCents, gstCents: v.gstCents, totalCents: v.totalIncGstCents }, 'Total (inc. GST)');
-    const sections = [
-      ['Scope', v.scopeText], ['Inclusions', v.inclusionsText], ['Exclusions', v.exclusionsText],
-      ['Payment schedule', v.paymentTermsText],
-      ['Terms & conditions', v.termsText, v.termsUrl],
-    ];
-    sections.forEach(([label, text, url]) => {
-      if (!text) return;
-      if (finalY > 255) { doc.addPage(); finalY = 20; }
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
-      doc.text(label, 14, finalY);
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(80, 80, 80);
-      const lines = doc.splitTextToSize(text, 180);
-      doc.text(lines, 14, finalY + 5);
-      finalY += 5 + lines.length * 4;
-      if (url) {
-        doc.setTextColor(30, 60, 150);
-        doc.textWithLink('Read the full Mysubbies Platform Terms →', 14, finalY + 3, { url });
-        doc.setTextColor(80, 80, 80);
-        finalY += 6;
-      }
-      finalY += 8;
-    });
+    pdfProposalSections(doc, [
+      ['Scope of Works', v.scopeText], ['Inclusions', v.inclusionsText], ['Exclusions', v.exclusionsText],
+      ['Terms / Important Information', [v.paymentTermsText, v.termsText].filter(Boolean).join('\n\n'), v.termsUrl],
+    ], v.status === 'accepted' ? `Accepted${v.acceptedAt ? ' on ' + new Date(v.acceptedAt).toLocaleDateString('en-AU') : ''}` : v.status === 'declined' ? 'Declined' : 'Review and accept this proposal securely using the link supplied by MySubbies.');
     pdfFooter(doc, `Valid until ${v.expiresAt ? new Date(v.expiresAt).toLocaleDateString('en-AU') : '—'} · Not a tax invoice.`, 'Mysubbies Holdings Pty Ltd', '69 693 675 268');
     doc.save(`mysubbies-quote-${quote.quoteNumber}-v${v.versionNumber}.pdf`);
   }
