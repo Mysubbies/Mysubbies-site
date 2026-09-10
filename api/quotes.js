@@ -133,21 +133,36 @@ async function resolveToken(req, res, supabase) {
     .from('document_access_tokens').select('*')
     .eq('token_hash', tokenHash).eq('document_type', 'quote_version').maybeSingle();
 
-  const valid = !!(tokenRow && !tokenRow.revoked_at && new Date(tokenRow.expires_at) > new Date());
-  await supabase.from('document_access_attempts').insert({ ip, success: valid });
-
-  if (!tokenRow) { res.status(404).json({ error: 'This link is not valid.' }); return null; }
-  if (tokenRow.revoked_at) { res.status(410).json({ error: 'This link has been revoked.' }); return null; }
-  if (new Date(tokenRow.expires_at) <= new Date()) { res.status(410).json({ error: 'This link has expired.' }); return null; }
-
-  await supabase.from('document_access_tokens').update({ last_accessed_at: new Date().toISOString() }).eq('id', tokenRow.id);
+  if (!tokenRow) {
+    await supabase.from('document_access_attempts').insert({ ip, success: false });
+    res.status(404).json({ error: 'This link is not valid.' }); return null;
+  }
+  if (tokenRow.revoked_at) {
+    await supabase.from('document_access_attempts').insert({ ip, success: false });
+    res.status(410).json({ error: 'This link has been revoked.' }); return null;
+  }
 
   const { data: version } = await supabase.from('quote_versions').select('*').eq('id', tokenRow.document_id).maybeSingle();
-  if (!version) { res.status(404).json({ error: 'This document could not be found.' }); return null; }
+  if (!version) {
+    await supabase.from('document_access_attempts').insert({ ip, success: false });
+    res.status(404).json({ error: 'This document could not be found.' }); return null;
+  }
   const { data: quote } = await supabase.from('quotes').select('*').eq('id', version.quote_id).maybeSingle();
   if (!quote) { res.status(404).json({ error: 'This document could not be found.' }); return null; }
-
   const settled = await expireIfOverdue(supabase, version, quote);
+
+  // Acceptance/decline settles the quote before its deadline. Keep that
+  // document available as the customer's record after the original review
+  // deadline instead of misreporting an accepted/declined quote as expired.
+  const settledStatus = settled.version.status === 'accepted' || settled.version.status === 'declined';
+  const valid = settledStatus || new Date(tokenRow.expires_at) > new Date();
+  await supabase.from('document_access_attempts').insert({ ip, success: valid });
+  if (!valid) { res.status(410).json({ error: 'This link has expired.' }); return null; }
+
+  // This is audit metadata only: no consumed/revoked flag is set, so every
+  // valid GET, refresh, browser and device can resolve the same token.
+  await supabase.from('document_access_tokens').update({ last_accessed_at: new Date().toISOString() }).eq('id', tokenRow.id);
+
   return { version: settled.version, quote: settled.quote, ip };
 }
 
