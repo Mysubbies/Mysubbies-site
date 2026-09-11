@@ -191,6 +191,16 @@ module.exports = async (req, res) => {
           }
         } catch (emailErr) { console.error('payment confirmation email failed:', emailErr); }
 
+        if (stage === 'deposit' && jobId) {
+          try {
+            const { data: convertedLead } = await supabase.from('customer_leads').update({
+              stage: 'BOOKED', booking_status: 'deposit_paid', updated_at: new Date().toISOString(),
+            }).eq('booking_job_id', jobId).select('id').maybeSingle();
+            if (convertedLead) await supabase.from('customer_lead_events').upsert(
+              { lead_id: convertedLead.id, stage: 'BOOKED' }, { onConflict: 'lead_id,stage', ignoreDuplicates: true });
+          } catch (leadError) { console.error('lead conversion update failed:', leadError); }
+        }
+
         // Referral credit grant (Sep 2026, "Give $50, Get $50") -- fires
         // once, the very first time a customer's OWN deposit ever
         // succeeds, never on a later job, so a referral can't be farmed
