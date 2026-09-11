@@ -648,7 +648,7 @@
       fetch('/api/notify', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'new-job-available', category: job.category, suburb: job.suburb, taskName,
+          type: 'new-job-available', jobId: job.id, category: job.category, suburb: job.suburb, taskName,
           items: (job.items || []).map(i => ({ taskName: i.taskName, qty: i.qty, unit: i.unit })),
           qty: job.qty, unit: job.unit, urgency: job.urgency, basePrice: job.basePrice,
         }),

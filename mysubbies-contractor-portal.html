@@ -1708,8 +1708,16 @@
     myProfileLoading = true;
     const email = localStorage.getItem('mysubbies_contractor_email');
     try {
-      const res = await fetch('/api/contractor-profile?email=' + encodeURIComponent(email));
+      const token = await getContractorAccessToken();
+      const res = await fetch('/api/contractor-profile?email=1', { headers: { Authorization: 'Bearer ' + token } });
       myProfileData = res.ok ? await res.json() : {};
+      if (res.ok && myProfileData.businessName) {
+        const applications = getApplications().filter(a => a.email !== email);
+        applications.unshift({ business: myProfileData.businessName, email,
+          trades: myProfileData.categories || [], regions: myProfileData.regions || [],
+          suburbs: myProfileData.suburbs || [], availability: myProfileData.availability || [], status: 'approved' });
+        localStorage.setItem('mysubbies_contractor_applications', JSON.stringify(applications));
+      }
     } catch (e) { myProfileData = {}; }
     myProfileLoading = false;
     render();
@@ -2521,7 +2529,8 @@
     const email = localStorage.getItem('mysubbies_contractor_email');
     if (!email) return;
     try {
-      const res = await fetch('/api/notifications?role=contractor&email=' + encodeURIComponent(email));
+      const token = await getContractorAccessToken();
+      const res = await fetch('/api/notifications?role=contractor&email=1', { headers: { Authorization: 'Bearer ' + token } });
       if (!res.ok) return;
       const data = await res.json();
       notifItems = data.notifications || [];
@@ -2560,20 +2569,22 @@
       `).join('')}
     `;
   }
-  function markAllNotifsRead() {
+  async function markAllNotifsRead() {
     const email = localStorage.getItem('mysubbies_contractor_email');
     if (!email) return;
-    fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'markAllRead', role: 'contractor', email }) }).catch(() => {});
+    const token = await getContractorAccessToken();
+    fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ action: 'markAllRead', role: 'contractor', email }) }).catch(() => {});
     const now = new Date().toISOString();
     notifItems.forEach(n => { n.readAt = n.readAt || now; });
     notifUnreadCount = 0;
     renderNotifBadge();
     renderNotifPanel();
   }
-  function openNotif(id, jobId) {
+  async function openNotif(id, jobId) {
     const email = localStorage.getItem('mysubbies_contractor_email');
     if (email) {
-      fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'markRead', id, role: 'contractor', email }) }).catch(() => {});
+      const token = await getContractorAccessToken();
+      fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ action: 'markRead', id, role: 'contractor', email }) }).catch(() => {});
     }
     const item = notifItems.find(n => n.id === id);
     if (item && !item.readAt) { item.readAt = new Date().toISOString(); notifUnreadCount = Math.max(0, notifUnreadCount - 1); }
@@ -2722,7 +2733,7 @@
           <a onclick="renderForgotPassword()" style="text-decoration:underline;cursor:pointer;">Forgot password?</a>
         </div>
         <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:8px;">
-          Approved and logging in for the first time? <a onclick="renderActivateEntry()" style="font-weight:600;color:var(--ink);text-decoration:underline;cursor:pointer;">Activate your account</a>
+          Approved and logging in for the first time? Use the secure activation link in your approval email.
         </div>
         <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:8px;">
           Not registered yet? <a href="mysubbies-contractor-signup.html" style="font-weight:600;color:var(--ink);text-decoration:underline;">Apply to join</a>
@@ -2758,17 +2769,18 @@
     const errBox = document.getElementById('activateEntryError');
     if (!email) { errBox.textContent = 'Enter your email.'; return; }
     try {
-      const res = await fetch('/api/activate-contractor?email=' + encodeURIComponent(email));
+      const setupToken = new URLSearchParams(location.search).get('setup') || '';
+      const res = await fetch('/api/activate-contractor?email=' + encodeURIComponent(email) + '&setupToken=' + encodeURIComponent(setupToken));
       const info = await res.json();
-      if (!res.ok || !info.found) { errBox.textContent = "We couldn't find an application for that email."; return; }
+      if (!res.ok || !info.eligible) { errBox.textContent = 'This activation link is invalid or expired. Contact MySubbies support for a new link.'; return; }
       if (info.activated) { errBox.textContent = 'This account is already active — use the login form instead.'; return; }
       if (!isLoginEligibleStatus(info.status)) { errBox.textContent = "Your application isn't approved yet, so there's nothing to activate."; return; }
-      renderActivationForm(email, info.businessName);
+      renderActivationForm(email, info.businessName, setupToken);
     } catch (e) {
       errBox.textContent = 'Something went wrong — please try again.';
     }
   }
-  function renderActivationForm(email, businessName) {
+  function renderActivationForm(email, businessName, setupToken) {
     app.innerHTML = `
       <div class="loginbox">
         <h1>Create your password</h1>
@@ -2777,13 +2789,13 @@
         <input type="password" id="activatePassword" placeholder="New password (min 8 characters)" style="margin-bottom:10px;" />
         <input type="password" id="activatePasswordConfirm" placeholder="Confirm password" style="margin-bottom:14px;" />
         <div id="activateError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
-        <button class="btn btn-black btn-full" id="activateSubmitBtn" onclick="activateContractorAccount('${email.replace(/'/g, "\\'")}')">Activate &amp; log in →</button>
+        <button class="btn btn-black btn-full" id="activateSubmitBtn" onclick="activateContractorAccount('${email.replace(/'/g, "\\'")}', '${String(setupToken || '').replace(/'/g, "\\'")}')">Activate &amp; log in →</button>
         <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:14px;">
           <a onclick="renderLogin()" style="text-decoration:underline;cursor:pointer;">Back to log in</a>
         </div>
       </div>`;
   }
-  async function activateContractorAccount(email) {
+  async function activateContractorAccount(email, setupToken) {
     const password = document.getElementById('activatePassword').value;
     const confirmPassword = document.getElementById('activatePasswordConfirm').value;
     const errBox = document.getElementById('activateError');
@@ -2805,7 +2817,7 @@
             btn.disabled = false; btn.textContent = 'Activate & log in →';
             return;
           }
-          await finishActivation(email, signInData.session.access_token);
+          await finishActivation(email, signInData.session.access_token, setupToken);
           return;
         }
         errBox.textContent = error.message || 'Could not create your account.';
@@ -2826,18 +2838,18 @@
           </div>`;
         return;
       }
-      await finishActivation(email, data.session.access_token);
+      await finishActivation(email, data.session.access_token, setupToken);
     } catch (e) {
       errBox.textContent = 'Something went wrong — please try again.';
       btn.disabled = false; btn.textContent = 'Activate & log in →';
     }
   }
-  async function finishActivation(email, accessToken) {
+  async function finishActivation(email, accessToken, setupToken) {
     const errBox = document.getElementById('activateError');
     try {
       const res = await fetch('/api/activate-contractor', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, accessToken }),
+        body: JSON.stringify({ email, accessToken, setupToken }),
       });
       const result = await res.json();
       if (!res.ok) { if (errBox) errBox.textContent = result.error || 'Could not activate your account.'; return; }
@@ -2892,54 +2904,19 @@
     // local application record — that's what makes this work cross-device.
     let verified = false;
     let remoteStatus = null; // real status from the `contractors` table, when available
-    let knownAuthUserId = null;
-    let contractorInfo = null; // { found, activated, status, businessName } -- see api/activate-contractor.js
     if (sb) {
-      // contractors' RLS only lets a row's own already-authenticated owner
-      // select it (auth.uid() = auth_user_id) -- an anonymous pre-login
-      // lookup by email via this browser's own Supabase client always
-      // returns nothing, so this has to go through a real server endpoint
-      // (service-role, bypasses RLS) instead of sb.from('contractors')...
-      try {
-        const lookupRes = await fetch('/api/activate-contractor?email=' + encodeURIComponent(email));
-        if (lookupRes.ok) contractorInfo = await lookupRes.json();
-      } catch (e) { /* offline/hiccup -- falls through to the existing behaviour below */ }
-      knownAuthUserId = !!(contractorInfo && contractorInfo.activated);
       const { data: authData, error } = await sb.auth.signInWithPassword({ email, password });
       verified = !error;
       if (verified) {
+        const setupToken = new URLSearchParams(location.search).get('setup');
+        if (setupToken) { await finishActivation(email, authData.session.access_token, setupToken); return; }
         const { data: profile } = await sb.from('contractors').select('status').eq('auth_user_id', authData.user.id).maybeSingle();
         if (profile) remoteStatus = profile.status;
       }
     }
     if (!verified) {
-      // Once an account has a real Supabase Auth identity, the plaintext
-      // local-application-password comparison below must never run for it
-      // again -- otherwise a wrong Supabase password would silently
-      // succeed via the old local copy. Same gate as the customer portal.
-      if (knownAuthUserId) { errBox.textContent = 'This account already has a secure login. If you\'ve forgotten your password, contact MySubbies support.'; return; }
-      // Founding 100 signup redesign (Sep 2026) removed the password field
-      // from mysubbies-contractor-signup.html -- an approved contractor
-      // with a real server row but no auth_user_id yet has never activated
-      // their account, so there's no legacy password to compare against
-      // for them below. Route to the "create your password" step instead
-      // of a dead-end "No account found" error.
-      if (contractorInfo && contractorInfo.found && !contractorInfo.activated && isLoginEligibleStatus(contractorInfo.status)) {
-        renderActivationForm(email, contractorInfo.businessName);
-        return;
-      }
-      if (!application || application.password !== password) { errBox.textContent = 'No account found with those details.'; return; }
-      if (sb) {
-        sb.auth.signUp({ email, password }).then(({ data }) => {
-          if (data?.user) {
-            sb.from('contractors').insert({
-              auth_user_id: data.user.id, email, business_name: application.business,
-              abn: application.abn, acn: application.acn, phone: application.phone,
-              categories: application.trades || [],
-            }).then(() => {});
-          }
-        });
-      }
+      errBox.textContent = 'No account found with those details. First-time users must use the secure link in their approval email.';
+      return;
     }
 
     // The real `contractors.status` (kept in sync by the admin portal's
@@ -2948,7 +2925,7 @@
     // different device than this one still apply correctly. Local
     // application.status is only the fallback for accounts that have
     // never synced a real status yet.
-    const effectiveStatus = remoteStatus || (application && application.status);
+    const effectiveStatus = remoteStatus;
     const businessName = (application && application.business) || 'your business';
     const contactName = (application && application.contact) || 'there';
 
@@ -3005,6 +2982,12 @@
   Promise.all([hydrateJobsFromServer(), hydrateAdminMessages()]).then(([jobsOk]) => {
     jobsLoadState = jobsOk ? 'ready' : 'error';
     render();
+    const params = new URLSearchParams(location.search);
+    if (!getContractorName() && params.get('setup') && params.get('email')) {
+      renderActivateEntry();
+      document.getElementById('activateEmail').value = params.get('email');
+      checkActivationEligibility();
+    }
   });
   hydrateInquiriesFromServer(localStorage.getItem('mysubbies_contractor_email')).then(() => { if (document.getElementById('inquiryFormWrap')) renderInquiryPanel(); });
 </script>

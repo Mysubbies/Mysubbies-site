@@ -10,6 +10,7 @@
 // no credential at all.
 const { getSupabase } = require('./_lib/clients');
 const { requireAdmin } = require('./_lib/adminAuth');
+const { signedDocuments } = require('./_lib/contractorDocuments');
 
 module.exports = async (req, res) => {
   if (req.method !== 'GET') { res.status(405).json({ error: 'Method not allowed' }); return; }
@@ -38,15 +39,18 @@ module.exports = async (req, res) => {
         .select('email, business_name, phone, abn, acn, categories, suburb_ids, status, address, full_application, created_at')
         .limit(500);
       if (error) throw error;
-      const applications = (data || []).map(r => {
-        if (r.full_application) return r.full_application;
-        return {
+      const applications = await Promise.all((data || []).map(async r => {
+        const application = r.full_application ? { ...r.full_application, status: r.status } : {
           business: r.business_name || '', contact: '', email: r.email, phone: r.phone || '',
           abn: r.abn || '', acn: r.acn || null, trades: r.categories || [], suburbs: r.suburb_ids || [],
           status: r.status || 'manual_review', address: r.address || null, appliedAt: r.created_at,
           insuranceDocs: [], certDocs: [], idDocs: [],
         };
-      });
+        application.insuranceDocs = await signedDocuments(supabase, application.insuranceDocs);
+        application.certDocs = await signedDocuments(supabase, application.certDocs);
+        application.idDocs = await signedDocuments(supabase, application.idDocs);
+        return application;
+      }));
       res.status(200).json({ applications });
       return;
     }

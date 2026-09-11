@@ -79,7 +79,7 @@ test('customer cannot use contractor branch or read contractor jobs', async () =
 });
 
 test('spoofed contractor email is ignored and assigned jobs use authenticated account', async () => {
-  const db = supabaseFor({ user: { id: 'auth-k' }, contractor: { id: 'k', auth_user_id: 'auth-k', email: 'real@example.com', categories: [] },
+  const db = supabaseFor({ user: { id: 'auth-k' }, contractor: { id: 'k', auth_user_id: 'auth-k', email: 'real@example.com', categories: [], status: 'approved' },
     assigned: [{ full_record: { id: 'assigned' }, job_number: 2 }] });
   const response = await invoke(loadHandler(db), { contractorEmail: 'other@example.com' }, 'valid');
   assert.equal(response.status, 200);
@@ -93,7 +93,7 @@ test('unassigned offers expose only the explicit safe projection', async () => {
     items: [{ taskName: 'Tap', qty: 1, unit: 'Each', notes: 'Address: 1 Secret St' }], status: 'feed', createdAt: 'now',
     address: '1 Secret St', customerName: 'Person', customerEmail: 'person@example.com', customerPhone: '0400',
     messages: ['private'], internalMessages: ['private'], photoDataUrl: 'private', paidStages: { deposit: true }, accessToken: 'private' };
-  const db = supabaseFor({ user: { id: 'auth-k' }, contractor: { email: 'real@example.com', categories: [] },
+  const db = supabaseFor({ user: { id: 'auth-k' }, contractor: { email: 'real@example.com', categories: [], status: 'approved' },
     offers: [{ full_record: privateRecord, job_number: 3 }] });
   const response = await invoke(loadHandler(db), { contractorEmail: 'anything' }, 'valid');
   const offer = response.body.jobs[0];

@@ -22,6 +22,7 @@
 // isn't scoped to an email a client could self-supply.
 const { getSupabase } = require('./_lib/clients');
 const { requireAdmin } = require('./_lib/adminAuth');
+const { requireAccount } = require('./_lib/userAuth');
 
 module.exports = async (req, res) => {
   const supabase = getSupabase();
@@ -33,18 +34,20 @@ module.exports = async (req, res) => {
         res.status(400).json({ error: 'role must be customer, contractor or admin.' });
         return;
       }
+      let accountEmail = email;
       if (role === 'admin') {
         if (!requireAdmin(req, res)) return;
-      } else if (!email) {
-        res.status(400).json({ error: 'email is required for this role.' });
-        return;
+      } else {
+        const auth = await requireAccount(supabase, req, role);
+        if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
+        accountEmail = auth.account.email;
       }
 
       let listQuery = supabase.from('notifications').select('*').eq('recipient_role', role);
       let countQuery = supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('recipient_role', role).is('read_at', null);
       if (role !== 'admin') {
-        listQuery = listQuery.eq('recipient_email', email);
-        countQuery = countQuery.eq('recipient_email', email);
+        listQuery = listQuery.eq('recipient_email', accountEmail);
+        countQuery = countQuery.eq('recipient_email', accountEmail);
       }
       const [{ data, error }, { count, error: countError }] = await Promise.all([
         listQuery.order('created_at', { ascending: false }).limit(50),
@@ -74,18 +77,20 @@ module.exports = async (req, res) => {
         res.status(400).json({ error: 'role must be customer, contractor or admin.' });
         return;
       }
+      let accountEmail = email;
       if (role === 'admin') {
         if (!requireAdmin(req, res)) return;
-      } else if (!email) {
-        res.status(400).json({ error: 'email is required for this role.' });
-        return;
+      } else {
+        const auth = await requireAccount(supabase, req, role);
+        if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
+        accountEmail = auth.account.email;
       }
 
       if (action === 'markRead') {
         const { id } = req.body || {};
         if (!id) { res.status(400).json({ error: 'id is required.' }); return; }
         let q = supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id).eq('recipient_role', role);
-        if (role !== 'admin') q = q.eq('recipient_email', email);
+        if (role !== 'admin') q = q.eq('recipient_email', accountEmail);
         const { error } = await q;
         if (error) throw error;
         res.status(200).json({ ok: true });
@@ -94,7 +99,7 @@ module.exports = async (req, res) => {
 
       if (action === 'markAllRead') {
         let q = supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('recipient_role', role).is('read_at', null);
-        if (role !== 'admin') q = q.eq('recipient_email', email);
+        if (role !== 'admin') q = q.eq('recipient_email', accountEmail);
         const { error } = await q;
         if (error) throw error;
         res.status(200).json({ ok: true });

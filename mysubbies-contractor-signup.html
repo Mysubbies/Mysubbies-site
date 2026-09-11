@@ -204,7 +204,7 @@
   function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   }
-  function saveApplications(apps) {
+  function cacheApplications(apps) {
     // Sep 2026 (real contractor report: submitting with photos attached
     // never completed; removing them worked) -- this step-2 verification
     // upload still allows raw, uncompressed insurance/certificate/ID
@@ -216,13 +216,6 @@
     } catch (e) {
       console.error('localStorage quota exceeded saving applications:', e);
     }
-    // Mirrors the full application (docs, referral code, everything) into
-    // Supabase so mysubbies-admin-portal.html can review it from any
-    // device, not just the browser it was submitted in — see
-    // api/sync-applications.js. This is also, since the Sept 2026 redesign,
-    // the ONLY thing that creates/updates the real contractors row (no
-    // authenticated client session exists at application time any more).
-    return fetch('/api/sync-applications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ applications: apps }) });
   }
 
   let selectedTrades = [];
@@ -239,8 +232,14 @@
   function onDocSelected(e, type) {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-    let remaining = files.length;
-    files.forEach(file => {
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png'];
+    const validFiles = files.filter(file => {
+      if (!allowed.includes(file.type)) { showError(`${file.name} must be a PDF, JPEG or PNG.`); return false; }
+      if (file.size > 5 * 1024 * 1024) { showError(`${file.name} must be 5 MB or smaller.`); return false; }
+      return true;
+    });
+    let remaining = validFiles.length;
+    validFiles.forEach(file => {
       const reader = new FileReader();
       reader.onload = (ev) => {
         const doc = { name: file.name, dataUrl: ev.target.result, isImage: file.type.startsWith('image/') };
@@ -264,7 +263,7 @@
     if (!list) return;
     list.innerHTML = docs.map((d, idx) => `
       <div class="doc-item">
-        <div class="doc-thumb">${d.isImage ? `<img src="${d.dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">` : '📄'}</div>
+        <div class="doc-thumb">${d.dataUrl && d.isImage ? `<img src="${d.dataUrl}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">` : '📄'}</div>
         <div class="doc-name">${escapeHtml(d.name)}</div>
         <button class="doc-remove" onclick="removeDoc('${type}', ${idx})" title="Remove">✕</button>
       </div>
@@ -274,6 +273,9 @@
   const app = document.getElementById('app');
   let currentStep = 'apply'; // 'apply' | 'verify' | 'confirm'
   let submittedApplication = null; // set after step 1 succeeds, used/updated by step 2
+  let applicationUpdateToken = null;
+  const formStartedAt = Date.now();
+  let resubmissionToken = null;
 
   function scrollToApplyForm() {
     const el = document.getElementById('fContact');
@@ -333,6 +335,7 @@
       <p class="pagesub">Applications take approximately 3 minutes. Suitable applicants are normally contacted within 1 business day.</p>
 
       <div id="errorBox"></div>
+      <div style="position:absolute;left:-10000px;" aria-hidden="true"><label>Website <input type="text" id="fWebsite" tabindex="-1" autocomplete="off" /></label></div>
 
       <div class="section-label">Your details</div>
       <div class="row2">
@@ -367,7 +370,7 @@
       <div class="section-label">Service area</div>
       <label>Which parts of Melbourne do you cover?</label>
       <div class="chiprow" id="regionChips"></div>
-      <div class="field-note">Pick one or more regions — much faster than listing every postcode. Leave blank to be considered for all Melbourne metro areas.</div>
+      <div class="field-note">Select at least one broad region or enter specific suburbs/postcodes.</div>
       <div class="field" style="margin-top:10px;"><label>Specific suburbs or postcodes <span class="opt">(optional — narrows it down further)</span></label><input type="text" id="fSuburbs" placeholder="e.g. Brunswick, Coburg, 3056, 3058" /></div>
 
       <div class="section-label">Experience & availability</div>
@@ -607,6 +610,7 @@
       if (!abnMatchesAcn(abn, acn)) { showError('That ABN and ACN don\'t match a registered company — double-check both.'); return; }
     }
     if (selectedTrades.length === 0) { showError('Select at least one trade category.'); document.getElementById('tradeChips').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+    if (selectedRegions.length === 0 && !suburbs) { showError('Select at least one service region or enter specific suburbs/postcodes.'); document.getElementById('regionChips').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     if (selectedAvailability.length === 0) { showError('Select your availability.'); document.getElementById('availabilityChips').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     if (!urgentJobs) { showError('Let us know if you\'re available for urgent jobs.'); return; }
     if (!licenceHeld) { showError('Let us know whether you hold the required licence for your trade.'); return; }
@@ -616,7 +620,7 @@
     const referralInput = document.getElementById('fContractorReferral') ? document.getElementById('fContractorReferral').value.trim().toUpperCase() : '';
 
     const apps = getApplications();
-    if (apps.some(a => a.email === email)) { showError('An application with this email already exists.'); return; }
+    if (!resubmissionToken && apps.some(a => a.email === email)) { showError('An application with this email already exists.'); return; }
 
     const submitBtn = document.querySelector('.btn-black');
     const submitBtnLabel = submitBtn ? submitBtn.textContent : '';
@@ -635,25 +639,30 @@
       insuranceDocs: [], certDocs: [], idDocs: [],
       referralCode, referredBy,
       status: 'pending', appliedAt: new Date().toISOString(),
+      agreementAccepted: true,
       agreementVersion: 'contractor-agreement-2026-09', agreementAcceptedAt: new Date().toISOString(),
+      website: document.getElementById('fWebsite').value, formStartedAt,
     };
 
     try {
+      const response = await fetch('/api/sync-applications', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(resubmissionToken ? { action: 'resubmit', application, updateToken: resubmissionToken } : { application }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Submission failed');
+      applicationUpdateToken = result.updateToken;
+      if (resubmissionToken) {
+        const existingIndex = apps.findIndex(a => a.email === email);
+        if (existingIndex >= 0) apps.splice(existingIndex, 1);
+      }
       apps.unshift(application);
-      await saveApplications(apps);
+      cacheApplications(apps);
     } catch (e) {
-      showError('Could not submit your application — check your connection and try again.');
+      showError(e.message || 'Could not submit your application — check your connection and try again.');
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = submitBtnLabel; }
       return;
     }
-
-    // Admin had no way to learn a new application arrived except opening
-    // the Applications tab and checking themselves (founder report, Aug
-    // 2026) -- fire-and-forget, never blocks submission on an email hiccup.
-    fetch('/api/notify', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'contractor-application-submitted', business, contact, email, phone, trades: selectedTrades }),
-    }).catch(() => {});
 
     submittedApplication = application;
     currentStep = 'verify';
@@ -670,20 +679,20 @@
       <div class="verify-intro">Thanks, ${escapeHtml(submittedApplication.contact)} — your application for <strong>${escapeHtml(submittedApplication.business)}</strong> is in. Upload your documents now to speed up review, or skip and add them later from your contractor portal.</div>
 
       <label>Insurance certificate <span class="opt">(e.g. public liability, workers comp)</span></label>
-      <input type="file" id="fInsuranceInput" accept="image/*,application/pdf" multiple style="display:none;" onchange="onDocSelected(event, 'insurance')" />
+      <input type="file" id="fInsuranceInput" accept="image/jpeg,image/png,application/pdf" multiple style="display:none;" onchange="onDocSelected(event, 'insurance')" />
       <button type="button" class="btn btn-outline" onclick="document.getElementById('fInsuranceInput').click()" style="margin-bottom:8px;">📄 Upload insurance certificate</button>
       <div class="doc-list" id="insuranceDocList"></div>
 
       <div style="height:14px;"></div>
       <label>Trade certificate / licence document</label>
-      <input type="file" id="fCertInput" accept="image/*,application/pdf" multiple style="display:none;" onchange="onDocSelected(event, 'cert')" />
+      <input type="file" id="fCertInput" accept="image/jpeg,image/png,application/pdf" multiple style="display:none;" onchange="onDocSelected(event, 'cert')" />
       <button type="button" class="btn btn-outline" onclick="document.getElementById('fCertInput').click()" style="margin-bottom:8px;">📄 Upload trade certificate</button>
       <div class="doc-list" id="certDocList"></div>
 
       <div style="height:14px;"></div>
       <label>Australian photo ID <span class="opt">(driver's licence, passport, or other government-issued ID)</span></label>
       <div class="field-note" style="margin:2px 0 8px;">For our records only — used to verify who we're onboarding, never shared publicly.</div>
-      <input type="file" id="fIdInput" accept="image/*,application/pdf" multiple style="display:none;" onchange="onDocSelected(event, 'id')" />
+      <input type="file" id="fIdInput" accept="image/jpeg,image/png,application/pdf" multiple style="display:none;" onchange="onDocSelected(event, 'id')" />
       <button type="button" class="btn btn-outline" onclick="document.getElementById('fIdInput').click()" style="margin-bottom:8px;">🪪 Upload photo ID</button>
       <div class="doc-list" id="idDocList"></div>
 
@@ -699,7 +708,18 @@
     const apps = getApplications();
     const app_ = apps.find(a => a.id === submittedApplication.id);
     if (app_) { app_.insuranceDocs = insuranceDocs; app_.certDocs = certDocs; app_.idDocs = idDocs; }
-    try { await saveApplications(apps); } catch (e) { /* non-critical -- application itself is already recorded */ }
+    cacheApplications(apps);
+    try {
+      const response = await fetch('/api/sync-applications', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'uploadDocuments', applicationId: submittedApplication.id,
+          updateToken: applicationUpdateToken, insuranceDocs, certDocs, idDocs }),
+      });
+      if (!response.ok) throw new Error('Document upload failed');
+    } catch (e) {
+      showError('Your application is saved, but the documents did not upload. Please contact support before review.');
+      return;
+    }
     currentStep = 'confirm';
     render();
   }
@@ -722,6 +742,38 @@
 
   render();
   hydrateTradesFromRateCard();
+
+  async function loadSecureResubmission() {
+    const params = new URLSearchParams(location.search);
+    const token = params.get('resubmit');
+    const email = params.get('email');
+    if (!token || !email) return;
+    try {
+      const response = await fetch('/api/sync-applications', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getResubmission', email, updateToken: token }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'This secure update link is invalid or expired.');
+      const a = result.application;
+      resubmissionToken = token;
+      selectedTrades = Array.isArray(a.trades) ? a.trades : [];
+      selectedRegions = Array.isArray(a.regions) ? a.regions : [];
+      selectedAvailability = Array.isArray(a.availability) ? a.availability : [];
+      insuranceDocs = Array.isArray(a.insuranceDocs) ? a.insuranceDocs : [];
+      certDocs = Array.isArray(a.certDocs) ? a.certDocs : [];
+      idDocs = Array.isArray(a.idDocs) ? a.idDocs : [];
+      render();
+      const values = { fContact:a.contact, fPhone:a.phone, fEmail:a.email, fBusinessStructure:a.businessStructure,
+        fBusiness:a.business, fAddress:a.address, fAbn:a.abn, fAcn:a.acn, fSuburbs:(a.suburbs || []).filter(s => !selectedRegions.includes(s)).join(', '),
+        fExperience:a.experience, fJobSize:a.jobSize, fUrgentJobs:a.urgentJobs ? 'yes' : 'no', fLicenceHeld:a.licenceHeld,
+        fInsuranceHeld:a.insuranceHeld ? 'yes' : 'no' };
+      Object.entries(values).forEach(([id, value]) => { const field = document.getElementById(id); if (field && value != null) field.value = value; });
+      document.getElementById('fEmail').readOnly = true;
+      document.getElementById('fAbn').readOnly = true;
+      toggleAcnField();
+      document.getElementById('errorBox').innerHTML = `<div style="padding:12px 14px;border-radius:10px;background:#FFF6E5;font-size:13px;"><strong>Update requested:</strong> ${escapeHtml(a.reviewNotes || 'Please review your details and documents, then resubmit.')}</div>`;
+    } catch (error) { showError(error.message); }
+  }
+  loadSecureResubmission();
 
   // Referral share links (Aug 2026) point here as
   // mysubbies-contractor-signup.html?ref=CODE -- prefill, not lock, so a

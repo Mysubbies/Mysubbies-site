@@ -6,7 +6,7 @@ const { mergePermittedMutation, restoreStructuredFields, initialRecord } = requi
 
 function chain(result, onUpdate) {
   const q = {
-    select() { return q; }, eq() { return q; }, is() { return q; },
+    select() { return q; }, eq() { return q; }, is() { return q; }, neq() { return q; },
     maybeSingle() { return Promise.resolve(result); },
     update(value) { if (onUpdate) onUpdate(value); return q; },
     then(resolve) { return Promise.resolve(result).then(resolve); },
@@ -20,6 +20,7 @@ function fakeSupabase({ user, customer, contractor, job, updates }) {
     from(table) {
       if (table === 'customers') return chain({ data: customer || null, error: null });
       if (table === 'contractors') return chain({ data: contractor || null, error: null });
+      if (table === 'job_offers') return chain({ data: { id: 'offer-1' }, error: null });
       if (table === 'jobs') return chain({ data: job || null, error: null }, value => updates.push(value));
       throw new Error(`Unexpected table ${table}`);
     },
@@ -63,7 +64,7 @@ test('customer cannot mutate another customer job', async () => {
 
 test('contractor cannot mutate another contractor assignment', async () => {
   const updates = [];
-  const db = fakeSupabase({ user: { id: 'auth-other' }, contractor: { email: 'other@example.com' }, job: structured, updates });
+  const db = fakeSupabase({ user: { id: 'auth-other' }, contractor: { id: 'other', email: 'other@example.com', status: 'approved' }, job: structured, updates });
   const response = await invoke(loadHandler(db), { role: 'contractor', jobs: [{ id: 'job-1' }] }, 'valid');
   assert.equal(response.status, 403);
   assert.equal(updates.length, 0);
@@ -109,7 +110,7 @@ test('new display record derives protected state from structured job and account
 test('authenticated contractor acceptance binds assignment to authenticated email', async () => {
   const updates = [];
   const available = { ...structured, contractor_email: null, full_record: { ...structured.full_record, contractorEmail: null, contractor: null, status: 'feed' } };
-  const db = fakeSupabase({ user: { id: 'auth-trade' }, contractor: { email: 'realtrade@example.com' }, job: available, updates });
+  const db = fakeSupabase({ user: { id: 'auth-trade' }, contractor: { id: 'trade', email: 'realtrade@example.com', status: 'approved' }, job: available, updates });
   const response = await invoke(loadHandler(db), { role: 'contractor', jobs: [{ id: 'job-1', status: 'assigned', contractorEmail: 'forged@example.com', contractor: 'Real Trade' }] }, 'valid');
   assert.equal(response.status, 200);
   assert.equal(updates[0].contractor_email, 'realtrade@example.com');

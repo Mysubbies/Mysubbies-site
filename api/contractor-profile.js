@@ -22,6 +22,7 @@
 //        independent copies today with nothing keeping them in sync --
 //        this is the one place that changes both, so they can't drift.
 const { getSupabase } = require('./_lib/clients');
+const { requireAccount } = require('./_lib/userAuth');
 
 async function verifyContractorAuth(supabase, email, accessToken) {
   if (!accessToken) return { ok: false, error: 'Not signed in.' };
@@ -42,8 +43,9 @@ module.exports = async (req, res) => {
 
   if (req.method === 'GET') {
     try {
-      const { email } = req.query || {};
-      if (!email) { res.status(400).json({ error: 'email is required.' }); return; }
+      const auth = await requireAccount(supabase, req, 'contractor');
+      if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
+      const email = auth.account.email;
       const { data: contractor, error } = await supabase
         .from('contractors')
         .select('business_name, abn, acn, phone, email, categories, average_rating, full_application')
@@ -57,6 +59,9 @@ module.exports = async (req, res) => {
         phone: contractor.phone || app.phone || '',
         email: contractor.email,
         categories: contractor.categories || [],
+        regions: Array.isArray(app.regions) ? app.regions : [],
+        suburbs: Array.isArray(app.suburbs) ? app.suburbs : [],
+        availability: Array.isArray(app.availability) ? app.availability : [],
         averageRating: contractor.average_rating,
         contactName: app.contact || '',
         licence: app.licence || '',

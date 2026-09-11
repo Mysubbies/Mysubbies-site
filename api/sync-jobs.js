@@ -8,7 +8,7 @@
 // for identity, assignment, pricing and payment state.
 const { getSupabase } = require('./_lib/clients');
 const { verifyAdminAuth } = require('./_lib/adminAuth');
-const { requireAccount } = require('./_lib/userAuth');
+const { requireAccount, requireApprovedContractor } = require('./_lib/userAuth');
 const { PROTECTED_FIELDS, mergePermittedMutation, restoreStructuredFields, initialRecord } = require('./_lib/jobMutationSecurity');
 
 function requestedRole(req) {
@@ -78,7 +78,9 @@ module.exports = async (req, res) => {
     const isAdmin = verifyAdminAuth(req);
     const role = isAdmin ? 'admin' : requestedRole(req);
     if (!role) { res.status(400).json({ error: 'role must be customer or contractor.' }); return; }
-    const auth = isAdmin ? null : await requireAccount(supabase, req, role);
+    const auth = isAdmin ? null : role === 'contractor'
+      ? await requireApprovedContractor(supabase, req)
+      : await requireAccount(supabase, req, role);
     if (auth && !auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
     const email = auth ? String(auth.account.email).toLowerCase() : null;
 
@@ -98,6 +100,12 @@ module.exports = async (req, res) => {
       }
       const accepting = role === 'contractor' && !existing.contractor_email
         && submitted.status === 'assigned' && !!submitted.contractorEmail;
+      if (accepting) {
+        const { data: offer, error: offerError } = await supabase.from('job_offers').select('id').eq('job_id', existing.id)
+          .eq('contractor_id', auth.account.id).eq('status', 'pending').maybeSingle();
+        if (offerError) throw offerError;
+        if (!offer) { res.status(403).json({ error: 'A valid pending job offer is required.' }); return; }
+      }
       if (role === 'contractor' && !existing.contractor_email && !accepting) continue;
       rows.push({ existing, submitted, accepting });
     }
@@ -130,6 +138,12 @@ module.exports = async (req, res) => {
         if (accepting) query = query.is('contractor_email', null);
         const { error } = await query;
         if (error) throw error;
+        if (accepting) {
+          await supabase.from('job_offers').update({ status: 'accepted', responded_at: new Date().toISOString() })
+            .eq('job_id', existing.id).eq('contractor_id', auth.account.id).eq('status', 'pending');
+          await supabase.from('job_offers').update({ status: 'expired', responded_at: new Date().toISOString() })
+            .eq('job_id', existing.id).neq('contractor_id', auth.account.id).eq('status', 'pending');
+        }
       }
       synced.push(existing.id);
       try { await syncPropertyProfile(supabase, storedRecord); }

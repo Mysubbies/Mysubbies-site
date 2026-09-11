@@ -16,8 +16,9 @@
 // created with the correct status the next time they do log in, via
 // contractor-portal.html's own lazy-migration signUp path.
 const { getSupabase } = require('./_lib/clients');
-const { sendEmail, wrapEmail } = require('./_lib/email');
+const { sendEmailWithResult } = require('./_lib/email');
 const { requireAdmin } = require('./_lib/adminAuth');
+const { approvedEmail, rejectedEmail, applicationToken, tokenHash } = require('./_lib/contractorOnboarding');
 
 const ALLOWED_STATUSES = ['approved', 'preferred', 'watchlist', 'suspended', 'expired_documents', 'manual_review', 'rejected'];
 
@@ -26,33 +27,49 @@ module.exports = async (req, res) => {
   if (!requireAdmin(req, res)) return;
 
   try {
-    const { email, status } = req.body || {};
+    const { email, status, reason } = req.body || {};
     if (!email || !ALLOWED_STATUSES.includes(status)) {
       res.status(400).json({ error: 'email and a valid status are required.' });
       return;
     }
-
-    const supabase = getSupabase();
-    const { data, error } = await supabase
-      .from('contractors')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('email', String(email).toLowerCase())
-      .select('id');
-    if (error) throw error;
-
-    if (status === 'approved' || status === 'rejected') {
-      try {
-        await sendEmail({
-          to: email,
-          subject: status === 'approved' ? 'Your MySubbies application has been approved' : 'Your MySubbies application update',
-          html: wrapEmail(status === 'approved'
-            ? `<h2 style="margin-top:0;">You're in!</h2><p>Your contractor application has been approved. You can now log in and start accepting jobs in your approved trade categories.</p><p><a href="https://app.mysubbies.com.au/mysubbies-contractor-portal.html">Log in to the Contractor Portal</a></p>`
-            : `<h2 style="margin-top:0;">Application update</h2><p>Thanks for applying to join the MySubbies panel. After review, we're not able to approve your application at this time.</p><p>If you think this is a mistake, reply to this email and our team will take another look.</p>`),
-        });
-      } catch (emailErr) { console.error('application status email failed:', emailErr); }
+    if (['rejected', 'manual_review'].includes(status) && !String(reason || '').trim()) {
+      res.status(400).json({ error: 'A clear reason is required for rejection or more information.' });
+      return;
     }
 
-    res.status(200).json({ updated: (data || []).length });
+    const supabase = getSupabase();
+    const { data: current, error: findError } = await supabase.from('contractors')
+      .select('id, email, business_name, categories, full_application').eq('email', String(email).toLowerCase()).maybeSingle();
+    if (findError) throw findError;
+    if (!current) { res.status(404).json({ error: 'Contractor application not found.' }); return; }
+    const updateToken = applicationToken();
+    const expiry = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    const fullApplication = { ...(current.full_application || {}), status,
+      ...(reason ? { reviewNotes: String(reason).trim() } : {}) };
+    const { data, error } = await supabase
+      .from('contractors')
+      .update({ status, full_application: fullApplication, application_review_notes: reason || null,
+        application_update_token_hash: tokenHash(updateToken), application_update_token_expires_at: expiry,
+        updated_at: new Date().toISOString() })
+      .eq('email', String(email).toLowerCase())
+      .select('id, email, business_name, categories, full_application');
+    if (error) throw error;
+
+    let emailDelivery = 'not_applicable';
+    if ((status === 'approved' || status === 'rejected' || status === 'manual_review') && data && data[0]) {
+      const message = status === 'approved' ? approvedEmail(data[0], updateToken) : rejectedEmail(reason, status === 'manual_review', data[0], updateToken);
+      const delivery = await sendEmailWithResult({ to: email, ...message });
+      emailDelivery = delivery.ok ? 'sent' : 'failed';
+      const notifications = [{ recipient_role: 'admin', event_type: `contractor-application-${status}`,
+        title: `Contractor application ${status === 'manual_review' ? 'needs more information' : status}`,
+        body: `${data[0].business_name} was updated to ${status}.` }];
+      if (!delivery.ok) notifications.push({ recipient_role: 'admin', event_type: 'contractor-onboarding-email-failed',
+        title: 'Contractor onboarding email failed', body: `The ${status} email to ${data[0].business_name} was not delivered.` });
+      const { error: notificationError } = await supabase.from('notifications').insert(notifications);
+      if (notificationError) console.error('contractor status notification failed:', notificationError);
+    }
+
+    res.status(200).json({ updated: (data || []).length, emailDelivery });
   } catch (err) {
     console.error('update-contractor-status error:', err);
     res.status(500).json({ error: 'Could not update contractor status.' });
