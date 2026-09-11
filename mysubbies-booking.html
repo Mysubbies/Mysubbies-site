@@ -123,6 +123,10 @@
     catch (e) { console.error('localStorage quota exceeded saving customers:', e); }
   }
   function getPendingQuote() { return JSON.parse(localStorage.getItem('mysubbies_pending_quote') || 'null'); }
+  function getAttribution() {
+    try { return JSON.parse(localStorage.getItem('mysubbies_attribution') || '{}'); }
+    catch (e) { return {}; }
+  }
 
   const quote = getPendingQuote();
   const app = document.getElementById('app');
@@ -241,7 +245,12 @@
         <div class="field" id="businessNameField" style="${jobType === 'business' ? '' : 'display:none;'}"><label>Business name <span style="color:var(--stone-light);font-weight:400;">(for your invoice)</span></label><input type="text" id="fBusinessName" placeholder="e.g. Nguyen Property Co" /></div>
 
         <div class="field"><label>Referral code <span style="color:var(--stone-light);font-weight:400;">(optional)</span></label><input type="text" id="fReferral" placeholder="Got a code from a friend?" /></div>
-      ` : ''}
+      ` : `
+        <div class="row2">
+          <div class="field"><label>Suburb</label><input type="text" id="fSuburb" value="${quote.suburb || ''}" autocomplete="address-level2" /></div>
+          <div class="field"><label>Property address</label><input type="text" id="fAddress" placeholder="Street address" autocomplete="street-address" /></div>
+        </div>
+      `}
 
       <div class="field"><label>Email</label><input type="email" id="fEmail" placeholder="you@example.com" /></div>
       <div class="field"><label>Password</label><input type="password" id="fPassword" placeholder="${mode === 'register' ? 'Choose a password' : 'Your password'}" /></div>
@@ -251,6 +260,7 @@
           <strong style="color:var(--ink);">Cancellation:</strong> free if no contractor has accepted yet. Once accepted, cancelling may incur a fee reflecting work or materials already committed. <a href="mysubbies-faq.html" target="_blank" style="text-decoration:underline;">Read more</a>
         </div>
         <label class="terms"><input type="checkbox" id="fTerms" /> I have read and accept the MySubbies <a href="mysubbies-terms.html" target="_blank" style="text-decoration:underline;">Terms &amp; Conditions</a> and <a href="mysubbies-privacy-policy.html" target="_blank" style="text-decoration:underline;">Privacy Policy</a>, including how payment stages are tracked.</label>
+        <label class="terms"><input type="checkbox" id="fMarketingConsent" /> Optional: send me occasional MySubbies service updates and offers. This is not required to create an account or book.</label>
       ` : '<div class="divider"></div>'}
 
       <button class="btn btn-black" onclick="submitBooking()">${mode === 'register' ? 'Approve & send to a contractor' : 'Log in & continue'}</button>
@@ -290,6 +300,9 @@
 
     try {
       if (mode === 'login') {
+        const suburb = document.getElementById('fSuburb').value.trim();
+        const address = document.getElementById('fAddress').value.trim();
+        if (!suburb || !address) { showError('Enter the property address for this booking.'); highlightMissingFields(['fSuburb', 'fAddress']); return; }
         if (!sb) { showError('Login is temporarily unavailable — please try again shortly.'); return; }
         const { data, error } = await sb.auth.signInWithPassword({ email, password });
         if (error) { showError(error.message === 'Invalid login credentials' ? 'No account found with those details.' : error.message); return; }
@@ -302,7 +315,7 @@
           return;
         }
         const existing = customers[email] || {};
-        const merged = { ...existing, name: profile?.name || existing.name, phone: profile?.phone || existing.phone, email, password, customerDbId: profile?.id || null };
+        const merged = { ...existing, name: profile?.name || existing.name, phone: profile?.phone || existing.phone, email, password, suburb, address, customerDbId: profile?.id || null };
         customers[email] = merged;
         saveCustomers(customers);
         // My Jobs (customer-portal.html) checks this exact key to decide
@@ -322,6 +335,7 @@
       const address = document.getElementById('fAddress').value.trim();
       const referralInput = document.getElementById('fReferral').value.trim().toUpperCase();
       const terms = document.getElementById('fTerms').checked;
+      const marketingConsent = document.getElementById('fMarketingConsent').checked;
       const businessName = jobType === 'business' ? document.getElementById('fBusinessName').value.trim() : '';
       if (!name || !phone || !suburb || !address || !email || !password) {
         showError('Please fill in the highlighted fields.');
@@ -355,7 +369,7 @@
         }
       }
 
-      const account = { name, phone, email, password, referralCode, referredBy, createdAt: new Date().toISOString(), customerDbId };
+      const account = { name, phone, email, password, referralCode, referredBy, marketingConsent, marketingConsentAt: marketingConsent ? new Date().toISOString() : null, createdAt: new Date().toISOString(), customerDbId };
       customers[email] = account;
       saveCustomers(customers);
       // See the matching comment in the login branch above -- same missing
@@ -534,6 +548,10 @@
           customerId: pending.customer.customerDbId || null,
           customerEmail: pending.customer.email || null,
           termsVersion: PAYMENT_TERMS_VERSION,
+          attribution: getAttribution(),
+          items: (quote.items || []).filter(i => i.catLabel === pending.catLabel).map(i => ({ catLabel: i.catLabel, taskName: i.taskName, qty: i.qty })),
+          marketingConsent: !!pending.customer.marketingConsent,
+          marketingConsentAt: pending.customer.marketingConsentAt || null,
         }),
       });
       const data = await res.json();
@@ -624,6 +642,7 @@
         depositPaymentIntentId: useRealPayment ? paymentInfo.depositPaymentIntentId : null,
         messages: [], internalMessages: [],
         createdAt: new Date().toISOString(),
+        attribution: getAttribution(),
       };
       jobs.unshift(job);
       createdJobs.push(job);
@@ -658,12 +677,10 @@
     app.innerHTML = `
       <div class="confirm">
         <div class="tick">✓</div>
-        <h1>${isBundle ? createdJobs.length + ' jobs sent!' : 'Job sent!'}</h1>
-        <p>${isBundle
-          ? `Your renovation in ${createdJobs[0].suburb} is now live on the contractor board \u2014 ${uniqueCats.join(', ')}, dispatched separately to the right trade for each.`
-          : `${createdJobs[0].category} in ${createdJobs[0].suburb} is now live on the contractor board.`}</p>
-        <a class="btn btn-black" href="mysubbies-customer-portal.html" style="max-width:320px;margin:0 auto 12px;">Track ${isBundle ? 'them' : 'it'} in My Jobs →</a>
-        <a class="btn btn-ghost" href="mysubbies-website.html" style="max-width:320px;margin:0 auto;">Back to site</a>
+        <h1>Booking received</h1>
+        <p style="max-width:520px;margin-left:auto;margin-right:auto;">MySubbies is arranging the appropriate local professional for ${isBundle ? 'your jobs' : 'your job'}. We may contact you to confirm availability or ask for additional job information. Contractor and job details will appear in your account once they are genuinely confirmed.</p>
+        <a class="btn btn-black" href="mysubbies-customer-portal.html#job-${createdJobs[0].id}" style="max-width:320px;margin:0 auto 12px;">View my booking →</a>
+        <a class="btn btn-ghost" href="mysubbies-customer-portal.html" style="max-width:320px;margin:0 auto;">Go to my account →</a>
       </div>`;
   }
 

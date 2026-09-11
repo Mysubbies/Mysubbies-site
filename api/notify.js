@@ -40,7 +40,9 @@
 //   ADMIN_NOTIFY_EMAIL is optional; defaults to the site's own published
 //   contact address so this works with zero extra Vercel config.
 const { sendEmail, wrapEmail, escapeHtml, emailDetailsTable, emailButton } = require('./_lib/email');
+const { customerLifecycleEmail } = require('./_lib/customerLifecycleEmail');
 const { getSupabase } = require('./_lib/clients');
+const { requireAdmin } = require('./_lib/adminAuth');
 
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || 'accounts@mysubbies.com.au';
 
@@ -110,6 +112,18 @@ module.exports = async (req, res) => {
 
   try {
     const { type } = req.body || {};
+
+    // Manual operational lifecycle messages (information requests and
+    // reschedules) are admin-only. They are transactional and contain no
+    // promotional content or implied marketing consent.
+    if (type === 'customer-lifecycle') {
+      if (!requireAdmin(req, res)) return;
+      const { event, customerEmail, customerName, service, address, bookingDate, contractorName, paymentLabel, amount } = req.body || {};
+      if (!customerEmail || !event) { res.status(400).json({ error: 'customerEmail and event are required.' }); return; }
+      const message = customerLifecycleEmail(event, { customerName, service, address, bookingDate, contractorName, paymentLabel, amount });
+      await sendEmail({ to: customerEmail, ...message });
+      res.status(200).json({ sent: true }); return;
+    }
 
     if (type === 'job-assigned') {
       const { customerEmail, category, suburb, address, contractorName, jobId, items, qty, unit, urgency, basePrice } = req.body || {};
@@ -288,6 +302,8 @@ module.exports = async (req, res) => {
     if (type === 'customer-registered') {
       const { name, email, phone, suburb } = req.body || {};
       if (!email) { res.status(400).json({ error: 'email is required.' }); return; }
+      const welcome = customerLifecycleEmail('welcome', { customerName: name });
+      await sendEmail({ to: email, ...welcome });
       await sendEmail({
         to: ADMIN_NOTIFY_EMAIL,
         subject: `New customer registered — ${name || email}`,

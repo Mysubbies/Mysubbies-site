@@ -341,6 +341,7 @@
       <button data-tab="projects" onclick="setAdminTab('projects')">◇ &nbsp; Projects</button>
       <button data-tab="contractors" onclick="setAdminTab('contractors')">◉ &nbsp; Contractors</button>
       <button data-tab="customers" onclick="setAdminTab('customers')">◎ &nbsp; Customers</button>
+      <button data-tab="leads" onclick="setAdminTab('leads')">◈ &nbsp; Leads</button>
       <button data-tab="payments" onclick="setAdminTab('payments')">＄ &nbsp; Finance</button>
       <button data-tab="support" onclick="setAdminTab('support')">◌ &nbsp; Support</button>
       <button data-tab="reports" onclick="setAdminTab('reports')">↗ &nbsp; Reports</button>
@@ -1457,6 +1458,7 @@
     if (!paymentTabData && !paymentTabLoading) loadPaymentScheduleTab();
     if (unreadContractorMessageCount === null && !unreadContractorMessageLoading) loadUnreadContractorMessageCount();
     if ((tab === 'customers' || tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !customersTabData && !customersTabLoading) loadCustomersTab();
+    if (tab === 'leads' && !leadsTabData && !leadsTabLoading) loadLeadsTab();
     if ((tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !quotesTabData && !quotesTabLoading) loadQuotesTab();
     if (!staffListData && !staffListLoading) loadStaffList();
     if (tab === 'messages' && !messageThreadsData && !messageThreadsLoading) loadMessageThreads();
@@ -1556,7 +1558,7 @@
               : jobsTableHtml(filtered);
           })()}
         `}
-      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
+      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
     } catch (e) {
       console.error('Tab render error on tab=' + tab, e);
       tabContentHtml = `
@@ -2465,6 +2467,9 @@
   // ============================================================
   let customersTabData = null;
   let customersTabLoading = false;
+  let leadsTabData = null;
+  let leadsTabLoading = false;
+  let leadsStageFilter = 'all';
   let customerSearchQuery = '';
   let contractorSearchQuery = '';
   let contractorsStatusFilter = 'all';
@@ -2482,6 +2487,27 @@
     }
     customersTabLoading = false;
     render();
+  }
+
+  async function loadLeadsTab() {
+    if (leadsTabLoading) return;
+    leadsTabLoading = true;
+    try {
+      const res = await adminFetch('/api/get-admin-list?type=leads');
+      const body = await res.json();
+      leadsTabData = res.ok ? { rows: body.leads || [] } : { error: body.error || 'Could not load leads.' };
+    } catch (e) { leadsTabData = { error: 'Could not load leads.' }; }
+    leadsTabLoading = false; render();
+  }
+
+  function renderLeadsTab() {
+    if (!leadsTabData) return '<h1 class="pagetitle">Leads</h1><div class="empty">Loading…</div>';
+    if (leadsTabData.error) return `<h1 class="pagetitle">Leads</h1><div class="empty">${escapeHtml(leadsTabData.error)}</div>`;
+    const choices = [['all','All'],['NEW','New leads'],['QUOTE_REQUESTED','Quote requested'],['BOOKING_STARTED','Booking started'],['BOOKED','Booked'],['LOST','Lost']];
+    const rows = leadsStageFilter === 'all' ? leadsTabData.rows : leadsTabData.rows.filter(l => l.stage === leadsStageFilter);
+    return `<h1 class="pagetitle">Leads</h1><p class="pagesub">Transactional funnel records. Marketing consent is separate and never implied.</p>
+      <div class="tabs">${choices.map(([key,label]) => `<button class="${leadsStageFilter===key?'active':''}" onclick="leadsStageFilter='${key}';render();">${label}</button>`).join('')}</div>
+      ${rows.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Customer</th><th>Contact</th><th>Service</th><th>Suburb</th><th>Source / campaign</th><th>Stage</th><th>Quote</th><th>Booking</th><th>Created</th></tr></thead><tbody>${rows.map(l => `<tr><td>${escapeHtml(l.name||'—')}</td><td>${escapeHtml(l.email)}${l.mobile?'<br>'+escapeHtml(l.mobile):''}</td><td>${escapeHtml(l.requested_service||'—')}</td><td>${escapeHtml(l.suburb||'—')}</td><td>${escapeHtml(l.source||'direct')}${l.utm_campaign?'<br>'+escapeHtml(l.utm_campaign):''}</td><td><span class="badge badge-feed">${escapeHtml(l.stage)}</span></td><td>${escapeHtml(l.quote_status||'—')}</td><td>${escapeHtml(l.booking_status||'—')}</td><td>${l.created_at?new Date(l.created_at).toLocaleDateString('en-AU'):'—'}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No leads match this filter.</div>'}`;
   }
 
   // Shared caller for /api/admin-account (deactivate/reactivate/delete for

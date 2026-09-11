@@ -722,6 +722,21 @@
   </div>
 </div>
 <script>
+  // Preserve first-party campaign labels through the estimator and booking.
+  // No contact, authentication or payment data is stored here.
+  (function preserveCampaignAttribution() {
+    const params = new URLSearchParams(window.location.search);
+    const keys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+    let attribution = {};
+    try { attribution = JSON.parse(localStorage.getItem('mysubbies_attribution') || '{}'); } catch (e) {}
+    keys.forEach(key => { if (params.get(key)) attribution[key] = params.get(key).slice(0, 200); });
+    if (!attribution.referrer && document.referrer) attribution.referrer = document.referrer.slice(0, 500);
+    if (!attribution.landing_page) attribution.landing_page = window.location.pathname + window.location.search;
+    if (!attribution.captured_at) attribution.captured_at = new Date().toISOString();
+    if (Object.keys(attribution).length) {
+      try { localStorage.setItem('mysubbies_attribution', JSON.stringify(attribution)); } catch (e) {}
+    }
+  })();
   // No native install prompt is reliable on its own: Android Chrome only
   // shows its own mini-infobar after unpredictable engagement heuristics
   // (never on a first visit), and iOS Safari has NO automatic prompt at

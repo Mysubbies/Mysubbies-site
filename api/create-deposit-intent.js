@@ -16,6 +16,7 @@
 const { getStripe, getSupabase } = require('./_lib/clients');
 const { resolveScheduleForJob, ScheduleValidationError } = require('./_lib/paymentSchedule');
 const { requireAccount } = require('./_lib/userAuth');
+const { BookingPriceError, authoritativeBookingPrice } = require('./_lib/bookingPrice');
 
 // GET ?email=... -- referral-credit preview (Sep 2026, "Give $50, Get
 // $50"), read by mysubbies-booking.html's payment-schedule review screen
@@ -43,7 +44,7 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
   try {
-    const { jobId, category, suburb, contractorEmail, basePriceCents, accepted, termsVersion } = req.body || {};
+    const { jobId, category, suburb, contractorEmail, basePriceCents, accepted, termsVersion, attribution, items, marketingConsent, marketingConsentAt } = req.body || {};
     if (!jobId || !category || !basePriceCents) {
       res.status(400).json({ error: 'jobId, category and basePriceCents are required.' });
       return;
@@ -54,6 +55,55 @@ module.exports = async (req, res) => {
     if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
     const authenticatedCustomerEmail = String(auth.account.email).toLowerCase();
     const authenticatedCustomerId = auth.account.id;
+
+    const authoritativePriceCents = await authoritativeBookingPrice(supabase, category, items);
+    if (Number(basePriceCents) !== authoritativePriceCents) {
+      res.status(409).json({ error: 'The price has changed. Please refresh your estimate before paying.' }); return;
+    }
+
+    // A recoverable, consent-safe transactional lead is created only after
+    // authentication and after the customer has supplied contact details.
+    // Campaign fields are allow-listed and bounded; no password/card data is
+    // accepted. Failure here must not prevent a customer from paying.
+    try {
+      const campaign = attribution && typeof attribution === 'object' ? attribution : {};
+      const bounded = value => value == null ? null : String(value).slice(0, 500);
+      const { data: priorLead } = await supabase.from('customer_leads')
+        .select('stage, booking_status').eq('booking_job_id', jobId).maybeSingle();
+      const { data: savedLead } = await supabase.from('customer_leads').upsert({
+        booking_job_id: jobId,
+        customer_id: authenticatedCustomerId,
+        name: bounded(auth.account.name),
+        email: authenticatedCustomerEmail,
+        mobile: bounded(auth.account.phone),
+        requested_service: bounded(category),
+        suburb: bounded(suburb),
+        source: bounded(campaign.utm_source || campaign.referrer || 'direct'),
+        utm_source: bounded(campaign.utm_source),
+        utm_medium: bounded(campaign.utm_medium),
+        utm_campaign: bounded(campaign.utm_campaign),
+        utm_content: bounded(campaign.utm_content),
+        utm_term: bounded(campaign.utm_term),
+        landing_page: bounded(campaign.landing_page),
+        // Retrying an already-paid booking must never move its conversion
+        // backwards in the funnel.
+        stage: priorLead && priorLead.stage === 'BOOKED' ? 'BOOKED' : 'BOOKING_STARTED',
+        booking_status: priorLead && priorLead.booking_status || null,
+        marketing_consent: marketingConsent === true,
+        marketing_consent_at: marketingConsent === true && marketingConsentAt ? String(marketingConsentAt).slice(0, 50) : null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'booking_job_id' }).select('id').single();
+      if (savedLead && !(priorLead && priorLead.stage === 'BOOKED')) {
+        // Contact becomes available after the estimate, so persist the
+        // truthful milestones together now rather than tracking an
+        // anonymous visitor or inventing consent before registration.
+        await supabase.from('customer_lead_events').upsert(
+          ['NEW', 'PRICE_STARTED', 'PRICE_COMPLETED', 'BOOKING_STARTED'].map(stage => ({ lead_id: savedLead.id, stage }))
+        , { onConflict: 'lead_id,stage', ignoreDuplicates: true });
+      }
+    } catch (leadError) {
+      console.error('lead capture failed:', leadError);
+    }
 
     let job = (await supabase.from('jobs').select('*').eq('id', jobId).maybeSingle()).data;
     if (job && job.customer_email && String(job.customer_email).toLowerCase() !== authenticatedCustomerEmail) {
@@ -68,7 +118,7 @@ module.exports = async (req, res) => {
         return;
       }
 
-      const resolved = await resolveScheduleForJob(supabase, category, basePriceCents);
+      const resolved = await resolveScheduleForJob(supabase, category, authoritativePriceCents);
       const depositMilestone = resolved.milestones.find(m => m.milestone_type === 'deposit') || resolved.milestones[0];
 
       // Referral credit (Sep 2026, "Give $50, Get $50") -- applied once,
@@ -113,7 +163,7 @@ module.exports = async (req, res) => {
             id: jobId, category, suburb: suburb || null, contractor_email: contractorEmail || null,
             customer_id: authenticatedCustomerId,
             customer_email: authenticatedCustomerEmail,
-            base_price_cents: basePriceCents,
+            base_price_cents: authoritativePriceCents,
             deposit_pct: resolved.deposit_pct,
             deposit_amount_cents: depositMilestone.amount_cents,
             status: 'pending_deposit',
@@ -134,9 +184,9 @@ module.exports = async (req, res) => {
           job_id: jobId,
           template_id: resolved.template_id,
           schedule_type: resolved.schedule_type,
-          original_contract_price_cents: basePriceCents,
+          original_contract_price_cents: authoritativePriceCents,
           total_variations_cents: 0,
-          revised_total_price_cents: basePriceCents,
+          revised_total_price_cents: authoritativePriceCents,
           deposit_pct: resolved.deposit_pct,
           deposit_amount_cents: depositMilestone.amount_cents,
           status: isActive ? 'active' : 'pending_admin_schedule',
@@ -207,6 +257,7 @@ module.exports = async (req, res) => {
 
     res.status(200).json({ clientSecret: paymentIntent.client_secret, scheduleStatus: schedule.status });
   } catch (err) {
+    if (err instanceof BookingPriceError) { res.status(409).json({ error: err.message }); return; }
     if (err instanceof ScheduleValidationError) { res.status(422).json({ error: err.message }); return; }
     console.error('create-deposit-intent error:', err);
     res.status(500).json({ error: 'Could not create payment. Please try again.' });
