@@ -1,6 +1,7 @@
 const { sendEmailWithResult, wrapEmail, escapeHtml, emailButton } = require('./email');
 
 const CONTRACTOR_PORTAL_URL = 'https://app.mysubbies.com.au/mysubbies-contractor-portal.html';
+const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || 'accounts@mysubbies.com.au';
 
 async function insertNotification(supabase, row) {
   try {
@@ -12,11 +13,30 @@ async function insertNotification(supabase, row) {
 }
 
 async function notifyAdmin(supabase, { eventType, title, body, applicationRef, jobId, metadata }) {
-  await insertNotification(supabase, {
-    recipient_role: 'admin', event_type: eventType, title, body,
-    application_ref: applicationRef || null, link_job_id: jobId || null,
-    delivery_channels: ['in_app'], delivery_status: { in_app: 'created' }, metadata: metadata || {},
+  const html = wrapEmail(`
+    <h2 style="margin-top:0;">${escapeHtml(title)}</h2>
+    <p>${escapeHtml(body)}</p>
+    <p style="font-size:12px;color:#6B7280;margin-top:18px;">This is an automated MySubbies contractor administration notification.</p>
+  `);
+  const delivery = await sendEmailWithResult({
+    to: ADMIN_NOTIFY_EMAIL,
+    subject: `[MySubbies Admin] ${title}`,
+    html,
   });
+
+  await insertNotification(supabase, {
+    recipient_role: 'admin', recipient_email: ADMIN_NOTIFY_EMAIL,
+    event_type: eventType, title, body,
+    application_ref: applicationRef || null, link_job_id: jobId || null,
+    delivery_channels: ['in_app', 'email'],
+    delivery_status: { in_app: 'created', email: delivery.ok ? 'sent' : 'failed' },
+    metadata: metadata || {},
+  });
+
+  if (!delivery.ok) {
+    console.error('contractor admin email failed:', { eventType, recipientRole: 'admin' });
+  }
+  return delivery;
 }
 
 async function notifyContractor(supabase, options) {
