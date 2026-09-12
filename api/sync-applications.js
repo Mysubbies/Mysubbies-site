@@ -12,6 +12,38 @@ async function adminNotification(supabase, title, body, eventType = 'contractor-
   await notifyAdmin(supabase, { eventType, title, body });
 }
 
+function cleanAddressLocation(value) {
+  if (!value || typeof value !== 'object') return { verified: false };
+  const latitude = Number(value.latitude);
+  const longitude = Number(value.longitude);
+  const validCoordinates = Number.isFinite(latitude) && latitude >= -44.5 && latitude <= -9
+    && Number.isFinite(longitude) && longitude >= 112 && longitude <= 154;
+  return {
+    formattedAddress: String(value.formattedAddress || '').trim().slice(0, 500),
+    placeId: String(value.placeId || '').trim().slice(0, 300),
+    suburb: String(value.suburb || '').trim().slice(0, 100),
+    state: String(value.state || '').trim().slice(0, 20),
+    postcode: String(value.postcode || '').trim().slice(0, 10),
+    country: String(value.country || '').trim().slice(0, 5),
+    latitude: validCoordinates ? latitude : null,
+    longitude: validCoordinates ? longitude : null,
+    verified: !!value.verified && !!value.placeId && validCoordinates,
+  };
+}
+
+function addressColumns(location) {
+  return {
+    address_place_id: location.placeId || null,
+    address_formatted: location.formattedAddress || null,
+    address_suburb: location.suburb || null,
+    address_state: location.state || null,
+    address_postcode: location.postcode || null,
+    address_latitude: location.latitude,
+    address_longitude: location.longitude,
+    address_verified: location.verified,
+  };
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
   try {
@@ -85,7 +117,8 @@ module.exports = async (req, res) => {
       const { payout_account_name: _accountName, payout_bsb: _bsb, payout_account_number: _accountNumber,
         payout_bank_name: _bankName, ...safeApplication } = application;
       const previous = contractor.full_application || {};
-      const canonical = { ...previous, ...safeApplication, email, abn, status: 'manual_review',
+      const location = cleanAddressLocation(safeApplication.addressLocation);
+      const canonical = { ...previous, ...safeApplication, addressLocation: location, email, abn, status: 'manual_review',
         resubmittedAt: new Date().toISOString() };
       const materialFields = ['business', 'address', 'businessStructure', 'phone', 'trades', 'regions', 'suburbs', 'availability', 'licenceHeld', 'insuranceHeld'];
       const changedFields = materialFields.filter(key => JSON.stringify(previous[key]) !== JSON.stringify(canonical[key]));
@@ -95,7 +128,7 @@ module.exports = async (req, res) => {
         categories: canonical.trades, full_application: canonical, application_review_notes: null,
         application_update_token_hash: tokenHash(nextToken),
         application_update_token_expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-        updated_at: new Date().toISOString(),
+        ...addressColumns(location), updated_at: new Date().toISOString(),
       }).eq('id', contractor.id);
       if (updateError) throw updateError;
       await notifyAdmin(supabase, { eventType: 'contractor-application-resubmitted', title: 'Contractor application resubmitted',
@@ -116,12 +149,13 @@ module.exports = async (req, res) => {
     const token = applicationToken();
     const { website: _honeypot, payout_account_name: _accountName, payout_bsb: _bsb,
       payout_account_number: _accountNumber, payout_bank_name: _bankName, ...submittedApplication } = application;
-    const canonical = { ...submittedApplication, email, abn, status: 'manual_review', agreementAccepted: true };
+    const location = cleanAddressLocation(submittedApplication.addressLocation);
+    const canonical = { ...submittedApplication, addressLocation: location, email, abn, status: 'manual_review', agreementAccepted: true };
     const { data, error } = await supabase.from('contractors').insert({
       email, business_name: canonical.business, address: canonical.address, abn,
       acn: canonical.acn || null, business_structure: canonical.businessStructure || null,
       phone: canonical.phone, categories: canonical.trades, full_application: canonical,
-      status: 'manual_review', agreement_accepted: true,
+      status: 'manual_review', agreement_accepted: true, ...addressColumns(location),
       agreement_accepted_at: canonical.agreementAcceptedAt,
       agreement_version: canonical.agreementVersion,
       application_update_token_hash: tokenHash(token),

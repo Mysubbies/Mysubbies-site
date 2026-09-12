@@ -721,6 +721,7 @@
     <button class="install-banner-close" onclick="dismissInstallBanner()" aria-label="Dismiss">✕</button>
   </div>
 </div>
+<script src="js/address-autocomplete.js"></script>
 <script>
   // No native install prompt is reliable on its own: Android Chrome only
   // shows its own mini-infobar after unpredictable engagement heuristics
@@ -1274,21 +1275,8 @@
   // on that project. Left as the placeholder, the courier form falls all
   // the way back to plain typed addresses geocoded server-side (see
   // api/geocode-distance.js) -- a real, working fallback, not a broken state.
-  const GOOGLE_MAPS_API_KEY = 'REPLACE_ME_GOOGLE_MAPS_API_KEY';
-  let googleMapsLoadPromise = null;
   function loadGoogleMapsPlaces() {
-    if (GOOGLE_MAPS_API_KEY.includes('REPLACE_ME')) return Promise.resolve(false);
-    if (googleMapsLoadPromise) return googleMapsLoadPromise;
-    googleMapsLoadPromise = new Promise((resolve) => {
-      if (window.google && window.google.maps && window.google.maps.places) { resolve(true); return; }
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
-      script.async = true;
-      script.onload = () => resolve(!!(window.google && window.google.maps && window.google.maps.places));
-      script.onerror = () => resolve(false);
-      document.head.appendChild(script);
-    });
-    return googleMapsLoadPromise;
+    return window.MySubbiesAddress ? window.MySubbiesAddress.load() : Promise.resolve(false);
   }
 
   function openHouseHealth() {
