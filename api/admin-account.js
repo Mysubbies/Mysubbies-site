@@ -26,6 +26,8 @@
 // financial/job records that need to stay intact for the audit trail.
 const { getSupabase } = require('./_lib/clients');
 const { requireAdmin, verifyPassword, signAdminToken } = require('./_lib/adminAuth');
+const { notifyAdmin, notifyContractor, CONTRACTOR_PORTAL_URL } = require('./_lib/contractorNotifications');
+const { wrapEmail, emailButton, escapeHtml } = require('./_lib/email');
 
 const ROLES = { customer: 'customers', contractor: 'contractors' };
 
@@ -33,7 +35,7 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
   try {
-    const { role, email, action, password } = req.body || {};
+    const { role, email, action, password, reason } = req.body || {};
 
     if (action === 'login') {
       if (!verifyPassword(password)) { res.status(401).json({ error: 'Incorrect password.' }); return; }
@@ -52,6 +54,9 @@ module.exports = async (req, res) => {
     const supabase = getSupabase();
 
     if (action === 'deactivate' || action === 'reactivate') {
+      if (role === 'contractor' && action === 'deactivate' && !String(reason || '').trim()) {
+        res.status(400).json({ error: 'A suspension reason is required.' }); return;
+      }
       const status = role === 'customer'
         ? (action === 'deactivate' ? 'deactivated' : 'active')
         : (action === 'deactivate' ? 'suspended' : 'approved');
@@ -61,6 +66,18 @@ module.exports = async (req, res) => {
         .eq('email', normalizedEmail)
         .select('id');
       if (error) throw error;
+      if (role === 'contractor' && (data || []).length) {
+        const suspended = action === 'deactivate';
+        const title = suspended ? 'Contractor account suspended' : 'Contractor account reactivated';
+        const body = suspended ? `${String(reason).trim()} Contact MySubbies support if you need clarification or want the account reviewed.`
+          : 'Your contractor account has been reactivated. You can sign in and review suitable job offers again.';
+        await notifyContractor(supabase, { email: normalizedEmail,
+          eventType: suspended ? 'contractor-account-suspended' : 'contractor-account-reactivated', title, body,
+          subject: suspended ? 'Important update to your MySubbies contractor account' : 'Your MySubbies contractor account is active again',
+          html: wrapEmail(`<h2 style="margin-top:0;">${title}</h2><p>${escapeHtml(body)}</p>${emailButton('Open Contractor Portal →', CONTRACTOR_PORTAL_URL)}`) });
+        await notifyAdmin(supabase, { eventType: suspended ? 'contractor-account-suspended' : 'contractor-account-reactivated',
+          title, body: `${normalizedEmail} was ${suspended ? 'suspended' : 'reactivated'}.` });
+      }
       res.status(200).json({ updated: (data || []).length, status });
       return;
     }

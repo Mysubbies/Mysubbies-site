@@ -41,6 +41,7 @@
 //   contact address so this works with zero extra Vercel config.
 const { sendEmail, wrapEmail, escapeHtml, emailDetailsTable, emailButton } = require('./_lib/email');
 const { getSupabase } = require('./_lib/clients');
+const { notifyContractor } = require('./_lib/contractorNotifications');
 
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || 'accounts@mysubbies.com.au';
 
@@ -201,17 +202,13 @@ module.exports = async (req, res) => {
         <p style="font-size:12px;color:#6B7280;">Customer identity, contact details, photos, site notes and the full address are shown only after authorised assignment.</p>
         ${emailButton('Open Job Feed →', 'https://app.mysubbies.com.au/mysubbies-contractor-portal.html')}
       `;
-      await Promise.all(matches.map(contractor => sendEmail({
-        to: contractor.email,
+      await Promise.all(matches.map(contractor => notifyContractor(supabase, {
+        email: contractor.email, eventType: 'new-job-available', title: 'New job available',
+        body: `${taskName || category}${suburb ? ' in ' + suburb : ''} — review the timing and payout before accepting.`,
         subject: `New ${category} job available${suburb ? ` in ${suburb}` : ''}`,
-        html: wrapEmail(emailBody),
+        html: wrapEmail(emailBody), jobId,
+        metadata: { category, suburb: suburb || null, urgency: urgency || null, payoutCents: payout == null ? null : Math.round(payout * 100) },
       })));
-      if (matches.length) {
-        await writeNotification(matches.map(contractor => ({
-          recipient_role: 'contractor', recipient_email: contractor.email, event_type: 'new-job-available',
-          title: 'New job available', body: `${taskName || category}${suburb ? ' in ' + suburb : ''} — no lead fees, first to accept gets it.`,
-        })));
-      }
 
       res.status(200).json({ sent: true, notified: matches.length });
       return;

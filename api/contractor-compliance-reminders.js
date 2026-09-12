@@ -1,5 +1,6 @@
 const { getSupabase } = require('./_lib/clients');
-const { sendEmailWithResult, wrapEmail } = require('./_lib/email');
+const { wrapEmail } = require('./_lib/email');
+const { notifyAdmin, notifyContractor } = require('./_lib/contractorNotifications');
 
 module.exports = async (req, res) => {
   if (req.method !== 'GET') { res.status(405).json({ error: 'Method not allowed' }); return; }
@@ -29,12 +30,14 @@ module.exports = async (req, res) => {
         const isExpired = new Date(`${value}T23:59:59Z`) < today;
         const label = kind === 'licence' ? 'Licence' : 'Insurance';
         const subject = isExpired ? `Action required: ${kind} has expired` : `Reminder: ${kind} expires soon`;
-        const delivery = await sendEmailWithResult({ to: contractor.email, subject,
+        const body = isExpired ? `Your ${kind} has expired. Provide current evidence before portal access and new job eligibility can resume.`
+          : `Your ${kind} expires on ${value}. Provide updated evidence to avoid interruption.`;
+        const delivery = await notifyContractor(supabase, { email: contractor.email,
+          eventType: isExpired ? `contractor-${kind}-expired` : `contractor-${kind}-expiring`,
+          title: `${label} ${isExpired ? 'expired' : 'expires soon'}`, body, subject,
           html: wrapEmail(`<h2 style="margin-top:0;">${subject}</h2><p>Your ${kind} expiry on file is <strong>${value}</strong>. Please securely provide current evidence or contact MySubbies support.</p><p>${isExpired ? 'Expired compliance prevents portal access and new job offers until reviewed.' : 'Keeping it current avoids interruption to job eligibility.'}</p>`) });
-        const rows = [{ recipient_role: 'admin', event_type: isExpired ? `contractor-${kind}-expired` : `contractor-${kind}-expiring`,
-          title: `${label} ${isExpired ? 'expired' : 'expires soon'}`, body: `${contractor.business_name} requires ${kind} review.` }];
-        if (!delivery.ok) rows.push({ recipient_role: 'admin', event_type: 'contractor-onboarding-email-failed', title: `${label} reminder email failed`, body: `Reminder to ${contractor.business_name} was not delivered.` });
-        await supabase.from('notifications').insert(rows);
+        await notifyAdmin(supabase, { eventType: isExpired ? `contractor-${kind}-expired` : `contractor-${kind}-expiring`,
+          title: `${label} ${isExpired ? 'expired' : 'expires soon'}`, body: `${contractor.business_name} requires ${kind} review.` });
         if (delivery.ok) {
           sent++;
           await supabase.from('contractors').update({ [`${kind}_reminder_sent_at`]: today.toISOString() }).eq('id', contractor.id);

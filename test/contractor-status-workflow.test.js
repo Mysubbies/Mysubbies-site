@@ -55,6 +55,6 @@ test('rejection and more-information require a reason; delivery failure is visib
     const result = await invoke(handler, { email: 'trade@example.test', status: 'manual_review', reason: 'Upload current insurance' }, token);
     assert.equal(result.status, 200); assert.equal(result.body.emailDelivery, 'failed');
     assert.equal(updates[0].full_application.reviewNotes, 'Upload current insurance');
-    assert(notifications.some(n => n.event_type === 'contractor-onboarding-email-failed'));
+    assert(notifications.some(n => n.event_type === 'contractor-critical-email-failed'));
   } finally { global.fetch = originalFetch; delete process.env.RESEND_API_KEY; delete process.env.ADMIN_SESSION_SECRET; }
 });

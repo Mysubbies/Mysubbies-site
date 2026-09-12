@@ -1495,6 +1495,9 @@
     if (!j) { selectedJobId = null; render(); return; }
     const isMine = j.contractor === name;
     const payout = Math.round(j.basePrice * 0.82);
+    const progressStage = j.operationalStage || 'accepted';
+    const nextProgress = { accepted:['scheduled','Confirm scheduled'], scheduled:['on_the_way','Mark on the way'], on_the_way:['started','Mark started'], started:['completed','Record work completed'] }[progressStage];
+    const progressHtml = isMine ? `<div class="note" style="margin:10px 0;"><strong>Job progress:</strong> ${escapeHtml(progressStage.replaceAll('_',' '))}${nextProgress ? `<button class="btn btn-outline" style="width:auto;margin:8px 0 0;display:block;" onclick="updateJobProgress('${j.id}','${nextProgress[0]}')">${nextProgress[1]}</button>` : ''}</div>` : '';
 
     let actions = '';
     if (!isMine) {
@@ -1549,6 +1552,7 @@
         ${j.site ? `<div class="row"><span class="l">On site</span><span class="r">${escapeHtml(j.site)}</span></div>` : ''}
         ${j.access ? `<div class="row"><span class="l">Access</span><span class="r">${escapeHtml(j.access)}</span></div>` : ''}
         ${j.urgency ? `<div class="row"><span class="l">Urgency</span><span class="r">${escapeHtml(j.urgency)}</span></div>` : ''}
+        ${progressHtml}
         ${!isMine ? '<div class="note">Full address is shared once you accept. Message the customer in-app — their phone number is not shared with contractors. No fee or commission is shown or deducted from what you see here.</div>' : ''}
         ${isMine ? '<div class="note">Keep all communication with the customer in the message thread below — their phone number isn\'t shared with contractors.</div>' : ''}
         ${actions}
@@ -1698,6 +1702,8 @@
     ['phone', 'businessName', 'contactName', 'licence', 'insurer'].forEach(f => {
       if (Object.prototype.hasOwnProperty.call(myProfileDrafts, f)) body[f] = myProfileDrafts[f];
     });
+    if (Object.prototype.hasOwnProperty.call(myProfileDrafts, 'regions')) body.regions = myProfileDrafts.regions.split(',').map(v => v.trim()).filter(Boolean);
+    if (Object.prototype.hasOwnProperty.call(myProfileDrafts, 'suburbs')) body.suburbs = myProfileDrafts.suburbs.split(',').map(v => v.trim()).filter(Boolean);
     try {
       const res = await fetch('/api/contractor-profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await res.json();
@@ -1862,6 +1868,10 @@
         <label class="ctr-field-label">Approved trades</label>
         <div class="ctr-field-readonly">${(p.categories || []).map(c => escapeHtml(c)).join(', ') || '—'}</div>
         <div class="ctr-field-note">To add or change your approved trades, contact MySubbies.</div>
+        <label class="ctr-field-label">Service regions</label>
+        <input type="text" class="ctr-input" value="${escapeHtml(ctrDraft('regions', (p.regions || []).join(', ')))}" oninput="onCtrProfileFieldInput('regions', this.value)" placeholder="e.g. Northern Melbourne" />
+        <label class="ctr-field-label">Specific suburbs or postcodes</label>
+        <input type="text" class="ctr-input" value="${escapeHtml(ctrDraft('suburbs', (p.suburbs || []).filter(s => !(p.regions || []).includes(s)).join(', ')))}" oninput="onCtrProfileFieldInput('suburbs', this.value)" placeholder="e.g. Coburg, Brunswick, 3058" />
         <button class="btn btn-black" style="width:auto;padding:10px 20px;font-size:13px;margin-top:6px;" onclick="saveMyProfileDetails()">Save changes</button>
       </div>
     `;
@@ -2587,7 +2597,37 @@
     }
     render();
   }
-  function declineJob(id) { selectedJobId = null; render(); }
+  async function declineJob(id) {
+    const token = await getContractorAccessToken();
+    if (!token) { showToast('Please log out and back in, then try again.'); return; }
+    try {
+      const response = await fetch('/api/sync-jobs', { method:'POST', headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+        body:JSON.stringify({ role:'contractor', jobs:[{ id, offerResponse:'declined' }] }) });
+      const result = await response.json();
+      if (!response.ok) { showToast(result.error || 'Could not decline this offer.'); return; }
+      localStorage.setItem('mysubbies_jobs', JSON.stringify(getJobs().filter(job => job.id !== id)));
+      selectedJobId = null;
+      showToast('Job offer declined');
+      render();
+    } catch (error) { showToast('Could not decline this offer — check your connection.'); }
+  }
+  async function updateJobProgress(id, operationalStage) {
+    const currentJob = getJobs().find(item => item.id === id);
+    if (operationalStage === 'completed' && (!currentJob || !(currentJob.beforePhotos || []).length || !(currentJob.afterPhotos || []).length)) {
+      showToast('Add at least one before and one after photo before recording completion.'); return;
+    }
+    const token = await getContractorAccessToken();
+    if (!token) { showToast('Please log out and back in, then try again.'); return; }
+    try {
+      const response = await fetch('/api/sync-jobs', { method:'POST', headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+        body:JSON.stringify({ role:'contractor', jobs:[{ id, operationalStage }] }) });
+      const result = await response.json();
+      if (!response.ok) { showToast(result.error || 'Could not update job progress.'); return; }
+      const jobs = getJobs(); const job = jobs.find(item => item.id === id);
+      if (job) { job.operationalStage = operationalStage; job.operationalStageUpdatedAt = new Date().toISOString(); localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs)); }
+      showToast('Job progress updated'); render();
+    } catch (error) { showToast('Could not update job progress — check your connection.'); }
+  }
 
   // Mirrors requestCancelJob() in mysubbies-customer-portal.html -- once a
   // job is accepted, cancelling isn't self-service for the contractor

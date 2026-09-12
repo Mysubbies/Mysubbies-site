@@ -889,6 +889,18 @@
       alert(`Authorised payment details\n\nAccount name: ${p.accountName}\nBSB: ${p.bsb.slice(0,3)}-${p.bsb.slice(3)}\nAccount number: ${p.accountNumber}\nBank: ${p.bankName || 'Not provided'}\nUpdated: ${p.updatedAt ? new Date(p.updatedAt).toLocaleString('en-AU') : 'Unknown'}`);
     } catch (error) { alert(error.message); }
   }
+  async function notifyContractorPayoutStatus(contractorEmail, status) {
+    const note = status === 'issue' ? prompt('Explain the payout issue and required next step. This will be emailed to the contractor.') : '';
+    if (status === 'issue' && (!note || !note.trim())) return;
+    if (!confirm(`Send the contractor a payout ${status} notification? This records a notification only; it does not move money.`)) return;
+    try {
+      const response = await adminFetch('/api/contractor-profile', { method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ action:'adminPayoutStatus', contractorEmail, status, note:note ? note.trim() : '' }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not send payout notification.');
+      alert('Payout status notification recorded. No bank transfer was initiated.');
+    } catch (error) { alert(error.message); }
+  }
   function contractorPayoutsSectionHtml() {
     if (!contractorPayoutsData) return `<div class="detailcard" style="margin-bottom:14px;"><h3 style="font-size:15px;margin-bottom:12px;">Contractor payouts</h3><div class="empty">Loading…</div></div>`;
     if (contractorPayoutsData.length === 0) return `<div class="detailcard" style="margin-bottom:14px;"><h3 style="font-size:15px;margin-bottom:12px;">Contractor payouts</h3><div class="empty">No completed jobs yet.</div></div>`;
@@ -916,6 +928,7 @@
                 <div class="row"><span class="l">Gross owed (82% of all completed jobs)</span><span class="r">$${(c.grossOwedCents/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
                 <div class="row"><span class="l">Historical Stripe transfers</span><span class="r">$${(c.alreadyPaidCents/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
                 ${c.payoutDetailsComplete ? `<button class="btn btn-outline" style="margin:8px 0;width:auto;" onclick="event.stopPropagation();viewPayoutBankDetails('${escapeHtml(c.contractorEmail)}')">View bank details for payment</button>` : '<div class="note" style="color:var(--warn);margin:8px 0;">Payment blocked: ask the contractor to complete payout bank details in their portal.</div>'}
+                ${c.payoutDetailsComplete ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"><button class="btn btn-outline" onclick="event.stopPropagation();notifyContractorPayoutStatus('${escapeHtml(c.contractorEmail)}','ready')">Mark payout ready</button><button class="btn btn-outline" onclick="event.stopPropagation();notifyContractorPayoutStatus('${escapeHtml(c.contractorEmail)}','processed')">Mark payout processed</button><button class="btn btn-outline" onclick="event.stopPropagation();notifyContractorPayoutStatus('${escapeHtml(c.contractorEmail)}','issue')">Report payout issue</button></div>` : ''}
                 <table style="width:100%;border-collapse:collapse;margin-top:8px;">
                   <thead><tr>
                     <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">#</th>
@@ -2500,12 +2513,12 @@
   // Shared caller for /api/admin-account (deactivate/reactivate/delete for
   // either role). Returns the parsed response on success, or null on
   // failure/cancel — callers only need to update local state when non-null.
-  async function accountAction(role, email, action, confirmMsg) {
+  async function accountAction(role, email, action, confirmMsg, details) {
     if (confirmMsg && !confirm(confirmMsg)) return null;
     try {
       const res = await adminFetch('/api/admin-account', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role, email, action }),
+        body: JSON.stringify({ role, email, action, ...(details || {}) }),
       });
       const result = await res.json();
       if (!res.ok) { alert(result.error || 'Could not update this account.'); return null; }
@@ -4497,7 +4510,9 @@
   async function deactivateContractor(id) {
     const apps = getApplications();
     const a = apps.find(x => x.id === id);
-    const result = await accountAction('contractor', a.email, 'deactivate', `Deactivate ${a.business}? They won't be able to log in or receive new jobs until reactivated.`);
+    const reason = prompt(`Why is ${a.business} being suspended? This reason will be sent to the contractor.`);
+    if (!reason || !reason.trim()) return;
+    const result = await accountAction('contractor', a.email, 'deactivate', `Suspend ${a.business}? They won't be able to log in or receive new jobs until reactivated.`, { reason: reason.trim() });
     if (!result) return;
     a.status = 'suspended';
     saveApplications(apps);

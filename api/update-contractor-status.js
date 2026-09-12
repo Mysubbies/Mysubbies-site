@@ -16,9 +16,9 @@
 // created with the correct status the next time they do log in, via
 // contractor-portal.html's own lazy-migration signUp path.
 const { getSupabase } = require('./_lib/clients');
-const { sendEmailWithResult } = require('./_lib/email');
 const { requireAdmin } = require('./_lib/adminAuth');
 const { approvedEmail, rejectedEmail, applicationToken, tokenHash } = require('./_lib/contractorOnboarding');
+const { notifyAdmin, notifyContractor } = require('./_lib/contractorNotifications');
 
 const ALLOWED_STATUSES = ['approved', 'preferred', 'watchlist', 'suspended', 'expired_documents', 'manual_review', 'rejected'];
 
@@ -58,15 +58,20 @@ module.exports = async (req, res) => {
     let emailDelivery = 'not_applicable';
     if ((status === 'approved' || status === 'rejected' || status === 'manual_review') && data && data[0]) {
       const message = status === 'approved' ? approvedEmail(data[0], updateToken) : rejectedEmail(reason, status === 'manual_review', data[0], updateToken);
-      const delivery = await sendEmailWithResult({ to: email, ...message });
+      const eventType = status === 'approved' ? 'contractor-application-approved'
+        : status === 'rejected' ? 'contractor-application-rejected' : 'contractor-more-information-required';
+      const title = status === 'approved' ? 'Application approved'
+        : status === 'rejected' ? 'Application not approved' : 'More information required';
+      const notificationBody = status === 'approved'
+        ? 'Your contractor application is approved. Use the secure link in your email to activate your account.'
+        : String(reason).trim();
+      const delivery = await notifyContractor(supabase, { email, eventType, title, body: notificationBody,
+        subject: message.subject, html: message.html, applicationRef: data[0].full_application && data[0].full_application.id });
       emailDelivery = delivery.ok ? 'sent' : 'failed';
-      const notifications = [{ recipient_role: 'admin', event_type: `contractor-application-${status}`,
-        title: `Contractor application ${status === 'manual_review' ? 'needs more information' : status}`,
-        body: `${data[0].business_name} was updated to ${status}.` }];
-      if (!delivery.ok) notifications.push({ recipient_role: 'admin', event_type: 'contractor-onboarding-email-failed',
-        title: 'Contractor onboarding email failed', body: `The ${status} email to ${data[0].business_name} was not delivered.` });
-      const { error: notificationError } = await supabase.from('notifications').insert(notifications);
-      if (notificationError) console.error('contractor status notification failed:', notificationError);
+      await notifyAdmin(supabase, { eventType: `contractor-application-${status}`,
+        title: `Contractor application ${status === 'manual_review' ? 'awaiting contractor response' : status}`,
+        body: `${data[0].business_name} was updated to ${status}.`,
+        applicationRef: data[0].full_application && data[0].full_application.id });
     }
 
     res.status(200).json({ updated: (data || []).length, emailDelivery });

@@ -42,6 +42,7 @@ Because MySubbies-Staging may be empty, execute **every repository schema file**
 19. `supabase/schema_v20_quote_payment_terms.sql`
 20. `supabase/schema_v21_contractor_onboarding.sql`
 21. `supabase/schema_v22_contractor_bank_payouts.sql`
+22. `supabase/schema_v23_contractor_notification_audit.sql`
 
 Then configure the Preview/Staging deployment with staging-only Supabase URL/service-role and browser publishable key, `RESEND_API_KEY`, verified `RESEND_FROM_EMAIL`, `ADMIN_NOTIFY_EMAIL` pointing to the test inbox, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, `CRON_SECRET`, and a unique `SIGNUP_RATE_LIMIT_SECRET`. Resend must be restricted to the synthetic test inbox during verification.
 

@@ -27,6 +27,8 @@
 // so it needs a genuine identity check.
 const { getSupabase } = require('./_lib/clients');
 const { tokenHash } = require('./_lib/contractorOnboarding');
+const { notifyContractor, CONTRACTOR_PORTAL_URL } = require('./_lib/contractorNotifications');
+const { wrapEmail, emailButton } = require('./_lib/email');
 
 module.exports = async (req, res) => {
   if (req.method === 'GET') {
@@ -110,6 +112,13 @@ module.exports = async (req, res) => {
         .eq('id', contractor.id);
       if (updateErr) throw updateErr;
     }
+
+    try {
+      await notifyContractor(supabase, { email: authedEmail, eventType: 'contractor-account-activated',
+        title: 'Contractor account activated', body: 'Your account is active. Complete your profile and payout bank details, then review suitable job offers.',
+        subject: 'Your MySubbies Contractor Portal account is active',
+        html: wrapEmail(`<h2 style="margin-top:0;">Your account is active</h2><p>You can now access the Contractor Portal.</p><h3>Next steps</h3><ol><li>Review your contact details, categories and service areas.</li><li>Add payout bank details before your first payment.</li><li>Keep licence and insurance documents current.</li><li>Review each job offer and accept only suitable work.</li></ol>${emailButton('Open Contractor Portal →', CONTRACTOR_PORTAL_URL)}`) });
+    } catch (notificationError) { console.error('account activation notification failed:', notificationError); }
 
     res.status(200).json({ ok: true, status: contractor.status, businessName: contractor.business_name });
   } catch (err) {

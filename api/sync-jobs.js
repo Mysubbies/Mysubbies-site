@@ -10,6 +10,7 @@ const { getSupabase } = require('./_lib/clients');
 const { verifyAdminAuth } = require('./_lib/adminAuth');
 const { requireAccount, requireApprovedContractor } = require('./_lib/userAuth');
 const { PROTECTED_FIELDS, mergePermittedMutation, restoreStructuredFields, initialRecord } = require('./_lib/jobMutationSecurity');
+const { notifyAdmin, notifyContractor } = require('./_lib/contractorNotifications');
 
 function requestedRole(req) {
   const role = req.body && req.body.role;
@@ -35,6 +36,11 @@ function adminRecord(existing, submitted) {
 
 function normalizeAddress(address) {
   return String(address || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function materialJobChanges(before, after) {
+  const labels = { scheduledDate: 'date', scheduledTime: 'time', address: 'address', suburb: 'suburb', access: 'access information', urgency: 'timing/urgency', status: 'status' };
+  return Object.keys(labels).filter(key => JSON.stringify(before && before[key]) !== JSON.stringify(after && after[key])).map(key => labels[key]);
 }
 
 async function syncPropertyProfile(supabase, job) {
@@ -98,6 +104,39 @@ module.exports = async (req, res) => {
       if (role === 'contractor' && existing.contractor_email && String(existing.contractor_email).toLowerCase() !== email) {
         res.status(403).json({ error: 'You cannot modify another contractor’s job.' }); return;
       }
+      if (role === 'contractor' && submitted.operationalStage) {
+        if (!existing.contractor_email || String(existing.contractor_email).toLowerCase() !== email) {
+          res.status(403).json({ error: 'Only the assigned contractor can update job progress.' }); return;
+        }
+        const priorRecord = existing.full_record || {};
+        const currentStage = priorRecord.operationalStage || 'accepted';
+        const nextByStage = { accepted: 'scheduled', scheduled: 'on_the_way', on_the_way: 'started', started: 'completed' };
+        const nextStage = String(submitted.operationalStage);
+        if (nextByStage[currentStage] !== nextStage) { res.status(409).json({ error: 'Job progress must be updated in order.' }); return; }
+        const stageColumn = nextStage === 'scheduled' ? 'booked' : nextStage === 'completed' ? 'completed' : 'in_progress';
+        const nextRecord = { ...priorRecord, operationalStage: nextStage, operationalStageUpdatedAt: new Date().toISOString() };
+        const { error: stageError } = await supabase.from('jobs').update({ full_record: nextRecord, stage: stageColumn, updated_at: new Date().toISOString() }).eq('id', existing.id).eq('contractor_email', email);
+        if (stageError) throw stageError;
+        const labels = { scheduled: 'Job scheduled', on_the_way: 'On-the-way status confirmed', started: 'Job started', completed: 'Work completion recorded' };
+        await notifyContractor(supabase, { email, eventType: `contractor-job-${nextStage}`, title: labels[nextStage],
+          body: `Your ${existing.category} job progress is now ${nextStage.replaceAll('_', ' ')}.`, jobId: existing.id });
+        if (nextStage === 'completed') await notifyAdmin(supabase, { eventType: 'contractor-job-completed', title: 'Contractor recorded work complete',
+          body: `${auth.account.business_name || email} recorded the ${existing.category} work as complete. Payment still follows the existing approval process.`, jobId: existing.id });
+        continue;
+      }
+      const declining = role === 'contractor' && !existing.contractor_email && submitted.offerResponse === 'declined';
+      if (declining) {
+        const { data: offer, error: offerError } = await supabase.from('job_offers').select('id').eq('job_id', existing.id)
+          .eq('contractor_id', auth.account.id).eq('status', 'pending').maybeSingle();
+        if (offerError) throw offerError;
+        if (!offer) { res.status(403).json({ error: 'A valid pending job offer is required.' }); return; }
+        await supabase.from('job_offers').update({ status: 'declined', responded_at: new Date().toISOString() }).eq('id', offer.id).eq('status', 'pending');
+        await notifyContractor(supabase, { email, eventType: 'contractor-job-offer-declined', title: 'Job offer declined',
+          body: `You declined the ${existing.category} job offer.`, jobId: existing.id });
+        await notifyAdmin(supabase, { eventType: 'contractor-job-offer-declined', title: 'Contractor declined job offer',
+          body: `${auth.account.business_name || email} declined the ${existing.category} offer.`, jobId: existing.id });
+        continue;
+      }
       const accepting = role === 'contractor' && !existing.contractor_email
         && submitted.status === 'assigned' && !!submitted.contractorEmail;
       if (accepting) {
@@ -114,6 +153,8 @@ module.exports = async (req, res) => {
     for (const { existing, submitted, accepting } of rows) {
       let storedRecord;
       if (role === 'admin') {
+        const previous = existing.full_record || {};
+        const previousContractorEmail = existing.contractor_email;
         const record = adminRecord(existing, submitted);
         storedRecord = record;
         const { error } = await supabase.from('jobs').update({
@@ -123,6 +164,27 @@ module.exports = async (req, res) => {
           updated_at: new Date().toISOString(),
         }).eq('id', existing.id);
         if (error) throw error;
+        const nextContractorEmail = submitted.contractorEmail || null;
+        if (previousContractorEmail && previousContractorEmail !== nextContractorEmail) {
+          await notifyContractor(supabase, { email: previousContractorEmail, eventType: 'contractor-job-reassigned',
+            title: 'Job assignment changed', body: `The ${existing.category} job is no longer assigned to you. Contact support if work has already started.`,
+            subject: `Assignment update for your ${existing.category} job`, jobId: existing.id });
+        }
+        if (nextContractorEmail && previousContractorEmail !== nextContractorEmail) {
+          await notifyContractor(supabase, { email: nextContractorEmail, eventType: 'contractor-job-assigned',
+            title: 'Job assigned to you', body: `The ${existing.category} job has been assigned to you. Review it in the portal and confirm scheduling.`,
+            subject: `A ${existing.category} job has been assigned to you`, jobId: existing.id });
+        }
+        const changes = materialJobChanges(previous, record).filter(change => !(previousContractorEmail !== nextContractorEmail && change === 'status'));
+        if (nextContractorEmail && changes.length) {
+          const cancelled = record.status === 'cancelled';
+          await notifyContractor(supabase, { email: nextContractorEmail,
+            eventType: cancelled ? 'contractor-job-cancelled' : 'contractor-job-materially-updated',
+            title: cancelled ? 'Job cancelled' : 'Job details updated',
+            body: cancelled ? `The ${existing.category} job was cancelled.` : `The ${existing.category} job changed: ${changes.join(', ')}. Review the updated job before attending.`,
+            subject: cancelled ? `Your ${existing.category} job was cancelled` : `Important update to your ${existing.category} job`,
+            jobId: existing.id, metadata: { changedFields: changes } });
+        }
       } else {
         const prior = existing.full_record || initialRecord(submitted, existing, auth);
         let record = mergePermittedMutation(prior, submitted, role);
@@ -138,11 +200,33 @@ module.exports = async (req, res) => {
         if (accepting) query = query.is('contractor_email', null);
         const { error } = await query;
         if (error) throw error;
+        if (role === 'customer' && existing.contractor_email) {
+          const changes = materialJobChanges(prior, record).filter(change => change !== 'status');
+          if (changes.length) await notifyContractor(supabase, { email: existing.contractor_email,
+            eventType: 'contractor-job-materially-updated', title: 'Customer updated job details',
+            body: `The customer updated ${changes.join(', ')} for the ${existing.category} job. Review the job before attending.`,
+            subject: `Important update to your ${existing.category} job`, jobId: existing.id,
+            metadata: { changedFields: changes } });
+        }
         if (accepting) {
+          const { data: competingOffers } = await supabase.from('job_offers').select('contractor_id')
+            .eq('job_id', existing.id).neq('contractor_id', auth.account.id).eq('status', 'pending');
           await supabase.from('job_offers').update({ status: 'accepted', responded_at: new Date().toISOString() })
             .eq('job_id', existing.id).eq('contractor_id', auth.account.id).eq('status', 'pending');
           await supabase.from('job_offers').update({ status: 'expired', responded_at: new Date().toISOString() })
             .eq('job_id', existing.id).neq('contractor_id', auth.account.id).eq('status', 'pending');
+          await notifyContractor(supabase, { email, eventType: 'contractor-job-accepted', title: 'Job accepted',
+            body: `You accepted the ${existing.category} job. Contact the customer promptly and confirm scheduling.`, jobId: existing.id });
+          await notifyAdmin(supabase, { eventType: 'contractor-job-accepted', title: 'Contractor accepted job',
+            body: `${auth.account.business_name || email} accepted the ${existing.category} job.`, jobId: existing.id });
+          const competingIds = (Array.isArray(competingOffers) ? competingOffers : []).map(offer => offer.contractor_id);
+          if (competingIds.length) {
+            const { data: competingContractors } = await supabase.from('contractors').select('email').in('id', competingIds);
+            await Promise.all((competingContractors || []).filter(c => c.email).map(c => notifyContractor(supabase, {
+              email: c.email, eventType: 'contractor-job-offer-expired', title: 'Job offer no longer available',
+              body: `The ${existing.category} job was accepted by another contractor and is no longer available.`, jobId: existing.id,
+            })));
+          }
         }
       }
       synced.push(existing.id);
