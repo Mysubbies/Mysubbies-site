@@ -2,7 +2,14 @@ const crypto = require('crypto');
 const { escapeHtml, wrapEmail, emailButton, emailDetailsTable } = require('./email');
 
 const AGREEMENT_VERSION = 'contractor-agreement-2026-09';
-const PORTAL_URL = 'https://app.mysubbies.com.au/mysubbies-contractor-portal.html';
+function appBaseUrl() {
+  const explicit = String(process.env.APP_BASE_URL || process.env.PUBLIC_APP_BASE_URL || '').trim().replace(/\/+$/, '');
+  if (explicit) return explicit;
+  if (process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return 'https://app.mysubbies.com.au';
+}
+const PORTAL_URL = `${appBaseUrl()}/mysubbies-contractor-portal.html`;
+const SIGNUP_URL = `${appBaseUrl()}/mysubbies-contractor-signup.html`;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function digits(value) { return String(value || '').replace(/\D/g, ''); }
@@ -72,7 +79,7 @@ function rejectedEmail(reason, moreInformation, contractor, updateToken) {
     subject: moreInformation ? 'More information required for your MySubbies application' : 'Update on your MySubbies contractor application',
     html: wrapEmail(`<h2 style="margin-top:0;">${moreInformation ? 'More information required' : 'Application update'}</h2>
       <p>${safeReason}</p>
-      ${moreInformation ? `<p>Please correct or upload the requested information, then securely resubmit the same application to be reviewed again. You do not need to start again.</p>${emailButton('Update and resubmit →', `https://app.mysubbies.com.au/mysubbies-contractor-signup.html?resubmit=${encodeURIComponent(updateToken || '')}&email=${encodeURIComponent((contractor && contractor.email) || '')}`)}` : '<p>If you believe information was missed, reply to this email and our team will review it.</p>'}`),
+      ${moreInformation ? `<p>Please correct or upload the requested information, then securely resubmit the same application to be reviewed again. You do not need to start again.</p>${emailButton('Update and resubmit →', `${SIGNUP_URL}?resubmit=${encodeURIComponent(updateToken || '')}&email=${encodeURIComponent((contractor && contractor.email) || '')}`)}` : '<p>If you believe information was missed, reply to this email and our team will review it.</p>'}`),
   };
 }
 
