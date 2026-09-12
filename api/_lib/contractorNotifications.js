@@ -1,6 +1,12 @@
 const { sendEmailWithResult, wrapEmail, escapeHtml, emailButton } = require('./email');
 
-const CONTRACTOR_PORTAL_URL = 'https://app.mysubbies.com.au/mysubbies-contractor-portal.html';
+function appBaseUrl() {
+  const explicit = String(process.env.APP_BASE_URL || process.env.PUBLIC_APP_BASE_URL || '').trim().replace(/\/+$/, '');
+  if (explicit) return explicit;
+  if (process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return 'https://app.mysubbies.com.au';
+}
+const CONTRACTOR_PORTAL_URL = `${appBaseUrl()}/mysubbies-contractor-portal.html`;
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || 'accounts@mysubbies.com.au';
 
 async function insertNotification(supabase, row) {
