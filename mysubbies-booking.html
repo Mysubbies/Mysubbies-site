@@ -1,1 +1,82 @@
-PLACEHOLDER
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MySubbies — Complete your booking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://js.stripe.com/v3/"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root { --ink:#151A26; --black:#14213D; --white:#FFFFFF; --paper:#F7F7F5; --stone:#6B7280; --stone-light:#9CA3AF; --line:#E7E7E4; --good:#2F7A50; --warn:#B0592E; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Plus Jakarta Sans',system-ui,sans-serif; background:var(--paper); color:var(--ink); line-height:1.5; }
+  a { color:inherit; text-decoration:none; }
+  header { background:#fff; border-bottom:1px solid var(--line); }
+  .navwrap { max-width:1180px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:64px; }
+  .logo-word { font-weight:800; font-size:19px; color:var(--black); }
+  .logo-word .gold { color:#FF6A1A; }
+  .backlink { font-size:13px; color:var(--stone); }
+  .wrap { max-width:640px; margin:0 auto; padding:48px 24px 80px; }
+  .quote-summary { background:#fff; border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:32px; }
+  .summary-head { display:flex; gap:14px; align-items:center; }
+  .qicon { font-size:26px; }
+  .qcat { font-weight:700; font-size:16px; }
+  .qsub { font-size:13px; color:var(--stone); margin-top:2px; }
+  .qprice { margin-left:auto; font-weight:800; font-size:18px; white-space:nowrap; }
+  h1.pagetitle { font-size:26px; margin-bottom:6px; }
+  p.pagesub { color:var(--stone); font-size:14px; margin-bottom:28px; }
+  .field { margin-bottom:16px; }
+  label { display:block; font-size:13px; font-weight:600; margin-bottom:6px; }
+  input[type=text],input[type=email],input[type=password],input[type=tel] { width:100%; font:15px 'Plus Jakarta Sans',sans-serif; border:1.5px solid var(--line); border-radius:10px; padding:13px 14px; outline:none; background:#fff; }
+  input:focus { border-color:var(--black); }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media(max-width:520px){.row2{grid-template-columns:1fr;}}
+  .btn { display:inline-flex; align-items:center; justify-content:center; padding:14px 24px; border-radius:999px; font-size:15px; font-weight:700; cursor:pointer; border:none; width:100%; }
+  .btn-black { background:#FF6A1A; color:var(--black); }
+  .btn-ghost { background:none; color:var(--stone); }
+  .terms { display:flex; gap:10px; align-items:flex-start; font-size:13px; color:var(--stone); margin:20px 0; cursor:pointer; }
+  .terms input { margin-top:3px; }
+  .error { padding:12px 14px; border-radius:10px; background:#FDEDEA; color:var(--warn); font-size:13px; margin-bottom:16px; }
+  .confirm { text-align:center; padding:40px 0; }
+  .confirm .tick { width:56px; height:56px; border-radius:999px; background:#EAF5EE; display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:26px; }
+  .confirm p { color:var(--stone); margin:10px auto 28px; max-width:520px; }
+  .row { display:flex; justify-content:space-between; gap:20px; padding:8px 0; font-size:13px; }
+  .row .l { color:var(--stone); }
+  .row .r { font-weight:700; }
+</style>
+</head>
+<body>
+<header><div class="navwrap"><a href="mysubbies-website.html"><div class="logo-word">My<span class="gold">Subbies</span></div></a><a class="backlink" href="mysubbies-website.html">← Back to site</a></div></header>
+<div class="wrap" id="app"></div>
+<script>
+const HIGH_VALUE_THRESHOLD_CENTS = 990000;
+const quote = JSON.parse(localStorage.getItem('mysubbies_pending_quote') || 'null');
+const app = document.getElementById('app');
+const STRIPE_PUBLISHABLE_KEY='pk_live_51U2oWAPkdmC3yiOV5uqNifeP4xwEBgsu3oqdadRvsIpjuWbh1U0XpPTQBw7qUxHXAbb3MvcTG74g85HHqHsRKYTY00j0Up8qzb';
+const stripe = typeof Stripe !== 'undefined' ? Stripe(STRIPE_PUBLISHABLE_KEY) : null;
+const SUPABASE_URL='https://yloiecuvrejaxxqvjglw.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_dxp8_eCHY9nP1xF-LmxfuQ_h427tK3Y';
+const sb = typeof window.supabase !== 'undefined' ? window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY) : null;
+let mode='register', jobType='private';
+function getCustomers(){try{return JSON.parse(localStorage.getItem('mysubbies_customers')||'{}')}catch(e){return{}}}
+function saveCustomers(c){try{localStorage.setItem('mysubbies_customers',JSON.stringify(c))}catch(e){}}
+function getAttribution(){try{return JSON.parse(localStorage.getItem('mysubbies_attribution')||'{}')}catch(e){return{}}}
+async function accessToken(){if(!sb)return null;const{data}=await sb.auth.getSession();return data?.session?.access_token||null}
+function items(){return quote?.items||[]}
+function totalDollars(){return items().reduce((s,i)=>s+Number(i.base||0),0)}
+function totalCents(){return Math.round(totalDollars()*100)}
+function renderSummary(){return `<div class="quote-summary"><div class="summary-head"><div class="qicon">${quote?.icon||'🛠️'}</div><div><div class="qcat">${quote?.category||'Booking'}</div><div class="qsub">${items().length} item${items().length===1?'':'s'}${quote?.suburb?' · '+quote.suburb:''}</div></div><div class="qprice">$${totalDollars().toLocaleString()}</div></div>${items().map(i=>`<div class="row"><span class="l">${i.taskName} (${i.qty} ${i.unit||''})</span><span class="r">$${Number(i.base||0).toLocaleString()}</span></div>`).join('')}</div>`}
+function setJobType(t){jobType=t;render()}
+function render(){if(!quote){app.innerHTML='<h1 class="pagetitle">No job in progress</h1><p class="pagesub">Head back and get an instant price first.</p>';return;}app.innerHTML=renderSummary()+`<h1 class="pagetitle">${mode==='register'?'A few details to send this off':'Welcome back'}</h1><p class="pagesub">${totalCents()>HIGH_VALUE_THRESHOLD_CENTS?'This booking will be reviewed by MySubbies. No deposit will be requested.':'Continue to review your booking and payment schedule.'}</p><div id="errorBox"></div>${mode==='register'?`<div class="field"><label>Your name</label><input id="fName" type="text"></div><div class="row2"><div class="field"><label>Phone</label><input id="fPhone" type="tel"></div><div class="field"><label>Suburb</label><input id="fSuburb" type="text" value="${quote.suburb||''}"></div></div><div class="field"><label>Address</label><input id="fAddress" type="text"></div><div class="field"><label>Job type</label><div class="row2"><button class="btn ${jobType==='private'?'btn-black':'btn-ghost'}" onclick="setJobType('private')">Private</button><button class="btn ${jobType==='business'?'btn-black':'btn-ghost'}" onclick="setJobType('business')">Business</button></div></div>${jobType==='business'?'<div class="field"><label>Business name</label><input id="fBusinessName" type="text"></div>':''}`:`<div class="row2"><div class="field"><label>Suburb</label><input id="fSuburb" type="text" value="${quote.suburb||''}"></div><div class="field"><label>Property address</label><input id="fAddress" type="text"></div></div>`}<div class="field"><label>Email</label><input id="fEmail" type="email"></div><div class="field"><label>Password</label><input id="fPassword" type="password"></div>${mode==='register'?'<label class="terms"><input id="fTerms" type="checkbox"> I accept the MySubbies Terms & Conditions and Privacy Policy.</label><label class="terms"><input id="fMarketingConsent" type="checkbox"> Optional: send me occasional service updates and offers.</label>':''}<button class="btn btn-black" onclick="submitBooking()">${mode==='register'?(totalCents()>HIGH_VALUE_THRESHOLD_CENTS?'Submit booking for review':'Continue to payment'):'Log in & continue'}</button><p style="text-align:center;margin-top:14px;font-size:13px;color:var(--stone);">${mode==='register'?`Already registered? <a href="#" onclick="mode='login';render();return false"><u>Log in</u></a>`:`New here? <a href="#" onclick="mode='register';render();return false"><u>Create an account</u></a>`}</p>`}
+function showError(m){document.getElementById('errorBox').innerHTML=`<div class="error">⚠ ${m}</div>`}
+async function submitBooking(){const email=document.getElementById('fEmail').value.trim().toLowerCase(),password=document.getElementById('fPassword').value;if(!email||!password){showError('Enter your email and password.');return}const suburb=document.getElementById('fSuburb').value.trim(),address=document.getElementById('fAddress').value.trim();if(!suburb||!address){showError('Enter the property address for this booking.');return}const customers=getCustomers();let customer;if(mode==='login'){const{data,error}=await sb.auth.signInWithPassword({email,password});if(error){showError('No account found with those details.');return}const{data:profile}=await sb.from('customers').select('*').eq('auth_user_id',data.user.id).maybeSingle();customer={name:profile?.name||'',phone:profile?.phone||'',email,suburb,address,customerDbId:profile?.id||null};}else{const name=document.getElementById('fName').value.trim(),phone=document.getElementById('fPhone').value.trim(),terms=document.getElementById('fTerms').checked,businessName=jobType==='business'?(document.getElementById('fBusinessName')?.value.trim()||''):'';if(!name||!phone||!terms||(jobType==='business'&&!businessName)){showError('Please complete all required details and accept the Terms & Conditions.');return}const marketingConsent=document.getElementById('fMarketingConsent').checked;const{data,error}=await sb.auth.signUp({email,password});if(error){showError(error.message);return}let customerDbId=null;if(data.user){const{data:inserted}=await sb.from('customers').insert({auth_user_id:data.user.id,email,name,phone}).select().single();customerDbId=inserted?.id||null}customer={name,phone,email,suburb,address,customerDbId,jobType,businessName,marketingConsent,marketingConsentAt:marketingConsent?new Date().toISOString():null};customers[email]=customer;saveCustomers(customers);}localStorage.setItem('mysubbies_customer_email',email);beginBookingFlow(customer)}
+async function beginBookingFlow(customer){if(totalCents()>HIGH_VALUE_THRESHOLD_CENTS){await submitHighValueBooking(customer);return}const cats=[...new Set(items().map(i=>i.catLabel))];if(cats.length!==1||!stripe){showError('This booking needs MySubbies review before payment.');return}renderDepositPayment(customer,cats[0])}
+async function submitHighValueBooking(customer){app.innerHTML='<h1 class="pagetitle">Submitting your booking…</h1><p class="pagesub">No deposit will be taken.</p>';try{const token=await accessToken();if(!token)throw new Error('Please log in again.');const jobId='job_'+Date.now()+'_'+Math.floor(Math.random()*1000);const res=await fetch('/api/high-value-booking',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({jobId,suburb:customer.suburb,address:customer.address,items:items().map(i=>({catLabel:i.catLabel,taskName:i.taskName,qty:i.qty,unit:i.unit})),attribution:getAttribution(),marketingConsent:!!customer.marketingConsent,marketingConsentAt:customer.marketingConsentAt||null,urgency:quote.urgency,site:quote.site,access:quote.access,jobType:customer.jobType,businessName:customer.businessName})});const data=await res.json();if(!res.ok)throw new Error(data.error||'Could not submit booking.');localStorage.removeItem('mysubbies_pending_quote');app.innerHTML=`<div class="confirm"><div class="tick">✓</div><h1>Booking received</h1><p>Your project is over $9,900, so no deposit has been requested. MySubbies will review the booking and contact you with the next steps. It has not been released to contractors.</p><a class="btn btn-black" href="mysubbies-customer-portal.html">Go to my account →</a></div>`}catch(e){app.innerHTML=`<h1 class="pagetitle">Something went wrong</h1><p class="pagesub">${e.message||'Could not submit this booking.'}</p>`}}
+async function renderDepositPayment(customer,catLabel){const catItems=items().filter(i=>i.catLabel===catLabel),catBase=catItems.reduce((s,i)=>s+Number(i.base||0),0),priceCents=Math.round(catBase*100),jobId='job_'+Date.now()+'_'+Math.floor(Math.random()*1000);app.innerHTML='<h1 class="pagetitle">Loading your payment schedule…</h1>';try{const token=await accessToken();if(token){await fetch('/api/customer-lead-start',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({jobId,category:catLabel,suburb:customer.suburb||quote.suburb||'Melbourne',attribution:getAttribution(),marketingConsent:!!customer.marketingConsent,marketingConsentAt:customer.marketingConsentAt||null})}).catch(()=>{});}const res=await fetch(`/api/job-payment-schedule?category=${encodeURIComponent(catLabel)}&priceCents=${priceCents}`),data=await res.json();if(!res.ok)throw new Error(data.error||'Could not load payment schedule.');const preview=data.preview,scheduleRows=preview.milestones.map(m=>`<div class="row"><span class="l">${m.label} (${m.pct}%)</span><span class="r">$${(m.amount_cents/100).toLocaleString()}</span></div>`).join(''),deposit=preview.milestones.find(m=>m.milestone_type==='deposit')||preview.milestones[0],depositAmount=deposit.amount_cents/100;app.innerHTML=`<h1 class="pagetitle">Review your payment schedule</h1><p class="pagesub">${catLabel} — $${catBase.toLocaleString()} total, GST inclusive.</p><div class="quote-summary">${scheduleRows}</div><label class="terms"><input id="fScheduleAccept" type="checkbox"> I have reviewed and agree to the total price and payment schedule.</label><div id="cardElement" style="padding:13px 14px;border:1.5px solid var(--line);border-radius:10px;background:#fff;margin-bottom:10px"></div><div id="depositError" class="error" style="display:none"></div><button id="payDepositBtn" class="btn btn-black" disabled>Pay $${depositAmount.toLocaleString()} deposit →</button>`;const elements=stripe.elements();window.__card=elements.create('card',{hidePostalCode:true});window.__card.mount('#cardElement');const btn=document.getElementById('payDepositBtn');document.getElementById('fScheduleAccept').onchange=e=>btn.disabled=!e.target.checked;btn.onclick=()=>confirmDepositPayment({customer,catLabel,catBase,jobId,depositAmount});}catch(e){app.innerHTML=`<h1 class="pagetitle">Something went wrong</h1><p class="pagesub">${e.message}</p>`}}
+async function confirmDepositPayment(p){const err=document.getElementById('depositError'),btn=document.getElementById('payDepositBtn');try{btn.disabled=true;btn.textContent='Processing…';const token=await accessToken();if(!token)throw new Error('Please log in again before paying.');const res=await fetch('/api/create-deposit-intent',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({jobId:p.jobId,category:p.catLabel,suburb:p.customer.suburb,basePriceCents:Math.round(p.catBase*100),accepted:true,items:items().filter(i=>i.catLabel===p.catLabel).map(i=>({catLabel:i.catLabel,taskName:i.taskName,qty:i.qty})),attribution:getAttribution(),marketingConsent:!!p.customer.marketingConsent,marketingConsentAt:p.customer.marketingConsentAt||null})});const data=await res.json();if(!res.ok)throw new Error(data.error||'Could not start payment.');const result=await stripe.confirmCardPayment(data.clientSecret,{payment_method:{card:window.__card}});if(result.error)throw new Error(result.error.message);localStorage.removeItem('mysubbies_pending_quote');app.innerHTML=`<div class="confirm"><div class="tick">✓</div><h1>Booking received</h1><p>Your deposit has been processed and MySubbies is arranging the appropriate local professional.</p><a class="btn btn-black" href="mysubbies-customer-portal.html">View my booking →</a></div>`}catch(e){err.style.display='block';err.textContent=e.message||'Payment failed. Please try again.';btn.disabled=false;btn.textContent=`Pay $${p.depositAmount.toLocaleString()} deposit →`}}
+render();
+</script>
+</body>
+</html>
