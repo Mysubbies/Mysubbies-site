@@ -9,74 +9,670 @@
 <script src="https://js.stripe.com/v3/"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
-  :root { --ink:#151A26; --black:#14213D; --white:#FFFFFF; --paper:#F7F7F5; --stone:#6B7280; --stone-light:#9CA3AF; --line:#E7E7E4; --good:#2F7A50; --warn:#B0592E; }
-  * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'Plus Jakarta Sans',system-ui,sans-serif; background:var(--paper); color:var(--ink); line-height:1.5; }
+  :root {
+    /* Navy/gold reskin (Aug 2026), Stage 3 -- see mysubbies-website.html's :root. */
+    --ink: #151A26; --black: #14213D; --white: #FFFFFF; --paper: #F7F7F5;
+    --stone: #6B7280; --stone-light: #9CA3AF; --line: #E7E7E4; --good: #2F7A50; --warn: #B0592E;
+    --accent: #F5A623; --accent-dark: #D98E14; --accent-pale: #FDF0D9;
+    --primary-light: #1F335A; --primary-pale: #E7EAF1;
+  }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  body { font-family:'Plus Jakarta Sans', system-ui, sans-serif; background: var(--paper); color: var(--ink); line-height:1.5; -webkit-font-smoothing:antialiased; }
+  h1, h2 { font-weight:800; letter-spacing:-0.02em; }
   a { color:inherit; text-decoration:none; }
-  header { background:#fff; border-bottom:1px solid var(--line); }
+  header { background: #fff; border-bottom:1px solid var(--line); }
   .navwrap { max-width:1180px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:64px; }
+  .logo { display:flex; align-items:center; gap:9px; }
   .logo-word { font-weight:800; font-size:19px; color:var(--black); }
   .logo-word .gold { color:#FF6A1A; }
   .backlink { font-size:13px; color:var(--stone); }
   .wrap { max-width:640px; margin:0 auto; padding:48px 24px 80px; }
-  .quote-summary { background:#fff; border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:32px; }
-  .summary-head { display:flex; gap:14px; align-items:center; }
-  .qicon { font-size:26px; }
-  .qcat { font-weight:700; font-size:16px; }
-  .qsub { font-size:13px; color:var(--stone); margin-top:2px; }
-  .qprice { margin-left:auto; font-weight:800; font-size:18px; white-space:nowrap; }
+  .quote-summary { background:#fff; border:1px solid var(--line); border-radius:16px; padding:20px; display:flex; gap:14px; align-items:center; margin-bottom:32px; }
+  .quote-summary .qicon { font-size:26px; }
+  .quote-summary .qcat { font-weight:700; font-size:16px; }
+  .quote-summary .qsub { font-size:13px; color:var(--stone); margin-top:2px; }
+  .quote-summary .qprice { margin-left:auto; font-weight:800; font-size:18px; white-space:nowrap; }
+  .quote-summary img { width:56px; height:56px; border-radius:10px; object-fit:cover; }
   h1.pagetitle { font-size:26px; margin-bottom:6px; }
   p.pagesub { color:var(--stone); font-size:14px; margin-bottom:28px; }
   .field { margin-bottom:16px; }
-  label { display:block; font-size:13px; font-weight:600; margin-bottom:6px; }
-  input[type=text],input[type=email],input[type=password],input[type=tel] { width:100%; font:15px 'Plus Jakarta Sans',sans-serif; border:1.5px solid var(--line); border-radius:10px; padding:13px 14px; outline:none; background:#fff; }
-  input:focus { border-color:var(--black); }
+  label { display:block; font-size:13px; font-weight:600; color:var(--ink); margin-bottom:6px; }
+  input[type=text], input[type=email], input[type=password], input[type=tel] {
+    width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:15px; color:var(--ink);
+    border:1.5px solid var(--line); border-radius:10px; padding:13px 14px; outline:none; background:#fff;
+  }
+  input:focus { border-color: var(--black); }
+  input.field-invalid { border-color:#B4232C !important; background:#FDF3F2; }
+  .field-error-label { color:#B4232C; }
   .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  @media(max-width:520px){.row2{grid-template-columns:1fr;}}
-  .btn { display:inline-flex; align-items:center; justify-content:center; padding:14px 24px; border-radius:999px; font-size:15px; font-weight:700; cursor:pointer; border:none; width:100%; }
-  .btn-black { background:#FF6A1A; color:var(--black); }
-  .btn-ghost { background:none; color:var(--stone); }
+  @media (max-width:520px) { .row2 { grid-template-columns:1fr; } }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:14px 24px; border-radius:999px; font-size:15px; font-weight:600; cursor:pointer; border:none; width:100%; }
+  /* Primary buttons -- bright orange app-wide (Sep 2026). Navy text for
+     accessible contrast (white-on-orange falls short at button-label
+     sizes). */
+  .btn-black { background:#FF6A1A; color:var(--black); font-weight:700; }
+  .btn-black:hover { background:#E85A0A; }
+  .btn-ghost { background:none; color:var(--stone); font-weight:500; }
   .terms { display:flex; gap:10px; align-items:flex-start; font-size:13px; color:var(--stone); margin:20px 0; cursor:pointer; }
   .terms input { margin-top:3px; }
-  .error { padding:12px 14px; border-radius:10px; background:#FDEDEA; color:var(--warn); font-size:13px; margin-bottom:16px; }
+  .error { display:flex; gap:8px; align-items:center; padding:12px 14px; border-radius:10px; background:#FDEDEA; color:var(--warn); font-size:13px; margin-bottom:16px; }
+  .toggle-mode { text-align:center; font-size:13px; color:var(--stone); margin-top:14px; }
+  .toggle-mode a { font-weight:600; color:var(--ink); text-decoration:underline; }
+  .empty-state { text-align:center; padding:60px 20px; }
+  .empty-state p { color:var(--stone); margin-bottom:24px; }
   .confirm { text-align:center; padding:40px 0; }
   .confirm .tick { width:56px; height:56px; border-radius:999px; background:#EAF5EE; display:flex; align-items:center; justify-content:center; margin:0 auto 20px; font-size:26px; }
-  .confirm p { color:var(--stone); margin:10px auto 28px; max-width:520px; }
-  .row { display:flex; justify-content:space-between; gap:20px; padding:8px 0; font-size:13px; }
-  .row .l { color:var(--stone); }
-  .row .r { font-weight:700; }
+  .confirm h1 { margin-bottom:10px; }
+  .confirm p { color:var(--stone); margin-bottom:28px; }
+  .divider { border-top:1px solid var(--line); margin:24px 0; }
 </style>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#14213D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MySubbies">
 </head>
 <body>
-<header><div class="navwrap"><a href="mysubbies-website.html"><div class="logo-word">My<span class="gold">Subbies</span></div></a><a class="backlink" href="mysubbies-website.html">← Back to site</a></div></header>
+
+<header>
+  <div class="navwrap">
+    <a class="logo" href="mysubbies-website.html">
+      
+      <div class="logo-word">My<span class="gold">Subbies</span></div>
+    </a>
+    <a class="backlink" href="mysubbies-website.html">← Back to site</a>
+  </div>
+</header>
+
 <div class="wrap" id="app"></div>
+
 <script>
-const HIGH_VALUE_THRESHOLD_CENTS = 990000;
-const quote = JSON.parse(localStorage.getItem('mysubbies_pending_quote') || 'null');
-const app = document.getElementById('app');
-const STRIPE_PUBLISHABLE_KEY='pk_live_51U2oWAPkdmC3yiOV5uqNifeP4xwEBgsu3oqdadRvsIpjuWbh1U0XpPTQBw7qUxHXAbb3MvcTG74g85HHqHsRKYTY00j0Up8qzb';
-const stripe = typeof Stripe !== 'undefined' ? Stripe(STRIPE_PUBLISHABLE_KEY) : null;
-const SUPABASE_URL='https://yloiecuvrejaxxqvjglw.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY='sb_publishable_dxp8_eCHY9nP1xF-LmxfuQ_h427tK3Y';
-const sb = typeof window.supabase !== 'undefined' ? window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY) : null;
-let mode='register', jobType='private';
-function getCustomers(){try{return JSON.parse(localStorage.getItem('mysubbies_customers')||'{}')}catch(e){return{}}}
-function saveCustomers(c){try{localStorage.setItem('mysubbies_customers',JSON.stringify(c))}catch(e){}}
-function getAttribution(){try{return JSON.parse(localStorage.getItem('mysubbies_attribution')||'{}')}catch(e){return{}}}
-async function accessToken(){if(!sb)return null;const{data}=await sb.auth.getSession();return data?.session?.access_token||null}
-function items(){return quote?.items||[]}
-function totalDollars(){return items().reduce((s,i)=>s+Number(i.base||0),0)}
-function totalCents(){return Math.round(totalDollars()*100)}
-function renderSummary(){return `<div class="quote-summary"><div class="summary-head"><div class="qicon">${quote?.icon||'🛠️'}</div><div><div class="qcat">${quote?.category||'Booking'}</div><div class="qsub">${items().length} item${items().length===1?'':'s'}${quote?.suburb?' · '+quote.suburb:''}</div></div><div class="qprice">$${totalDollars().toLocaleString()}</div></div>${items().map(i=>`<div class="row"><span class="l">${i.taskName} (${i.qty} ${i.unit||''})</span><span class="r">$${Number(i.base||0).toLocaleString()}</span></div>`).join('')}</div>`}
-function setJobType(t){jobType=t;render()}
-function render(){if(!quote){app.innerHTML='<h1 class="pagetitle">No job in progress</h1><p class="pagesub">Head back and get an instant price first.</p>';return;}app.innerHTML=renderSummary()+`<h1 class="pagetitle">${mode==='register'?'A few details to send this off':'Welcome back'}</h1><p class="pagesub">${totalCents()>HIGH_VALUE_THRESHOLD_CENTS?'This booking will be reviewed by MySubbies. No deposit will be requested.':'Continue to review your booking and payment schedule.'}</p><div id="errorBox"></div>${mode==='register'?`<div class="field"><label>Your name</label><input id="fName" type="text"></div><div class="row2"><div class="field"><label>Phone</label><input id="fPhone" type="tel"></div><div class="field"><label>Suburb</label><input id="fSuburb" type="text" value="${quote.suburb||''}"></div></div><div class="field"><label>Address</label><input id="fAddress" type="text"></div><div class="field"><label>Job type</label><div class="row2"><button class="btn ${jobType==='private'?'btn-black':'btn-ghost'}" onclick="setJobType('private')">Private</button><button class="btn ${jobType==='business'?'btn-black':'btn-ghost'}" onclick="setJobType('business')">Business</button></div></div>${jobType==='business'?'<div class="field"><label>Business name</label><input id="fBusinessName" type="text"></div>':''}`:`<div class="row2"><div class="field"><label>Suburb</label><input id="fSuburb" type="text" value="${quote.suburb||''}"></div><div class="field"><label>Property address</label><input id="fAddress" type="text"></div></div>`}<div class="field"><label>Email</label><input id="fEmail" type="email"></div><div class="field"><label>Password</label><input id="fPassword" type="password"></div>${mode==='register'?'<label class="terms"><input id="fTerms" type="checkbox"> I accept the MySubbies Terms & Conditions and Privacy Policy.</label><label class="terms"><input id="fMarketingConsent" type="checkbox"> Optional: send me occasional service updates and offers.</label>':''}<button class="btn btn-black" onclick="submitBooking()">${mode==='register'?(totalCents()>HIGH_VALUE_THRESHOLD_CENTS?'Submit booking for review':'Continue to payment'):'Log in & continue'}</button><p style="text-align:center;margin-top:14px;font-size:13px;color:var(--stone);">${mode==='register'?`Already registered? <a href="#" onclick="mode='login';render();return false"><u>Log in</u></a>`:`New here? <a href="#" onclick="mode='register';render();return false"><u>Create an account</u></a>`}</p>`}
-function showError(m){document.getElementById('errorBox').innerHTML=`<div class="error">⚠ ${m}</div>`}
-async function submitBooking(){const email=document.getElementById('fEmail').value.trim().toLowerCase(),password=document.getElementById('fPassword').value;if(!email||!password){showError('Enter your email and password.');return}const suburb=document.getElementById('fSuburb').value.trim(),address=document.getElementById('fAddress').value.trim();if(!suburb||!address){showError('Enter the property address for this booking.');return}const customers=getCustomers();let customer;if(mode==='login'){const{data,error}=await sb.auth.signInWithPassword({email,password});if(error){showError('No account found with those details.');return}const{data:profile}=await sb.from('customers').select('*').eq('auth_user_id',data.user.id).maybeSingle();customer={name:profile?.name||'',phone:profile?.phone||'',email,suburb,address,customerDbId:profile?.id||null};}else{const name=document.getElementById('fName').value.trim(),phone=document.getElementById('fPhone').value.trim(),terms=document.getElementById('fTerms').checked,businessName=jobType==='business'?(document.getElementById('fBusinessName')?.value.trim()||''):'';if(!name||!phone||!terms||(jobType==='business'&&!businessName)){showError('Please complete all required details and accept the Terms & Conditions.');return}const marketingConsent=document.getElementById('fMarketingConsent').checked;const{data,error}=await sb.auth.signUp({email,password});if(error){showError(error.message);return}let customerDbId=null;if(data.user){const{data:inserted}=await sb.from('customers').insert({auth_user_id:data.user.id,email,name,phone}).select().single();customerDbId=inserted?.id||null}customer={name,phone,email,suburb,address,customerDbId,jobType,businessName,marketingConsent,marketingConsentAt:marketingConsent?new Date().toISOString():null};customers[email]=customer;saveCustomers(customers);}localStorage.setItem('mysubbies_customer_email',email);beginBookingFlow(customer)}
-async function beginBookingFlow(customer){if(totalCents()>HIGH_VALUE_THRESHOLD_CENTS){await submitHighValueBooking(customer);return}const cats=[...new Set(items().map(i=>i.catLabel))];if(cats.length!==1||!stripe){showError('This booking needs MySubbies review before payment.');return}renderDepositPayment(customer,cats[0])}
-async function submitHighValueBooking(customer){app.innerHTML='<h1 class="pagetitle">Submitting your booking…</h1><p class="pagesub">No deposit will be taken.</p>';try{const token=await accessToken();if(!token)throw new Error('Please log in again.');const jobId='job_'+Date.now()+'_'+Math.floor(Math.random()*1000);const res=await fetch('/api/high-value-booking',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({jobId,suburb:customer.suburb,address:customer.address,items:items().map(i=>({catLabel:i.catLabel,taskName:i.taskName,qty:i.qty,unit:i.unit})),attribution:getAttribution(),marketingConsent:!!customer.marketingConsent,marketingConsentAt:customer.marketingConsentAt||null,urgency:quote.urgency,site:quote.site,access:quote.access,jobType:customer.jobType,businessName:customer.businessName})});const data=await res.json();if(!res.ok)throw new Error(data.error||'Could not submit booking.');localStorage.removeItem('mysubbies_pending_quote');app.innerHTML=`<div class="confirm"><div class="tick">✓</div><h1>Booking received</h1><p>Your project is over $9,900, so no deposit has been requested. MySubbies will review the booking and contact you with the next steps. It has not been released to contractors.</p><a class="btn btn-black" href="mysubbies-customer-portal.html">Go to my account →</a></div>`}catch(e){app.innerHTML=`<h1 class="pagetitle">Something went wrong</h1><p class="pagesub">${e.message||'Could not submit this booking.'}</p>`}}
-async function renderDepositPayment(customer,catLabel){const catItems=items().filter(i=>i.catLabel===catLabel),catBase=catItems.reduce((s,i)=>s+Number(i.base||0),0),priceCents=Math.round(catBase*100),jobId='job_'+Date.now()+'_'+Math.floor(Math.random()*1000);app.innerHTML='<h1 class="pagetitle">Loading your payment schedule…</h1>';try{const token=await accessToken();if(token){await fetch('/api/customer-lead-start',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({jobId,category:catLabel,suburb:customer.suburb||quote.suburb||'Melbourne',attribution:getAttribution(),marketingConsent:!!customer.marketingConsent,marketingConsentAt:customer.marketingConsentAt||null})}).catch(()=>{});}const res=await fetch(`/api/job-payment-schedule?category=${encodeURIComponent(catLabel)}&priceCents=${priceCents}`),data=await res.json();if(!res.ok)throw new Error(data.error||'Could not load payment schedule.');const preview=data.preview,scheduleRows=preview.milestones.map(m=>`<div class="row"><span class="l">${m.label} (${m.pct}%)</span><span class="r">$${(m.amount_cents/100).toLocaleString()}</span></div>`).join(''),deposit=preview.milestones.find(m=>m.milestone_type==='deposit')||preview.milestones[0],depositAmount=deposit.amount_cents/100;app.innerHTML=`<h1 class="pagetitle">Review your payment schedule</h1><p class="pagesub">${catLabel} — $${catBase.toLocaleString()} total, GST inclusive.</p><div class="quote-summary">${scheduleRows}</div><label class="terms"><input id="fScheduleAccept" type="checkbox"> I have reviewed and agree to the total price and payment schedule.</label><div id="cardElement" style="padding:13px 14px;border:1.5px solid var(--line);border-radius:10px;background:#fff;margin-bottom:10px"></div><div id="depositError" class="error" style="display:none"></div><button id="payDepositBtn" class="btn btn-black" disabled>Pay $${depositAmount.toLocaleString()} deposit →</button>`;const elements=stripe.elements();window.__card=elements.create('card',{hidePostalCode:true});window.__card.mount('#cardElement');const btn=document.getElementById('payDepositBtn');document.getElementById('fScheduleAccept').onchange=e=>btn.disabled=!e.target.checked;btn.onclick=()=>confirmDepositPayment({customer,catLabel,catBase,jobId,depositAmount});}catch(e){app.innerHTML=`<h1 class="pagetitle">Something went wrong</h1><p class="pagesub">${e.message}</p>`}}
-async function confirmDepositPayment(p){const err=document.getElementById('depositError'),btn=document.getElementById('payDepositBtn');try{btn.disabled=true;btn.textContent='Processing…';const token=await accessToken();if(!token)throw new Error('Please log in again before paying.');const res=await fetch('/api/create-deposit-intent',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({jobId:p.jobId,category:p.catLabel,suburb:p.customer.suburb,basePriceCents:Math.round(p.catBase*100),accepted:true,items:items().filter(i=>i.catLabel===p.catLabel).map(i=>({catLabel:i.catLabel,taskName:i.taskName,qty:i.qty})),attribution:getAttribution(),marketingConsent:!!p.customer.marketingConsent,marketingConsentAt:p.customer.marketingConsentAt||null})});const data=await res.json();if(!res.ok)throw new Error(data.error||'Could not start payment.');const result=await stripe.confirmCardPayment(data.clientSecret,{payment_method:{card:window.__card}});if(result.error)throw new Error(result.error.message);localStorage.removeItem('mysubbies_pending_quote');app.innerHTML=`<div class="confirm"><div class="tick">✓</div><h1>Booking received</h1><p>Your deposit has been processed and MySubbies is arranging the appropriate local professional.</p><a class="btn btn-black" href="mysubbies-customer-portal.html">View my booking →</a></div>`}catch(e){err.style.display='block';err.textContent=e.message||'Payment failed. Please try again.';btn.disabled=false;btn.textContent=`Pay $${p.depositAmount.toLocaleString()} deposit →`}}
-render();
+  function getJobs() { return JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]'); }
+  function saveJobs(jobs) {
+    // Sep 2026 (founder report): a customer's accumulated job history
+    // (each job can carry a photo) can push this array past the browser's
+    // localStorage quota -- this threw uncaught here, which meant
+    // createJob() aborted BEFORE reaching the Supabase sync below, leaving
+    // a customer who had just been charged via Stripe with a raw "The
+    // quota has been exceeded" browser error and no job record anywhere,
+    // local or server. Same fix as saveRateCard() in
+    // mysubbies-admin-portal.html: a local caching failure must never
+    // block the real server record.
+    try {
+      localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs));
+    } catch (e) {
+      console.error('localStorage quota exceeded saving jobs:', e);
+    }
+    // Fire-and-forget mirror to Supabase so this job is visible from any
+    // device, not just this browser — see api/sync-jobs.js. Every page's
+    // saveJobs() does this, so every mutation (not just creation) stays in
+    // sync without each call site needing to know about the backend.
+    getBookingAccessToken().then(token => token && fetch('/api/sync-jobs', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ role: 'customer', jobs }),
+    })).catch(() => {});
+  }
+  function getCustomers() { return JSON.parse(localStorage.getItem('mysubbies_customers') || '{}'); }
+  // Same quota-must-never-block-the-flow reasoning as saveJobs() above --
+  // localStorage's quota is per-origin, not per-key, so a photo-heavy
+  // mysubbies_jobs entry can leave no headroom for this unrelated write.
+  function saveCustomers(c) {
+    try { localStorage.setItem('mysubbies_customers', JSON.stringify(c)); }
+    catch (e) { console.error('localStorage quota exceeded saving customers:', e); }
+  }
+  function getPendingQuote() { return JSON.parse(localStorage.getItem('mysubbies_pending_quote') || 'null'); }
+
+  const quote = getPendingQuote();
+  const app = document.getElementById('app');
+
+  async function getBookingAccessToken() {
+    if (!sb) return null;
+    const { data } = await sb.auth.getSession();
+    return data && data.session && data.session.access_token;
+  }
+
+  // Publishable keys are safe to expose client-side by design (unlike the
+  // secret key, which only ever lives in Vercel env vars for /api
+  // functions). Replace this with your real Stripe publishable key —
+  // starts with pk_test_ in test mode, pk_live_ once you go live.
+  const STRIPE_PUBLISHABLE_KEY = 'pk_live_51U2oWAPkdmC3yiOV5uqNifeP4xwEBgsu3oqdadRvsIpjuWbh1U0XpPTQBw7qUxHXAbb3MvcTG74g85HHqHsRKYTY00j0Up8qzb';
+  const stripe = (typeof Stripe !== 'undefined' && !STRIPE_PUBLISHABLE_KEY.includes('REPLACE_ME'))
+    ? Stripe(STRIPE_PUBLISHABLE_KEY) : null;
+
+  // Same publishable/safe-to-expose category as the Stripe key above — this
+  // is Supabase's "publishable" key, explicitly designed to be safe in
+  // browser code as long as Row Level Security is on (it is; see
+  // supabase/schema.sql and schema_v2_marketplace.sql). It can only ever do
+  // what RLS policies allow, which for `customers` is "manage your own row,
+  // once logged in" — nothing else.
+  const SUPABASE_URL = 'https://yloiecuvrejaxxqvjglw.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_dxp8_eCHY9nP1xF-LmxfuQ_h427tK3Y';
+  const sb = (typeof window.supabase !== 'undefined')
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
+
+  let mode = 'register'; // or 'login'
+  let jobType = 'private'; // or 'business'
+  function setJobType(type) {
+    jobType = type;
+    document.getElementById('jobTypePrivateBtn').className = 'btn ' + (type === 'private' ? 'btn-black' : 'btn-ghost');
+    document.getElementById('jobTypeBusinessBtn').className = 'btn ' + (type === 'business' ? 'btn-black' : 'btn-ghost');
+    document.getElementById('businessNameField').style.display = type === 'business' ? '' : 'none';
+  }
+
+  function renderGroupedItems(items) {
+    const uniqueCats = [...new Set(items.map(i => i.catLabel))];
+    const groups = uniqueCats.map(catLabel => ({
+      catLabel, catIcon: items.find(i => i.catLabel === catLabel).catIcon,
+      items: items.filter(i => i.catLabel === catLabel),
+    }));
+    const bundleNote = uniqueCats.length > 1
+      ? `<div style="font-size:11.5px;color:var(--stone);background:var(--paper);border-radius:8px;padding:9px 12px;margin-top:10px;line-height:1.5;">This will be booked as ${uniqueCats.length} separate jobs \u2014 one per trade, each with its own contractor.</div>`
+      : '';
+    return `
+      <div style="border-top:1px solid var(--line);padding-top:12px;">
+        ${groups.map(g => `
+          ${uniqueCats.length > 1 ? `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--stone);margin:8px 0 4px;">${g.catIcon} ${g.catLabel}</div>` : ''}
+          ${g.items.map(i => `
+            <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;color:var(--stone);">
+              <span>${uniqueCats.length > 1 ? '' : (i.catIcon || '') + ' '}${i.taskName} <span style="color:var(--stone-light);">(${i.qty} ${i.unit})</span></span>
+              <span style="font-weight:600;color:var(--ink);">$${i.base.toLocaleString()}</span>
+            </div>
+          `).join('')}
+        `).join('')}
+      </div>
+      ${bundleNote}
+    `;
+  }
+
+  function render() {
+    if (!quote) {
+      app.innerHTML = `
+        <div class="empty-state">
+          <h1 class="pagetitle">No job in progress</h1>
+          <p>Head back to the site and get an instant price first — that quote carries through to this booking step.</p>
+          <a class="btn btn-black" href="mysubbies-website.html" style="max-width:280px;margin:0 auto;">Get an estimated price instantly →</a>
+        </div>`;
+      return;
+    }
+
+    app.innerHTML = `
+      <div class="quote-summary" style="flex-direction:column;align-items:stretch;">
+        <div style="display:flex;gap:14px;align-items:center;margin-bottom:${quote.items && quote.items.length ? '14px' : '0'};">
+          ${quote.photoDataUrl && (!quote.photoDataUrls || quote.photoDataUrls.length <= 1) ? `<img src="${quote.photoDataUrl}" />` : `<div class="qicon">${quote.icon}</div>`}
+          <div>
+            <div class="qcat">${quote.category}</div>
+            <div class="qsub">${quote.items ? quote.items.length + ' item' + (quote.items.length===1?'':'s') : ''}${quote.suburb ? ' · ' + quote.suburb : ''}</div>
+          </div>
+          <div class="qprice">$${quote.low.toLocaleString()}</div>
+        </div>
+        ${quote.items && quote.items.length ? renderGroupedItems(quote.items) : ''}
+        ${quote.photoDataUrls && quote.photoDataUrls.length > 1 ? `
+          <div style="display:flex;gap:8px;overflow-x:auto;padding-top:12px;margin-top:12px;border-top:1px solid var(--line);">
+            ${quote.photoDataUrls.map(src => `<img src="${src}" style="width:64px;height:64px;border-radius:8px;object-fit:cover;flex-shrink:0;" />`).join('')}
+          </div>
+        ` : ''}
+      </div>
+
+      <h1 class="pagetitle">${mode === 'register' ? 'A few details to send this off' : 'Welcome back'}</h1>
+      <p class="pagesub">${mode === 'register' ? 'This creates your MySubbies account so you can track the job — separate from contractor logins.' : 'Log in to continue and track this job under your existing account.'}</p>
+      <div class="toggle-mode" style="margin:4px 0 16px;">
+        ${mode === 'register' ? `Already registered? <a href="#" onclick="mode='login'; render(); return false;">Log in</a>` : `New here? <a href="#" onclick="mode='register'; render(); return false;">Create an account</a>`}
+      </div>
+
+      <div id="errorBox"></div>
+
+      ${mode === 'register' ? `
+        <div class="field"><label>Your name</label><input type="text" id="fName" placeholder="e.g. Sarah Nguyen" /></div>
+        <div class="row2">
+          <div class="field"><label>Phone</label><input type="tel" id="fPhone" placeholder="04xx xxx xxx" /></div>
+          <div class="field"><label>Suburb</label><input type="text" id="fSuburb" value="${quote.suburb || ''}" /></div>
+        </div>
+        <div class="field"><label>Address</label><input type="text" id="fAddress" placeholder="Street address" /></div>
+
+        <div class="field">
+          <label>Is this a business or private job?</label>
+          <div style="display:flex;gap:8px;">
+            <button type="button" id="jobTypePrivateBtn" class="btn ${jobType === 'private' ? 'btn-black' : 'btn-ghost'}" style="flex:1;" onclick="setJobType('private')">Private</button>
+            <button type="button" id="jobTypeBusinessBtn" class="btn ${jobType === 'business' ? 'btn-black' : 'btn-ghost'}" style="flex:1;" onclick="setJobType('business')">Business</button>
+          </div>
+        </div>
+        <div class="field" id="businessNameField" style="${jobType === 'business' ? '' : 'display:none;'}"><label>Business name <span style="color:var(--stone-light);font-weight:400;">(for your invoice)</span></label><input type="text" id="fBusinessName" placeholder="e.g. Nguyen Property Co" /></div>
+
+        <div class="field"><label>Referral code <span style="color:var(--stone-light);font-weight:400;">(optional)</span></label><input type="text" id="fReferral" placeholder="Got a code from a friend?" /></div>
+      ` : ''}
+
+      <div class="field"><label>Email</label><input type="email" id="fEmail" placeholder="you@example.com" /></div>
+      <div class="field"><label>Password</label><input type="password" id="fPassword" placeholder="${mode === 'register' ? 'Choose a password' : 'Your password'}" /></div>
+
+      ${mode === 'register' ? `
+        <div style="background:var(--paper);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:var(--stone);line-height:1.5;">
+          <strong style="color:var(--ink);">Cancellation:</strong> free if no contractor has accepted yet. Once accepted, cancelling may incur a fee reflecting work or materials already committed. <a href="mysubbies-faq.html" target="_blank" style="text-decoration:underline;">Read more</a>
+        </div>
+        <label class="terms"><input type="checkbox" id="fTerms" /> I have read and accept the MySubbies <a href="mysubbies-terms.html" target="_blank" style="text-decoration:underline;">Terms &amp; Conditions</a> and <a href="mysubbies-privacy-policy.html" target="_blank" style="text-decoration:underline;">Privacy Policy</a>, including how payment stages are tracked.</label>
+      ` : '<div class="divider"></div>'}
+
+      <button class="btn btn-black" onclick="submitBooking()">${mode === 'register' ? 'Approve & send to a contractor' : 'Log in & continue'}</button>
+      <div class="toggle-mode">
+        ${mode === 'register' ? `Already registered? <a href="#" onclick="mode='login'; render(); return false;">Log in</a>` : `New here? <a href="#" onclick="mode='register'; render(); return false;">Create an account</a>`}
+      </div>
+    `;
+  }
+
+  function showError(msg) {
+    document.getElementById('errorBox').innerHTML = `<div class="error">⚠ ${msg}</div>`;
+  }
+
+  // Marks each empty required field with a red border and scrolls to the
+  // first one, instead of leaving the customer to guess which of several
+  // fields the generic error message was about.
+  function highlightMissingFields(ids) {
+    document.querySelectorAll('.field-invalid').forEach(el => el.classList.remove('field-invalid'));
+    let first = null;
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && !el.value.trim()) { el.classList.add('field-invalid'); if (!first) first = el; }
+    });
+    if (first) { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); first.focus(); }
+    return first;
+  }
+
+  async function submitBooking() {
+    const email = document.getElementById('fEmail').value.trim().toLowerCase();
+    const password = document.getElementById('fPassword').value;
+    if (!email || !password) { showError('Enter your email and password.'); highlightMissingFields(['fEmail', 'fPassword']); return; }
+
+    const customers = getCustomers();
+    const btn = document.querySelector('.btn-black');
+    const btnLabel = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Please wait…'; }
+
+    try {
+      if (mode === 'login') {
+        if (!sb) { showError('Login is temporarily unavailable — please try again shortly.'); return; }
+        const { data, error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) { showError(error.message === 'Invalid login credentials' ? 'No account found with those details.' : error.message); return; }
+
+        // Real account is now the source of truth; keep the local cache
+        // (used elsewhere, e.g. the separate My Jobs login) in sync too.
+        const { data: profile } = await sb.from('customers').select('*').eq('auth_user_id', data.user.id).maybeSingle();
+        if (profile?.status === 'deactivated') {
+          showError('This account has been deactivated. Contact MySubbies support if you believe this is a mistake.');
+          return;
+        }
+        const existing = customers[email] || {};
+        const merged = { ...existing, name: profile?.name || existing.name, phone: profile?.phone || existing.phone, email, password, customerDbId: profile?.id || null };
+        customers[email] = merged;
+        saveCustomers(customers);
+        // My Jobs (customer-portal.html) checks this exact key to decide
+        // whether the customer is logged in -- without it, "Track it in My
+        // Jobs" after booking drops them back to a login screen even though
+        // their account and job both exist (real bug, Aug 2026: this was
+        // never wired up when registration/login moved to Supabase Auth).
+        localStorage.setItem('mysubbies_customer_email', email);
+        beginBookingFlow(merged);
+        return;
+      }
+
+      // register
+      const name = document.getElementById('fName').value.trim();
+      const phone = document.getElementById('fPhone').value.trim();
+      const suburb = document.getElementById('fSuburb').value.trim();
+      const address = document.getElementById('fAddress').value.trim();
+      const referralInput = document.getElementById('fReferral').value.trim().toUpperCase();
+      const terms = document.getElementById('fTerms').checked;
+      const businessName = jobType === 'business' ? document.getElementById('fBusinessName').value.trim() : '';
+      if (!name || !phone || !suburb || !address || !email || !password) {
+        showError('Please fill in the highlighted fields.');
+        highlightMissingFields(['fName', 'fPhone', 'fSuburb', 'fAddress', 'fEmail', 'fPassword']);
+        return;
+      }
+      if (!terms) { showError('Please accept the Terms & Conditions to continue.'); return; }
+      if (jobType === 'business' && !businessName) { showError('Enter the business name for your invoice.'); highlightMissingFields(['fBusinessName']); return; }
+      if (customers[email]) { showError('An account with this email already exists — log in instead.'); return; }
+
+      const referralCode = (name.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'FRND') + Math.floor(1000 + Math.random() * 9000);
+      // Sep 2026 -- referredBy used to only "count" if the referrer's own
+      // record happened to already be cached in THIS browser's localStorage
+      // (Object.values(customers).some(...)), which silently failed for the
+      // completely normal case of a new customer on a new device using a
+      // code from a friend they'd never shared a browser with. Now just
+      // stores whatever code was entered, verbatim, on the real customers
+      // row -- the referral-credit system (granted once this customer's
+      // first deposit succeeds, see api/stripe-webhook.js) is what actually
+      // validates it's a real code server-side, where every customer's
+      // record is visible regardless of device.
+      const referredBy = referralInput || null;
+
+      let customerDbId = null;
+      if (sb) {
+        const { data, error } = await sb.auth.signUp({ email, password });
+        if (error) { showError(error.message); return; }
+        if (data.user) {
+          const { data: inserted } = await sb.from('customers').insert({ auth_user_id: data.user.id, email, name, phone, referral_code: referralCode, referred_by: referredBy }).select().single();
+          customerDbId = inserted?.id || null;
+        }
+      }
+
+      const account = { name, phone, email, password, referralCode, referredBy, createdAt: new Date().toISOString(), customerDbId };
+      customers[email] = account;
+      saveCustomers(customers);
+      // See the matching comment in the login branch above -- same missing
+      // session key, same bug.
+      localStorage.setItem('mysubbies_customer_email', email);
+      // Admin had no way to learn a new customer registered except opening
+      // the admin portal's Customers tab and checking themselves -- same
+      // gap contractor-application-submitted already closed for contractor
+      // applications (Sep 2026 pre-launch audit). Fire-and-forget, never
+      // blocks the booking flow over an email hiccup.
+      fetch('/api/notify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'customer-registered', name, email, phone, suburb }),
+      }).catch(() => {});
+      beginBookingFlow({ ...account, address, suburb, jobType, businessName });
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
+    }
+  }
+
+  const DEFAULT_PAYMENT_SCHEDULE = [
+    { key: 'deposit', label: 'Deposit', pct: 5 },
+    { key: 'materials', label: 'Materials ordered', pct: 35 },
+    { key: 'frame', label: 'Frame stage complete', pct: 50 },
+    { key: 'completion', label: 'On completion', pct: 10 },
+  ];
+  function getPaymentScheduleForCategory(catLabel) {
+    try {
+      const rateCard = JSON.parse(localStorage.getItem('mysubbies_ratecard') || '[]');
+      const cat = rateCard.find(c => c.label === catLabel);
+      if (cat && cat.paymentSchedule) return cat.paymentSchedule;
+    } catch (e) { /* fall through to default */ }
+    return DEFAULT_PAYMENT_SCHEDULE;
+  }
+
+  // Entry point after login/registration. Single-category bookings go
+  // through a real Stripe deposit payment first — the job isn't created
+  // (and never reaches the contractor board) until that succeeds. Bundles
+  // (multiple trades in one cart) are a known gap: a single Stripe
+  // PaymentIntent maps to one job in this v1 backend, and bundles create
+  // several job records at once, so they still use the pre-Stripe
+  // immediate-fictional-deposit path below until that's built out properly
+  // — see CLAUDE.md.
+  function beginBookingFlow(customer) {
+    const items = quote.items || [];
+    const uniqueCats = [...new Set(items.map(i => i.catLabel))];
+    if (uniqueCats.length === 1 && stripe) {
+      renderDepositPayment(customer, uniqueCats[0]);
+    } else {
+      createJob(customer);
+    }
+  }
+
+  const PAYMENT_TERMS_VERSION = 'payment-schedule-2026-08-v1';
+
+  async function renderDepositPayment(customer, catLabel) {
+    const items = quote.items || [];
+    const catItems = items.filter(i => i.catLabel === catLabel);
+    const catBase = catItems.reduce((s, i) => s + i.base, 0);
+    const priceCents = Math.round(catBase * 100);
+    const jobId = 'job_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+    app.innerHTML = `<h1 class="pagetitle">Loading your payment schedule…</h1>`;
+
+    let preview;
+    try {
+      const res = await fetch(`/api/job-payment-schedule?category=${encodeURIComponent(catLabel)}&priceCents=${priceCents}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not load payment schedule.');
+      preview = data.preview;
+    } catch (err) {
+      app.innerHTML = `<h1 class="pagetitle">Something went wrong</h1><p class="pagesub">${err.message || 'Could not load your payment schedule. Please go back and try again.'}</p>`;
+      return;
+    }
+
+    // Referral credit preview (Sep 2026, "Give $50, Get $50") -- a pure
+    // display check so the deposit amount shown here matches what
+    // api/create-deposit-intent.js will actually charge (it independently
+    // re-checks and applies the real discount server-side at payment time
+    // -- this is never the source of truth, just so the number on screen
+    // isn't a surprise). Best-effort: if this fails, the page still works,
+    // it just won't show a credit that does still apply at payment time.
+    let creditCents = 0;
+    if (customer.email) {
+      try {
+        const creditRes = await fetch(`/api/create-deposit-intent?email=${encodeURIComponent(customer.email)}`);
+        if (creditRes.ok) { const creditData = await creditRes.json(); creditCents = creditData.creditCents || 0; }
+      } catch (e) { /* no credit shown -- still applied correctly at payment time if one exists */ }
+    }
+
+    const depositMilestone = preview.milestones.find(m => m.milestone_type === 'deposit') || preview.milestones[0];
+    const rawDepositCents = depositMilestone.amount_cents;
+    const appliedCreditCents = Math.min(creditCents, Math.max(0, rawDepositCents - 100));
+    const depositAmount = (rawDepositCents - appliedCreditCents) / 100;
+    const isPendingAdminSchedule = preview.status === 'pending_admin_schedule';
+
+    const scheduleRowsHtml = preview.milestones.map(m => `
+      <div class="row"><span class="l">${m.label} (${m.pct}%)</span><span class="r">$${(m.amount_cents / 100).toLocaleString()}</span></div>
+    `).join('') + (appliedCreditCents > 0 ? `
+      <div class="row" style="color:var(--good);"><span class="l">Referral credit</span><span class="r">−$${(appliedCreditCents / 100).toLocaleString()}</span></div>
+    ` : '');
+
+    app.innerHTML = `
+      <h1 class="pagetitle">Review your payment schedule</h1>
+      <p class="pagesub">${catLabel} — $${catBase.toLocaleString()} total, GST inclusive.</p>
+
+      <div style="background:var(--paper);border-radius:10px;padding:16px;margin-bottom:16px;">
+        ${scheduleRowsHtml}
+      </div>
+
+      ${isPendingAdminSchedule ? `
+        <div style="background:#FFF6E5;border:1px solid #F0DCA6;border-radius:10px;padding:14px;margin-bottom:16px;font-size:12.5px;color:#7A5C1E;line-height:1.6;">
+          <strong>Large or complex project:</strong> only the ${preview.deposit_pct}% booking deposit is collected now. Because this job is a large or structural project, MySubbies will prepare a project-specific payment plan with you before any further payment is requested. Domestic building insurance, registration, permits, contract requirements and legally compliant progress-payment stages may apply to a project of this size.
+        </div>
+      ` : `
+        <div style="font-size:12.5px;color:var(--stone);line-height:1.6;margin-bottom:16px;">
+          <p style="margin-bottom:8px;"><strong>What releases each payment:</strong> your contractor submits evidence (photos${preview.milestones.some(m => m.requires_evidence_type === 'delivery_docket') ? ', a delivery docket for materials,' : ''}${preview.milestones.some(m => m.requires_evidence_type === 'inspection_certificate') ? ', an inspection certificate,' : ''} and a written update) for each stage. You review it and approve payment, or raise an issue — nothing is charged without your approval or the review period expiring.</p>
+          <p style="margin-bottom:8px;"><strong>Cancellation & refunds:</strong> free if no contractor has accepted yet. Once accepted, cancelling may incur a fee reflecting work or materials already committed.</p>
+          <p style="margin-bottom:8px;"><strong>Variations:</strong> if extra work is needed, your contractor submits a variation with price and time impact — nothing proceeds until you approve it in writing.</p>
+          <p><strong>Disputes:</strong> if you raise an issue on a milestone, that payment is paused and reviewed by MySubbies before release.</p>
+        </div>
+      `}
+
+      <label class="terms" style="display:flex;gap:8px;align-items:flex-start;margin-bottom:16px;">
+        <input type="checkbox" id="fScheduleAccept" style="margin-top:3px;" />
+        <span style="font-size:12.5px;">I have reviewed and agree to the total price and milestone payment schedule.</span>
+      </label>
+
+      <div id="cardElement" style="padding:13px 14px;border:1.5px solid var(--line);border-radius:10px;background:#fff;margin-bottom:10px;"></div>
+      <div id="depositError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
+      <button class="btn btn-black" id="payDepositBtn" disabled style="opacity:0.5;" onclick="confirmDepositPayment()">Pay $${depositAmount.toLocaleString()} deposit →</button>
+    `;
+
+    document.getElementById('fScheduleAccept').addEventListener('change', (e) => {
+      const btn = document.getElementById('payDepositBtn');
+      btn.disabled = !e.target.checked;
+      btn.style.opacity = e.target.checked ? '1' : '0.5';
+    });
+
+    const elements = stripe.elements();
+    // hidePostalCode: Stripe's built-in postal code field defaults to
+    // US-style 5-digit validation with no way to configure it for
+    // Australia's 4-digit postcodes — it rejected a real postcode like
+    // "3000" as "incomplete". We already collect suburb/address in the
+    // registration step above, so the field is redundant anyway; hiding it
+    // removes the confusing mismatch instead of working around it.
+    window.__mysubbiesCardElement = elements.create('card', { hidePostalCode: true });
+    window.__mysubbiesCardElement.mount('#cardElement');
+    window.__mysubbiesPendingBooking = { customer, catLabel, catBase, depositAmount, jobId };
+  }
+
+  async function confirmDepositPayment() {
+    const pending = window.__mysubbiesPendingBooking;
+    if (!pending) return;
+    const btn = document.getElementById('payDepositBtn');
+    const errBox = document.getElementById('depositError');
+    const accepted = document.getElementById('fScheduleAccept').checked;
+    if (!accepted) { errBox.textContent = 'Please confirm you agree to the payment schedule first.'; return; }
+    btn.disabled = true;
+    btn.textContent = 'Processing…';
+    errBox.textContent = '';
+
+    try {
+      const accessToken = await getBookingAccessToken();
+      if (!accessToken) throw new Error('Please log in again before paying.');
+      const res = await fetch('/api/create-deposit-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken },
+        body: JSON.stringify({
+          jobId: pending.jobId,
+          category: pending.catLabel,
+          suburb: pending.customer.suburb || quote.suburb || 'Melbourne',
+          contractorEmail: null,
+          basePriceCents: Math.round(pending.catBase * 100),
+          accepted: true,
+          customerId: pending.customer.customerDbId || null,
+          customerEmail: pending.customer.email || null,
+          termsVersion: PAYMENT_TERMS_VERSION,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not start payment.');
+
+      const result = await stripe.confirmCardPayment(data.clientSecret, {
+        payment_method: { card: window.__mysubbiesCardElement },
+      });
+      if (result.error) throw new Error(result.error.message);
+
+      createJob(pending.customer, { presetJobId: pending.jobId, depositPaymentIntentId: result.paymentIntent.id, depositPaid: true });
+    } catch (err) {
+      errBox.textContent = err.message || 'Payment failed. Please try again.';
+      btn.disabled = false;
+      btn.textContent = `Pay $${pending.depositAmount.toLocaleString()} deposit →`;
+    }
+  }
+
+  // Resizes a data-URI image client-side (canvas), same technique already
+  // used for rate-card task photos in mysubbies-admin-portal.html -- used
+  // here to shrink a customer's job photo down to an email-safe thumbnail
+  // before it goes into the new-job-available notification (see that
+  // call site below for why raw uploads can't go straight into an email
+  // that fans out to multiple contractors).
+  function resizeImageDataUrl(dataUrl, maxWidth, quality) {
+    return new Promise((resolve) => {
+      if (!dataUrl) { resolve(null); return; }
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    });
+  }
+  function createJob(customer, paymentInfo) {
+    const jobs = getJobs();
+    const items = quote.items || [];
+    const uniqueCats = [...new Set(items.map(i => i.catLabel))];
+    const isBundle = uniqueCats.length > 1;
+    const bundleId = isBundle ? 'bundle_' + Date.now() : null;
+    const createdJobs = [];
+
+    // Property-specific override (Aug 2026): set by mysubbies-customer-portal.html
+    // when a multi-property customer raises a job from a specific property's
+    // House Health view, so the new job is correctly tagged to THAT property
+    // instead of silently defaulting to the account's single saved address
+    // below. Cleared immediately so it never leaks into a later, unrelated
+    // booking in the same browser session.
+    let addressOverride = null;
+    try {
+      const raw = localStorage.getItem('mysubbies_new_job_property');
+      if (raw) { addressOverride = JSON.parse(raw); localStorage.removeItem('mysubbies_new_job_property'); }
+    } catch (e) { /* malformed override -- fall back to the account address below */ }
+
+    uniqueCats.forEach(catLabel => {
+      const catItems = items.filter(i => i.catLabel === catLabel);
+      const catBase = catItems.reduce((s, i) => s + i.base, 0);
+      const catLow = catBase;
+      const catHigh = catBase;
+      const singleItem = catItems.length === 1 ? catItems[0] : null;
+      const paymentSchedule = getPaymentScheduleForCategory(catLabel);
+      const useRealPayment = !isBundle && paymentInfo && paymentInfo.presetJobId;
+      const job = {
+        id: useRealPayment ? paymentInfo.presetJobId : ('job_' + Date.now() + '_' + Math.floor(Math.random() * 1000)),
+        category: catLabel, icon: catItems[0].catIcon,
+        items: catItems,
+        unit: singleItem ? singleItem.unit : null, qty: singleItem ? singleItem.qty : null,
+        basePrice: catBase, priceLow: catLow, priceHigh: catHigh,
+        suburb: (addressOverride && addressOverride.suburb) || customer.suburb || quote.suburb || 'Melbourne',
+        address: (addressOverride && addressOverride.address) || customer.address || '',
+        customerName: customer.name, customerPhone: customer.phone, customerEmail: customer.email,
+        jobType: customer.jobType || 'private', businessName: customer.businessName || '',
+        site: quote.site, access: quote.access, urgency: quote.urgency, hasPhoto: quote.hasPhoto, photoDataUrl: quote.photoDataUrl || null, photoDataUrls: quote.photoDataUrls || (quote.photoDataUrl ? [quote.photoDataUrl] : []),
+        status: 'feed', contractor: null,
+        bundleId, bundleCategories: isBundle ? uniqueCats : null,
+        paymentSchedule,
+        // Bundles (and any booking made before Stripe was wired up) still use
+        // the old fictional immediate-deposit flag — see beginBookingFlow().
+        // Single-category real payments record the true PaymentIntent id and
+        // require an actual Stripe success before this ever runs.
+        paidStages: { deposit: useRealPayment ? !!paymentInfo.depositPaid : true },
+        depositPaymentIntentId: useRealPayment ? paymentInfo.depositPaymentIntentId : null,
+        messages: [], internalMessages: [],
+        createdAt: new Date().toISOString(),
+      };
+      jobs.unshift(job);
+      createdJobs.push(job);
+    });
+
+    saveJobs(jobs);
+    localStorage.removeItem('mysubbies_pending_quote');
+
+    // Fire-and-forget, one per created job (a bundle notifies each trade's
+    // contractors separately) — never blocks the confirmation screen over
+    // an email hiccup, same posture as every other /api/notify call in
+    // this codebase. Added Aug 2026: until this existed, a contractor had
+    // no way to learn a new job existed except opening the portal and
+    // checking the Job Feed tab themselves. Sep 2026: now sends the real
+    // minimum offer details (category, quantity, suburb and urgency).
+    // Access instructions, site notes and customer photos are deliberately
+    // withheld until the accepting contractor is authoritatively assigned.
+    createdJobs.forEach(async (job) => {
+      const taskName = job.items && job.items.length === 1 ? job.items[0].taskName
+        : job.items && job.items.length > 1 ? job.items.length + ' items'
+        : null;
+      fetch('/api/notify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'new-job-available', jobId: job.id, category: job.category, suburb: job.suburb, taskName,
+          items: (job.items || []).map(i => ({ taskName: i.taskName, qty: i.qty, unit: i.unit })),
+          qty: job.qty, unit: job.unit, urgency: job.urgency, basePrice: job.basePrice,
+        }),
+      }).catch(() => {});
+    });
+
+    app.innerHTML = `
+      <div class="confirm">
+        <div class="tick">✓</div>
+        <h1>${isBundle ? createdJobs.length + ' jobs sent!' : 'Job sent!'}</h1>
+        <p>${isBundle
+          ? `Your renovation in ${createdJobs[0].suburb} is now live on the contractor board \u2014 ${uniqueCats.join(', ')}, dispatched separately to the right trade for each.`
+          : `${createdJobs[0].category} in ${createdJobs[0].suburb} is now live on the contractor board.`}</p>
+        <a class="btn btn-black" href="mysubbies-customer-portal.html" style="max-width:320px;margin:0 auto 12px;">Track ${isBundle ? 'them' : 'it'} in My Jobs →</a>
+        <a class="btn btn-ghost" href="mysubbies-website.html" style="max-width:320px;margin:0 auto;">Back to site</a>
+      </div>`;
+  }
+
+  render();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
 </script>
 </body>
 </html>
