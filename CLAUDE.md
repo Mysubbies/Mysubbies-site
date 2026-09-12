@@ -26,8 +26,8 @@ to publish with them still blank.
 
 ## Platform commission changed to 18% (Sept 2026, was 25%)
 Contractor share is now **82%** (was 75%) of whatever pool a given
-percentage-split calculation applies to — the deposit's Stripe Connect
-payout share (`api/weekly-payout.js`), the admin Reports tab's GMV/
+percentage-split calculation applies to — the contractor amount recorded
+for authorised manual payout administration, the admin Reports tab's GMV/
 commission/payout figures and per-job commission line
 (`mysubbies-admin-portal.html`), the admin Contractor payouts list
 (`api/get-admin-list.js`'s `type=contractor-payouts` branch), every
@@ -82,12 +82,12 @@ payment/payout state, since that can never live in localStorage.
   `api/create-stage-payment-intent.js` — same "lock the amount in on first
   sight" pattern as `create-deposit-intent.js`, keyed by (job_id, stage) in
   the `payments` table rather than a dedicated jobs column.
-- Money from every stage still only ever lands in the Mysubbies platform
-  Stripe account — there is still no automatic Stripe Connect transfer to
-  contractors for materials/frame/completion. Contractors are paid those
-  stages manually by Mysubbies AP, by explicit founder direction, until this
-  flow has proven stable. Only the deposit's 82% share flows through the
-  automated weekly payout batch described below.
+- Money from every stage lands in the Mysubbies platform Stripe account.
+  Contractor Stripe Connect was retired in September 2026: all contractor
+  payouts are now administered manually using bank details held in the
+  service-role-only contractors table. `api/weekly-payout.js` and
+  `api/create-connect-onboarding-link.js` remain as disabled 410 endpoints;
+  customer Stripe collection is unchanged.
 - `paidStages[stageKey]` is set **client-side**, by the customer's own
   browser, immediately after `stripe.confirmCardPayment()` succeeds — not
   by the webhook. This deliberately mirrors how the deposit stage already
@@ -103,15 +103,10 @@ payment/payout state, since that can never live in localStorage.
   maps to one job in the current schema and bundles create several job rows
   at once — extending this to bundles is unbuilt follow-up work, not
   forgotten.
-- The weekly payout batch (`api/weekly-payout.js`, Vercel Cron, Mondays
-  01:00 UTC by default) only ever transfers a contractor's 82% share of the
-  captured *deposit* — never the full job value, because the platform
-  doesn't actually hold the rest of that money yet under this scope.
-- Payout eligibility (matching the founder's explicit requirement): job's
-  deposit webhook-confirmed, not disputed, at least `HOLD_DAYS` (3, constant
-  at the top of weekly-payout.js) since payment succeeded, and the
-  contractor's Stripe Connect onboarding is complete. A job can only ever be
-  paid out once (enforced by a DB unique index, not just application logic).
+- The old weekly Stripe Connect payout route is disabled and no longer
+  scheduled. Admin's contractor-payout report warns when bank details are
+  missing and provides an authenticated, deliberate reveal for payment
+  processing. The code does not fabricate a bank-transfer integration.
 
 ## Vercel function count
 Every file directly under `api/` (not `api/_lib/`) counts as one serverless

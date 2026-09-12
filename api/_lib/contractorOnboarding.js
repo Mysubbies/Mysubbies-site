@@ -59,6 +59,7 @@ function approvedEmail(contractor, setupToken) {
       <h3>How job offers work</h3><p>Eligible offers appear in your Job Feed. Review the scope, suburb and payout, then accept or decline. Only accept work you can complete safely and on time. A job is yours only after the portal confirms acceptance.</p>
       <h3>On every job</h3><p>Contact the customer promptly, confirm access and timing, and keep them updated when you are on the way, when you arrive, when work starts and when it is complete. Capture the required before and after photos in the job record.</p>
       <h3>Issues and payment</h3><p>Stop and contact MySubbies support through the portal if scope, safety, access, customer concerns or a dispute prevents completion. Do not perform unapproved variations. Payment follows the milestones shown in the portal after the required completion evidence and approvals.</p>
+      <p>Before your first payment, please confirm your payout bank details in the Contractor Portal. You do not need a Stripe account and missing bank details do not stop you receiving or accepting suitable job opportunities.</p>
       <p>Keep every licence and insurance document current. Expired compliance documents may suspend portal access and job eligibility until reviewed.</p>`),
   };
 }

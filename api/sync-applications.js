@@ -71,7 +71,9 @@ module.exports = async (req, res) => {
         && contractor.application_update_token_hash === tokenHash(body.updateToken)
         && new Date(contractor.application_update_token_expires_at) > new Date();
       if (!valid) { res.status(403).json({ error: 'This secure application link is invalid or expired.' }); return; }
-      const canonical = { ...contractor.full_application, ...application, email, abn, status: 'manual_review',
+      const { payout_account_name: _accountName, payout_bsb: _bsb, payout_account_number: _accountNumber,
+        payout_bank_name: _bankName, ...safeApplication } = application;
+      const canonical = { ...contractor.full_application, ...safeApplication, email, abn, status: 'manual_review',
         resubmittedAt: new Date().toISOString() };
       const nextToken = applicationToken();
       const { error: updateError } = await supabase.from('contractors').update({
@@ -93,7 +95,8 @@ module.exports = async (req, res) => {
     if (emailMatch || abnMatch) { res.status(409).json({ error: 'An application with this email or ABN already exists. Contact support if you need to update it.' }); return; }
 
     const token = applicationToken();
-    const { website: _honeypot, ...submittedApplication } = application;
+    const { website: _honeypot, payout_account_name: _accountName, payout_bsb: _bsb,
+      payout_account_number: _accountNumber, payout_bank_name: _bankName, ...submittedApplication } = application;
     const canonical = { ...submittedApplication, email, abn, status: 'manual_review', agreementAccepted: true };
     const { data, error } = await supabase.from('contractors').insert({
       email, business_name: canonical.business, address: canonical.address, abn,

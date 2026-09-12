@@ -23,6 +23,8 @@
 //        this is the one place that changes both, so they can't drift.
 const { getSupabase } = require('./_lib/clients');
 const { requireAccount } = require('./_lib/userAuth');
+const { requireAdmin } = require('./_lib/adminAuth');
+const { validatePayoutDetails, maskedPayoutDetails } = require('./_lib/payoutDetails');
 
 async function verifyContractorAuth(supabase, email, accessToken) {
   if (!accessToken) return { ok: false, error: 'Not signed in.' };
@@ -48,7 +50,7 @@ module.exports = async (req, res) => {
       const email = auth.account.email;
       const { data: contractor, error } = await supabase
         .from('contractors')
-        .select('business_name, abn, acn, phone, email, categories, average_rating, full_application')
+        .select('business_name, abn, acn, phone, email, categories, average_rating, full_application, payout_account_name, payout_bsb, payout_account_number, payout_bank_name, payout_details_confirmed, payout_details_updated_at')
         .eq('email', String(email).toLowerCase()).maybeSingle();
       if (error) throw error;
       if (!contractor) { res.status(404).json({ error: 'No contractor account found for that email.' }); return; }
@@ -79,6 +81,7 @@ module.exports = async (req, res) => {
         // from his history, it reappears again"). Same jsonb-field pattern
         // as pausedNewOffers -- no schema migration needed.
         hiddenJobIds: Array.isArray(app.hiddenJobIds) ? app.hiddenJobIds : [],
+        payoutDetails: maskedPayoutDetails(contractor),
       });
     } catch (err) {
       console.error('contractor-profile GET error:', err);
@@ -92,10 +95,47 @@ module.exports = async (req, res) => {
   try {
     const body = req.body || {};
     const { email, accessToken } = body;
+
+    if (body.action === 'adminPayoutDetails') {
+      if (!requireAdmin(req, res)) return;
+      const contractorEmail = String(body.contractorEmail || '').trim().toLowerCase();
+      if (!contractorEmail) { res.status(400).json({ error: 'contractorEmail is required.' }); return; }
+      const { data, error } = await supabase.from('contractors')
+        .select('email, business_name, payout_account_name, payout_bsb, payout_account_number, payout_bank_name, payout_details_confirmed, payout_details_updated_at')
+        .eq('email', contractorEmail).maybeSingle();
+      if (error) throw error;
+      if (!data) { res.status(404).json({ error: 'Contractor not found.' }); return; }
+      res.status(200).json({ contractorEmail: data.email, businessName: data.business_name,
+        payoutDetails: data.payout_details_confirmed ? {
+          accountName: data.payout_account_name, bsb: data.payout_bsb,
+          accountNumber: data.payout_account_number, bankName: data.payout_bank_name,
+          confirmed: true, updatedAt: data.payout_details_updated_at,
+        } : null });
+      return;
+    }
     if (!email) { res.status(400).json({ error: 'email is required.' }); return; }
 
     const auth = await verifyContractorAuth(supabase, email, accessToken);
     if (!auth.ok) { res.status(401).json({ error: auth.error }); return; }
+
+    if (body.action === 'savePayoutDetails') {
+      const validated = validatePayoutDetails(body);
+      if (validated.error) { res.status(400).json({ error: validated.error }); return; }
+      const now = new Date().toISOString();
+      const { value } = validated;
+      const { error } = await supabase.from('contractors').update({
+        payout_account_name: value.accountName, payout_bsb: value.bsb,
+        payout_account_number: value.accountNumber, payout_bank_name: value.bankName,
+        payout_details_confirmed: true, payout_details_updated_at: now, updated_at: now,
+      }).eq('id', auth.contractor.id);
+      if (error) throw error;
+      res.status(200).json({ saved: true, payoutDetails: maskedPayoutDetails({
+        payout_account_name: value.accountName, payout_bsb: value.bsb,
+        payout_account_number: value.accountNumber, payout_bank_name: value.bankName,
+        payout_details_confirmed: true, payout_details_updated_at: now,
+      }) });
+      return;
+    }
 
     if (body.action === 'changeEmail') {
       const newEmail = String(body.newEmail || '').trim().toLowerCase();

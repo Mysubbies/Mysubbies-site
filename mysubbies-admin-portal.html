@@ -877,14 +877,26 @@
     expandedPayoutContractor = expandedPayoutContractor === email ? null : email;
     render();
   }
+  async function viewPayoutBankDetails(contractorEmail) {
+    if (!confirm('Reveal full bank details for authorised payment processing? Do not copy them into messages, email or job notes.')) return;
+    try {
+      const response = await adminFetch('/api/contractor-profile', { method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ action:'adminPayoutDetails', contractorEmail }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not load payout details.');
+      if (!result.payoutDetails) { alert('Payout details are missing. Do not process payment.'); return; }
+      const p = result.payoutDetails;
+      alert(`Authorised payment details\n\nAccount name: ${p.accountName}\nBSB: ${p.bsb.slice(0,3)}-${p.bsb.slice(3)}\nAccount number: ${p.accountNumber}\nBank: ${p.bankName || 'Not provided'}\nUpdated: ${p.updatedAt ? new Date(p.updatedAt).toLocaleString('en-AU') : 'Unknown'}`);
+    } catch (error) { alert(error.message); }
+  }
   function contractorPayoutsSectionHtml() {
-    if (!contractorPayoutsData) return `<div class="detailcard" style="margin-bottom:14px;"><h3 style="font-size:15px;margin-bottom:12px;">Contractor payouts (weekly)</h3><div class="empty">Loading…</div></div>`;
-    if (contractorPayoutsData.length === 0) return `<div class="detailcard" style="margin-bottom:14px;"><h3 style="font-size:15px;margin-bottom:12px;">Contractor payouts (weekly)</h3><div class="empty">No completed jobs yet.</div></div>`;
+    if (!contractorPayoutsData) return `<div class="detailcard" style="margin-bottom:14px;"><h3 style="font-size:15px;margin-bottom:12px;">Contractor payouts</h3><div class="empty">Loading…</div></div>`;
+    if (contractorPayoutsData.length === 0) return `<div class="detailcard" style="margin-bottom:14px;"><h3 style="font-size:15px;margin-bottom:12px;">Contractor payouts</h3><div class="empty">No completed jobs yet.</div></div>`;
     const totalNet = contractorPayoutsData.reduce((s, c) => s + c.netOwedCents, 0);
     return `
       <div class="detailcard" style="margin-bottom:14px;">
-        <h3 style="font-size:15px;margin-bottom:4px;">Contractor payouts (weekly)</h3>
-        <p class="jobmeta" style="margin-bottom:12px;">Completed jobs per contractor. The deposit's 82% share is already sent automatically by the weekly Stripe transfer once a contractor's payout setup is complete — everything else here is still paid manually. "Still owed" already nets that off.</p>
+        <h3 style="font-size:15px;margin-bottom:4px;">Contractor payouts</h3>
+        <p class="jobmeta" style="margin-bottom:12px;">Completed jobs per contractor for authorised manual bank payment. Historical Stripe transfers, if any, remain netted off so they are not paid twice.</p>
         <div class="row" style="font-weight:700;"><span class="l">Total still owed (manual), all contractors</span><span class="r">$${(totalNet/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
         ${contractorPayoutsData.map(c => `
           <div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px;">
@@ -892,6 +904,7 @@
               <div>
                 <div style="font-weight:700;font-size:13px;">${escapeHtml(c.businessName || c.contractorEmail)}</div>
                 <div class="jobmeta">${escapeHtml(c.contractorEmail)} · ${c.jobCount} completed job${c.jobCount === 1 ? '' : 's'}</div>
+                <div class="jobmeta" style="color:${c.payoutDetailsComplete ? 'var(--good)' : 'var(--warn)'};">${c.payoutDetailsComplete ? `✓ Bank details complete${c.payoutDetailsUpdatedAt ? ' · updated ' + new Date(c.payoutDetailsUpdatedAt).toLocaleDateString('en-AU') : ''}` : '⚠ Bank details missing — do not process payment'}</div>
               </div>
               <div style="text-align:right;">
                 <div style="font-weight:800;">$${(c.netOwedCents/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
@@ -901,7 +914,8 @@
             ${expandedPayoutContractor === c.contractorEmail ? `
               <div style="margin-top:8px;font-size:12px;">
                 <div class="row"><span class="l">Gross owed (82% of all completed jobs)</span><span class="r">$${(c.grossOwedCents/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
-                <div class="row"><span class="l">Already sent automatically (deposit transfers)</span><span class="r">$${(c.alreadyPaidCents/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
+                <div class="row"><span class="l">Historical Stripe transfers</span><span class="r">$${(c.alreadyPaidCents/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
+                ${c.payoutDetailsComplete ? `<button class="btn btn-outline" style="margin:8px 0;width:auto;" onclick="event.stopPropagation();viewPayoutBankDetails('${escapeHtml(c.contractorEmail)}')">View bank details for payment</button>` : '<div class="note" style="color:var(--warn);margin:8px 0;">Payment blocked: ask the contractor to complete payout bank details in their portal.</div>'}
                 <table style="width:100%;border-collapse:collapse;margin-top:8px;">
                   <thead><tr>
                     <th style="text-align:left;font-size:10.5px;color:var(--stone);padding:4px;">#</th>
@@ -4370,6 +4384,7 @@
           <div class="row"><span class="l">Trades</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml(a.trades.join(', '))}</span></div>
           ${a.otherTrade ? `<div class="row"><span class="l">Other trade(s)</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml(a.otherTrade)}</span></div>` : ''}
           <div class="row"><span class="l">Service suburbs</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml(a.suburbs.length ? a.suburbs.join(', ') : 'All Melbourne metro')}</span></div>
+          <div class="row"><span class="l">Payout details</span><span class="r" style="color:${a.payoutDetailsComplete ? 'var(--good)' : 'var(--warn)'};">${a.payoutDetailsComplete ? `Complete${a.payoutDetailsUpdatedAt ? ' · updated ' + new Date(a.payoutDetailsUpdatedAt).toLocaleDateString('en-AU') : ''}` : 'Missing'}</span></div>
           ${a.licence ? `<div class="row"><span class="l">Licence</span><span class="r">${escapeHtml(a.licence)}</span></div>` : ''}
           ${a.insurer ? `<div class="row"><span class="l">Insurer</span><span class="r">${escapeHtml(a.insurer)}</span></div>` : ''}
           <div class="row"><span class="l">Applied</span><span class="r">${new Date(a.appliedAt).toLocaleDateString('en-AU')}</span></div>
@@ -4385,7 +4400,7 @@
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--stone);margin-bottom:6px;">Photo ID</div>
             <div>${docChipsHtml(a.idDocs)}</div>
           </div>
-          ${a.status === 'pending' ? `
+          ${['pending', 'manual_review'].includes(a.status) ? `
             <div style="display:flex;gap:8px;margin-top:14px;">
               <button class="btn btn-outline" style="flex:1;" onclick="openContractorThread('${a.email.replace(/'/g, "\\'")}')">\ud83d\udcac</button>
               <button class="btn btn-outline" style="flex:1;" onclick="requestMoreInformation('${a.id}')">More info</button>
