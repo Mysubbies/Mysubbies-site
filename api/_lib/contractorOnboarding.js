@@ -57,19 +57,31 @@ function approvedEmail(contractor, setupToken) {
   const app = contractor.full_application || {};
   const categories = contractor.categories || app.trades || [];
   const areas = app.regions || app.suburbs || [];
+  const contactName = app.contact || contractor.business_name || 'there';
+  const businessName = contractor.business_name || app.business || 'your business';
+  const activationUrl = `${PORTAL_URL}?setup=${encodeURIComponent(setupToken || '')}&email=${encodeURIComponent(contractor.email || app.email || '')}`;
+
   return {
     subject: 'Your MySubbies contractor profile is approved',
-    html: wrapEmail(`<h2 style="margin-top:0;">Your profile is approved</h2>
-      <p>Welcome to the MySubbies Contractor Network. Use your application email at the portal and choose <strong>Activate your account</strong> to create your password.</p>
-      ${emailDetailsTable([{ label: 'Categories', value: escapeHtml(categories.join(', ') || 'Contact support') }, { label: 'Service areas', value: escapeHtml(areas.join(', ') || 'All Melbourne metro') }])}
-      ${emailButton('Activate contractor portal →', `${PORTAL_URL}?setup=${encodeURIComponent(setupToken || '')}&email=${encodeURIComponent(contractor.email || app.email || '')}`)}
-      <h3>How job offers work</h3><p>Eligible offers appear in your Job Feed. Review the scope, suburb and payout, then accept or decline. Only accept work you can complete safely and on time. A job is yours only after the portal confirms acceptance.</p>
-      <p>MySubbies does not guarantee any minimum volume or frequency of job opportunities.</p>
-      <h3>On every job</h3><p>Contact the customer promptly, agree and honour the scheduled arrival window, confirm access and timing, and keep them updated when you are on the way, when you arrive, when work starts and when it is complete. Capture the required before and after photos in the job record.</p>
-      <h3>Issues and payment</h3><p>Stop and contact MySubbies support through the portal if scope, safety, access, customer concerns or a dispute prevents completion. Do not perform unapproved variations. Payment follows the milestones shown in the portal after the required completion evidence and approvals.</p>
-      <p>Before your first payment, please confirm your payout bank details in the Contractor Portal. You do not need a Stripe account and missing bank details do not stop you receiving or accepting suitable job opportunities.</p>
-      <p>Keep every licence and insurance document current. Expired compliance documents may suspend portal access and job eligibility until reviewed.</p>
-      <p>Need help? Contact <a href="mailto:support@mysubbies.com.au">support@mysubbies.com.au</a> or use the private MySubbies message thread in the portal.</p>`),
+    html: wrapEmail(`<p>Hi ${escapeHtml(contactName)},</p>
+      <h2 style="margin-top:0;">You're approved to join MySubbies</h2>
+      <p>Your contractor profile for <strong>${escapeHtml(businessName)}</strong> has been approved.</p>
+      <p>Welcome to the MySubbies Contractor Network. Your Contractor Portal is where you'll manage your profile, review suitable job opportunities and maintain your account details.</p>
+      ${emailDetailsTable([
+        { label: 'Categories', value: escapeHtml(categories.join(', ') || 'Contact support') },
+        { label: 'Service areas', value: escapeHtml(areas.join(', ') || 'All Melbourne metro') },
+      ])}
+      ${emailButton('Activate contractor portal →', activationUrl)}
+      <h3>Getting started</h3>
+      <p><strong>1. Activate your account</strong><br>Create your password and log in using the secure activation button above.</p>
+      <p><strong>2. Complete your profile</strong><br>Check your contact details, trade categories, service areas, availability and compliance information.</p>
+      <p><strong>3. Add your bank details</strong><br>Enter your nominated bank account so MySubbies can process contractor payments.</p>
+      <p><strong>4. Receive job opportunities</strong><br>Suitable work may be offered based on your approved categories and service areas.</p>
+      <p><strong>5. Accept and manage jobs</strong><br>Review the scope, location and contractor payout before accepting, then keep the job status updated through the portal.</p>
+      <h3>Important</h3>
+      <p>Only accept work you are appropriately qualified, licensed and insured to perform. Keep all required licences and insurance current. MySubbies does not guarantee a minimum number or frequency of job opportunities.</p>
+      <p>Need help? Reply to this email or contact <a href="mailto:accounts@mysubbies.com.au">accounts@mysubbies.com.au</a>.</p>
+      <p>Welcome aboard.<br><br><strong>MySubbies Team</strong></p>`),
   };
 }
 
