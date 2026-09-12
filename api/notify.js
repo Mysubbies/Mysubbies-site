@@ -41,6 +41,7 @@
 //   contact address so this works with zero extra Vercel config.
 const { sendEmail, wrapEmail, escapeHtml, emailDetailsTable, emailButton } = require('./_lib/email');
 const { getSupabase } = require('./_lib/clients');
+const { notifyContractor } = require('./_lib/contractorNotifications');
 
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || 'accounts@mysubbies.com.au';
 
@@ -158,8 +159,8 @@ module.exports = async (req, res) => {
     }
 
     if (type === 'new-job-available') {
-      const { category, suburb, taskName, items, qty, unit, urgency, basePrice } = req.body || {};
-      if (!category) { res.status(400).json({ error: 'category is required.' }); return; }
+      const { jobId, category, suburb, taskName, items, qty, unit, urgency, basePrice } = req.body || {};
+      if (!jobId || !category) { res.status(400).json({ error: 'jobId and category are required.' }); return; }
       // Same 82% figure shown everywhere else a contractor sees a job's
       // value (Job Feed's Payout column, My Jobs, earnings) -- never the
       // gross customer price, which includes Mysubbies' 18% commission
@@ -169,8 +170,7 @@ module.exports = async (req, res) => {
       const supabase = getSupabase();
       const { data, error } = await supabase
         .from('contractors')
-        .select('full_application')
-        .not('full_application', 'is', null)
+        .select('id, email, status, categories, full_application')
         .limit(500);
       if (error) throw error;
 
@@ -179,8 +179,15 @@ module.exports = async (req, res) => {
       // includes this category + jobMatchesContractorArea) -- keep both in
       // sync if either ever changes.
       const matches = (data || [])
-        .map(r => r.full_application)
-        .filter(a => a && a.status === 'approved' && Array.isArray(a.trades) && a.trades.includes(category) && a.email && jobMatchesContractorArea(suburb, a));
+        .filter(r => ['approved', 'preferred'].includes(r.status) && Array.isArray(r.categories) && r.categories.includes(category)
+          && r.email && jobMatchesContractorArea(suburb, r.full_application || {}));
+
+      if (matches.length) {
+        const { error: offerError } = await supabase.from('job_offers').upsert(matches.map(r => ({
+          job_id: jobId, contractor_id: r.id, contractor_payout_cents: Math.max(0, Math.round(Number(basePrice || 0) * 82)), status: 'pending',
+        })), { onConflict: 'job_id,contractor_id' });
+        if (offerError) throw offerError;
+      }
 
       const emailBody = `
         <h2 style="margin-top:0;">A new job just came in</h2>
@@ -195,17 +202,13 @@ module.exports = async (req, res) => {
         <p style="font-size:12px;color:#6B7280;">Customer identity, contact details, photos, site notes and the full address are shown only after authorised assignment.</p>
         ${emailButton('Open Job Feed →', 'https://app.mysubbies.com.au/mysubbies-contractor-portal.html')}
       `;
-      await Promise.all(matches.map(a => sendEmail({
-        to: a.email,
+      await Promise.all(matches.map(contractor => notifyContractor(supabase, {
+        email: contractor.email, eventType: 'new-job-available', title: 'New job available',
+        body: `${taskName || category}${suburb ? ' in ' + suburb : ''} — review the timing and payout before accepting.`,
         subject: `New ${category} job available${suburb ? ` in ${suburb}` : ''}`,
-        html: wrapEmail(emailBody),
+        html: wrapEmail(emailBody), jobId,
+        metadata: { category, suburb: suburb || null, urgency: urgency || null, payoutCents: payout == null ? null : Math.round(payout * 100) },
       })));
-      if (matches.length) {
-        await writeNotification(matches.map(a => ({
-          recipient_role: 'contractor', recipient_email: a.email, event_type: 'new-job-available',
-          title: 'New job available', body: `${taskName || category}${suburb ? ' in ' + suburb : ''} — no lead fees, first to accept gets it.`,
-        })));
-      }
 
       res.status(200).json({ sent: true, notified: matches.length });
       return;

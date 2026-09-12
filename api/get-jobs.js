@@ -16,7 +16,7 @@
 // they are never used as an authorization identity or database filter.
 const { getSupabase } = require('./_lib/clients');
 const { requireAdmin } = require('./_lib/adminAuth');
-const { requireAccount } = require('./_lib/userAuth');
+const { requireAccount, requireApprovedContractor } = require('./_lib/userAuth');
 const { toSafeUnassignedOffer } = require('./_lib/jobReadSecurity');
 
 module.exports = async (req, res) => {
@@ -43,7 +43,7 @@ module.exports = async (req, res) => {
     const supabase = getSupabase();
 
     if (contractorEmail) {
-      const auth = await requireAccount(supabase, req, 'contractor');
+      const auth = await requireApprovedContractor(supabase, req);
       if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
       // Two pieces: jobs already assigned to this contractor (any category —
       // they took it, they keep seeing it), and the unassigned feed pool,

@@ -22,6 +22,10 @@
 //        independent copies today with nothing keeping them in sync --
 //        this is the one place that changes both, so they can't drift.
 const { getSupabase } = require('./_lib/clients');
+const { requireAccount } = require('./_lib/userAuth');
+const { requireAdmin } = require('./_lib/adminAuth');
+const { validatePayoutDetails, maskedPayoutDetails } = require('./_lib/payoutDetails');
+const { notifyAdmin, notifyContractor } = require('./_lib/contractorNotifications');
 
 async function verifyContractorAuth(supabase, email, accessToken) {
   if (!accessToken) return { ok: false, error: 'Not signed in.' };
@@ -42,11 +46,12 @@ module.exports = async (req, res) => {
 
   if (req.method === 'GET') {
     try {
-      const { email } = req.query || {};
-      if (!email) { res.status(400).json({ error: 'email is required.' }); return; }
+      const auth = await requireAccount(supabase, req, 'contractor');
+      if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
+      const email = auth.account.email;
       const { data: contractor, error } = await supabase
         .from('contractors')
-        .select('business_name, abn, acn, phone, email, categories, average_rating, full_application')
+        .select('business_name, abn, acn, phone, email, categories, average_rating, full_application, payout_account_name, payout_bsb, payout_account_number, payout_bank_name, payout_details_confirmed, payout_details_updated_at')
         .eq('email', String(email).toLowerCase()).maybeSingle();
       if (error) throw error;
       if (!contractor) { res.status(404).json({ error: 'No contractor account found for that email.' }); return; }
@@ -57,6 +62,9 @@ module.exports = async (req, res) => {
         phone: contractor.phone || app.phone || '',
         email: contractor.email,
         categories: contractor.categories || [],
+        regions: Array.isArray(app.regions) ? app.regions : [],
+        suburbs: Array.isArray(app.suburbs) ? app.suburbs : [],
+        availability: Array.isArray(app.availability) ? app.availability : [],
         averageRating: contractor.average_rating,
         contactName: app.contact || '',
         licence: app.licence || '',
@@ -74,6 +82,7 @@ module.exports = async (req, res) => {
         // from his history, it reappears again"). Same jsonb-field pattern
         // as pausedNewOffers -- no schema migration needed.
         hiddenJobIds: Array.isArray(app.hiddenJobIds) ? app.hiddenJobIds : [],
+        payoutDetails: maskedPayoutDetails(contractor),
       });
     } catch (err) {
       console.error('contractor-profile GET error:', err);
@@ -87,10 +96,75 @@ module.exports = async (req, res) => {
   try {
     const body = req.body || {};
     const { email, accessToken } = body;
+
+    if (body.action === 'adminPayoutStatus') {
+      if (!requireAdmin(req, res)) return;
+      const contractorEmail = String(body.contractorEmail || '').trim().toLowerCase();
+      const status = String(body.status || '');
+      const note = String(body.note || '').trim();
+      if (!contractorEmail || !['ready', 'processed', 'issue'].includes(status)) {
+        res.status(400).json({ error: 'contractorEmail and a valid payout status are required.' }); return;
+      }
+      if (status === 'issue' && !note) { res.status(400).json({ error: 'A payout issue explanation is required.' }); return; }
+      const messages = {
+        ready: { title: 'Payout ready for processing', body: 'MySubbies has approved your contractor payout for manual bank processing.' },
+        processed: { title: 'Payout processed', body: 'MySubbies has processed your contractor payout using the bank details on file. Allow normal bank processing time.' },
+        issue: { title: 'Payout needs attention', body: note },
+      };
+      const message = messages[status];
+      const critical = status !== 'ready';
+      await notifyContractor(supabase, { email: contractorEmail, eventType: `contractor-payout-${status}`,
+        ...message, ...(critical ? { subject: message.title } : {}) });
+      await notifyAdmin(supabase, { eventType: `contractor-payout-${status}`, title: message.title,
+        body: `${contractorEmail}: ${status === 'issue' ? note : status}.` });
+      res.status(200).json({ notified: true });
+      return;
+    }
+
+    if (body.action === 'adminPayoutDetails') {
+      if (!requireAdmin(req, res)) return;
+      const contractorEmail = String(body.contractorEmail || '').trim().toLowerCase();
+      if (!contractorEmail) { res.status(400).json({ error: 'contractorEmail is required.' }); return; }
+      const { data, error } = await supabase.from('contractors')
+        .select('email, business_name, payout_account_name, payout_bsb, payout_account_number, payout_bank_name, payout_details_confirmed, payout_details_updated_at')
+        .eq('email', contractorEmail).maybeSingle();
+      if (error) throw error;
+      if (!data) { res.status(404).json({ error: 'Contractor not found.' }); return; }
+      res.status(200).json({ contractorEmail: data.email, businessName: data.business_name,
+        payoutDetails: data.payout_details_confirmed ? {
+          accountName: data.payout_account_name, bsb: data.payout_bsb,
+          accountNumber: data.payout_account_number, bankName: data.payout_bank_name,
+          confirmed: true, updatedAt: data.payout_details_updated_at,
+        } : null });
+      return;
+    }
     if (!email) { res.status(400).json({ error: 'email is required.' }); return; }
 
     const auth = await verifyContractorAuth(supabase, email, accessToken);
     if (!auth.ok) { res.status(401).json({ error: auth.error }); return; }
+
+    if (body.action === 'savePayoutDetails') {
+      const validated = validatePayoutDetails(body);
+      if (validated.error) { res.status(400).json({ error: validated.error }); return; }
+      const now = new Date().toISOString();
+      const { value } = validated;
+      const { error } = await supabase.from('contractors').update({
+        payout_account_name: value.accountName, payout_bsb: value.bsb,
+        payout_account_number: value.accountNumber, payout_bank_name: value.bankName,
+        payout_details_confirmed: true, payout_details_updated_at: now, updated_at: now,
+      }).eq('id', auth.contractor.id);
+      if (error) throw error;
+      await notifyContractor(supabase, { email: auth.contractor.email, eventType: 'contractor-payout-details-updated',
+        title: 'Payout details updated', body: 'Your payout bank details were updated. Review the masked details in My Profile and contact support immediately if you did not make this change.' });
+      await notifyAdmin(supabase, { eventType: 'contractor-payout-details-updated', title: 'Contractor payout details updated',
+        body: `${auth.contractor.email} updated payout details. The values are intentionally omitted.` });
+      res.status(200).json({ saved: true, payoutDetails: maskedPayoutDetails({
+        payout_account_name: value.accountName, payout_bsb: value.bsb,
+        payout_account_number: value.accountNumber, payout_bank_name: value.bankName,
+        payout_details_confirmed: true, payout_details_updated_at: now,
+      }) });
+      return;
+    }
 
     if (body.action === 'changeEmail') {
       const newEmail = String(body.newEmail || '').trim().toLowerCase();
@@ -103,6 +177,12 @@ module.exports = async (req, res) => {
       const { error: updErr } = await supabase.from('contractors')
         .update({ email: newEmail, updated_at: new Date().toISOString() }).eq('id', auth.contractor.id);
       if (updErr) throw updErr;
+
+      await notifyContractor(supabase, { email: newEmail, eventType: 'contractor-email-address-updated',
+        title: 'Login email updated', body: 'Your contractor login email was updated. Contact support immediately if you did not make this change.',
+        subject: 'Your MySubbies contractor email was updated' });
+      await notifyAdmin(supabase, { eventType: 'contractor-email-address-updated', title: 'Contractor login email updated',
+        body: `A contractor changed their login email from ${auth.contractor.email} to ${newEmail}.` });
 
       res.status(200).json({ email: newEmail });
       return;
@@ -121,6 +201,8 @@ module.exports = async (req, res) => {
     if (typeof body.contactName === 'string') mergedApp.contact = body.contactName.trim();
     if (typeof body.licence === 'string') mergedApp.licence = body.licence.trim();
     if (typeof body.insurer === 'string') mergedApp.insurer = body.insurer.trim();
+    if (Array.isArray(body.regions)) mergedApp.regions = body.regions.filter(v => typeof v === 'string' && v.trim()).map(v => v.trim()).slice(0, 20);
+    if (Array.isArray(body.suburbs)) mergedApp.suburbs = [...(mergedApp.regions || []), ...body.suburbs.filter(v => typeof v === 'string' && v.trim()).map(v => v.trim()).slice(0, 100)];
     if (typeof body.profilePhoto === 'string') mergedApp.profilePhoto = body.profilePhoto;
     if (typeof body.pausedNewOffers === 'boolean') mergedApp.pausedNewOffers = body.pausedNewOffers;
     if (Array.isArray(body.hiddenJobIds)) mergedApp.hiddenJobIds = body.hiddenJobIds.filter(id => typeof id === 'string');
@@ -128,6 +210,21 @@ module.exports = async (req, res) => {
 
     const { error: updErr } = await supabase.from('contractors').update(columnUpdate).eq('id', auth.contractor.id);
     if (updErr) throw updErr;
+
+    const changedFields = [];
+    if (typeof body.phone === 'string') changedFields.push('contact phone');
+    if (typeof body.businessName === 'string') changedFields.push('business name');
+    if (typeof body.contactName === 'string') changedFields.push('contact name');
+    if (typeof body.licence === 'string') changedFields.push('licence information');
+    if (typeof body.insurer === 'string') changedFields.push('insurance information');
+    if (Array.isArray(body.regions) || Array.isArray(body.suburbs)) changedFields.push('service areas');
+    if (changedFields.length) {
+      await notifyContractor(supabase, { email: auth.contractor.email, eventType: 'contractor-profile-updated',
+        title: 'Profile updated', body: `Your ${changedFields.join(', ')} ${changedFields.length === 1 ? 'was' : 'were'} updated.` });
+      const reviewFields = changedFields.filter(field => /licence|insurance|business name/.test(field));
+      if (reviewFields.length) await notifyAdmin(supabase, { eventType: 'contractor-sensitive-profile-updated',
+        title: 'Contractor profile change requires review', body: `${auth.contractor.email} updated ${reviewFields.join(' and ')}.` });
+    }
 
     res.status(200).json({ saved: true });
   } catch (err) {

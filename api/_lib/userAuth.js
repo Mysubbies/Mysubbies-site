@@ -17,7 +17,7 @@ async function requireAccount(supabase, req, role) {
 
   const table = role === 'customer' ? 'customers' : role === 'contractor' ? 'contractors' : null;
   if (!table) return { ok: false, status: 400, error: 'Invalid account role.' };
-  const fields = role === 'contractor' ? 'id, auth_user_id, email, categories, business_name' : 'id, auth_user_id, email, name, phone';
+  const fields = role === 'contractor' ? 'id, auth_user_id, email, categories, business_name, status, licence_status, insurance_status, licence_expiry, insurance_expiry' : 'id, auth_user_id, email, name, phone';
   const { data: account, error } = await supabase.from(table)
     .select(fields).eq('auth_user_id', authData.user.id).maybeSingle();
   if (error) throw error;
@@ -26,4 +26,18 @@ async function requireAccount(supabase, req, role) {
   return { ok: true, role, account, user: authData.user };
 }
 
-module.exports = { bearerToken, requireAccount };
+async function requireApprovedContractor(supabase, req) {
+  const auth = await requireAccount(supabase, req, 'contractor');
+  if (!auth.ok) return auth;
+  const account = auth.account;
+  const expired = value => value && new Date(`${value}T23:59:59Z`) < new Date();
+  if (!['approved', 'preferred'].includes(account.status)) {
+    return { ok: false, status: 403, error: 'Contractor approval is required.' };
+  }
+  if (account.licence_status === 'expired' || account.insurance_status === 'expired' || expired(account.licence_expiry) || expired(account.insurance_expiry)) {
+    return { ok: false, status: 403, error: 'Current licence and insurance documents are required.' };
+  }
+  return auth;
+}
+
+module.exports = { bearerToken, requireAccount, requireApprovedContractor };

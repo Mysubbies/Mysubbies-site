@@ -10,6 +10,7 @@
 // no credential at all.
 const { getSupabase } = require('./_lib/clients');
 const { requireAdmin } = require('./_lib/adminAuth');
+const { signedDocuments } = require('./_lib/contractorDocuments');
 
 module.exports = async (req, res) => {
   if (req.method !== 'GET') { res.status(405).json({ error: 'Method not allowed' }); return; }
@@ -35,18 +36,23 @@ module.exports = async (req, res) => {
       // jsonb write didn't happen.
       const { data, error } = await supabase
         .from('contractors')
-        .select('email, business_name, phone, abn, acn, categories, suburb_ids, status, address, full_application, created_at')
+        .select('email, business_name, phone, abn, acn, categories, suburb_ids, status, address, full_application, created_at, payout_details_confirmed, payout_details_updated_at')
         .limit(500);
       if (error) throw error;
-      const applications = (data || []).map(r => {
-        if (r.full_application) return r.full_application;
-        return {
+      const applications = await Promise.all((data || []).map(async r => {
+        const application = r.full_application ? { ...r.full_application, status: r.status } : {
           business: r.business_name || '', contact: '', email: r.email, phone: r.phone || '',
           abn: r.abn || '', acn: r.acn || null, trades: r.categories || [], suburbs: r.suburb_ids || [],
           status: r.status || 'manual_review', address: r.address || null, appliedAt: r.created_at,
           insuranceDocs: [], certDocs: [], idDocs: [],
         };
-      });
+        application.payoutDetailsComplete = !!r.payout_details_confirmed;
+        application.payoutDetailsUpdatedAt = r.payout_details_updated_at || null;
+        application.insuranceDocs = await signedDocuments(supabase, application.insuranceDocs);
+        application.certDocs = await signedDocuments(supabase, application.certDocs);
+        application.idDocs = await signedDocuments(supabase, application.idDocs);
+        return application;
+      }));
       res.status(200).json({ applications });
       return;
     }
@@ -234,9 +240,14 @@ module.exports = async (req, res) => {
       const emails = Object.keys(byContractor);
       if (emails.length) {
         const { data: contractorRows, error: contractorsErr } = await supabase
-          .from('contractors').select('email, business_name').in('email', emails);
+          .from('contractors').select('email, business_name, payout_details_confirmed, payout_details_updated_at').in('email', emails);
         if (contractorsErr) throw contractorsErr;
-        (contractorRows || []).forEach(c => { if (byContractor[c.email]) byContractor[c.email].businessName = c.business_name; });
+        (contractorRows || []).forEach(c => {
+          if (!byContractor[c.email]) return;
+          byContractor[c.email].businessName = c.business_name;
+          byContractor[c.email].payoutDetailsComplete = !!c.payout_details_confirmed;
+          byContractor[c.email].payoutDetailsUpdatedAt = c.payout_details_updated_at || null;
+        });
       }
 
       const result = Object.values(byContractor).map(c => ({
@@ -247,6 +258,8 @@ module.exports = async (req, res) => {
         grossOwedCents: c.grossOwedCents,
         alreadyPaidCents: c.alreadyPaidCents,
         netOwedCents: c.grossOwedCents - c.alreadyPaidCents,
+        payoutDetailsComplete: !!c.payoutDetailsComplete,
+        payoutDetailsUpdatedAt: c.payoutDetailsUpdatedAt || null,
       })).sort((a, b) => b.netOwedCents - a.netOwedCents);
 
       res.status(200).json({ contractors: result });

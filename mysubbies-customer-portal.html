@@ -3150,7 +3150,8 @@
     const email = getCurrentCustomerEmail();
     if (!email) return;
     try {
-      const res = await fetch('/api/notifications?role=customer&email=' + encodeURIComponent(email));
+      const token = await getCustomerAccessToken();
+      const res = await fetch('/api/notifications?role=customer&email=1', { headers: { Authorization: 'Bearer ' + token } });
       if (!res.ok) return;
       const data = await res.json();
       notifItems = data.notifications || [];
@@ -3189,20 +3190,22 @@
       `).join('')}
     `;
   }
-  function markAllNotifsRead() {
+  async function markAllNotifsRead() {
     const email = getCurrentCustomerEmail();
     if (!email) return;
-    fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'markAllRead', role: 'customer', email }) }).catch(() => {});
+    const token = await getCustomerAccessToken();
+    fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ action: 'markAllRead', role: 'customer', email }) }).catch(() => {});
     const now = new Date().toISOString();
     notifItems.forEach(n => { n.readAt = n.readAt || now; });
     notifUnreadCount = 0;
     renderNotifBadge();
     renderNotifPanel();
   }
-  function openNotif(id, jobId) {
+  async function openNotif(id, jobId) {
     const email = getCurrentCustomerEmail();
     if (email) {
-      fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'markRead', id, role: 'customer', email }) }).catch(() => {});
+      const token = await getCustomerAccessToken();
+      fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ action: 'markRead', id, role: 'customer', email }) }).catch(() => {});
     }
     const item = notifItems.find(n => n.id === id);
     if (item && !item.readAt) { item.readAt = new Date().toISOString(); notifUnreadCount = Math.max(0, notifUnreadCount - 1); }

@@ -59,8 +59,7 @@ There is no local dev server convention documented in this repo — the HTML pag
 
 ### Money handling
 - **Deposit-only Stripe integration.** Only the deposit stage (and, for single-category bookings, the later materials/frame/completion stages too) is real Stripe money. Multi-category bundle bookings still use an older, non-Stripe path — flagged, not forgotten.
-- Contractors are paid their 82% share of the **deposit only**, automatically, weekly (`api/weekly-payout.js`, Stripe Connect Standard transfer), gated on: webhook-confirmed payment, not disputed, ≥3 days since payment, contractor's Connect onboarding complete, and a DB-unique-index guard against double payout.
-- Everything past the deposit (materials/frame/completion) is paid to contractors **manually**, by the founder, by design — this has not been automated.
+- Contractor Stripe Connect onboarding and automatic transfers are retired. `api/weekly-payout.js` and `api/create-connect-onboarding-link.js` deliberately return 410 and the weekly cron is removed. Contractors enter bank details in their authenticated profile; Admin processes payouts manually. Customer Stripe deposits/stage collections are unchanged.
 - The rate card (21+ categories, ~160+ tasks) now lives server-side in Supabase (`platform_rate_card` table, `api/rate-card.js`), not just localStorage — but `api/create-deposit-intent.js` still trusts the client-submitted price **on first sight of a given job ID only**, then locks it in. It does not independently recompute a job's price server-side from the rate card. This is a known, deliberately-scoped gap (closing it fully means moving all pricing *logic*, not just the *data*, server-side).
 
 ### The quoting CRM (added this session — Stage 1 only)

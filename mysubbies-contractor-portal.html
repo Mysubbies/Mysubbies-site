@@ -679,11 +679,7 @@
   let selectedEarningsJobId = null;
   let earningsJobData = null;
   let earningsJobLoading = false;
-  // Stripe Connect payout setup status (Aug 2026) -- fetched once when the
-  // Earnings tab is first opened via the read side of
-  // create-connect-onboarding-link.js. null = not yet fetched.
-  let connectOnboardingStatus = null;
-  let connectOnboardingLoading = false;
+  let payoutDetailsSaving = false;
   // My Profile tab (Sep 2026) -- self-service edit of details that were
   // previously frozen at signup forever. myProfileDrafts holds in-progress
   // edits keyed by field name, committed only on explicit Save (same
@@ -919,17 +915,14 @@
   // Profile bar (Sep 2026) -- shown above the tabs on EVERY tab, the
   // literal "give contractors profile and rating at the main page when
   // contractor signs in" ask, not buried one click into Earnings. Clicking
-  // it (or the payout pill) jumps straight to My Profile. Payout status is
-  // fetched lazily on first render since it's a network call -- shows a
-  // neutral state until that resolves rather than blocking the bar.
+  // it (or the payout pill) jumps straight to My Profile.
   function ctrProfileBarHtml(name, myJobsCompleted) {
     if (myProfileData === null && !myProfileLoading) loadMyProfile();
-    if (connectOnboardingStatus === null && !connectOnboardingLoading) loadConnectOnboardingStatus();
     const { avg, count } = computeContractorRatingStats(myJobsCompleted);
     const photo = myProfileData && myProfileData.profilePhoto;
     const initial = (name || '?').trim().charAt(0).toUpperCase();
-    const payoutOk = connectOnboardingStatus === 'complete';
-    const payoutLabel = connectOnboardingStatus === null ? 'Loading…' : (payoutOk ? '✓ Payments set up' : 'Payment setup needed');
+    const payoutOk = !!(myProfileData && myProfileData.payoutDetails && myProfileData.payoutDetails.complete);
+    const payoutLabel = myProfileData === null ? 'Loading…' : (payoutOk ? '✓ Bank details saved' : 'Bank details needed');
     return `
       <div class="ctr-profile-bar">
         <div class="ctr-profile-avatar">${photo ? `<img src="${photo}" alt="" />` : initial}</div>
@@ -1037,7 +1030,6 @@
   // Real data only throughout -- no invented ratings, demand, or counts.
   // ---------------------------------------------------------------------
   function renderOverviewTab(name, { feedJobs, myJobs, myJobsCompleted, myJobsAll, referralSectionHtml, isPausedForNewOffers }) {
-    if (connectOnboardingStatus === null && !connectOnboardingLoading) loadConnectOnboardingStatus();
     if (myProfileData === null && !myProfileLoading) loadMyProfile();
     const myApp = getApplications().find(a => a.business === name) || {};
 
@@ -1066,25 +1058,18 @@
     wireNotifyButton();
   }
 
-  // One real action item today: incomplete Stripe Connect payout setup.
-  // Deliberately not inventing "expired licence"/"missing documents"
-  // checks -- an approved, logged-in contractor's status is already
-  // gated server-side (see CONTRACTOR_BLOCKED_STATUSES below), so those
-  // conditions would block login entirely rather than surface as an
-  // in-app banner with real data behind it today.
   function overviewActionRequiredHtml() {
-    if (connectOnboardingStatus === null || connectOnboardingStatus === 'complete') return '';
-    const isPending = connectOnboardingStatus === 'pending';
+    if (!myProfileData || (myProfileData.payoutDetails && myProfileData.payoutDetails.complete)) return '';
     return `
       <div class="action-needed-card">
         <div style="display:flex;gap:12px;align-items:center;">
-          <div class="anc-icon">💳</div>
+          <div class="anc-icon">🏦</div>
           <div>
-            <div class="anc-title">${isPending ? 'Finish your payout setup' : 'Finish your payout setup'}</div>
-            <div class="anc-sub">${isPending ? "You started adding your bank details but didn't finish." : 'Complete your payout details to get ready for payments.'}</div>
+            <div class="anc-title">Add payout bank details</div>
+            <div class="anc-sub">Required before MySubbies can process your first contractor payment. This does not block job offers.</div>
           </div>
         </div>
-        <button class="btn btn-black" style="width:auto;flex-shrink:0;" onclick="startConnectOnboarding()" ${connectOnboardingLoading ? 'disabled' : ''}>${connectOnboardingLoading ? 'Loading…' : (isPending ? 'Continue setup →' : 'Complete setup →')}</button>
+        <button class="btn btn-black" style="width:auto;flex-shrink:0;" onclick="tab='profile';render();">Add details →</button>
       </div>`;
   }
 
@@ -1100,12 +1085,7 @@
     if (jobsLoadState === 'loading') {
       return `<div class="summary-card-grid">${Array.from({length:4}).map(() => '<div class="skel" style="height:88px;"></div>').join('')}</div>`;
     }
-    const payoutOk = connectOnboardingStatus === 'complete';
-    // Payouts card shows the real onboarding-gated state, not a $ amount --
-    // there's no per-contractor "amount currently pending transfer" read
-    // available today (weekly-payout.js processes batches, doesn't expose
-    // a live per-contractor pending total), so this card reports payout
-    // *readiness*, never a dollar estimate. See delivery notes.
+    const payoutOk = !!(myProfileData && myProfileData.payoutDetails && myProfileData.payoutDetails.complete);
     return `<div class="summary-card-grid">
       <div class="summary-card">
         <div class="summary-card-icon">📄</div>
@@ -1123,8 +1103,8 @@
         <div class="summary-card-label">Completed jobs</div>
       </div>
       <div class="summary-card">
-        <div class="summary-card-icon">💳</div>
-        <div class="summary-card-num" style="font-size:14px;">${connectOnboardingStatus === null ? 'Loading…' : (payoutOk ? 'Ready' : 'Setup needed')}</div>
+        <div class="summary-card-icon">🏦</div>
+        <div class="summary-card-num" style="font-size:14px;">${myProfileData === null ? 'Loading…' : (payoutOk ? 'Ready' : 'Details needed')}</div>
         <div class="summary-card-label">Payouts</div>
       </div>
     </div>`;
@@ -1515,6 +1495,9 @@
     if (!j) { selectedJobId = null; render(); return; }
     const isMine = j.contractor === name;
     const payout = Math.round(j.basePrice * 0.82);
+    const progressStage = j.operationalStage || 'accepted';
+    const nextProgress = { accepted:['scheduled','Confirm scheduled'], scheduled:['on_the_way','Mark on the way'], on_the_way:['started','Mark started'], started:['completed','Record work completed'] }[progressStage];
+    const progressHtml = isMine ? `<div class="note" style="margin:10px 0;"><strong>Job progress:</strong> ${escapeHtml(progressStage.replaceAll('_',' '))}${nextProgress ? `<button class="btn btn-outline" style="width:auto;margin:8px 0 0;display:block;" onclick="updateJobProgress('${j.id}','${nextProgress[0]}')">${nextProgress[1]}</button>` : ''}</div>` : '';
 
     let actions = '';
     if (!isMine) {
@@ -1569,6 +1552,7 @@
         ${j.site ? `<div class="row"><span class="l">On site</span><span class="r">${escapeHtml(j.site)}</span></div>` : ''}
         ${j.access ? `<div class="row"><span class="l">Access</span><span class="r">${escapeHtml(j.access)}</span></div>` : ''}
         ${j.urgency ? `<div class="row"><span class="l">Urgency</span><span class="r">${escapeHtml(j.urgency)}</span></div>` : ''}
+        ${progressHtml}
         ${!isMine ? '<div class="note">Full address is shared once you accept. Message the customer in-app — their phone number is not shared with contractors. No fee or commission is shown or deducted from what you see here.</div>' : ''}
         ${isMine ? '<div class="note">Keep all communication with the customer in the message thread below — their phone number isn\'t shared with contractors.</div>' : ''}
         ${actions}
@@ -1633,64 +1617,48 @@
   // enforce. A completed job is different -- by definition every milestone
   // is already resolved, so showing the real 82% payout per stage is just
   // reporting what happened, not promising anything.
-  // Stripe Connect payout setup (Aug 2026) -- the account itself and the
-  // weekly payout cron already existed; this is the first UI ever wired to
-  // it. Status: 'not_started' (no row yet) | 'pending' (account created,
-  // onboarding unfinished) | 'complete' (Stripe confirmed via the
-  // account.updated webhook -- eligible for the weekly auto-transfer of the
-  // deposit's 82% share).
-  async function loadConnectOnboardingStatus() {
-    connectOnboardingLoading = true;
-    try {
-      const email = localStorage.getItem('mysubbies_contractor_email');
-      const resp = await fetch('/api/create-connect-onboarding-link?contractorEmail=' + encodeURIComponent(email));
-      const data = await resp.json();
-      connectOnboardingStatus = data.onboardingStatus || 'not_started';
-    } catch (e) {
-      connectOnboardingStatus = 'not_started';
-    }
-    connectOnboardingLoading = false;
-    render();
-  }
-
-  async function startConnectOnboarding() {
-    connectOnboardingLoading = true;
-    render();
-    try {
-      const email = localStorage.getItem('mysubbies_contractor_email');
-      const resp = await fetch('/api/create-connect-onboarding-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contractorEmail: email, refreshUrl: location.href, returnUrl: location.href })
-      });
-      const data = await resp.json();
-      if (data.url) {
-        location.href = data.url;
-      } else {
-        connectOnboardingLoading = false;
-        showToast(data.error || 'Could not start payout setup. Please try again.');
-        render();
-      }
-    } catch (e) {
-      connectOnboardingLoading = false;
-      showToast('Could not start payout setup. Please try again.');
-      render();
-    }
-  }
-
   function payoutSetupCardHtml() {
-    if (connectOnboardingStatus === 'complete') {
-      return `<div class="box" style="margin-bottom:20px;border-color:var(--good);">
-        <div style="font-size:13px;font-weight:700;color:var(--good);">✓ Payout setup complete</div>
-        <div class="jobmeta">Your bank details are on file with Stripe — you're eligible for the weekly automatic deposit payout.</div>
-      </div>`;
-    }
-    const isPending = connectOnboardingStatus === 'pending';
-    return `<div class="box" style="margin-bottom:20px;">
-      <div style="font-size:13px;font-weight:700;margin-bottom:4px;">${isPending ? 'Finish setting up payments' : 'Set up payments'}</div>
-      <div class="jobmeta" style="margin-bottom:10px;">${isPending ? "You started adding your bank details but didn't finish — pick up where you left off." : 'Add your bank details with Stripe (takes about 5 minutes) so MySubbies can pay you.'}</div>
-      <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="startConnectOnboarding()" ${connectOnboardingLoading ? 'disabled' : ''}>${connectOnboardingLoading ? 'Loading…' : (isPending ? 'Continue setup →' : 'Set up payments →')}</button>
+    const details = (myProfileData && myProfileData.payoutDetails) || {};
+    return `<div class="box" style="margin-bottom:20px;${details.complete ? 'border-color:var(--good);' : ''}">
+      <div style="font-size:13px;font-weight:700;${details.complete ? 'color:var(--good);' : ''}">${details.complete ? '✓ Payout bank details complete' : 'Payout bank details'}</div>
+      ${details.complete ? `<div class="jobmeta" style="margin:6px 0 12px;">${escapeHtml(details.accountName)} · BSB ${escapeHtml(details.maskedBsb)} · Account ${escapeHtml(details.maskedAccountNumber)}${details.updatedAt ? ` · Updated ${new Date(details.updatedAt).toLocaleDateString('en-AU')}` : ''}</div>` : '<div class="jobmeta" style="margin:6px 0 12px;">Add these before your first payment. Missing details do not block job offers or acceptance.</div>'}
+      <div class="row2">
+        <div class="field"><label>Account name <span class="req">*</span></label><input id="payoutAccountName" type="text" maxlength="100" autocomplete="off" /></div>
+        <div class="field"><label>Bank name <span class="opt">(optional)</span></label><input id="payoutBankName" type="text" maxlength="100" autocomplete="off" /></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>BSB <span class="req">*</span></label><input id="payoutBsb" type="text" inputmode="numeric" maxlength="7" placeholder="123-456" autocomplete="off" /></div>
+        <div class="field"><label>Account number <span class="req">*</span></label><input id="payoutAccountNumber" type="password" inputmode="numeric" maxlength="10" autocomplete="new-password" /></div>
+      </div>
+      <label class="terms" style="margin:8px 0 12px;"><input type="checkbox" id="payoutConfirmed" /> I confirm these bank details are correct and belong to me/my business.</label>
+      <div id="payoutDetailsError" style="color:var(--warn);font-size:13px;margin-bottom:8px;"></div>
+      <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12px;" onclick="savePayoutDetails()" ${payoutDetailsSaving ? 'disabled' : ''}>${payoutDetailsSaving ? 'Saving…' : (details.complete ? 'Update bank details' : 'Save bank details')}</button>
     </div>`;
+  }
+
+  async function savePayoutDetails() {
+    const errorBox = document.getElementById('payoutDetailsError');
+    const body = { action: 'savePayoutDetails', email: localStorage.getItem('mysubbies_contractor_email'),
+      accessToken: await getContractorAccessToken(), accountName: document.getElementById('payoutAccountName').value,
+      bankName: document.getElementById('payoutBankName').value, bsb: document.getElementById('payoutBsb').value,
+      accountNumber: document.getElementById('payoutAccountNumber').value, confirmed: document.getElementById('payoutConfirmed').checked };
+    if (!body.accessToken) { errorBox.textContent = 'Please log out and back in, then try again.'; return; }
+    payoutDetailsSaving = true;
+    const button = errorBox.nextElementSibling;
+    if (button) { button.disabled = true; button.textContent = 'Saving…'; }
+    try {
+      const response = await fetch('/api/contractor-profile', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+      const result = await response.json();
+      if (!response.ok) { errorBox.textContent = result.error || 'Could not save bank details.'; return; }
+      if (myProfileData) myProfileData.payoutDetails = result.payoutDetails;
+      showToast('Payout bank details saved');
+      payoutDetailsSaving = false;
+      render();
+    } catch (error) { errorBox.textContent = 'Could not save bank details — check your connection.'; }
+    finally {
+      payoutDetailsSaving = false;
+      if (button && document.body.contains(button)) { button.disabled = false; button.textContent = 'Save bank details'; }
+    }
   }
 
   // ============================================================
@@ -1708,8 +1676,16 @@
     myProfileLoading = true;
     const email = localStorage.getItem('mysubbies_contractor_email');
     try {
-      const res = await fetch('/api/contractor-profile?email=' + encodeURIComponent(email));
+      const token = await getContractorAccessToken();
+      const res = await fetch('/api/contractor-profile?email=1', { headers: { Authorization: 'Bearer ' + token } });
       myProfileData = res.ok ? await res.json() : {};
+      if (res.ok && myProfileData.businessName) {
+        const applications = getApplications().filter(a => a.email !== email);
+        applications.unshift({ business: myProfileData.businessName, email,
+          trades: myProfileData.categories || [], regions: myProfileData.regions || [],
+          suburbs: myProfileData.suburbs || [], availability: myProfileData.availability || [], status: 'approved' });
+        localStorage.setItem('mysubbies_contractor_applications', JSON.stringify(applications));
+      }
     } catch (e) { myProfileData = {}; }
     myProfileLoading = false;
     render();
@@ -1726,6 +1702,8 @@
     ['phone', 'businessName', 'contactName', 'licence', 'insurer'].forEach(f => {
       if (Object.prototype.hasOwnProperty.call(myProfileDrafts, f)) body[f] = myProfileDrafts[f];
     });
+    if (Object.prototype.hasOwnProperty.call(myProfileDrafts, 'regions')) body.regions = myProfileDrafts.regions.split(',').map(v => v.trim()).filter(Boolean);
+    if (Object.prototype.hasOwnProperty.call(myProfileDrafts, 'suburbs')) body.suburbs = myProfileDrafts.suburbs.split(',').map(v => v.trim()).filter(Boolean);
     try {
       const res = await fetch('/api/contractor-profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await res.json();
@@ -1890,6 +1868,10 @@
         <label class="ctr-field-label">Approved trades</label>
         <div class="ctr-field-readonly">${(p.categories || []).map(c => escapeHtml(c)).join(', ') || '—'}</div>
         <div class="ctr-field-note">To add or change your approved trades, contact MySubbies.</div>
+        <label class="ctr-field-label">Service regions</label>
+        <input type="text" class="ctr-input" value="${escapeHtml(ctrDraft('regions', (p.regions || []).join(', ')))}" oninput="onCtrProfileFieldInput('regions', this.value)" placeholder="e.g. Northern Melbourne" />
+        <label class="ctr-field-label">Specific suburbs or postcodes</label>
+        <input type="text" class="ctr-input" value="${escapeHtml(ctrDraft('suburbs', (p.suburbs || []).filter(s => !(p.regions || []).includes(s)).join(', ')))}" oninput="onCtrProfileFieldInput('suburbs', this.value)" placeholder="e.g. Coburg, Brunswick, 3058" />
         <button class="btn btn-black" style="width:auto;padding:10px 20px;font-size:13px;margin-top:6px;" onclick="saveMyProfileDetails()">Save changes</button>
       </div>
     `;
@@ -2521,7 +2503,8 @@
     const email = localStorage.getItem('mysubbies_contractor_email');
     if (!email) return;
     try {
-      const res = await fetch('/api/notifications?role=contractor&email=' + encodeURIComponent(email));
+      const token = await getContractorAccessToken();
+      const res = await fetch('/api/notifications?role=contractor&email=1', { headers: { Authorization: 'Bearer ' + token } });
       if (!res.ok) return;
       const data = await res.json();
       notifItems = data.notifications || [];
@@ -2560,20 +2543,22 @@
       `).join('')}
     `;
   }
-  function markAllNotifsRead() {
+  async function markAllNotifsRead() {
     const email = localStorage.getItem('mysubbies_contractor_email');
     if (!email) return;
-    fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'markAllRead', role: 'contractor', email }) }).catch(() => {});
+    const token = await getContractorAccessToken();
+    fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ action: 'markAllRead', role: 'contractor', email }) }).catch(() => {});
     const now = new Date().toISOString();
     notifItems.forEach(n => { n.readAt = n.readAt || now; });
     notifUnreadCount = 0;
     renderNotifBadge();
     renderNotifPanel();
   }
-  function openNotif(id, jobId) {
+  async function openNotif(id, jobId) {
     const email = localStorage.getItem('mysubbies_contractor_email');
     if (email) {
-      fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'markRead', id, role: 'contractor', email }) }).catch(() => {});
+      const token = await getContractorAccessToken();
+      fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ action: 'markRead', id, role: 'contractor', email }) }).catch(() => {});
     }
     const item = notifItems.find(n => n.id === id);
     if (item && !item.readAt) { item.readAt = new Date().toISOString(); notifUnreadCount = Math.max(0, notifUnreadCount - 1); }
@@ -2612,7 +2597,37 @@
     }
     render();
   }
-  function declineJob(id) { selectedJobId = null; render(); }
+  async function declineJob(id) {
+    const token = await getContractorAccessToken();
+    if (!token) { showToast('Please log out and back in, then try again.'); return; }
+    try {
+      const response = await fetch('/api/sync-jobs', { method:'POST', headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+        body:JSON.stringify({ role:'contractor', jobs:[{ id, offerResponse:'declined' }] }) });
+      const result = await response.json();
+      if (!response.ok) { showToast(result.error || 'Could not decline this offer.'); return; }
+      localStorage.setItem('mysubbies_jobs', JSON.stringify(getJobs().filter(job => job.id !== id)));
+      selectedJobId = null;
+      showToast('Job offer declined');
+      render();
+    } catch (error) { showToast('Could not decline this offer — check your connection.'); }
+  }
+  async function updateJobProgress(id, operationalStage) {
+    const currentJob = getJobs().find(item => item.id === id);
+    if (operationalStage === 'completed' && (!currentJob || !(currentJob.beforePhotos || []).length || !(currentJob.afterPhotos || []).length)) {
+      showToast('Add at least one before and one after photo before recording completion.'); return;
+    }
+    const token = await getContractorAccessToken();
+    if (!token) { showToast('Please log out and back in, then try again.'); return; }
+    try {
+      const response = await fetch('/api/sync-jobs', { method:'POST', headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+        body:JSON.stringify({ role:'contractor', jobs:[{ id, operationalStage }] }) });
+      const result = await response.json();
+      if (!response.ok) { showToast(result.error || 'Could not update job progress.'); return; }
+      const jobs = getJobs(); const job = jobs.find(item => item.id === id);
+      if (job) { job.operationalStage = operationalStage; job.operationalStageUpdatedAt = new Date().toISOString(); localStorage.setItem('mysubbies_jobs', JSON.stringify(jobs)); }
+      showToast('Job progress updated'); render();
+    } catch (error) { showToast('Could not update job progress — check your connection.'); }
+  }
 
   // Mirrors requestCancelJob() in mysubbies-customer-portal.html -- once a
   // job is accepted, cancelling isn't self-service for the contractor
@@ -2722,7 +2737,7 @@
           <a onclick="renderForgotPassword()" style="text-decoration:underline;cursor:pointer;">Forgot password?</a>
         </div>
         <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:8px;">
-          Approved and logging in for the first time? <a onclick="renderActivateEntry()" style="font-weight:600;color:var(--ink);text-decoration:underline;cursor:pointer;">Activate your account</a>
+          Approved and logging in for the first time? Use the secure activation link in your approval email.
         </div>
         <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:8px;">
           Not registered yet? <a href="mysubbies-contractor-signup.html" style="font-weight:600;color:var(--ink);text-decoration:underline;">Apply to join</a>
@@ -2758,17 +2773,18 @@
     const errBox = document.getElementById('activateEntryError');
     if (!email) { errBox.textContent = 'Enter your email.'; return; }
     try {
-      const res = await fetch('/api/activate-contractor?email=' + encodeURIComponent(email));
+      const setupToken = new URLSearchParams(location.search).get('setup') || '';
+      const res = await fetch('/api/activate-contractor?email=' + encodeURIComponent(email) + '&setupToken=' + encodeURIComponent(setupToken));
       const info = await res.json();
-      if (!res.ok || !info.found) { errBox.textContent = "We couldn't find an application for that email."; return; }
+      if (!res.ok || !info.eligible) { errBox.textContent = 'This activation link is invalid or expired. Contact MySubbies support for a new link.'; return; }
       if (info.activated) { errBox.textContent = 'This account is already active — use the login form instead.'; return; }
       if (!isLoginEligibleStatus(info.status)) { errBox.textContent = "Your application isn't approved yet, so there's nothing to activate."; return; }
-      renderActivationForm(email, info.businessName);
+      renderActivationForm(email, info.businessName, setupToken);
     } catch (e) {
       errBox.textContent = 'Something went wrong — please try again.';
     }
   }
-  function renderActivationForm(email, businessName) {
+  function renderActivationForm(email, businessName, setupToken) {
     app.innerHTML = `
       <div class="loginbox">
         <h1>Create your password</h1>
@@ -2777,13 +2793,13 @@
         <input type="password" id="activatePassword" placeholder="New password (min 8 characters)" style="margin-bottom:10px;" />
         <input type="password" id="activatePasswordConfirm" placeholder="Confirm password" style="margin-bottom:14px;" />
         <div id="activateError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
-        <button class="btn btn-black btn-full" id="activateSubmitBtn" onclick="activateContractorAccount('${email.replace(/'/g, "\\'")}')">Activate &amp; log in →</button>
+        <button class="btn btn-black btn-full" id="activateSubmitBtn" onclick="activateContractorAccount('${email.replace(/'/g, "\\'")}', '${String(setupToken || '').replace(/'/g, "\\'")}')">Activate &amp; log in →</button>
         <div style="text-align:center;font-size:13px;color:var(--stone);margin-top:14px;">
           <a onclick="renderLogin()" style="text-decoration:underline;cursor:pointer;">Back to log in</a>
         </div>
       </div>`;
   }
-  async function activateContractorAccount(email) {
+  async function activateContractorAccount(email, setupToken) {
     const password = document.getElementById('activatePassword').value;
     const confirmPassword = document.getElementById('activatePasswordConfirm').value;
     const errBox = document.getElementById('activateError');
@@ -2805,7 +2821,7 @@
             btn.disabled = false; btn.textContent = 'Activate & log in →';
             return;
           }
-          await finishActivation(email, signInData.session.access_token);
+          await finishActivation(email, signInData.session.access_token, setupToken);
           return;
         }
         errBox.textContent = error.message || 'Could not create your account.';
@@ -2826,18 +2842,18 @@
           </div>`;
         return;
       }
-      await finishActivation(email, data.session.access_token);
+      await finishActivation(email, data.session.access_token, setupToken);
     } catch (e) {
       errBox.textContent = 'Something went wrong — please try again.';
       btn.disabled = false; btn.textContent = 'Activate & log in →';
     }
   }
-  async function finishActivation(email, accessToken) {
+  async function finishActivation(email, accessToken, setupToken) {
     const errBox = document.getElementById('activateError');
     try {
       const res = await fetch('/api/activate-contractor', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, accessToken }),
+        body: JSON.stringify({ email, accessToken, setupToken }),
       });
       const result = await res.json();
       if (!res.ok) { if (errBox) errBox.textContent = result.error || 'Could not activate your account.'; return; }
@@ -2892,54 +2908,19 @@
     // local application record — that's what makes this work cross-device.
     let verified = false;
     let remoteStatus = null; // real status from the `contractors` table, when available
-    let knownAuthUserId = null;
-    let contractorInfo = null; // { found, activated, status, businessName } -- see api/activate-contractor.js
     if (sb) {
-      // contractors' RLS only lets a row's own already-authenticated owner
-      // select it (auth.uid() = auth_user_id) -- an anonymous pre-login
-      // lookup by email via this browser's own Supabase client always
-      // returns nothing, so this has to go through a real server endpoint
-      // (service-role, bypasses RLS) instead of sb.from('contractors')...
-      try {
-        const lookupRes = await fetch('/api/activate-contractor?email=' + encodeURIComponent(email));
-        if (lookupRes.ok) contractorInfo = await lookupRes.json();
-      } catch (e) { /* offline/hiccup -- falls through to the existing behaviour below */ }
-      knownAuthUserId = !!(contractorInfo && contractorInfo.activated);
       const { data: authData, error } = await sb.auth.signInWithPassword({ email, password });
       verified = !error;
       if (verified) {
+        const setupToken = new URLSearchParams(location.search).get('setup');
+        if (setupToken) { await finishActivation(email, authData.session.access_token, setupToken); return; }
         const { data: profile } = await sb.from('contractors').select('status').eq('auth_user_id', authData.user.id).maybeSingle();
         if (profile) remoteStatus = profile.status;
       }
     }
     if (!verified) {
-      // Once an account has a real Supabase Auth identity, the plaintext
-      // local-application-password comparison below must never run for it
-      // again -- otherwise a wrong Supabase password would silently
-      // succeed via the old local copy. Same gate as the customer portal.
-      if (knownAuthUserId) { errBox.textContent = 'This account already has a secure login. If you\'ve forgotten your password, contact MySubbies support.'; return; }
-      // Founding 100 signup redesign (Sep 2026) removed the password field
-      // from mysubbies-contractor-signup.html -- an approved contractor
-      // with a real server row but no auth_user_id yet has never activated
-      // their account, so there's no legacy password to compare against
-      // for them below. Route to the "create your password" step instead
-      // of a dead-end "No account found" error.
-      if (contractorInfo && contractorInfo.found && !contractorInfo.activated && isLoginEligibleStatus(contractorInfo.status)) {
-        renderActivationForm(email, contractorInfo.businessName);
-        return;
-      }
-      if (!application || application.password !== password) { errBox.textContent = 'No account found with those details.'; return; }
-      if (sb) {
-        sb.auth.signUp({ email, password }).then(({ data }) => {
-          if (data?.user) {
-            sb.from('contractors').insert({
-              auth_user_id: data.user.id, email, business_name: application.business,
-              abn: application.abn, acn: application.acn, phone: application.phone,
-              categories: application.trades || [],
-            }).then(() => {});
-          }
-        });
-      }
+      errBox.textContent = 'No account found with those details. First-time users must use the secure link in their approval email.';
+      return;
     }
 
     // The real `contractors.status` (kept in sync by the admin portal's
@@ -2948,7 +2929,7 @@
     // different device than this one still apply correctly. Local
     // application.status is only the fallback for accounts that have
     // never synced a real status yet.
-    const effectiveStatus = remoteStatus || (application && application.status);
+    const effectiveStatus = remoteStatus;
     const businessName = (application && application.business) || 'your business';
     const contactName = (application && application.contact) || 'there';
 
@@ -3005,6 +2986,12 @@
   Promise.all([hydrateJobsFromServer(), hydrateAdminMessages()]).then(([jobsOk]) => {
     jobsLoadState = jobsOk ? 'ready' : 'error';
     render();
+    const params = new URLSearchParams(location.search);
+    if (!getContractorName() && params.get('setup') && params.get('email')) {
+      renderActivateEntry();
+      document.getElementById('activateEmail').value = params.get('email');
+      checkActivationEligibility();
+    }
   });
   hydrateInquiriesFromServer(localStorage.getItem('mysubbies_contractor_email')).then(() => { if (document.getElementById('inquiryFormWrap')) renderInquiryPanel(); });
 </script>
