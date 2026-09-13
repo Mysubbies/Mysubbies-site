@@ -22,14 +22,16 @@ module.exports = async (req, res) => {
     const lastName = clean(req.body && req.body.lastName);
     const phone = clean(req.body && req.body.phone);
     const metadata = user.user_metadata || {};
-    const name = clean(`${firstName || metadata.first_name || ''} ${lastName || metadata.last_name || ''}`);
-    const resolvedPhone = phone || clean(metadata.phone);
-    if (!name || !resolvedPhone) { res.status(400).json({ error: 'First name, last name and mobile are required.' }); return; }
+    const suppliedName = clean(`${firstName || metadata.first_name || ''} ${lastName || metadata.last_name || ''}`);
+    const suppliedPhone = phone || clean(metadata.phone);
 
     const { data: linked, error: linkedError } = await supabase.from('customers')
       .select('id, auth_user_id, email, name, phone').eq('auth_user_id', user.id).maybeSingle();
     if (linkedError) throw linkedError;
     if (linked) {
+      const name = suppliedName || linked.name;
+      const resolvedPhone = suppliedPhone || linked.phone;
+      if (!name || !resolvedPhone) { res.status(400).json({ error: 'Customer name and mobile are required.' }); return; }
       const { data, error } = await supabase.from('customers').update({ name, phone: resolvedPhone })
         .eq('id', linked.id).select('id, email, name, phone').single();
       if (error) throw error;
@@ -43,8 +45,11 @@ module.exports = async (req, res) => {
       if (emailProfile.auth_user_id && emailProfile.auth_user_id !== user.id) {
         res.status(409).json({ error: 'This customer profile is already linked to another login.' }); return;
       }
+      const name = suppliedName || emailProfile.name;
+      const resolvedPhone = suppliedPhone || emailProfile.phone;
+      if (!name || !resolvedPhone) { res.status(400).json({ error: 'Customer name and mobile are required.' }); return; }
       const { data, error } = await supabase.from('customers')
-        .update({ auth_user_id: user.id, name: name || emailProfile.name, phone: resolvedPhone || emailProfile.phone })
+        .update({ auth_user_id: user.id, name, phone: resolvedPhone })
         .eq('id', emailProfile.id).is('auth_user_id', null).select('id, email, name, phone').single();
       if (error) throw error;
       res.status(200).json({ customer: data, linked: true }); return;
@@ -53,15 +58,16 @@ module.exports = async (req, res) => {
     // A mobile number alone is not proof that two email identities are the
     // same person. Refuse the ambiguous merge rather than expose or take over
     // another customer's booking history.
+    if (!suppliedName || !suppliedPhone) { res.status(400).json({ error: 'First name, last name and mobile are required.' }); return; }
     const { data: phoneProfiles, error: phoneError } = await supabase.from('customers')
-      .select('id, email').eq('phone', resolvedPhone).limit(1);
+      .select('id, email').eq('phone', suppliedPhone).limit(1);
     if (phoneError) throw phoneError;
     if (phoneProfiles && phoneProfiles.length) {
       res.status(409).json({ error: 'A customer profile already uses this mobile with a different email. Please contact support.' }); return;
     }
 
     const { data: created, error: createError } = await supabase.from('customers')
-      .insert({ auth_user_id: user.id, email, name, phone: resolvedPhone }).select('id, email, name, phone').single();
+      .insert({ auth_user_id: user.id, email, name: suppliedName, phone: suppliedPhone }).select('id, email, name, phone').single();
     if (createError) throw createError;
     res.status(201).json({ customer: created, linked: true });
   } catch (error) {

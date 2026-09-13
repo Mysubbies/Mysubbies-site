@@ -64,7 +64,9 @@
   .crm-nav button:disabled { cursor:not-allowed; opacity:.5; }
   .crm-nav button.active { box-shadow:inset 3px 0 #FF6A1A; }
   .crm-sidebar-foot { position:absolute; left:26px; bottom:22px; color:#8F9AB0; font-size:10.5px; }
+  .coverage-map { width:100%; min-height:520px; border:1px solid var(--line); border-radius:14px; background:#EEF1F5; }
   body.logged-out .crm-sidebar { display:none; }
+  body.logged-out .navlinks { display:none; }
   body.logged-out .admin-shell { display:block; }
   .wrap { max-width:1220px; width:100%; margin:0 auto; padding:32px 30px 80px; min-width:0; }
   .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 18px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; border:none; }
@@ -308,6 +310,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<script src="js/address-autocomplete.js"></script>
 <meta name="theme-color" content="#14213D">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -340,7 +343,9 @@
       <button data-tab="overview" onclick="setAdminTab('overview')">□ &nbsp; Jobs</button>
       <button data-tab="projects" onclick="setAdminTab('projects')">◇ &nbsp; Projects</button>
       <button data-tab="contractors" onclick="setAdminTab('contractors')">◉ &nbsp; Contractors</button>
+      <button data-tab="coverage" onclick="setAdminTab('coverage')">⌖ &nbsp; Coverage map</button>
       <button data-tab="customers" onclick="setAdminTab('customers')">◎ &nbsp; Customers</button>
+      <button data-tab="leads" onclick="setAdminTab('leads')">◈ &nbsp; Leads</button>
       <button data-tab="payments" onclick="setAdminTab('payments')">＄ &nbsp; Finance</button>
       <button data-tab="support" onclick="setAdminTab('support')">◌ &nbsp; Support</button>
       <button data-tab="reports" onclick="setAdminTab('reports')">↗ &nbsp; Reports</button>
@@ -409,7 +414,8 @@
       const data = await res.json();
       if (!res.ok) { document.getElementById('adminLoginError').textContent = data.error || 'Incorrect password.'; return; }
       localStorage.setItem('mysubbies_admin_token', data.token);
-      Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer()]).then(render);
+      document.body.classList.remove('logged-out');
+      Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer(), hydrateDisputesFromServer(), hydrateInquiriesFromServer()]).then(render);
     } catch (e) {
       document.getElementById('adminLoginError').textContent = 'Login failed — check your connection and try again.';
     }
@@ -462,8 +468,9 @@
   let selectedJobId = null;
   let jobSearchQuery = '';
   let selectedCustomerEmail = null;
+  let selectedCustomerId = null;
   const app = document.getElementById('app');
-  function setAdminTab(nextTab) { tab = nextTab; selectedJobId = null; render(); }
+  function setAdminTab(nextTab) { tab = nextTab; selectedJobId = null; selectedCustomerId = null; selectedCustomerEmail = null; render(); }
   function updateCrmNav() {
     document.querySelectorAll('#crmNav button').forEach(button => button.classList.toggle('active', button.dataset.tab === tab));
   }
@@ -981,6 +988,143 @@
     `;
   }
 
+  let coverageStatusFilter = 'all';
+  let coverageTradeFilter = 'all';
+  let googleMapsLoadPromise = null;
+  function contractorHasMapLocation(application) {
+    const location = application && application.location;
+    return !!(location && location.verified === true && Number.isFinite(Number(location.latitude)) &&
+      Number.isFinite(Number(location.longitude)) && Number(location.latitude) >= -44.5 &&
+      Number(location.latitude) <= -9 && Number(location.longitude) >= 112 && Number(location.longitude) <= 154);
+  }
+  function filteredCoverageContractors(applications) {
+    return (applications || []).filter(application => {
+      const statusMatches = coverageStatusFilter === 'all' || (application.status || 'manual_review') === coverageStatusFilter;
+      const trades = Array.isArray(application.trades) ? application.trades : (application.trades ? [application.trades] : []);
+      return statusMatches && (coverageTradeFilter === 'all' || trades.includes(coverageTradeFilter));
+    });
+  }
+  function renderContractorCoverageTab(applications) {
+    const statuses = [...new Set((applications || []).map(a => a.status || 'manual_review'))].sort();
+    const trades = [...new Set((applications || []).flatMap(a => Array.isArray(a.trades) ? a.trades : (a.trades ? [a.trades] : [])))].sort();
+    const filtered = filteredCoverageContractors(applications);
+    const mapped = filtered.filter(contractorHasMapLocation);
+    const unmapped = filtered.filter(a => !contractorHasMapLocation(a));
+    return `
+      <h1 class="pagetitle">Contractor coverage</h1>
+      <p class="pagesub">Verified contractor signup locations update this internal map automatically. Exact addresses are visible to authorised admins only.</p>
+      <div class="statgrid">
+        <div class="statcard"><div class="num">${mapped.length}</div><div class="lab">Mapped contractors</div></div>
+        <div class="statcard"><div class="num">${unmapped.length}</div><div class="lab">Need verified address</div></div>
+        <div class="statcard"><div class="num">${new Set(mapped.map(a => a.location && a.location.suburb).filter(Boolean)).size}</div><div class="lab">Suburbs covered</div></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;">
+        <select class="searchbox" style="width:auto;margin:0;" onchange="coverageStatusFilter=this.value;render();">
+          <option value="all">All statuses</option>${statuses.map(s => `<option value="${escapeHtml(s)}" ${coverageStatusFilter===s?'selected':''}>${escapeHtml(s.replace(/_/g,' '))}</option>`).join('')}
+        </select>
+        <select class="searchbox" style="width:auto;margin:0;" onchange="coverageTradeFilter=this.value;render();">
+          <option value="all">All trades</option>${trades.map(t => `<option value="${escapeHtml(t)}" ${coverageTradeFilter===t?'selected':''}>${escapeHtml(t)}</option>`).join('')}
+        </select>
+      </div>
+      <div id="contractorCoverageMap" class="coverage-map" role="region" aria-label="Contractor coverage map"><div class="empty">Loading map…</div></div>
+      ${unmapped.length ? `<div class="detailcard" style="margin-top:16px;"><h2 style="font-size:15px;margin-bottom:8px;">Missing verified locations (${unmapped.length})</h2>${unmapped.map(a => `<div class="row"><span class="l">${escapeHtml(a.business || a.contact || a.email)}</span><span class="r" style="display:flex;align-items:center;gap:8px;"><span>${escapeHtml(a.address || 'No address')}</span><button class="btn btn-outline" style="width:auto;padding:5px 10px;font-size:11.5px;" onclick="openContractorEditor('${a.contractorId || a.id}')">Edit &amp; verify</button></span></div>`).join('')}</div>` : ''}
+    `;
+  }
+  async function loadGoogleMapsForAdmin() {
+    if (window.google && window.google.maps && window.google.maps.Map) return window.google.maps;
+    if (googleMapsLoadPromise) return googleMapsLoadPromise;
+    googleMapsLoadPromise = (async () => {
+      const configRes = await fetch('/api/geocode-distance?config=places', { credentials: 'same-origin' });
+      const config = await configRes.json();
+      if (!configRes.ok || !config.enabled || !config.browserKey) throw new Error('Google Maps is not configured.');
+      await new Promise((resolve, reject) => {
+        const callback = '__mysubbiesAdminMapReady';
+        window[callback] = () => { delete window[callback]; resolve(); };
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(config.browserKey)}&v=weekly&callback=${callback}`;
+        script.async = true; script.onerror = () => reject(new Error('Google Maps could not load.'));
+        document.head.appendChild(script);
+      });
+      return window.google.maps;
+    })().catch(error => { googleMapsLoadPromise = null; throw error; });
+    return googleMapsLoadPromise;
+  }
+  async function initialiseContractorCoverageMap() {
+    const mapElement = document.getElementById('contractorCoverageMap');
+    if (!mapElement) return;
+    const mapped = filteredCoverageContractors(getApplications()).filter(contractorHasMapLocation);
+    if (!mapped.length) { mapElement.innerHTML = '<div class="empty">No contractors with verified coordinates match these filters.</div>'; return; }
+    try {
+      const maps = await loadGoogleMapsForAdmin();
+      if (!document.getElementById('contractorCoverageMap')) return;
+      const bounds = new maps.LatLngBounds();
+      const map = new maps.Map(mapElement, { center: { lat: -37.8136, lng: 144.9631 }, zoom: 9, mapTypeControl: false, streetViewControl: false });
+      const info = new maps.InfoWindow();
+      mapped.forEach(application => {
+        const position = { lat: Number(application.location.latitude), lng: Number(application.location.longitude) };
+        bounds.extend(position);
+        const marker = new maps.Marker({ map, position, title: application.business || application.contact || 'Contractor' });
+        marker.addListener('click', () => {
+          const trades = Array.isArray(application.trades) ? application.trades.join(', ') : (application.trades || '—');
+          info.setContent(`<div style="max-width:260px;font-family:Arial,sans-serif"><strong>${escapeHtml(application.business || application.contact || 'Contractor')}</strong><br>${escapeHtml(application.location.formattedAddress || application.address || '')}<br><span>${escapeHtml(trades)} · ${escapeHtml(application.status || 'manual review')}</span></div>`);
+          info.open({ map, anchor: marker });
+        });
+      });
+      if (mapped.length === 1) { map.setCenter(bounds.getCenter()); map.setZoom(12); } else map.fitBounds(bounds, 50);
+    } catch (error) {
+      mapElement.innerHTML = `<div class="empty">${escapeHtml(error.message || 'The map could not load.')}</div>`;
+    }
+  }
+
+  function openContractorEditor(contractorId) {
+    const application = getApplications().find(a => (a.contractorId || a.id) === contractorId);
+    if (!application) { alert('Contractor record not found. Refresh and try again.'); return; }
+    document.getElementById('contractorEditorModal')?.remove();
+    document.body.insertAdjacentHTML('beforeend', `
+      <div id="contractorEditorModal" style="position:fixed;inset:0;background:rgba(10,20,38,.56);z-index:300;display:flex;align-items:center;justify-content:center;padding:18px;" onclick="if(event.target===this) closeContractorEditor();">
+        <div style="background:#fff;border-radius:16px;padding:24px;max-width:590px;width:100%;max-height:90vh;overflow:auto;">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:16px;"><h2 style="font-size:19px;">Edit contractor</h2><button onclick="closeContractorEditor()" style="border:0;background:none;font-size:21px;cursor:pointer;">✕</button></div>
+          <label style="display:block;margin-bottom:10px;"><span class="fieldlabel">Business name</span><input class="fieldinput" id="contractorEditBusiness" value="${escapeHtml(application.business || '')}"></label>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:10px;">
+            <label><span class="fieldlabel">Contact name</span><input class="fieldinput" id="contractorEditContact" value="${escapeHtml(application.contact || '')}"></label>
+            <label><span class="fieldlabel">Phone</span><input class="fieldinput" id="contractorEditPhone" value="${escapeHtml(application.phone || '')}"></label>
+          </div>
+          <label style="display:block;margin-bottom:10px;"><span class="fieldlabel">Login email</span><input class="fieldinput" value="${escapeHtml(application.email || '')}" disabled><span style="font-size:11px;color:var(--stone);">Email identity changes require a separate account migration.</span></label>
+          <label style="display:block;position:relative;"><span class="fieldlabel">Verified business address</span><input class="fieldinput" id="contractorEditAddress" value="${escapeHtml((application.location && application.location.formattedAddress) || application.address || '')}" autocomplete="street-address"></label>
+          <div id="contractorEditAddressStatus" style="font-size:11.5px;color:var(--stone);margin-top:5px;">Select the correct address from the suggestions.</div>
+          <div id="contractorEditError" style="font-size:12px;color:var(--warn);margin-top:10px;"></div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn btn-outline" style="width:auto;" onclick="closeContractorEditor()">Cancel</button><button class="btn btn-black" id="contractorEditSave" style="width:auto;" onclick="saveContractorProfile('${contractorId}')">Save contractor</button></div>
+        </div>
+      </div>`);
+    window.MySubbiesAddress.attach('contractorEditAddress', { statusId: 'contractorEditAddressStatus' });
+  }
+  function closeContractorEditor() { document.getElementById('contractorEditorModal')?.remove(); }
+  async function saveContractorProfile(contractorId) {
+    const location = window.MySubbiesAddress.getSelection('contractorEditAddress');
+    const errorEl = document.getElementById('contractorEditError');
+    if (!location) { if (errorEl) errorEl.textContent = 'Select the address from the Google suggestions before saving.'; return; }
+    const saveButton = document.getElementById('contractorEditSave');
+    if (saveButton) saveButton.disabled = true;
+    try {
+      const res = await adminFetch('/api/admin-account', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        role: 'contractor', action: 'updateProfile', contractorId,
+        business: document.getElementById('contractorEditBusiness').value,
+        contact: document.getElementById('contractorEditContact').value,
+        phone: document.getElementById('contractorEditPhone').value,
+        address: location.formattedAddress, addressLocation: location,
+      }) });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Could not save contractor.');
+      closeContractorEditor();
+      await hydrateApplicationsFromServer();
+      render();
+      showToast('Contractor updated and mapped');
+    } catch (error) {
+      if (errorEl) errorEl.textContent = error.message || 'Could not save contractor.';
+      if (saveButton) saveButton.disabled = false;
+    }
+  }
+
   let customersStatusFilter = 'all';
   function customersStatusFilterChipsHtml(customers) {
     const statusOf = c => c.status === 'deactivated' ? 'deactivated' : 'active';
@@ -1459,7 +1603,12 @@
 
   function renderInner() {
     if (selectedJobId) { renderDetail(); return; }
-    if (selectedCustomerEmail) { renderCustomerDetail(); return; }
+    if (selectedCustomerId || selectedCustomerEmail) {
+      app.innerHTML = renderCustomerDetail();
+      initialiseCustomerAddressEditor();
+      updateCrmNav();
+      return;
+    }
     const jobs = getJobs();
     // Cancelled jobs never actually earn MySubbies anything -- counting
     // them here overstated commission and gross job value with money that
@@ -1484,6 +1633,7 @@
     if (!paymentTabData && !paymentTabLoading) loadPaymentScheduleTab();
     if (unreadContractorMessageCount === null && !unreadContractorMessageLoading) loadUnreadContractorMessageCount();
     if ((tab === 'customers' || tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !customersTabData && !customersTabLoading) loadCustomersTab();
+    if (tab === 'leads' && !leadsTabData && !leadsTabLoading) loadLeadsTab();
     if ((tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !quotesTabData && !quotesTabLoading) loadQuotesTab();
     if (!staffListData && !staffListLoading) loadStaffList();
     if (tab === 'messages' && !messageThreadsData && !messageThreadsLoading) loadMessageThreads();
@@ -1583,7 +1733,7 @@
               : jobsTableHtml(filtered);
           })()}
         `}
-      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
+      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
     } catch (e) {
       console.error('Tab render error on tab=' + tab, e);
       tabContentHtml = `
@@ -1620,6 +1770,7 @@
       ${openContractorThreadEmail ? contractorThreadModalHtml() : ''}
     `;
     if (tab === 'ratecard') wireRateCardTab();
+    if (tab === 'coverage') initialiseContractorCoverageMap();
     if (openContractorThreadEmail) renderContractorThreadList();
     wireNotifyButton();
     updateCrmNav();
@@ -2494,6 +2645,43 @@
   let customerSearchQuery = '';
   let contractorSearchQuery = '';
   let contractorsStatusFilter = 'all';
+  let leadsTabData = null;
+  let leadsTabLoading = false;
+  let leadsStageFilter = 'all';
+  let leadSearchQuery = '';
+
+  async function loadLeadsTab() {
+    if (leadsTabLoading) return;
+    leadsTabLoading = true;
+    try {
+      const res = await adminFetch('/api/get-admin-list?type=leads');
+      const body = await res.json();
+      leadsTabData = res.ok ? { rows: body.leads || [] } : { error: body.error || 'Could not load leads.' };
+    } catch (e) { leadsTabData = { error: 'Could not load leads.' }; }
+    leadsTabLoading = false;
+    render();
+  }
+
+  function renderLeadsTab() {
+    if (!leadsTabData) return '<h1 class="pagetitle">Leads</h1><div class="empty">Loading…</div>';
+    if (leadsTabData.error) return `<h1 class="pagetitle">Leads</h1><div class="empty">${escapeHtml(leadsTabData.error)}<br><br>The lead migration may still need to be applied.</div>`;
+    const all = leadsTabData.rows;
+    const stages = ['all', 'NEW', 'QUOTE_REQUESTED', 'BOOKING_STARTED', 'BOOKED', 'LOST'];
+    const q = leadSearchQuery.trim().toLowerCase();
+    const rows = all.filter(lead => (leadsStageFilter === 'all' || lead.stage === leadsStageFilter) && (!q || [lead.name, lead.email, lead.mobile, lead.requested_service, lead.suburb, lead.utm_campaign].some(value => String(value || '').toLowerCase().includes(q))));
+    return `
+      <h1 class="pagetitle">Leads</h1>
+      <p class="pagesub">${all.length} captured customer booking lead${all.length === 1 ? '' : 's'}. Current capture begins when a signed-in customer reaches the booking/payment step.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${stages.map(stage => {
+        const count = stage === 'all' ? all.length : all.filter(lead => lead.stage === stage).length;
+        const active = leadsStageFilter === stage;
+        const label = stage === 'all' ? 'All' : stage.replaceAll('_', ' ').toLowerCase().replace(/^./, c => c.toUpperCase());
+        return `<button onclick="leadsStageFilter='${stage}';render();" style="padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;border:1.5px solid ${active ? 'var(--ink)' : 'var(--line)'};background:${active ? 'var(--ink)' : '#fff'};color:${active ? '#fff' : 'var(--ink)'};cursor:pointer;">${label} (${count})</button>`;
+      }).join('')}</div>
+      <input class="searchbox" placeholder="Search name, contact, service, suburb or campaign…" value="${escapeHtml(leadSearchQuery)}" oninput="leadSearchQuery=this.value;render();">
+      ${rows.length === 0 ? '<div class="empty">No leads match these filters.</div>' : `<div class="tablewrap"><table><thead><tr><th>Customer</th><th>Service</th><th>Suburb</th><th>Source</th><th>Campaign</th><th>Stage</th><th>Created</th></tr></thead><tbody>${rows.map(lead => `<tr><td><strong>${escapeHtml(lead.name || '(no name)')}</strong><br><span style="font-size:11.5px;color:var(--stone);">${escapeHtml(lead.email || '')}${lead.mobile ? ' · ' + escapeHtml(lead.mobile) : ''}</span></td><td>${escapeHtml(lead.requested_service || '—')}</td><td>${escapeHtml(lead.suburb || '—')}</td><td>${escapeHtml(lead.utm_source || lead.source || 'direct')}</td><td>${escapeHtml(lead.utm_campaign || '—')}</td><td><span class="badge">${escapeHtml((lead.stage || 'NEW').replaceAll('_', ' '))}</span></td><td>${lead.created_at ? new Date(lead.created_at).toLocaleDateString('en-AU') : '—'}</td></tr>`).join('')}</tbody></table></div>`}
+    `;
+  }
 
   async function loadCustomersTab() {
     if (customersTabLoading) return;
@@ -2555,7 +2743,7 @@
           </div>
           <div class="row"><span class="l">Registered</span><span class="r">${c.created_at ? new Date(c.created_at).toLocaleDateString('en-AU') : '—'}</span></div>
           <div style="display:flex;gap:8px;margin-top:14px;">
-            <button class="btn btn-outline" style="flex:1;" onclick="selectedCustomerEmail='${escapeHtml(c.email)}'; render();">View</button>
+            <button class="btn btn-outline" style="flex:1;" onclick="openCustomerDetail('${c.id}')">View</button>
             ${c.status === 'deactivated'
               ? `<button class="btn btn-outline" style="flex:1;" onclick="reactivateCustomer('${escapeHtml(c.email)}')">Reactivate</button>`
               : `<button class="btn btn-outline" style="flex:1;" onclick="deactivateCustomer('${escapeHtml(c.email)}')">Deactivate</button>`}
@@ -2573,18 +2761,84 @@
   // needed for jobs/inquiries; api/quotes.js's own `list` action supplies
   // the only genuinely new data source.
   // ============================================================
+  function openCustomerDetail(customerId) {
+    const c = (customersTabData && customersTabData.rows || []).find(row => row.id === customerId);
+    if (!c) return;
+    selectedCustomerId = c.id;
+    selectedCustomerEmail = c.email;
+    render();
+  }
+
+  async function saveCustomerProfile(customerId) {
+    const nameInput = document.getElementById('customerEditName');
+    const phoneInput = document.getElementById('customerEditPhone');
+    const emailInput = document.getElementById('customerEditEmail');
+    const addressInput = document.getElementById('customerEditAddress');
+    const errorEl = document.getElementById('customerEditError');
+    const saveButton = document.getElementById('customerEditSave');
+    if (!nameInput || !phoneInput || !emailInput || !addressInput) return;
+    const originalAddress = addressInput.dataset.originalAddress || '';
+    const addressChanged = addressInput.value.trim() !== originalAddress;
+    const addressLocation = addressChanged && window.MySubbiesAddress ? window.MySubbiesAddress.getSelection('customerEditAddress') : null;
+    if (addressChanged && !addressLocation) {
+      if (errorEl) errorEl.textContent = 'Select the customer address from the Google suggestions before saving.';
+      return;
+    }
+    if (saveButton) saveButton.disabled = true;
+    if (errorEl) errorEl.textContent = '';
+    try {
+      const res = await adminFetch('/api/admin-account', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'customer', action: 'updateProfile', customerId,
+          name: nameInput.value, phone: phoneInput.value, newEmail: emailInput.value, addressLocation }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Could not save customer.');
+      const index = customersTabData.rows.findIndex(row => row.id === customerId);
+      if (index >= 0) customersTabData.rows[index] = { ...customersTabData.rows[index], ...body.customer };
+      selectedCustomerEmail = body.customer.email;
+      showToast('Customer updated');
+      render();
+    } catch (error) {
+      if (errorEl) errorEl.textContent = error.message || 'Could not save customer.';
+      if (saveButton) saveButton.disabled = false;
+    }
+  }
+
+  function initialiseCustomerAddressEditor() {
+    const input = document.getElementById('customerEditAddress');
+    if (!input || !window.MySubbiesAddress) return;
+    window.MySubbiesAddress.attach('customerEditAddress', { statusId: 'customerEditAddressStatus' });
+  }
+
   function renderCustomerDetail() {
-    const email = selectedCustomerEmail;
-    const c = (customersTabData && customersTabData.rows || []).find(x => x.email === email);
+    const c = (customersTabData && customersTabData.rows || []).find(x => x.id === selectedCustomerId) ||
+      (customersTabData && customersTabData.rows || []).find(x => x.email === selectedCustomerEmail);
+    if (!c) return '<div class="empty">Customer not found. <button class="btn btn-outline" onclick="selectedCustomerId=null;selectedCustomerEmail=null;render();">Back</button></div>';
+    const email = c.email;
     const jobs = getJobs().filter(j => j.customerEmail === email);
     const inquiries = getInquiries().filter(i => i.email === email);
     const quotes = (quotesTabData && quotesTabData.rows || []).filter(q => q.customer && q.customer.email === email);
     const jobBadgeClass = { feed: 'badge-feed', assigned: 'badge-assigned', completed: 'badge-completed', cancellation_requested: 'badge-rejected', cancelled: 'badge-rejected' };
     const jobBadgeLabel = { feed: 'Awaiting contractor', assigned: 'Assigned', completed: 'Completed', cancellation_requested: 'Cancellation requested', cancelled: 'Cancelled' };
     return `
-      <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;margin-bottom:14px;" onclick="selectedCustomerEmail=null; render();">← Back to Customers</button>
+      <button class="btn btn-outline" style="width:auto;padding:8px 14px;font-size:12.5px;margin-bottom:14px;" onclick="selectedCustomerId=null; selectedCustomerEmail=null; render();">← Back to Customers</button>
       <h1 class="pagetitle">${escapeHtml((c && c.name) || email)}</h1>
       <p class="pagesub">${escapeHtml(email)}${c && c.phone ? ' · ' + escapeHtml(c.phone) : ''}</p>
+
+      <div class="detailcard" style="margin-bottom:16px;">
+        <h2 style="font-size:15px;margin-bottom:10px;">Customer details</h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
+          <label><span class="fieldlabel">Name</span><input class="fieldinput" id="customerEditName" value="${escapeHtml(c.name || '')}" autocomplete="name"></label>
+          <label><span class="fieldlabel">Phone</span><input class="fieldinput" id="customerEditPhone" value="${escapeHtml(c.phone || '')}" autocomplete="tel"></label>
+        </div>
+        <label style="display:block;margin-top:10px;"><span class="fieldlabel">Email</span><input class="fieldinput" id="customerEditEmail" type="email" value="${escapeHtml(c.email || '')}" autocomplete="email"></label>
+        <label style="display:block;margin-top:10px;"><span class="fieldlabel">Verified address</span><input class="fieldinput" id="customerEditAddress" value="${escapeHtml(c.address_formatted || '')}" data-original-address="${escapeHtml(c.address_formatted || '')}" autocomplete="street-address"></label>
+        <div id="customerEditAddressStatus" style="font-size:11.5px;color:${c.address_verified ? 'var(--good)' : 'var(--stone)'};margin-top:5px;">${c.address_verified ? '✓ Verified address saved' : 'Start typing and select the correct address from Google suggestions.'}</div>
+        <div id="customerEditError" style="color:var(--warn);font-size:12px;margin-top:6px;"></div>
+        <button id="customerEditSave" class="btn btn-black" style="width:auto;margin-top:12px;" onclick="saveCustomerProfile('${c.id}')">Save customer details</button>
+        <p style="font-size:11.5px;color:var(--stone);margin-top:8px;">Changing the email also changes the customer's login and active job contact email. Issued quotes keep their original historical snapshot.</p>
+      </div>
 
       <div class="detailcard" style="margin-bottom:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -2601,7 +2855,7 @@
       <div class="detailcard" style="margin-bottom:16px;">
         <h2 style="font-size:15px;margin-bottom:10px;">Jobs (${jobs.length})</h2>
         ${jobs.length === 0 ? '<div class="empty">No jobs yet.</div>' : jobs.map(j => `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--line);cursor:pointer;" onclick="selectedCustomerEmail=null; selectedJobId='${j.id}'; render();">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--line);cursor:pointer;" onclick="selectedCustomerId=null; selectedCustomerEmail=null; selectedJobId='${j.id}'; render();">
             <span style="font-size:13.5px;">${j.jobNumber ? '#' + j.jobNumber + ' — ' : ''}${escapeHtml(j.category)}, ${escapeHtml(j.suburb)}</span>
             <span class="badge ${jobBadgeClass[j.status] || 'badge-feed'}">${jobBadgeLabel[j.status] || j.status}</span>
           </div>`).join('')}
@@ -3353,6 +3607,7 @@
           <div class="row"><span class="l">Trades</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml(toArr(a.trades).join(', ') || '—')}</span></div>
           <div class="row"><span class="l">Applied</span><span class="r">${a.appliedAt ? new Date(a.appliedAt).toLocaleDateString('en-AU') : '—'}</span></div>
           <div style="display:flex;gap:8px;margin-top:14px;">
+            <button class="btn btn-outline" style="flex:1;" onclick="openContractorEditor('${a.contractorId || a.id}')">Edit</button>
             <button class="btn btn-outline" style="flex:1;" onclick="openContractorThread('${(a.email || '').replace(/'/g, "\\'")}')">💬 Messages</button>
             ${a.status === 'suspended'
               ? `<button class="btn btn-outline" style="flex:1;" onclick="reactivateContractor('${a.id}')">Reactivate</button>`

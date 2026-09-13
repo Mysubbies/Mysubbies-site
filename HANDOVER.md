@@ -111,7 +111,7 @@ The site installs as a PWA (`manifest.json`, `sw.js`). The service worker is **n
 
 Run `supabase/schema.sql` first (base schema), then every `schema_v*.sql` file **in numeric order** in the Supabase SQL editor. All are additive (`create table if not exists`, `add column if not exists`) and safe to re-run.
 
-Current highest version: **v20** (`schema_v20_quote_payment_terms.sql`).
+Current highest version: **v27** (`schema_v27_customer_address_locations.sql`).
 
 **⚠️ One file needs attention before you do this: `supabase/schema_v11_notifications_and_disputes.sql` exists on disk but was deliberately *not* committed to this repo** (it remains as an untracked local file in whatever working copy produced this handover — check whether it's present in yours). It defines an *earlier, superseded* version of the `notifications` and `disputes` tables. **`schema_v13_notifications.sql`** and **`schema_v14_disputes_inquiries.sql`** are the real, live, committed versions of those two tables and are what the actual application code (`api/notifications.js`, `api/support.js`) reads and writes. If you ever encounter a `schema_v11_notifications_and_disputes.sql` file, **do not run it** — because both tables use `create table if not exists`, running v11 *before* v13/v14 would silently lock in v11's older, incompatible column shape and v13/v14 would then silently no-op instead of applying their intended shape. Recommend deleting that stray file rather than committing it.
 

@@ -1,4 +1,4 @@
-// GET /api/get-admin-list?type=applications|customers
+// GET /api/get-admin-list?type=applications|customers|leads
 //
 // Combines what were separate get-applications.js / get-customers.js
 // endpoints into one file — Vercel's Hobby plan caps a deployment at 12
@@ -36,7 +36,7 @@ module.exports = async (req, res) => {
       // jsonb write didn't happen.
       const { data, error } = await supabase
         .from('contractors')
-        .select('email, business_name, phone, abn, acn, categories, suburb_ids, status, address, full_application, created_at, payout_details_confirmed, payout_details_updated_at')
+        .select('id, email, business_name, phone, abn, acn, categories, suburb_ids, status, address, full_application, created_at, payout_details_confirmed, payout_details_updated_at, address_place_id, address_formatted, address_suburb, address_state, address_postcode, address_latitude, address_longitude, address_verified')
         .limit(500);
       if (error) throw error;
       const applications = await Promise.all((data || []).map(async r => {
@@ -48,6 +48,17 @@ module.exports = async (req, res) => {
         };
         application.payoutDetailsComplete = !!r.payout_details_confirmed;
         application.payoutDetailsUpdatedAt = r.payout_details_updated_at || null;
+        application.contractorId = r.id;
+        application.location = {
+          placeId: r.address_place_id || null,
+          formattedAddress: r.address_formatted || r.address || null,
+          suburb: r.address_suburb || null,
+          state: r.address_state || null,
+          postcode: r.address_postcode || null,
+          latitude: r.address_latitude != null && Number.isFinite(Number(r.address_latitude)) ? Number(r.address_latitude) : null,
+          longitude: r.address_longitude != null && Number.isFinite(Number(r.address_longitude)) ? Number(r.address_longitude) : null,
+          verified: r.address_verified === true,
+        };
         application.insuranceDocs = await signedDocuments(supabase, application.insuranceDocs);
         application.certDocs = await signedDocuments(supabase, application.certDocs);
         application.idDocs = await signedDocuments(supabase, application.idDocs);
@@ -60,11 +71,20 @@ module.exports = async (req, res) => {
     if (type === 'customers') {
       const { data, error } = await supabase
         .from('customers')
-        .select('id, email, name, phone, status, created_at')
+        .select('id, email, name, phone, status, created_at, address_place_id, address_formatted, address_suburb, address_state, address_postcode, address_latitude, address_longitude, address_verified')
         .order('created_at', { ascending: false })
         .limit(2000);
       if (error) throw error;
       res.status(200).json({ customers: data || [] });
+      return;
+    }
+
+    if (type === 'leads') {
+      const { data, error } = await supabase.from('customer_leads')
+        .select('id, name, email, mobile, requested_service, suburb, source, utm_source, utm_medium, utm_campaign, utm_content, utm_term, stage, quote_status, booking_status, created_at, updated_at')
+        .order('created_at', { ascending: false }).limit(2000);
+      if (error) throw error;
+      res.status(200).json({ leads: data || [] });
       return;
     }
 

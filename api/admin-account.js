@@ -1,6 +1,8 @@
 // POST /api/admin-account
 // Body: { action: 'login', password } -- OR --
 //       { role: 'customer'|'contractor', email, action: 'deactivate'|'reactivate'|'delete' }
+//       { role: 'customer', customerId, action: 'updateProfile', name, phone, newEmail }
+//       { role: 'contractor', contractorId, action: 'updateProfile', business, contact, phone, address, addressLocation }
 //
 // 'login' issues the admin session token (see api/_lib/adminAuth.js) that
 // every other action here, and every other admin-only endpoint, requires
@@ -35,7 +37,8 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
   try {
-    const { role, email, action, password, reason } = req.body || {};
+    const { role, email, action, password, reason, customerId, contractorId, name, phone, newEmail,
+      business, contact, address, addressLocation } = req.body || {};
 
     if (action === 'login') {
       if (!verifyPassword(password)) { res.status(401).json({ error: 'Incorrect password.' }); return; }
@@ -45,14 +48,107 @@ module.exports = async (req, res) => {
 
     if (!requireAdmin(req, res)) return;
 
+    const supabase = getSupabase();
+
+    if (role === 'customer' && action === 'updateProfile') {
+      const cleanId = String(customerId || '').trim();
+      const cleanName = String(name || '').trim();
+      const cleanPhone = String(phone || '').trim();
+      const cleanEmail = String(newEmail || '').trim().toLowerCase();
+      const location = addressLocation && typeof addressLocation === 'object' ? addressLocation : null;
+      const latitude = location ? Number(location.latitude) : null;
+      const longitude = location ? Number(location.longitude) : null;
+      const validCoordinates = location && Number.isFinite(latitude) && latitude >= -44.5 && latitude <= -9 &&
+        Number.isFinite(longitude) && longitude >= 112 && longitude <= 154;
+      if (!cleanId || !cleanName || cleanName.length > 120 || cleanPhone.length > 30 ||
+          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+        res.status(400).json({ error: 'A valid customer, name, phone and email are required.' }); return;
+      }
+      if (location && !(location.verified === true && String(location.placeId || '').trim() && validCoordinates)) {
+        res.status(400).json({ error: 'Select the customer address from the Google suggestions.' }); return;
+      }
+      const { data: current, error: findError } = await supabase.from('customers')
+        .select('id, auth_user_id, email, name, phone').eq('id', cleanId).maybeSingle();
+      if (findError) throw findError;
+      if (!current) { res.status(404).json({ error: 'Customer not found.' }); return; }
+
+      const emailChanged = current.email.toLowerCase() !== cleanEmail;
+      if (emailChanged) {
+        const { data: duplicate, error: duplicateError } = await supabase.from('customers')
+          .select('id').eq('email', cleanEmail).neq('id', cleanId).limit(1);
+        if (duplicateError) throw duplicateError;
+        if ((duplicate || []).length) { res.status(409).json({ error: 'That email belongs to another customer.' }); return; }
+      }
+
+      if (emailChanged && current.auth_user_id) {
+        const { error: authError } = await supabase.auth.admin.updateUserById(current.auth_user_id, { email: cleanEmail, email_confirm: true });
+        if (authError) { res.status(400).json({ error: 'The login email could not be updated: ' + authError.message }); return; }
+      }
+
+      const { data: updated, error: updateError } = await supabase.rpc('admin_update_customer_profile_v2', {
+        p_customer_id: cleanId, p_name: cleanName, p_phone: cleanPhone || null, p_email: cleanEmail,
+        p_address_place_id: location ? String(location.placeId).trim().slice(0, 300) : null,
+        p_address_formatted: location ? String(location.formattedAddress || '').trim().slice(0, 500) : null,
+        p_address_suburb: location ? String(location.suburb || '').trim().slice(0, 100) : null,
+        p_address_state: location ? String(location.state || '').trim().slice(0, 20) : null,
+        p_address_postcode: location ? String(location.postcode || '').trim().slice(0, 10) : null,
+        p_address_latitude: location ? latitude : null, p_address_longitude: location ? longitude : null,
+        p_address_verified: location ? true : false,
+      });
+      if (updateError) {
+        if (emailChanged && current.auth_user_id) {
+          await supabase.auth.admin.updateUserById(current.auth_user_id, { email: current.email, email_confirm: true });
+        }
+        throw updateError;
+      }
+      res.status(200).json({ customer: updated && updated[0] ? updated[0] : { id: cleanId, name: cleanName, phone: cleanPhone || null, email: cleanEmail } });
+      return;
+    }
+
+    if (role === 'contractor' && action === 'updateProfile') {
+      const cleanId = String(contractorId || '').trim();
+      const cleanBusiness = String(business || '').trim();
+      const cleanContact = String(contact || '').trim();
+      const cleanPhone = String(phone || '').trim();
+      const location = addressLocation && typeof addressLocation === 'object' ? addressLocation : {};
+      const latitude = Number(location.latitude);
+      const longitude = Number(location.longitude);
+      const validCoordinates = Number.isFinite(latitude) && latitude >= -44.5 && latitude <= -9 &&
+        Number.isFinite(longitude) && longitude >= 112 && longitude <= 154;
+      const verified = location.verified === true && !!String(location.placeId || '').trim() && validCoordinates;
+      if (!cleanId || !cleanBusiness || cleanBusiness.length > 160 || cleanContact.length > 120 || cleanPhone.length > 30) {
+        res.status(400).json({ error: 'A valid contractor, business name and contact details are required.' }); return;
+      }
+      if (!verified) { res.status(400).json({ error: 'Select the contractor address from the Google suggestions.' }); return; }
+      const { data: current, error: findError } = await supabase.from('contractors')
+        .select('id, email, full_application').eq('id', cleanId).maybeSingle();
+      if (findError) throw findError;
+      if (!current) { res.status(404).json({ error: 'Contractor not found.' }); return; }
+      const formattedAddress = String(location.formattedAddress || address || '').trim().slice(0, 500);
+      const mergedApplication = { ...(current.full_application || {}), business: cleanBusiness,
+        contact: cleanContact, phone: cleanPhone, address: formattedAddress,
+        addressLocation: { formattedAddress, placeId: String(location.placeId).trim().slice(0, 300),
+          suburb: String(location.suburb || '').trim().slice(0, 100), state: String(location.state || '').trim().slice(0, 20),
+          postcode: String(location.postcode || '').trim().slice(0, 10), country: 'AU', latitude, longitude, verified: true } };
+      const { data: updated, error: updateError } = await supabase.from('contractors').update({
+        business_name: cleanBusiness, phone: cleanPhone || null, address: formattedAddress,
+        address_place_id: mergedApplication.addressLocation.placeId,
+        address_formatted: formattedAddress, address_suburb: mergedApplication.addressLocation.suburb || null,
+        address_state: mergedApplication.addressLocation.state || null, address_postcode: mergedApplication.addressLocation.postcode || null,
+        address_latitude: latitude, address_longitude: longitude, address_verified: true,
+        full_application: mergedApplication, updated_at: new Date().toISOString(),
+      }).eq('id', cleanId).select('id, email, business_name, phone, address, address_formatted, address_suburb, address_state, address_postcode, address_latitude, address_longitude, address_verified').maybeSingle();
+      if (updateError) throw updateError;
+      res.status(200).json({ contractor: updated });
+      return;
+    }
+
     const table = ROLES[role];
     if (!table || !email || !['deactivate', 'reactivate', 'delete'].includes(action)) {
       res.status(400).json({ error: 'role (customer|contractor), email, and a valid action are required.' });
       return;
     }
     const normalizedEmail = String(email).toLowerCase();
-    const supabase = getSupabase();
-
     if (action === 'deactivate' || action === 'reactivate') {
       if (role === 'contractor' && action === 'deactivate' && !String(reason || '').trim()) {
         res.status(400).json({ error: 'A suspension reason is required.' }); return;
