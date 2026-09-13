@@ -1,6 +1,7 @@
 // POST /api/admin-account
 // Body: { action: 'login', password } -- OR --
 //       { role: 'customer'|'contractor', email, action: 'deactivate'|'reactivate'|'delete' }
+//       { role: 'customer', customerId, action: 'updateProfile', name, phone, newEmail }
 //
 // 'login' issues the admin session token (see api/_lib/adminAuth.js) that
 // every other action here, and every other admin-only endpoint, requires
@@ -35,7 +36,7 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
   try {
-    const { role, email, action, password, reason } = req.body || {};
+    const { role, email, action, password, reason, customerId, name, phone, newEmail } = req.body || {};
 
     if (action === 'login') {
       if (!verifyPassword(password)) { res.status(401).json({ error: 'Incorrect password.' }); return; }
@@ -45,14 +46,54 @@ module.exports = async (req, res) => {
 
     if (!requireAdmin(req, res)) return;
 
+    const supabase = getSupabase();
+
+    if (role === 'customer' && action === 'updateProfile') {
+      const cleanId = String(customerId || '').trim();
+      const cleanName = String(name || '').trim();
+      const cleanPhone = String(phone || '').trim();
+      const cleanEmail = String(newEmail || '').trim().toLowerCase();
+      if (!cleanId || !cleanName || cleanName.length > 120 || cleanPhone.length > 30 ||
+          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+        res.status(400).json({ error: 'A valid customer, name, phone and email are required.' }); return;
+      }
+      const { data: current, error: findError } = await supabase.from('customers')
+        .select('id, auth_user_id, email, name, phone').eq('id', cleanId).maybeSingle();
+      if (findError) throw findError;
+      if (!current) { res.status(404).json({ error: 'Customer not found.' }); return; }
+
+      const emailChanged = current.email.toLowerCase() !== cleanEmail;
+      if (emailChanged) {
+        const { data: duplicate, error: duplicateError } = await supabase.from('customers')
+          .select('id').eq('email', cleanEmail).neq('id', cleanId).limit(1);
+        if (duplicateError) throw duplicateError;
+        if ((duplicate || []).length) { res.status(409).json({ error: 'That email belongs to another customer.' }); return; }
+      }
+
+      if (emailChanged && current.auth_user_id) {
+        const { error: authError } = await supabase.auth.admin.updateUserById(current.auth_user_id, { email: cleanEmail, email_confirm: true });
+        if (authError) { res.status(400).json({ error: 'The login email could not be updated: ' + authError.message }); return; }
+      }
+
+      const { data: updated, error: updateError } = await supabase.rpc('admin_update_customer_profile', {
+        p_customer_id: cleanId, p_name: cleanName, p_phone: cleanPhone || null, p_email: cleanEmail,
+      });
+      if (updateError) {
+        if (emailChanged && current.auth_user_id) {
+          await supabase.auth.admin.updateUserById(current.auth_user_id, { email: current.email, email_confirm: true });
+        }
+        throw updateError;
+      }
+      res.status(200).json({ customer: updated && updated[0] ? updated[0] : { id: cleanId, name: cleanName, phone: cleanPhone || null, email: cleanEmail } });
+      return;
+    }
+
     const table = ROLES[role];
     if (!table || !email || !['deactivate', 'reactivate', 'delete'].includes(action)) {
       res.status(400).json({ error: 'role (customer|contractor), email, and a valid action are required.' });
       return;
     }
     const normalizedEmail = String(email).toLowerCase();
-    const supabase = getSupabase();
-
     if (action === 'deactivate' || action === 'reactivate') {
       if (role === 'contractor' && action === 'deactivate' && !String(reason || '').trim()) {
         res.status(400).json({ error: 'A suspension reason is required.' }); return;

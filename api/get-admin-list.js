@@ -36,7 +36,7 @@ module.exports = async (req, res) => {
       // jsonb write didn't happen.
       const { data, error } = await supabase
         .from('contractors')
-        .select('email, business_name, phone, abn, acn, categories, suburb_ids, status, address, full_application, created_at, payout_details_confirmed, payout_details_updated_at')
+        .select('id, email, business_name, phone, abn, acn, categories, suburb_ids, status, address, full_application, created_at, payout_details_confirmed, payout_details_updated_at, address_place_id, address_formatted, address_suburb, address_state, address_postcode, address_latitude, address_longitude, address_verified')
         .limit(500);
       if (error) throw error;
       const applications = await Promise.all((data || []).map(async r => {
@@ -48,6 +48,17 @@ module.exports = async (req, res) => {
         };
         application.payoutDetailsComplete = !!r.payout_details_confirmed;
         application.payoutDetailsUpdatedAt = r.payout_details_updated_at || null;
+        application.contractorId = r.id;
+        application.location = {
+          placeId: r.address_place_id || null,
+          formattedAddress: r.address_formatted || r.address || null,
+          suburb: r.address_suburb || null,
+          state: r.address_state || null,
+          postcode: r.address_postcode || null,
+          latitude: r.address_latitude != null && Number.isFinite(Number(r.address_latitude)) ? Number(r.address_latitude) : null,
+          longitude: r.address_longitude != null && Number.isFinite(Number(r.address_longitude)) ? Number(r.address_longitude) : null,
+          verified: r.address_verified === true,
+        };
         application.insuranceDocs = await signedDocuments(supabase, application.insuranceDocs);
         application.certDocs = await signedDocuments(supabase, application.certDocs);
         application.idDocs = await signedDocuments(supabase, application.idDocs);
