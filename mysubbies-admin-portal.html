@@ -345,6 +345,7 @@
       <button data-tab="contractors" onclick="setAdminTab('contractors')">◉ &nbsp; Contractors</button>
       <button data-tab="coverage" onclick="setAdminTab('coverage')">⌖ &nbsp; Coverage map</button>
       <button data-tab="customers" onclick="setAdminTab('customers')">◎ &nbsp; Customers</button>
+      <button data-tab="leads" onclick="setAdminTab('leads')">◈ &nbsp; Leads</button>
       <button data-tab="payments" onclick="setAdminTab('payments')">＄ &nbsp; Finance</button>
       <button data-tab="support" onclick="setAdminTab('support')">◌ &nbsp; Support</button>
       <button data-tab="reports" onclick="setAdminTab('reports')">↗ &nbsp; Reports</button>
@@ -1631,6 +1632,7 @@
     if (!paymentTabData && !paymentTabLoading) loadPaymentScheduleTab();
     if (unreadContractorMessageCount === null && !unreadContractorMessageLoading) loadUnreadContractorMessageCount();
     if ((tab === 'customers' || tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !customersTabData && !customersTabLoading) loadCustomersTab();
+    if (tab === 'leads' && !leadsTabData && !leadsTabLoading) loadLeadsTab();
     if ((tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !quotesTabData && !quotesTabLoading) loadQuotesTab();
     if (!staffListData && !staffListLoading) loadStaffList();
     if (tab === 'messages' && !messageThreadsData && !messageThreadsLoading) loadMessageThreads();
@@ -1730,7 +1732,7 @@
               : jobsTableHtml(filtered);
           })()}
         `}
-      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
+      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
     } catch (e) {
       console.error('Tab render error on tab=' + tab, e);
       tabContentHtml = `
@@ -2642,6 +2644,43 @@
   let customerSearchQuery = '';
   let contractorSearchQuery = '';
   let contractorsStatusFilter = 'all';
+  let leadsTabData = null;
+  let leadsTabLoading = false;
+  let leadsStageFilter = 'all';
+  let leadSearchQuery = '';
+
+  async function loadLeadsTab() {
+    if (leadsTabLoading) return;
+    leadsTabLoading = true;
+    try {
+      const res = await adminFetch('/api/get-admin-list?type=leads');
+      const body = await res.json();
+      leadsTabData = res.ok ? { rows: body.leads || [] } : { error: body.error || 'Could not load leads.' };
+    } catch (e) { leadsTabData = { error: 'Could not load leads.' }; }
+    leadsTabLoading = false;
+    render();
+  }
+
+  function renderLeadsTab() {
+    if (!leadsTabData) return '<h1 class="pagetitle">Leads</h1><div class="empty">Loading…</div>';
+    if (leadsTabData.error) return `<h1 class="pagetitle">Leads</h1><div class="empty">${escapeHtml(leadsTabData.error)}<br><br>The lead migration may still need to be applied.</div>`;
+    const all = leadsTabData.rows;
+    const stages = ['all', 'NEW', 'QUOTE_REQUESTED', 'BOOKING_STARTED', 'BOOKED', 'LOST'];
+    const q = leadSearchQuery.trim().toLowerCase();
+    const rows = all.filter(lead => (leadsStageFilter === 'all' || lead.stage === leadsStageFilter) && (!q || [lead.name, lead.email, lead.mobile, lead.requested_service, lead.suburb, lead.utm_campaign].some(value => String(value || '').toLowerCase().includes(q))));
+    return `
+      <h1 class="pagetitle">Leads</h1>
+      <p class="pagesub">${all.length} captured customer booking lead${all.length === 1 ? '' : 's'}. Current capture begins when a signed-in customer reaches the booking/payment step.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${stages.map(stage => {
+        const count = stage === 'all' ? all.length : all.filter(lead => lead.stage === stage).length;
+        const active = leadsStageFilter === stage;
+        const label = stage === 'all' ? 'All' : stage.replaceAll('_', ' ').toLowerCase().replace(/^./, c => c.toUpperCase());
+        return `<button onclick="leadsStageFilter='${stage}';render();" style="padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;border:1.5px solid ${active ? 'var(--ink)' : 'var(--line)'};background:${active ? 'var(--ink)' : '#fff'};color:${active ? '#fff' : 'var(--ink)'};cursor:pointer;">${label} (${count})</button>`;
+      }).join('')}</div>
+      <input class="searchbox" placeholder="Search name, contact, service, suburb or campaign…" value="${escapeHtml(leadSearchQuery)}" oninput="leadSearchQuery=this.value;render();">
+      ${rows.length === 0 ? '<div class="empty">No leads match these filters.</div>' : `<div class="tablewrap"><table><thead><tr><th>Customer</th><th>Service</th><th>Suburb</th><th>Source</th><th>Campaign</th><th>Stage</th><th>Created</th></tr></thead><tbody>${rows.map(lead => `<tr><td><strong>${escapeHtml(lead.name || '(no name)')}</strong><br><span style="font-size:11.5px;color:var(--stone);">${escapeHtml(lead.email || '')}${lead.mobile ? ' · ' + escapeHtml(lead.mobile) : ''}</span></td><td>${escapeHtml(lead.requested_service || '—')}</td><td>${escapeHtml(lead.suburb || '—')}</td><td>${escapeHtml(lead.utm_source || lead.source || 'direct')}</td><td>${escapeHtml(lead.utm_campaign || '—')}</td><td><span class="badge">${escapeHtml((lead.stage || 'NEW').replaceAll('_', ' '))}</span></td><td>${lead.created_at ? new Date(lead.created_at).toLocaleDateString('en-AU') : '—'}</td></tr>`).join('')}</tbody></table></div>`}
+    `;
+  }
 
   async function loadCustomersTab() {
     if (customersTabLoading) return;

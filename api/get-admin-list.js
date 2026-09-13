@@ -1,4 +1,4 @@
-// GET /api/get-admin-list?type=applications|customers
+// GET /api/get-admin-list?type=applications|customers|leads
 //
 // Combines what were separate get-applications.js / get-customers.js
 // endpoints into one file — Vercel's Hobby plan caps a deployment at 12
@@ -76,6 +76,15 @@ module.exports = async (req, res) => {
         .limit(2000);
       if (error) throw error;
       res.status(200).json({ customers: data || [] });
+      return;
+    }
+
+    if (type === 'leads') {
+      const { data, error } = await supabase.from('customer_leads')
+        .select('id, name, email, mobile, requested_service, suburb, source, utm_source, utm_medium, utm_campaign, utm_content, utm_term, stage, quote_status, booking_status, created_at, updated_at')
+        .order('created_at', { ascending: false }).limit(2000);
+      if (error) throw error;
+      res.status(200).json({ leads: data || [] });
       return;
     }
 

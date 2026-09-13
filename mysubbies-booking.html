@@ -444,6 +444,20 @@
 
     app.innerHTML = `<h1 class="pagetitle">Loading your payment schedule…</h1>`;
 
+    // Best-effort CRM capture; failure here must never block checkout.
+    try {
+      const leadToken = await getBookingAccessToken();
+      if (leadToken) {
+        const params = new URLSearchParams(location.search);
+        await fetch('/api/customer-lead-start', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + leadToken },
+          body: JSON.stringify({ jobId, category: catLabel, suburb: customer.suburb || quote.suburb || 'Melbourne',
+            attribution: { utm_source: params.get('utm_source'), utm_medium: params.get('utm_medium'), utm_campaign: params.get('utm_campaign'), utm_content: params.get('utm_content'), utm_term: params.get('utm_term'), referrer: document.referrer || null, landing_page: location.href },
+            marketingConsent: customer.marketingConsent === true, marketingConsentAt: customer.marketingConsentAt || null }),
+        });
+      }
+    } catch (e) { /* CRM capture cannot block checkout */ }
+
     let preview;
     try {
       const res = await fetch(`/api/job-payment-schedule?category=${encodeURIComponent(catLabel)}&priceCents=${priceCents}`);
