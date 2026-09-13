@@ -309,6 +309,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<script src="js/address-autocomplete.js"></script>
 <meta name="theme-color" content="#14213D">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1024,7 +1025,7 @@
         </select>
       </div>
       <div id="contractorCoverageMap" class="coverage-map" role="region" aria-label="Contractor coverage map"><div class="empty">Loading map…</div></div>
-      ${unmapped.length ? `<div class="detailcard" style="margin-top:16px;"><h2 style="font-size:15px;margin-bottom:8px;">Missing verified locations (${unmapped.length})</h2>${unmapped.map(a => `<div class="row"><span class="l">${escapeHtml(a.business || a.contact || a.email)}</span><span class="r">${escapeHtml(a.address || 'No address')}</span></div>`).join('')}</div>` : ''}
+      ${unmapped.length ? `<div class="detailcard" style="margin-top:16px;"><h2 style="font-size:15px;margin-bottom:8px;">Missing verified locations (${unmapped.length})</h2>${unmapped.map(a => `<div class="row"><span class="l">${escapeHtml(a.business || a.contact || a.email)}</span><span class="r" style="display:flex;align-items:center;gap:8px;"><span>${escapeHtml(a.address || 'No address')}</span><button class="btn btn-outline" style="width:auto;padding:5px 10px;font-size:11.5px;" onclick="openContractorEditor('${a.contractorId || a.id}')">Edit &amp; verify</button></span></div>`).join('')}</div>` : ''}
     `;
   }
   async function loadGoogleMapsForAdmin() {
@@ -1070,6 +1071,55 @@
       if (mapped.length === 1) { map.setCenter(bounds.getCenter()); map.setZoom(12); } else map.fitBounds(bounds, 50);
     } catch (error) {
       mapElement.innerHTML = `<div class="empty">${escapeHtml(error.message || 'The map could not load.')}</div>`;
+    }
+  }
+
+  function openContractorEditor(contractorId) {
+    const application = getApplications().find(a => (a.contractorId || a.id) === contractorId);
+    if (!application) { alert('Contractor record not found. Refresh and try again.'); return; }
+    document.getElementById('contractorEditorModal')?.remove();
+    document.body.insertAdjacentHTML('beforeend', `
+      <div id="contractorEditorModal" style="position:fixed;inset:0;background:rgba(10,20,38,.56);z-index:300;display:flex;align-items:center;justify-content:center;padding:18px;" onclick="if(event.target===this) closeContractorEditor();">
+        <div style="background:#fff;border-radius:16px;padding:24px;max-width:590px;width:100%;max-height:90vh;overflow:auto;">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:16px;"><h2 style="font-size:19px;">Edit contractor</h2><button onclick="closeContractorEditor()" style="border:0;background:none;font-size:21px;cursor:pointer;">✕</button></div>
+          <label style="display:block;margin-bottom:10px;"><span class="fieldlabel">Business name</span><input class="fieldinput" id="contractorEditBusiness" value="${escapeHtml(application.business || '')}"></label>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:10px;">
+            <label><span class="fieldlabel">Contact name</span><input class="fieldinput" id="contractorEditContact" value="${escapeHtml(application.contact || '')}"></label>
+            <label><span class="fieldlabel">Phone</span><input class="fieldinput" id="contractorEditPhone" value="${escapeHtml(application.phone || '')}"></label>
+          </div>
+          <label style="display:block;margin-bottom:10px;"><span class="fieldlabel">Login email</span><input class="fieldinput" value="${escapeHtml(application.email || '')}" disabled><span style="font-size:11px;color:var(--stone);">Email identity changes require a separate account migration.</span></label>
+          <label style="display:block;position:relative;"><span class="fieldlabel">Verified business address</span><input class="fieldinput" id="contractorEditAddress" value="${escapeHtml((application.location && application.location.formattedAddress) || application.address || '')}" autocomplete="street-address"></label>
+          <div id="contractorEditAddressStatus" style="font-size:11.5px;color:var(--stone);margin-top:5px;">Select the correct address from the suggestions.</div>
+          <div id="contractorEditError" style="font-size:12px;color:var(--warn);margin-top:10px;"></div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn btn-outline" style="width:auto;" onclick="closeContractorEditor()">Cancel</button><button class="btn btn-black" id="contractorEditSave" style="width:auto;" onclick="saveContractorProfile('${contractorId}')">Save contractor</button></div>
+        </div>
+      </div>`);
+    window.MySubbiesAddress.attach('contractorEditAddress', { statusId: 'contractorEditAddressStatus' });
+  }
+  function closeContractorEditor() { document.getElementById('contractorEditorModal')?.remove(); }
+  async function saveContractorProfile(contractorId) {
+    const location = window.MySubbiesAddress.getSelection('contractorEditAddress');
+    const errorEl = document.getElementById('contractorEditError');
+    if (!location) { if (errorEl) errorEl.textContent = 'Select the address from the Google suggestions before saving.'; return; }
+    const saveButton = document.getElementById('contractorEditSave');
+    if (saveButton) saveButton.disabled = true;
+    try {
+      const res = await adminFetch('/api/admin-account', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        role: 'contractor', action: 'updateProfile', contractorId,
+        business: document.getElementById('contractorEditBusiness').value,
+        contact: document.getElementById('contractorEditContact').value,
+        phone: document.getElementById('contractorEditPhone').value,
+        address: location.formattedAddress, addressLocation: location,
+      }) });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Could not save contractor.');
+      closeContractorEditor();
+      await hydrateApplicationsFromServer();
+      render();
+      showToast('Contractor updated and mapped');
+    } catch (error) {
+      if (errorEl) errorEl.textContent = error.message || 'Could not save contractor.';
+      if (saveButton) saveButton.disabled = false;
     }
   }
 
@@ -3500,6 +3550,7 @@
           <div class="row"><span class="l">Trades</span><span class="r" style="text-align:right;max-width:280px;">${escapeHtml(toArr(a.trades).join(', ') || '—')}</span></div>
           <div class="row"><span class="l">Applied</span><span class="r">${a.appliedAt ? new Date(a.appliedAt).toLocaleDateString('en-AU') : '—'}</span></div>
           <div style="display:flex;gap:8px;margin-top:14px;">
+            <button class="btn btn-outline" style="flex:1;" onclick="openContractorEditor('${a.contractorId || a.id}')">Edit</button>
             <button class="btn btn-outline" style="flex:1;" onclick="openContractorThread('${(a.email || '').replace(/'/g, "\\'")}')">💬 Messages</button>
             ${a.status === 'suspended'
               ? `<button class="btn btn-outline" style="flex:1;" onclick="reactivateContractor('${a.id}')">Reactivate</button>`

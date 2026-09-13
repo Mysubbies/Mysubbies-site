@@ -39,3 +39,14 @@ test('contractor coverage map receives structured verified locations', () => {
   assert.match(admin, /contractorHasMapLocation/);
   assert.match(admin, /Google Maps is not configured/);
 });
+
+test('admin can edit a contractor and verify the map address', () => {
+  assert.match(admin, /function openContractorEditor\(contractorId\)/);
+  assert.match(admin, /MySubbiesAddress\.attach\('contractorEditAddress'/);
+  assert.match(admin, /MySubbiesAddress\.getSelection\('contractorEditAddress'\)/);
+  assert.match(admin, /Edit &amp; verify/);
+  assert.match(adminApi, /role === 'contractor' && action === 'updateProfile'/);
+  assert.match(adminApi, /address_verified: true/);
+  assert.match(adminApi, /address_latitude: latitude/);
+  assert.match(adminApi, /full_application: mergedApplication/);
+});

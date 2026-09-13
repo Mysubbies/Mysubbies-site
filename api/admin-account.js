@@ -2,6 +2,7 @@
 // Body: { action: 'login', password } -- OR --
 //       { role: 'customer'|'contractor', email, action: 'deactivate'|'reactivate'|'delete' }
 //       { role: 'customer', customerId, action: 'updateProfile', name, phone, newEmail }
+//       { role: 'contractor', contractorId, action: 'updateProfile', business, contact, phone, address, addressLocation }
 //
 // 'login' issues the admin session token (see api/_lib/adminAuth.js) that
 // every other action here, and every other admin-only endpoint, requires
@@ -36,7 +37,8 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
   try {
-    const { role, email, action, password, reason, customerId, name, phone, newEmail } = req.body || {};
+    const { role, email, action, password, reason, customerId, contractorId, name, phone, newEmail,
+      business, contact, address, addressLocation } = req.body || {};
 
     if (action === 'login') {
       if (!verifyPassword(password)) { res.status(401).json({ error: 'Incorrect password.' }); return; }
@@ -85,6 +87,44 @@ module.exports = async (req, res) => {
         throw updateError;
       }
       res.status(200).json({ customer: updated && updated[0] ? updated[0] : { id: cleanId, name: cleanName, phone: cleanPhone || null, email: cleanEmail } });
+      return;
+    }
+
+    if (role === 'contractor' && action === 'updateProfile') {
+      const cleanId = String(contractorId || '').trim();
+      const cleanBusiness = String(business || '').trim();
+      const cleanContact = String(contact || '').trim();
+      const cleanPhone = String(phone || '').trim();
+      const location = addressLocation && typeof addressLocation === 'object' ? addressLocation : {};
+      const latitude = Number(location.latitude);
+      const longitude = Number(location.longitude);
+      const validCoordinates = Number.isFinite(latitude) && latitude >= -44.5 && latitude <= -9 &&
+        Number.isFinite(longitude) && longitude >= 112 && longitude <= 154;
+      const verified = location.verified === true && !!String(location.placeId || '').trim() && validCoordinates;
+      if (!cleanId || !cleanBusiness || cleanBusiness.length > 160 || cleanContact.length > 120 || cleanPhone.length > 30) {
+        res.status(400).json({ error: 'A valid contractor, business name and contact details are required.' }); return;
+      }
+      if (!verified) { res.status(400).json({ error: 'Select the contractor address from the Google suggestions.' }); return; }
+      const { data: current, error: findError } = await supabase.from('contractors')
+        .select('id, email, full_application').eq('id', cleanId).maybeSingle();
+      if (findError) throw findError;
+      if (!current) { res.status(404).json({ error: 'Contractor not found.' }); return; }
+      const formattedAddress = String(location.formattedAddress || address || '').trim().slice(0, 500);
+      const mergedApplication = { ...(current.full_application || {}), business: cleanBusiness,
+        contact: cleanContact, phone: cleanPhone, address: formattedAddress,
+        addressLocation: { formattedAddress, placeId: String(location.placeId).trim().slice(0, 300),
+          suburb: String(location.suburb || '').trim().slice(0, 100), state: String(location.state || '').trim().slice(0, 20),
+          postcode: String(location.postcode || '').trim().slice(0, 10), country: 'AU', latitude, longitude, verified: true } };
+      const { data: updated, error: updateError } = await supabase.from('contractors').update({
+        business_name: cleanBusiness, phone: cleanPhone || null, address: formattedAddress,
+        address_place_id: mergedApplication.addressLocation.placeId,
+        address_formatted: formattedAddress, address_suburb: mergedApplication.addressLocation.suburb || null,
+        address_state: mergedApplication.addressLocation.state || null, address_postcode: mergedApplication.addressLocation.postcode || null,
+        address_latitude: latitude, address_longitude: longitude, address_verified: true,
+        full_application: mergedApplication, updated_at: new Date().toISOString(),
+      }).eq('id', cleanId).select('id, email, business_name, phone, address, address_formatted, address_suburb, address_state, address_postcode, address_latitude, address_longitude, address_verified').maybeSingle();
+      if (updateError) throw updateError;
+      res.status(200).json({ contractor: updated });
       return;
     }
 
