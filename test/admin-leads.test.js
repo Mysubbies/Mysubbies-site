@@ -29,6 +29,15 @@ test('booking lead capture requires customer authentication', () => {
   assert.match(booking, /fetch\('\/api\/customer-lead-start'/);
 });
 
+test('booking login links a legacy customer before lead capture', () => {
+  const booking = read('mysubbies-booking.html');
+  const registerApi = read('api/customer-register.js');
+  assert.match(booking, /if \(!profile\) \{[\s\S]*fetch\('\/api\/customer-register'/);
+  assert.match(booking, /profile = linkResult\.customer/);
+  assert.match(registerApi, /const name = suppliedName \|\| emailProfile\.name/);
+  assert.match(registerApi, /const resolvedPhone = suppliedPhone \|\| emailProfile\.phone/);
+});
+
 test('lead schema enables RLS for lead and event records', () => {
   const sql = read('supabase/schema_v26_customer_leads.sql');
   assert.match(sql, /alter table customer_leads enable row level security/i);
