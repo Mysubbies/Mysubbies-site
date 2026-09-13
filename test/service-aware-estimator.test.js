@@ -72,6 +72,11 @@ test('homepage mirrors remain byte-for-byte identical', () => {
   assert.deepEqual(fs.readFileSync('index.html'), fs.readFileSync('mysubbies-website.html'));
 });
 
+test('dynamic number fields use the same full-width estimator styling as text fields', () => {
+  assert.match(homepage, /\\.estimator input\\[type=text\\], \\.estimator input\\[type=number\\]/);
+  assert.match(homepage, /input\\[type=number\\]:focus \\{ border-color: var\\(--black\\); \\}/);
+});
+
 function loadTaskQuantityParser() {
   const source = extractBetween(
     'const SERVICE_AWARE_PHASE1_CATEGORIES',
