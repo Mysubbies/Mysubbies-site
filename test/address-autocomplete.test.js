@@ -49,11 +49,12 @@ test('current Places API Place objects are normalised for persistence and map us
   });
 });
 
-test('autocomplete uses the current Places widget rather than the legacy widget', () => {
+test('autocomplete uses current Places suggestions with the existing styled input', () => {
   const source = readFileSync('js/address-autocomplete.js', 'utf8');
-  assert.match(source, /PlaceAutocompleteElement/);
-  assert.match(source, /gmp-select/);
+  assert.match(source, /AutocompleteSuggestion/);
+  assert.match(source, /fetchAutocompleteSuggestions/);
   assert.match(source, /fetchFields/);
+  assert.doesNotMatch(source, /PlaceAutocompleteElement/);
   assert.doesNotMatch(source, /new global\.google\.maps\.places\.Autocomplete/);
 });
 

@@ -89,46 +89,126 @@
     }
     if (!document.body.contains(input)) return null;
 
-    const { PlaceAutocompleteElement } = await global.google.maps.importLibrary('places');
-    if (!PlaceAutocompleteElement) return null;
-    const autocomplete = new PlaceAutocompleteElement({
-      includedRegionCodes: ['au'],
-      includedPrimaryTypes: ['street_address', 'premise', 'subpremise'],
-    });
-    autocomplete.placeholder = input.placeholder || 'Start typing your address';
-    autocomplete.style.display = 'block';
-    autocomplete.style.width = '100%';
-    autocomplete.style.boxSizing = 'border-box';
-    if (input.value) autocomplete.value = input.value;
-    input.style.display = 'none';
-    input.insertAdjacentElement('afterend', autocomplete);
+    const { AutocompleteSuggestion, AutocompleteSessionToken } = await global.google.maps.importLibrary('places');
+    if (!AutocompleteSuggestion || !AutocompleteSessionToken) return null;
 
-    const state = { autocomplete, selection: null };
+    const list = document.createElement('div');
+    list.setAttribute('role', 'listbox');
+    list.setAttribute('aria-label', 'Address suggestions');
+    Object.assign(list.style, {
+      display: 'none', position: 'absolute', zIndex: '10000', left: '0', right: '0', top: '100%',
+      marginTop: '4px', background: '#fff', color: '#14213D', border: '1px solid #E5E2DC',
+      borderRadius: '10px', boxShadow: '0 10px 28px rgba(20,33,61,.14)', overflow: 'hidden',
+    });
+    const container = input.parentElement;
+    if (container && global.getComputedStyle(container).position === 'static') container.style.position = 'relative';
+    if (container) container.appendChild(list);
+
+    const state = {
+      autocomplete: { list }, selection: null, suggestions: [], activeIndex: -1,
+      token: new AutocompleteSessionToken(), requestNumber: 0, timer: null,
+    };
     attached.set(input, state);
-    autocomplete.addEventListener('input', () => {
+
+    function closeList() {
+      list.style.display = 'none';
+      list.innerHTML = '';
+      state.suggestions = [];
+      state.activeIndex = -1;
+      input.removeAttribute('aria-activedescendant');
+      input.setAttribute('aria-expanded', 'false');
+    }
+
+    function setActive(index) {
+      const options = Array.from(list.querySelectorAll('[role="option"]'));
+      if (!options.length) return;
+      state.activeIndex = (index + options.length) % options.length;
+      options.forEach((option, optionIndex) => {
+        const active = optionIndex === state.activeIndex;
+        option.style.background = active ? '#F5F3EF' : '#fff';
+        option.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      input.setAttribute('aria-activedescendant', options[state.activeIndex].id);
+    }
+
+    async function selectPrediction(prediction) {
+      const place = prediction.toPlace();
+      await place.fetchFields({ fields: ['id', 'formattedAddress', 'location', 'addressComponents'] });
+      const selection = parsePlace(place);
+      if (!selection || selection.country.toUpperCase() !== 'AU') return;
+      state.selection = selection;
+      input.value = selection.formattedAddress;
+      input.dataset.addressVerified = 'true';
+      state.token = new AutocompleteSessionToken();
+      closeList();
+      setStatus(statusElement, true);
+      input.dispatchEvent(new CustomEvent('mysubbies:address-selected', { bubbles: true, detail: selection }));
+      if (typeof settings.onSelect === 'function') settings.onSelect(selection);
+    }
+
+    function renderSuggestions(suggestions) {
+      closeList();
+      state.suggestions = suggestions;
+      suggestions.forEach((suggestion, index) => {
+        const prediction = suggestion.placePrediction;
+        if (!prediction) return;
+        const option = document.createElement('div');
+        option.id = input.id + '-address-option-' + index;
+        option.setAttribute('role', 'option');
+        option.setAttribute('aria-selected', 'false');
+        option.textContent = prediction.text.toString();
+        Object.assign(option.style, {
+          padding: '11px 13px', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px',
+          lineHeight: '1.35', borderBottom: index < suggestions.length - 1 ? '1px solid #EEEAE4' : 'none',
+        });
+        option.addEventListener('mousedown', event => event.preventDefault());
+        option.addEventListener('mouseenter', () => setActive(index));
+        option.addEventListener('click', () => selectPrediction(prediction).catch(error => {
+          console.error('Could not verify selected address:', error);
+          setStatus(statusElement, false);
+        }));
+        list.appendChild(option);
+      });
+      if (list.childElementCount) list.style.display = 'block';
+    }
+
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-expanded', 'false');
+    input.addEventListener('input', () => {
       state.selection = null;
-      input.value = autocomplete.value || '';
       input.dataset.addressVerified = 'false';
       setStatus(statusElement, false);
+      clearTimeout(state.timer);
+      const query = input.value.trim();
+      if (query.length < 3) { closeList(); return; }
+      const requestNumber = ++state.requestNumber;
+      state.timer = setTimeout(async () => {
+        try {
+          const result = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
+            input: query, includedRegionCodes: ['au'], sessionToken: state.token,
+          });
+          if (requestNumber !== state.requestNumber) return;
+          renderSuggestions((result && result.suggestions) || []);
+          input.setAttribute('aria-expanded', list.style.display === 'block' ? 'true' : 'false');
+        } catch (error) {
+          console.error('Could not load address suggestions:', error);
+          closeList();
+        }
+      }, 220);
     });
-    autocomplete.addEventListener('gmp-select', async event => {
-      try {
-        const place = event.placePrediction.toPlace();
-        await place.fetchFields({ fields: ['id', 'formattedAddress', 'location', 'addressComponents'] });
-        const selection = parsePlace(place);
-        if (!selection || selection.country.toUpperCase() !== 'AU') return;
-        state.selection = selection;
-        input.value = selection.formattedAddress;
-        autocomplete.value = selection.formattedAddress;
-        input.dataset.addressVerified = 'true';
-        setStatus(statusElement, true);
-        input.dispatchEvent(new CustomEvent('mysubbies:address-selected', { bubbles: true, detail: selection }));
-        if (typeof settings.onSelect === 'function') settings.onSelect(selection);
-      } catch (error) {
-        console.error('Could not verify selected address:', error);
-        setStatus(statusElement, false);
+    input.addEventListener('keydown', event => {
+      if (list.style.display !== 'block') return;
+      if (event.key === 'ArrowDown') { event.preventDefault(); setActive(state.activeIndex + 1); }
+      else if (event.key === 'ArrowUp') { event.preventDefault(); setActive(state.activeIndex - 1); }
+      else if (event.key === 'Escape') { closeList(); }
+      else if (event.key === 'Enter' && state.activeIndex >= 0) {
+        event.preventDefault();
+        const suggestion = state.suggestions[state.activeIndex];
+        if (suggestion && suggestion.placePrediction) selectPrediction(suggestion.placePrediction).catch(console.error);
       }
     });
+    input.addEventListener('blur', () => setTimeout(closeList, 150));
     return state;
   }
 
