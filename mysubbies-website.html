@@ -137,11 +137,11 @@
   .estimator-label { font-size:12px; font-weight:700; color: var(--stone); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px; }
   .est-field-label { display:block; font-size:12px; font-weight:600; color:var(--stone); margin:16px 0 6px; }
   .estimator-label + .est-field-label { margin-top:14px; }
-  .estimator input[type=text] {
+  .estimator input[type=text], .estimator input[type=number] {
     width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:15px; font-weight:500; color:var(--ink);
     border:1.5px solid var(--line); border-radius:12px; padding:14px 16px; outline:none; background:#fff;
   }
-  .estimator input[type=text]:focus { border-color: var(--black); }
+  .estimator input[type=text]:focus, .estimator input[type=number]:focus { border-color: var(--black); }
   .estimator-search-wrap { position:relative; }
   .estimator-search-results { position:absolute; top:calc(100% + 4px); left:0; right:0; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,.08); max-height:200px; overflow-y:auto; z-index:6; display:none; }
   .estimator-search-results.show { display:block; }
@@ -721,6 +721,7 @@
     <button class="install-banner-close" onclick="dismissInstallBanner()" aria-label="Dismiss">✕</button>
   </div>
 </div>
+<script src="js/address-autocomplete.js"></script>
 <script>
   // No native install prompt is reliable on its own: Android Chrome only
   // shows its own mini-infobar after unpredictable engagement heuristics
@@ -1274,21 +1275,8 @@
   // on that project. Left as the placeholder, the courier form falls all
   // the way back to plain typed addresses geocoded server-side (see
   // api/geocode-distance.js) -- a real, working fallback, not a broken state.
-  const GOOGLE_MAPS_API_KEY = 'REPLACE_ME_GOOGLE_MAPS_API_KEY';
-  let googleMapsLoadPromise = null;
   function loadGoogleMapsPlaces() {
-    if (GOOGLE_MAPS_API_KEY.includes('REPLACE_ME')) return Promise.resolve(false);
-    if (googleMapsLoadPromise) return googleMapsLoadPromise;
-    googleMapsLoadPromise = new Promise((resolve) => {
-      if (window.google && window.google.maps && window.google.maps.places) { resolve(true); return; }
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
-      script.async = true;
-      script.onload = () => resolve(!!(window.google && window.google.maps && window.google.maps.places));
-      script.onerror = () => resolve(false);
-      document.head.appendChild(script);
-    });
-    return googleMapsLoadPromise;
+    return window.MySubbiesAddress ? window.MySubbiesAddress.load() : Promise.resolve(false);
   }
 
   function openHouseHealth() {

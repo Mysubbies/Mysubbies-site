@@ -156,6 +156,7 @@
 
 <footer>© 2026 Mysubbies Holdings Pty Ltd. Melbourne, VIC. · <a href="mysubbies-terms.html" style="color:inherit;">Terms</a></footer>
 
+<script src="js/address-autocomplete.js"></script>
 <script>
   // Sep 2026 (founder report): this list had drifted from the real rate
   // card -- 11 live, bookable categories (Handyman, Pest Control,
@@ -171,6 +172,17 @@
     'Gardening & Lawn Mowing','Tree Pruning & Removal','Painting','Rendering','Cabinetry','Stonemason',
     'Flooring','Earth Works','Demolition','Skip Bins','Cleaning','Tiling','Tiled Roof Repair',
     'Electrical','Plumbing'];
+  let contractorAddressAutocompleteAvailable = false;
+  let contractorAddressSelection = null;
+
+  function initContractorAddressAutocomplete() {
+    const input = document.getElementById('fAddress');
+    if (!input || !window.MySubbiesAddress) return;
+    window.MySubbiesAddress.attach(input, {
+      statusId: 'fAddressStatus',
+      onSelect: selection => { contractorAddressSelection = selection; },
+    }).then(state => { contractorAddressAutocompleteAvailable = !!state; });
+  }
   async function hydrateTradesFromRateCard() {
     try {
       const res = await fetch('/api/rate-card');
@@ -354,7 +366,7 @@
         </select>
       </div>
       <div class="field"><label>Trading or business name <span class="req">*</span></label><input type="text" id="fBusiness" placeholder="e.g. Coburg Decks" /></div>
-      <div class="field"><label>Business address <span class="req">*</span></label><input type="text" id="fAddress" placeholder="e.g. 12 Smith St, Coburg VIC 3058" /></div>
+      <div class="field"><label>Business address <span class="req">*</span></label><input type="text" id="fAddress" placeholder="Start typing your business address" /><div class="field-note" id="fAddressStatus"></div></div>
       <div class="row2">
         <div class="field"><label>ABN <span class="req">*</span></label><input type="text" id="fAbn" placeholder="11 digits" onblur="verifyAbnWithAbr()" /></div>
         <div class="field" id="acnFieldWrap" style="display:none;"><label>ACN <span class="req">*</span></label><input type="text" id="fAcn" placeholder="9 digits" /></div>
@@ -428,6 +440,7 @@
     renderTradeChips();
     renderRegionChips();
     renderAvailabilityChips();
+    setTimeout(initContractorAddressAutocomplete, 0);
   }
 
   function renderRegionChips() {
@@ -604,6 +617,12 @@
       highlightMissingFields(requiredIds);
       return;
     }
+    contractorAddressSelection = window.MySubbiesAddress && window.MySubbiesAddress.getSelection('fAddress');
+    if (contractorAddressAutocompleteAvailable && !contractorAddressSelection) {
+      showError('Please select your business address from the suggestions so we can verify your location.');
+      document.getElementById('fAddress').classList.add('field-invalid');
+      return;
+    }
     if (!isValidAbnFormat(abn)) { showError('That ABN doesn\'t look valid — double-check the 11 digits.'); return; }
     if (businessStructure === 'company') {
       if (!isValidAcnFormat(acn)) { showError('That ACN doesn\'t look valid — double-check the 9 digits.'); return; }
@@ -631,6 +650,7 @@
 
     const application = {
       id: 'app_' + Date.now(), business, address, businessStructure, abn, acn: acn || null, contact, phone, email,
+      addressLocation: contractorAddressSelection || { formattedAddress: address, verified: false },
       trades: selectedTrades, otherTrade: otherTradeText.trim() || null,
       regions: selectedRegions,
       suburbs: [...selectedRegions, ...(suburbs ? suburbs.split(',').map(s => s.trim()).filter(Boolean) : [])],

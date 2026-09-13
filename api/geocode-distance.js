@@ -112,6 +112,15 @@ async function resolveSide(address, lat, lon) {
 }
 
 module.exports = async (req, res) => {
+  // The Google Maps browser key is intentionally public, but it is supplied
+  // from environment configuration so each Vercel environment can use a
+  // separately domain-restricted key. Never put a server key here.
+  if (req.method === 'GET' && req.query && req.query.config === 'places') {
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    const browserKey = String(process.env.GOOGLE_MAPS_BROWSER_API_KEY || '').trim();
+    res.status(200).json({ enabled: !!browserKey, browserKey: browserKey || null, country: 'au' });
+    return;
+  }
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
   try {
