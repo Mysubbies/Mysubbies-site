@@ -1770,6 +1770,7 @@
     `;
     if (tab === 'ratecard') wireRateCardTab();
     if (tab === 'coverage') initialiseContractorCoverageMap();
+    if (selectedCustomerId || selectedCustomerEmail) initialiseCustomerAddressEditor();
     if (openContractorThreadEmail) renderContractorThreadList();
     wireNotifyButton();
     updateCrmNav();
@@ -2772,16 +2773,24 @@
     const nameInput = document.getElementById('customerEditName');
     const phoneInput = document.getElementById('customerEditPhone');
     const emailInput = document.getElementById('customerEditEmail');
+    const addressInput = document.getElementById('customerEditAddress');
     const errorEl = document.getElementById('customerEditError');
     const saveButton = document.getElementById('customerEditSave');
-    if (!nameInput || !phoneInput || !emailInput) return;
+    if (!nameInput || !phoneInput || !emailInput || !addressInput) return;
+    const originalAddress = addressInput.dataset.originalAddress || '';
+    const addressChanged = addressInput.value.trim() !== originalAddress;
+    const addressLocation = addressChanged && window.MySubbiesAddress ? window.MySubbiesAddress.getSelection('customerEditAddress') : null;
+    if (addressChanged && !addressLocation) {
+      if (errorEl) errorEl.textContent = 'Select the customer address from the Google suggestions before saving.';
+      return;
+    }
     if (saveButton) saveButton.disabled = true;
     if (errorEl) errorEl.textContent = '';
     try {
       const res = await adminFetch('/api/admin-account', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: 'customer', action: 'updateProfile', customerId,
-          name: nameInput.value, phone: phoneInput.value, newEmail: emailInput.value }),
+          name: nameInput.value, phone: phoneInput.value, newEmail: emailInput.value, addressLocation }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || 'Could not save customer.');
@@ -2794,6 +2803,12 @@
       if (errorEl) errorEl.textContent = error.message || 'Could not save customer.';
       if (saveButton) saveButton.disabled = false;
     }
+  }
+
+  function initialiseCustomerAddressEditor() {
+    const input = document.getElementById('customerEditAddress');
+    if (!input || !window.MySubbiesAddress) return;
+    window.MySubbiesAddress.attach('customerEditAddress', { statusId: 'customerEditAddressStatus' });
   }
 
   function renderCustomerDetail() {
@@ -2818,6 +2833,8 @@
           <label><span class="fieldlabel">Phone</span><input class="fieldinput" id="customerEditPhone" value="${escapeHtml(c.phone || '')}" autocomplete="tel"></label>
         </div>
         <label style="display:block;margin-top:10px;"><span class="fieldlabel">Email</span><input class="fieldinput" id="customerEditEmail" type="email" value="${escapeHtml(c.email || '')}" autocomplete="email"></label>
+        <label style="display:block;margin-top:10px;"><span class="fieldlabel">Verified address</span><input class="fieldinput" id="customerEditAddress" value="${escapeHtml(c.address_formatted || '')}" data-original-address="${escapeHtml(c.address_formatted || '')}" autocomplete="street-address"></label>
+        <div id="customerEditAddressStatus" style="font-size:11.5px;color:${c.address_verified ? 'var(--good)' : 'var(--stone)'};margin-top:5px;">${c.address_verified ? '✓ Verified address saved' : 'Start typing and select the correct address from Google suggestions.'}</div>
         <div id="customerEditError" style="color:var(--warn);font-size:12px;margin-top:6px;"></div>
         <button id="customerEditSave" class="btn btn-black" style="width:auto;margin-top:12px;" onclick="saveCustomerProfile('${c.id}')">Save customer details</button>
         <p style="font-size:11.5px;color:var(--stone);margin-top:8px;">Changing the email also changes the customer's login and active job contact email. Issued quotes keep their original historical snapshot.</p>

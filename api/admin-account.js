@@ -55,9 +55,17 @@ module.exports = async (req, res) => {
       const cleanName = String(name || '').trim();
       const cleanPhone = String(phone || '').trim();
       const cleanEmail = String(newEmail || '').trim().toLowerCase();
+      const location = addressLocation && typeof addressLocation === 'object' ? addressLocation : null;
+      const latitude = location ? Number(location.latitude) : null;
+      const longitude = location ? Number(location.longitude) : null;
+      const validCoordinates = location && Number.isFinite(latitude) && latitude >= -44.5 && latitude <= -9 &&
+        Number.isFinite(longitude) && longitude >= 112 && longitude <= 154;
       if (!cleanId || !cleanName || cleanName.length > 120 || cleanPhone.length > 30 ||
           !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
         res.status(400).json({ error: 'A valid customer, name, phone and email are required.' }); return;
+      }
+      if (location && !(location.verified === true && String(location.placeId || '').trim() && validCoordinates)) {
+        res.status(400).json({ error: 'Select the customer address from the Google suggestions.' }); return;
       }
       const { data: current, error: findError } = await supabase.from('customers')
         .select('id, auth_user_id, email, name, phone').eq('id', cleanId).maybeSingle();
@@ -77,8 +85,15 @@ module.exports = async (req, res) => {
         if (authError) { res.status(400).json({ error: 'The login email could not be updated: ' + authError.message }); return; }
       }
 
-      const { data: updated, error: updateError } = await supabase.rpc('admin_update_customer_profile', {
+      const { data: updated, error: updateError } = await supabase.rpc('admin_update_customer_profile_v2', {
         p_customer_id: cleanId, p_name: cleanName, p_phone: cleanPhone || null, p_email: cleanEmail,
+        p_address_place_id: location ? String(location.placeId).trim().slice(0, 300) : null,
+        p_address_formatted: location ? String(location.formattedAddress || '').trim().slice(0, 500) : null,
+        p_address_suburb: location ? String(location.suburb || '').trim().slice(0, 100) : null,
+        p_address_state: location ? String(location.state || '').trim().slice(0, 20) : null,
+        p_address_postcode: location ? String(location.postcode || '').trim().slice(0, 10) : null,
+        p_address_latitude: location ? latitude : null, p_address_longitude: location ? longitude : null,
+        p_address_verified: location ? true : false,
       });
       if (updateError) {
         if (emailChanged && current.auth_user_id) {

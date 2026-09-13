@@ -6,6 +6,7 @@ const admin = readFileSync('mysubbies-admin-portal.html', 'utf8');
 const adminApi = readFileSync('api/admin-account.js', 'utf8');
 const listApi = readFileSync('api/get-admin-list.js', 'utf8');
 const migration = readFileSync('supabase/schema_v25_admin_customer_profile.sql', 'utf8');
+const customerAddressMigration = readFileSync('supabase/schema_v27_customer_address_locations.sql', 'utf8');
 
 test('successful admin login reveals the sidebar without a refresh', () => {
   const login = admin.slice(admin.indexOf('async function adminLogin()'), admin.indexOf('function adminLogout()'));
@@ -33,6 +34,17 @@ test('customer profile editing is authorised and database-backed', () => {
   assert.match(migration, /update jobs/);
   assert.match(migration, /update customer_credits/);
   assert.match(migration, /Issued quote snapshots are deliberately immutable/);
+});
+
+test('admin can select and save a verified customer address', () => {
+  assert.match(admin, /id="customerEditAddress"/);
+  assert.match(admin, /MySubbiesAddress\.attach\('customerEditAddress'/);
+  assert.match(admin, /MySubbiesAddress\.getSelection\('customerEditAddress'\)/);
+  assert.match(adminApi, /admin_update_customer_profile_v2/);
+  assert.match(adminApi, /p_address_latitude/);
+  assert.match(listApi, /address_formatted/);
+  assert.match(customerAddressMigration, /alter table customers add column if not exists address_verified/);
+  assert.match(customerAddressMigration, /Issued quote and[\s\S]*snapshots remain unchanged/);
 });
 
 test('contractor coverage map receives structured verified locations', () => {
