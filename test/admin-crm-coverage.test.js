@@ -14,6 +14,11 @@ test('successful admin login reveals the sidebar without a refresh', () => {
   assert.match(login, /hydrateInquiriesFromServer\(\)/);
 });
 
+test('logged-out admin header hides authenticated controls', () => {
+  assert.match(admin, /body\.logged-out \.navlinks \{ display:none; \}/);
+  assert.match(admin, /<div class="navlinks">[\s\S]*adminLogout\(\)/);
+});
+
 test('customer View writes the returned detail page into the app', () => {
   assert.match(admin, /if \(selectedCustomerId \|\| selectedCustomerEmail\) \{\s*app\.innerHTML = renderCustomerDetail\(\)/);
   assert.match(admin, /function openCustomerDetail\(customerId\)/);
