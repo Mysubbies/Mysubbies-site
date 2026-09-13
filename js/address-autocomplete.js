@@ -6,20 +6,27 @@
 
   function component(components, type, shortName) {
     const match = (components || []).find(item => (item.types || []).includes(type));
-    return match ? String(shortName ? match.short_name : match.long_name || '') : '';
+    if (!match) return '';
+    return String(shortName
+      ? (match.shortText || match.short_name || '')
+      : (match.longText || match.long_name || ''));
   }
 
   function parsePlace(place) {
-    if (!place || !place.geometry || !place.geometry.location) return null;
-    const components = place.address_components || [];
+    if (!place) return null;
+    const location = place.location || (place.geometry && place.geometry.location);
+    if (!location) return null;
+    const components = place.addressComponents || place.address_components || [];
+    const latitude = typeof location.lat === 'function' ? location.lat() : location.lat;
+    const longitude = typeof location.lng === 'function' ? location.lng() : location.lng;
     const suburb = component(components, 'locality')
       || component(components, 'postal_town')
       || component(components, 'sublocality_level_1');
     return {
-      formattedAddress: String(place.formatted_address || ''),
-      placeId: String(place.place_id || ''),
-      latitude: place.geometry.location.lat(),
-      longitude: place.geometry.location.lng(),
+      formattedAddress: String(place.formattedAddress || place.formatted_address || ''),
+      placeId: String(place.id || place.place_id || ''),
+      latitude: Number(latitude),
+      longitude: Number(longitude),
       suburb,
       state: component(components, 'administrative_area_level_1', true),
       postcode: component(components, 'postal_code'),
@@ -29,16 +36,27 @@
   }
 
   function load() {
-    if (global.google && global.google.maps && global.google.maps.places) return Promise.resolve(true);
+    if (global.google && global.google.maps && global.google.maps.importLibrary) {
+      return global.google.maps.importLibrary('places').then(() => true).catch(() => false);
+    }
     if (loadPromise) return loadPromise;
     loadPromise = fetch('/api/geocode-distance?config=places', { credentials: 'same-origin' })
       .then(response => response.ok ? response.json() : { enabled: false })
       .then(config => new Promise(resolve => {
         if (!config.enabled || !config.browserKey) { resolve(false); return; }
+        const callbackName = '__mysubbiesGoogleMapsReady';
         const script = document.createElement('script');
-        script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(config.browserKey) + '&libraries=places&loading=async';
+        script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(config.browserKey)
+          + '&loading=async&callback=' + callbackName;
         script.async = true;
-        script.onload = () => resolve(!!(global.google && global.google.maps && global.google.maps.places));
+        global[callbackName] = () => {
+          delete global[callbackName];
+          if (!global.google || !global.google.maps || !global.google.maps.importLibrary) {
+            resolve(false);
+            return;
+          }
+          global.google.maps.importLibrary('places').then(() => resolve(true)).catch(() => resolve(false));
+        };
         script.onerror = () => resolve(false);
         document.head.appendChild(script);
       }))
@@ -71,27 +89,45 @@
     }
     if (!document.body.contains(input)) return null;
 
-    const autocomplete = new global.google.maps.places.Autocomplete(input, {
-      componentRestrictions: { country: 'au' },
-      fields: ['address_components', 'formatted_address', 'geometry', 'place_id'],
-      types: ['address'],
+    const { PlaceAutocompleteElement } = await global.google.maps.importLibrary('places');
+    if (!PlaceAutocompleteElement) return null;
+    const autocomplete = new PlaceAutocompleteElement({
+      includedRegionCodes: ['au'],
+      includedPrimaryTypes: ['street_address', 'premise', 'subpremise'],
     });
+    autocomplete.placeholder = input.placeholder || 'Start typing your address';
+    autocomplete.style.display = 'block';
+    autocomplete.style.width = '100%';
+    autocomplete.style.boxSizing = 'border-box';
+    if (input.value) autocomplete.value = input.value;
+    input.style.display = 'none';
+    input.insertAdjacentElement('afterend', autocomplete);
+
     const state = { autocomplete, selection: null };
     attached.set(input, state);
-    input.addEventListener('input', () => {
+    autocomplete.addEventListener('input', () => {
       state.selection = null;
+      input.value = autocomplete.value || '';
       input.dataset.addressVerified = 'false';
       setStatus(statusElement, false);
     });
-    autocomplete.addListener('place_changed', () => {
-      const selection = parsePlace(autocomplete.getPlace());
-      if (!selection || selection.country.toUpperCase() !== 'AU') return;
-      state.selection = selection;
-      input.value = selection.formattedAddress;
-      input.dataset.addressVerified = 'true';
-      setStatus(statusElement, true);
-      input.dispatchEvent(new CustomEvent('mysubbies:address-selected', { bubbles: true, detail: selection }));
-      if (typeof settings.onSelect === 'function') settings.onSelect(selection);
+    autocomplete.addEventListener('gmp-select', async event => {
+      try {
+        const place = event.placePrediction.toPlace();
+        await place.fetchFields({ fields: ['id', 'formattedAddress', 'location', 'addressComponents'] });
+        const selection = parsePlace(place);
+        if (!selection || selection.country.toUpperCase() !== 'AU') return;
+        state.selection = selection;
+        input.value = selection.formattedAddress;
+        autocomplete.value = selection.formattedAddress;
+        input.dataset.addressVerified = 'true';
+        setStatus(statusElement, true);
+        input.dispatchEvent(new CustomEvent('mysubbies:address-selected', { bubbles: true, detail: selection }));
+        if (typeof settings.onSelect === 'function') settings.onSelect(selection);
+      } catch (error) {
+        console.error('Could not verify selected address:', error);
+        setStatus(statusElement, false);
+      }
     });
     return state;
   }

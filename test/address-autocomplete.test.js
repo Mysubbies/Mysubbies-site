@@ -31,6 +31,32 @@ test('Australian Google place is normalised for persistence and map use', () => 
   });
 });
 
+test('current Places API Place objects are normalised for persistence and map use', () => {
+  const parsed = addressAutocomplete.parsePlace({
+    id: 'new-place-id',
+    formattedAddress: '10 Test Avenue, Point Cook VIC 3030, Australia',
+    location: { lat: () => -37.90, lng: () => 144.75 },
+    addressComponents: [
+      { longText: 'Point Cook', shortText: 'Point Cook', types: ['locality'] },
+      { longText: 'Victoria', shortText: 'VIC', types: ['administrative_area_level_1'] },
+      { longText: '3030', shortText: '3030', types: ['postal_code'] },
+      { longText: 'Australia', shortText: 'AU', types: ['country'] },
+    ],
+  });
+  assert.deepEqual(parsed, {
+    formattedAddress: '10 Test Avenue, Point Cook VIC 3030, Australia', placeId: 'new-place-id',
+    latitude: -37.90, longitude: 144.75, suburb: 'Point Cook', state: 'VIC', postcode: '3030', country: 'AU', verified: true,
+  });
+});
+
+test('autocomplete uses the current Places widget rather than the legacy widget', () => {
+  const source = readFileSync('js/address-autocomplete.js', 'utf8');
+  assert.match(source, /PlaceAutocompleteElement/);
+  assert.match(source, /gmp-select/);
+  assert.match(source, /fetchFields/);
+  assert.doesNotMatch(source, /new global\.google\.maps\.places\.Autocomplete/);
+});
+
 test('places config exposes only the intentionally public browser key', async () => {
   const before = process.env.GOOGLE_MAPS_BROWSER_API_KEY;
   process.env.GOOGLE_MAPS_BROWSER_API_KEY = 'browser-key-for-test';
