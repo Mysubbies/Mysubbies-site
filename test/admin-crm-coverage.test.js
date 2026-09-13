@@ -45,6 +45,8 @@ test('admin can select and save a verified customer address', () => {
   assert.match(listApi, /address_formatted/);
   assert.match(customerAddressMigration, /alter table customers add column if not exists address_verified/);
   assert.match(customerAddressMigration, /Issued quote and[\s\S]*snapshots remain unchanged/);
+  const detailRender = admin.slice(admin.indexOf('if (selectedCustomerId || selectedCustomerEmail)'), admin.indexOf('const jobs = getJobs()'));
+  assert.match(detailRender, /app\.innerHTML = renderCustomerDetail\(\);\s*initialiseCustomerAddressEditor\(\);/);
 });
 
 test('contractor coverage map receives structured verified locations', () => {

@@ -1605,6 +1605,7 @@
     if (selectedJobId) { renderDetail(); return; }
     if (selectedCustomerId || selectedCustomerEmail) {
       app.innerHTML = renderCustomerDetail();
+      initialiseCustomerAddressEditor();
       updateCrmNav();
       return;
     }
@@ -1770,7 +1771,6 @@
     `;
     if (tab === 'ratecard') wireRateCardTab();
     if (tab === 'coverage') initialiseContractorCoverageMap();
-    if (selectedCustomerId || selectedCustomerEmail) initialiseCustomerAddressEditor();
     if (openContractorThreadEmail) renderContractorThreadList();
     wireNotifyButton();
     updateCrmNav();
