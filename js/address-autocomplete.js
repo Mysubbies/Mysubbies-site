@@ -218,7 +218,46 @@
     return state ? state.selection : null;
   }
 
+  function addBusinessNavigation() {
+    const desktop = document.querySelector('nav.mainnav');
+    const mobile = document.getElementById('mobileMenu');
+    const links = [
+      { href: 'mysubbies-property-managers.html', label: 'Property Managers' },
+      { href: 'mysubbies-facilities-maintenance.html', label: 'Facilities Maintenance' },
+    ];
+
+    if (desktop) {
+      const contractorLink = Array.from(desktop.querySelectorAll('a')).find(a => /Become a Contractor/i.test(a.textContent));
+      links.forEach(item => {
+        if (desktop.querySelector('a[href="' + item.href + '"]')) return;
+        const a = document.createElement('a');
+        a.className = 'navlink';
+        a.href = item.href;
+        a.textContent = item.label;
+        desktop.insertBefore(a, contractorLink || null);
+      });
+    }
+
+    if (mobile) {
+      const contractorLink = Array.from(mobile.querySelectorAll('a.navlink')).find(a => /Become a Contractor/i.test(a.textContent));
+      links.forEach(item => {
+        if (mobile.querySelector('a[href="' + item.href + '"]')) return;
+        const a = document.createElement('a');
+        a.className = 'navlink';
+        a.href = item.href;
+        a.textContent = item.label;
+        if (typeof global.closeMobileMenu === 'function') a.addEventListener('click', global.closeMobileMenu);
+        mobile.insertBefore(a, contractorLink || null);
+      });
+    }
+  }
+
   const api = { attach, getSelection, load, parsePlace };
   global.MySubbiesAddress = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
+
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addBusinessNavigation);
+    else addBusinessNavigation();
+  }
 })(typeof window !== 'undefined' ? window : globalThis);
