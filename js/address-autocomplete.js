@@ -222,14 +222,15 @@
     const desktop = document.querySelector('nav.mainnav');
     const mobile = document.getElementById('mobileMenu');
     const links = [
-      { href: 'mysubbies-property-managers.html', label: 'Property Managers' },
+      { href: 'mysubbies-property-managers.html', label: 'Property & Strata' },
       { href: 'mysubbies-facilities-maintenance.html', label: 'Facilities Maintenance' },
     ];
 
     if (desktop) {
       const contractorLink = Array.from(desktop.querySelectorAll('a')).find(a => /Become a Contractor/i.test(a.textContent));
       links.forEach(item => {
-        if (desktop.querySelector('a[href="' + item.href + '"]')) return;
+        const existing = desktop.querySelector('a[href="' + item.href + '"]');
+        if (existing) { existing.textContent = item.label; return; }
         const a = document.createElement('a');
         a.className = 'navlink';
         a.href = item.href;
@@ -241,7 +242,8 @@
     if (mobile) {
       const contractorLink = Array.from(mobile.querySelectorAll('a.navlink')).find(a => /Become a Contractor/i.test(a.textContent));
       links.forEach(item => {
-        if (mobile.querySelector('a[href="' + item.href + '"]')) return;
+        const existing = mobile.querySelector('a[href="' + item.href + '"]');
+        if (existing) { existing.textContent = item.label; return; }
         const a = document.createElement('a');
         a.className = 'navlink';
         a.href = item.href;
