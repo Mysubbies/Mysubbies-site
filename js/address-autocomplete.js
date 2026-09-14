@@ -221,36 +221,38 @@
   function addBusinessNavigation() {
     const desktop = document.querySelector('nav.mainnav');
     const mobile = document.getElementById('mobileMenu');
-    const links = [
-      { href: 'mysubbies-property-managers.html', label: 'Property & Strata' },
-      { href: 'mysubbies-facilities-maintenance.html', label: 'Facilities Maintenance' },
-    ];
+    const href = 'mysubbies-property-managers.html';
+    const label = 'Property & Strata';
 
     if (desktop) {
-      const contractorLink = Array.from(desktop.querySelectorAll('a')).find(a => /Become a Contractor/i.test(a.textContent));
-      links.forEach(item => {
-        const existing = desktop.querySelector('a[href="' + item.href + '"]');
-        if (existing) { existing.textContent = item.label; return; }
+      const obsolete = desktop.querySelector('a[href="mysubbies-facilities-maintenance.html"]');
+      if (obsolete) obsolete.remove();
+      const existing = desktop.querySelector('a[href="' + href + '"]');
+      if (existing) existing.textContent = label;
+      else {
+        const contractorLink = Array.from(desktop.querySelectorAll('a')).find(a => /Become a Contractor/i.test(a.textContent));
         const a = document.createElement('a');
         a.className = 'navlink';
-        a.href = item.href;
-        a.textContent = item.label;
+        a.href = href;
+        a.textContent = label;
         desktop.insertBefore(a, contractorLink || null);
-      });
+      }
     }
 
     if (mobile) {
-      const contractorLink = Array.from(mobile.querySelectorAll('a.navlink')).find(a => /Become a Contractor/i.test(a.textContent));
-      links.forEach(item => {
-        const existing = mobile.querySelector('a[href="' + item.href + '"]');
-        if (existing) { existing.textContent = item.label; return; }
+      const obsolete = mobile.querySelector('a[href="mysubbies-facilities-maintenance.html"]');
+      if (obsolete) obsolete.remove();
+      const existing = mobile.querySelector('a[href="' + href + '"]');
+      if (existing) existing.textContent = label;
+      else {
+        const contractorLink = Array.from(mobile.querySelectorAll('a.navlink')).find(a => /Become a Contractor/i.test(a.textContent));
         const a = document.createElement('a');
         a.className = 'navlink';
-        a.href = item.href;
-        a.textContent = item.label;
+        a.href = href;
+        a.textContent = label;
         if (typeof global.closeMobileMenu === 'function') a.addEventListener('click', global.closeMobileMenu);
         mobile.insertBefore(a, contractorLink || null);
-      });
+      }
     }
   }
 
