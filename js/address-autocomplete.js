@@ -218,6 +218,47 @@
     return state ? state.selection : null;
   }
 
+  function applyPublicHeaderStyle() {
+    if (!global.matchMedia || !global.matchMedia('(min-width: 861px)').matches) return;
+    const navwrap = document.querySelector('header .navwrap');
+    const desktop = document.querySelector('header nav.mainnav');
+    const logo = document.querySelector('header .logo-word');
+    const navctas = document.querySelector('header .navctas');
+    if (!navwrap || !desktop) return;
+
+    Object.assign(navwrap.style, {
+      maxWidth: '1260px', height: '72px', padding: '0 24px', gap: '16px'
+    });
+    if (logo) Object.assign(logo.style, { fontSize: '23px', lineHeight: '1' });
+    Object.assign(desktop.style, {
+      gap: '22px', flex: '1 1 auto', justifyContent: 'center', minWidth: '0'
+    });
+    desktop.querySelectorAll('a.navlink').forEach(a => Object.assign(a.style, {
+      fontSize: '12.5px', fontWeight: '700', lineHeight: '1.2', whiteSpace: 'nowrap'
+    }));
+
+    if (navctas) {
+      Object.assign(navctas.style, { gap: '10px', flex: '0 0 auto' });
+      const links = Array.from(navctas.querySelectorAll('a'));
+      const login = links.find(a => a.getAttribute('href') === 'mysubbies-customer-portal.html' && /log in/i.test(a.textContent));
+      const signup = links.find(a => /signup=1/.test(a.getAttribute('href') || ''));
+      const quote = links.find(a => /instant price/i.test(a.textContent));
+      if (login) Object.assign(login.style, {
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 19px',
+        margin: '0', border: '1px solid #E7E7E4', borderRadius: '13px', background: '#fff',
+        color: '#14213D', fontSize: '13px', fontWeight: '700', whiteSpace: 'nowrap'
+      });
+      if (signup) signup.style.display = 'none';
+      if (quote) {
+        quote.textContent = 'Get an instant price →';
+        Object.assign(quote.style, {
+          padding: '13px 20px', borderRadius: '13px', background: '#FF6A1A', color: '#fff',
+          fontSize: '13px', fontWeight: '800', lineHeight: '1.2', whiteSpace: 'nowrap'
+        });
+      }
+    }
+  }
+
   function addBusinessNavigation() {
     const desktop = document.querySelector('nav.mainnav');
     const mobile = document.getElementById('mobileMenu');
@@ -251,6 +292,8 @@
         mobile.insertBefore(a, contractorLink || null);
       }
     }
+
+    applyPublicHeaderStyle();
   }
 
   const api = { attach, getSelection, load, parsePlace };
