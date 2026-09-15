@@ -27,7 +27,8 @@
 // than let it fail confusingly, or silently strip identifying info out of
 // financial/job records that need to stay intact for the audit trail.
 const { getSupabase } = require('./_lib/clients');
-const { requireAdmin, verifyPassword, signAdminToken } = require('./_lib/adminAuth');
+const { requireAdmin, verifyPassword, signAdminToken, adminSessionCookie, clearAdminSessionCookie } = require('./_lib/adminAuth');
+const { MAX_FAILURES, countRecentFailures, recordFailure, clearFailures } = require('./_lib/adminLoginSecurity');
 const { notifyAdmin, notifyContractor, CONTRACTOR_PORTAL_URL } = require('./_lib/contractorNotifications');
 const { wrapEmail, emailButton, escapeHtml } = require('./_lib/email');
 
@@ -35,14 +36,42 @@ const ROLES = { customer: 'customers', contractor: 'contractors' };
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+  res.setHeader('Cache-Control', 'no-store');
 
   try {
     const { role, email, action, password, reason, customerId, contractorId, name, phone, newEmail,
       business, contact, address, addressLocation } = req.body || {};
 
     if (action === 'login') {
-      if (!verifyPassword(password)) { res.status(401).json({ error: 'Incorrect password.' }); return; }
-      res.status(200).json({ token: signAdminToken() });
+      const supabase = getSupabase();
+      const failures = await countRecentFailures(supabase, req);
+      if (failures >= MAX_FAILURES) {
+        res.setHeader('Retry-After', '900');
+        res.status(429).json({ error: 'Too many login attempts. Try again in 15 minutes.' });
+        return;
+      }
+      if (!verifyPassword(password)) {
+        await recordFailure(supabase, req);
+        res.status(401).json({ error: 'Incorrect password.' });
+        return;
+      }
+      await clearFailures(supabase, req);
+      const token = signAdminToken();
+      res.setHeader('Set-Cookie', adminSessionCookie(token));
+      res.status(200).json({ ok: true });
+      return;
+    }
+
+    if (action === 'session') {
+      if (!requireAdmin(req, res)) return;
+      res.status(200).json({ ok: true });
+      return;
+    }
+
+    if (action === 'logout') {
+      if (!requireAdmin(req, res)) return;
+      res.setHeader('Set-Cookie', clearAdminSessionCookie());
+      res.status(200).json({ ok: true });
       return;
     }
 
