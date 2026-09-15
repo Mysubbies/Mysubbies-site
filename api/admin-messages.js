@@ -21,16 +21,26 @@
 // admin 'send', ADMIN_NOTIFY_EMAIL on a contractor 'reply'.
 const { getSupabase } = require('./_lib/clients');
 const { sendEmail, wrapEmail } = require('./_lib/email');
-const { requireAdmin } = require('./_lib/adminAuth');
+const { requireAdmin, verifyAdminAuth } = require('./_lib/adminAuth');
+const { requireAccount } = require('./_lib/userAuth');
 
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || 'accounts@mysubbies.com.au';
 
 module.exports = async (req, res) => {
   try {
     if (req.method === 'GET') {
-      const { contractorEmail } = req.query || {};
-      if (!contractorEmail) { res.status(400).json({ error: 'contractorEmail is required.' }); return; }
       const supabase = getSupabase();
+      const requestedEmail = String((req.query && req.query.contractorEmail) || '').trim().toLowerCase();
+      let contractorEmail = requestedEmail;
+      if (!verifyAdminAuth(req)) {
+        const auth = await requireAccount(supabase, req, 'contractor');
+        if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
+        contractorEmail = String(auth.account.email).toLowerCase();
+        if (requestedEmail && requestedEmail !== contractorEmail) {
+          res.status(403).json({ error: 'You cannot read another contractor’s messages.' }); return;
+        }
+      }
+      if (!contractorEmail) { res.status(400).json({ error: 'contractorEmail is required.' }); return; }
       const { data, error } = await supabase
         .from('admin_contractor_messages')
         .select('*')
@@ -50,8 +60,11 @@ module.exports = async (req, res) => {
     const supabase = getSupabase();
 
     if (action === 'markRead') {
-      const { messageId, contractorEmail } = req.body || {};
-      if (!messageId || !contractorEmail) { res.status(400).json({ error: 'messageId and contractorEmail are required.' }); return; }
+      const { messageId } = req.body || {};
+      const auth = await requireAccount(supabase, req, 'contractor');
+      if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
+      const contractorEmail = String(auth.account.email).toLowerCase();
+      if (!messageId) { res.status(400).json({ error: 'messageId is required.' }); return; }
       const { error } = await supabase
         .from('admin_contractor_messages')
         .update({ read_at: new Date().toISOString() })
@@ -79,8 +92,11 @@ module.exports = async (req, res) => {
     }
 
     if (action === 'reply') {
-      const { contractorEmail, body, attachmentDataUrl, attachmentFilename, attachmentMime } = req.body || {};
-      if (!contractorEmail || !body || !body.trim()) { res.status(400).json({ error: 'contractorEmail and body are required.' }); return; }
+      const { body, attachmentDataUrl, attachmentFilename, attachmentMime } = req.body || {};
+      const auth = await requireAccount(supabase, req, 'contractor');
+      if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
+      const contractorEmail = String(auth.account.email).toLowerCase();
+      if (!body || !body.trim()) { res.status(400).json({ error: 'body is required.' }); return; }
       // Same server-side backstop as the 'send' action -- client already
       // enforces a cap before this is ever called.
       if (attachmentDataUrl && attachmentDataUrl.length > 6 * 1024 * 1024) {

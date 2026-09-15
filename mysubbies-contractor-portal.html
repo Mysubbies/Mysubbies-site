@@ -486,7 +486,11 @@
     const email = localStorage.getItem('mysubbies_contractor_email');
     if (!email) return;
     try {
-      const res = await fetch('/api/admin-messages?contractorEmail=' + encodeURIComponent(email));
+      const token = await getContractorAccessToken();
+      if (!token) return;
+      const res = await fetch('/api/admin-messages?contractorEmail=' + encodeURIComponent(email), {
+        headers: { Authorization: 'Bearer ' + token },
+      });
       if (!res.ok) return;
       const data = await res.json();
       adminMessages = Array.isArray(data.messages) ? data.messages : [];
@@ -498,12 +502,14 @@
   // thread doesn't show a per-message read/unread state, so there's
   // nothing that needs a repaint here anyway -- just optimistic local
   // mutation + a fire-and-forget POST per newly-read message.
-  function markAllAdminMessagesRead() {
+  async function markAllAdminMessagesRead() {
     const email = localStorage.getItem('mysubbies_contractor_email');
+    const token = await getContractorAccessToken();
+    if (!email || !token) return;
     adminMessages.filter(m => m.sender_role === 'admin' && !m.read_at).forEach(m => {
       m.read_at = new Date().toISOString();
       fetch('/api/admin-messages', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ action: 'markRead', messageId: m.id, contractorEmail: email }),
       }).catch(() => {});
     });
@@ -542,8 +548,10 @@
     adminMessages.push(optimistic);
     render();
     try {
+      const token = await getContractorAccessToken();
+      if (!token) throw new Error('session expired');
       const res = await fetch('/api/admin-messages', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({
           action: 'reply', contractorEmail: email, body: text,
           attachmentDataUrl: attachment ? attachment.dataUrl : null,
