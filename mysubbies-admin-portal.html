@@ -3876,12 +3876,12 @@
           <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
             <button class="btn btn-outline" onclick="addDraftMilestone()">+ Add milestone</button>
             <button class="btn btn-outline" onclick="cancelEditTemplate()">Cancel</button>
-            <button class="btn btn-black" onclick="saveEditedTemplate(${JSON.stringify(t.id)})">Save</button>
+            <button type="button" class="btn btn-black" data-save-template-id="${escapeHtml(String(t.id))}">Save</button>
           </div>
         ` : `
           <div style="display:flex;gap:8px;margin-top:10px;">
             <button type="button" class="btn btn-outline" data-edit-template-id="${escapeHtml(String(t.id))}">Edit</button>
-            ${t.status === 'pending_review' ? `<button class="btn btn-black" onclick="approveTemplate(${JSON.stringify(t.id)})">Approve</button>` : ''}
+            ${t.status === 'pending_review' ? `<button type="button" class="btn btn-black" data-approve-template-id="${escapeHtml(String(t.id))}">Approve</button>` : ''}
           </div>
         `}
       </div>
@@ -3906,10 +3906,19 @@
   // Delegate the click from document so the Edit action survives every
   // re-render instead of relying on a disposable inline handler.
   document.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-edit-template-id]');
-    if (!button) return;
-    event.preventDefault();
-    startEditTemplate(button.dataset.editTemplateId);
+    const editButton = event.target.closest('[data-edit-template-id]');
+    const saveButton = event.target.closest('[data-save-template-id]');
+    const approveButton = event.target.closest('[data-approve-template-id]');
+    if (editButton) {
+      event.preventDefault();
+      startEditTemplate(editButton.dataset.editTemplateId);
+    } else if (saveButton) {
+      event.preventDefault();
+      saveEditedTemplate(saveButton.dataset.saveTemplateId);
+    } else if (approveButton) {
+      event.preventDefault();
+      approveTemplate(approveButton.dataset.approveTemplateId);
+    }
   });
   function cancelEditTemplate() { editingTemplateId = null; editingTemplateDraft = null; render(); }
   function addDraftMilestone() {
@@ -3927,7 +3936,7 @@
   }
 
   async function saveEditedTemplate(templateId) {
-    const t = paymentTabData.templates.find(x => x.id === templateId);
+    const t = paymentTabData.templates.find(x => String(x.id) === String(templateId));
     const milestones = editingTemplateDraft.map((m, idx) => ({
       key: (document.getElementById('draftKey' + idx).value.trim() || m.key),
       label: document.getElementById('draftLabel' + idx).value.trim(),
