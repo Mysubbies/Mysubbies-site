@@ -78,3 +78,17 @@ test('payment template edit buttons use a render-safe delegated handler', () => 
   assert.match(portal, /closest\('\[data-edit-template-id\]'\)/);
   assert.match(portal, /startEditTemplate\(button\.dataset\.editTemplateId\)/);
 });
+
+test('deposit-only payment templates can be edited without totaling 100 percent', () => {
+  const { validateTemplateSchedule } = require('../api/_lib/paymentSchedule');
+  const config = { high_value_threshold_cents: 2000000, deposit_cap_low_pct: 10, deposit_cap_high_pct: 5 };
+  assert.doesNotThrow(() => validateTemplateSchedule([
+    { key: 'deposit', pct: 0, milestone_type: 'deposit' },
+  ], 2000000, config));
+  assert.doesNotThrow(() => validateTemplateSchedule([
+    { key: 'deposit', pct: 5, milestone_type: 'deposit' },
+  ], 2000000, config));
+  assert.throws(() => validateTemplateSchedule([
+    { key: 'deposit', pct: 6, milestone_type: 'deposit' },
+  ], 2000000, config), /cannot exceed 5%/);
+});
