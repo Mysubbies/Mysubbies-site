@@ -30,12 +30,8 @@ function signAdminToken() {
 
 function signMfaChallenge(clientFingerprint) {
   if (!process.env.ADMIN_SESSION_SECRET) throw new Error('ADMIN_SESSION_SECRET is not configured.');
-  const payload = base64url(JSON.stringify({
-    exp: Date.now() + MFA_CHALLENGE_TTL_MS,
-    purpose: 'admin-mfa',
-    fingerprint: clientFingerprint,
-    nonce: crypto.randomBytes(16).toString('base64url'),
-  }));
+  const payload = base64url(JSON.stringify({ exp: Date.now() + MFA_CHALLENGE_TTL_MS, purpose: 'admin-mfa',
+    fingerprint: clientFingerprint, nonce: crypto.randomBytes(16).toString('base64url') }));
   return `${payload}.${sign(payload)}`;
 }
 
@@ -50,9 +46,7 @@ function verifySignedToken(token) {
   try {
     const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
     return typeof parsed.exp === 'number' && Date.now() < parsed.exp ? parsed : null;
-  } catch (e) {
-    return null;
-  }
+  } catch (e) { return null; }
 }
 
 function verifyMfaChallenge(token, clientFingerprint) {
