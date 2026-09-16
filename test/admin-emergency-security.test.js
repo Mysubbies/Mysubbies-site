@@ -27,6 +27,9 @@ test('admin login is persistently rate limited and never returns a bearer token'
   assert.match(source, /Retry-After/);
   assert.match(source, /adminSessionCookie/);
   assert.doesNotMatch(source, /json\(\{\s*token:/);
+  const limiter = fs.readFileSync(path.join(root, 'api/_lib/adminLoginSecurity.js'), 'utf8');
+  assert.match(limiter, /PGRST205/);
+  assert.match(limiter, /document_access_attempts/);
 });
 
 test('contractor message reads and writes require a verified contractor session', () => {
