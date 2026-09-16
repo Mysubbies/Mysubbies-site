@@ -27,8 +27,9 @@
 // than let it fail confusingly, or silently strip identifying info out of
 // financial/job records that need to stay intact for the audit trail.
 const { getSupabase } = require('./_lib/clients');
-const { requireAdmin, verifyPassword, signAdminToken, adminSessionCookie, clearAdminSessionCookie } = require('./_lib/adminAuth');
-const { MAX_FAILURES, countRecentFailures, recordFailure, clearFailures } = require('./_lib/adminLoginSecurity');
+const { requireAdmin, verifyPassword, signAdminToken, signMfaChallenge, verifyMfaChallenge, adminSessionCookie, clearAdminSessionCookie } = require('./_lib/adminAuth');
+const { MAX_FAILURES, fingerprint, countRecentFailures, recordFailure, clearFailures } = require('./_lib/adminLoginSecurity');
+const { verifyTotp } = require('./_lib/adminTotp');
 const { notifyAdmin, notifyContractor, CONTRACTOR_PORTAL_URL } = require('./_lib/contractorNotifications');
 const { wrapEmail, emailButton, escapeHtml } = require('./_lib/email');
 
@@ -39,7 +40,7 @@ module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
 
   try {
-    const { role, email, action, password, reason, customerId, contractorId, name, phone, newEmail,
+    const { role, email, action, password, challenge, code, reason, customerId, contractorId, name, phone, newEmail,
       business, contact, address, addressLocation } = req.body || {};
 
     if (action === 'login') {
@@ -53,6 +54,27 @@ module.exports = async (req, res) => {
       if (!verifyPassword(password)) {
         await recordFailure(supabase, req);
         res.status(401).json({ error: 'Incorrect password.' });
+        return;
+      }
+      if (!process.env.ADMIN_TOTP_SECRET) {
+        res.status(503).json({ error: 'Admin authenticator security is not configured.' });
+        return;
+      }
+      res.status(200).json({ mfaRequired: true, challenge: signMfaChallenge(fingerprint(req)) });
+      return;
+    }
+
+    if (action === 'verifyMfa') {
+      const supabase = getSupabase();
+      const failures = await countRecentFailures(supabase, req);
+      if (failures >= MAX_FAILURES) {
+        res.setHeader('Retry-After', '900');
+        res.status(429).json({ error: 'Too many login attempts. Try again in 15 minutes.' });
+        return;
+      }
+      if (!verifyMfaChallenge(challenge, fingerprint(req)) || !verifyTotp(code)) {
+        await recordFailure(supabase, req);
+        res.status(401).json({ error: 'Incorrect or expired authenticator code.' });
         return;
       }
       await clearFailures(supabase, req);
