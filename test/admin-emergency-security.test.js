@@ -95,3 +95,16 @@ test('deposit-only payment templates can be edited without totaling 100 percent'
     { key: 'deposit', pct: 6, milestone_type: 'deposit' },
   ], 2000000, config), /cannot exceed 5%/);
 });
+
+test('existing contractor activation backfill is reviewed, production-only, and skips activated accounts', () => {
+  const api = fs.readFileSync(path.join(root, 'api/update-contractor-status.js'), 'utf8');
+  const list = fs.readFileSync(path.join(root, 'api/get-admin-list.js'), 'utf8');
+  const portal = fs.readFileSync(path.join(root, 'mysubbies-admin-portal.html'), 'utf8');
+  assert.match(api, /preview-activation-backfill/);
+  assert.match(api, /send-activation-backfill/);
+  assert.match(api, /VERCEL_ENV !== 'production'/);
+  assert.match(api, /is\('auth_user_id', null\)/);
+  assert.match(list, /portalActivated = !!r\.auth_user_id/);
+  assert.match(portal, /Review welcome emails/);
+  assert.match(portal, /Already activated contractors will be skipped/);
+});
