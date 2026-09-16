@@ -19,6 +19,24 @@ test('admin session uses a short HttpOnly SameSite cookie', () => {
   assert.equal(auth.verifyAdminAuth({ headers: { authorization: `Bearer ${token}` } }), false);
 });
 
+test('admin login requires a short-lived authenticator challenge and TOTP', () => {
+  process.env.ADMIN_SESSION_SECRET = 'test-session-secret-with-sufficient-entropy';
+  process.env.ADMIN_TOTP_SECRET = 'JBSWY3DPEHPK3PXP';
+  const auth = require('../api/_lib/adminAuth');
+  const totp = require('../api/_lib/adminTotp');
+  const challenge = auth.signMfaChallenge('test-fingerprint');
+  assert.equal(auth.verifyMfaChallenge(challenge, 'test-fingerprint'), true);
+  assert.equal(auth.verifyMfaChallenge(challenge, 'different-fingerprint'), false);
+  const now = 1700000000000;
+  const code = totp.codeForCounter(process.env.ADMIN_TOTP_SECRET, Math.floor(now / 1000 / 30));
+  assert.equal(totp.verifyTotp(code, now), true);
+  assert.equal(totp.verifyTotp('000000', now), false);
+  const api = fs.readFileSync(path.join(root, 'api/admin-account.js'), 'utf8');
+  assert.match(api, /action === 'verifyMfa'/);
+  assert.match(api, /verifyTotp/);
+  assert.match(api, /ADMIN_TOTP_SECRET/);
+});
+
 test('admin login is persistently rate limited and never returns a bearer token', () => {
   const source = fs.readFileSync(path.join(root, 'api/admin-account.js'), 'utf8');
   assert.match(source, /countRecentFailures/);
@@ -45,6 +63,7 @@ test('admin portal does not persist an admin bearer token in localStorage', () =
   assert.doesNotMatch(portal, /mysubbies_admin_token/);
   assert.match(portal, /action: 'session'/);
   assert.match(portal, /action: 'logout'/);
+  assert.match(portal, /action: 'verifyMfa'/);
 });
 
 test('admin security schema enables RLS on login attempts', () => {

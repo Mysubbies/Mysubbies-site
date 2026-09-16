@@ -423,11 +423,36 @@
       const res = await fetch('/api/admin-account', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'login', password: val }) });
       const data = await res.json();
       if (!res.ok) { document.getElementById('adminLoginError').textContent = data.error || 'Incorrect password.'; return; }
-      document.body.classList.remove('logged-out');
-      Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer(), hydrateDisputesFromServer(), hydrateInquiriesFromServer()]).then(render);
+      if (data.mfaRequired && data.challenge) { showAdminMfa(data.challenge); return; }
+      document.getElementById('adminLoginError').textContent = 'Authenticator verification is required.';
     } catch (e) {
       document.getElementById('adminLoginError').textContent = 'Login failed — check your connection and try again.';
     }
+  }
+  function showAdminMfa(challenge) {
+    document.getElementById('app').innerHTML = `
+      <div style="max-width:360px;margin:80px auto 0;background:#fff;border:1px solid var(--line);border-radius:16px;padding:28px;">
+        <h1 style="font-size:22px;font-weight:800;margin-bottom:8px;">Authenticator code</h1>
+        <p style="font-size:13px;color:var(--stone);margin-bottom:14px;">Enter the 6-digit code from your authenticator app.</p>
+        <input inputmode="numeric" autocomplete="one-time-code" maxlength="6" id="adminMfaInput" placeholder="000000" style="width:100%;font-size:20px;letter-spacing:8px;text-align:center;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:10px;" onkeydown="if(event.key==='Enter') adminVerifyMfa()">
+        <div id="adminMfaError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
+        <button onclick="adminVerifyMfa()" style="width:100%;background:var(--black);color:#fff;border:none;border-radius:999px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;">Verify and log in →</button>
+        <button onclick="checkAdminAuth()" style="width:100%;background:transparent;color:var(--stone);border:none;padding:12px;font-size:13px;cursor:pointer;">Use a different password</button>
+      </div>`;
+    window.adminMfaChallenge = challenge;
+    document.getElementById('adminMfaInput').focus();
+  }
+  async function adminVerifyMfa() {
+    const code = document.getElementById('adminMfaInput').value.replace(/\D/g, '');
+    const error = document.getElementById('adminMfaError');
+    if (code.length !== 6) { error.textContent = 'Enter the complete 6-digit code.'; return; }
+    try {
+      const res = await fetch('/api/admin-account', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verifyMfa', challenge: window.adminMfaChallenge, code }) });
+      const data = await res.json();
+      if (!res.ok) { error.textContent = data.error || 'The authenticator code was not accepted.'; return; }
+      document.body.classList.remove('logged-out');
+      Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer(), hydrateDisputesFromServer(), hydrateInquiriesFromServer()]).then(render);
+    } catch (e) { error.textContent = 'Login failed — check your connection and try again.'; }
   }
   async function adminLogout() {
     try {
