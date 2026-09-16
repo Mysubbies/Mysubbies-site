@@ -11,6 +11,7 @@
 const crypto = require('crypto');
 
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour emergency hardening
+const MFA_CHALLENGE_TTL_MS = 5 * 60 * 1000;
 const ADMIN_COOKIE = '__Host-mysubbies_admin_session';
 
 function base64url(input) {
@@ -23,8 +24,41 @@ function sign(payload) {
 
 function signAdminToken() {
   if (!process.env.ADMIN_SESSION_SECRET) throw new Error('ADMIN_SESSION_SECRET is not configured.');
-  const payload = base64url(JSON.stringify({ exp: Date.now() + TOKEN_TTL_MS }));
+  const payload = base64url(JSON.stringify({ exp: Date.now() + TOKEN_TTL_MS, mfa: true }));
   return `${payload}.${sign(payload)}`;
+}
+
+function signMfaChallenge(clientFingerprint) {
+  if (!process.env.ADMIN_SESSION_SECRET) throw new Error('ADMIN_SESSION_SECRET is not configured.');
+  const payload = base64url(JSON.stringify({
+    exp: Date.now() + MFA_CHALLENGE_TTL_MS,
+    purpose: 'admin-mfa',
+    fingerprint: clientFingerprint,
+    nonce: crypto.randomBytes(16).toString('base64url'),
+  }));
+  return `${payload}.${sign(payload)}`;
+}
+
+function verifySignedToken(token) {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 2) return null;
+  const [payload, signature] = parts;
+  const expected = sign(payload);
+  const a = Buffer.from(signature);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    return typeof parsed.exp === 'number' && Date.now() < parsed.exp ? parsed : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function verifyMfaChallenge(token, clientFingerprint) {
+  if (!process.env.ADMIN_SESSION_SECRET) return false;
+  const parsed = verifySignedToken(token);
+  return !!parsed && parsed.purpose === 'admin-mfa' && parsed.fingerprint === clientFingerprint;
 }
 
 function cookieValue(req, name) {
@@ -63,19 +97,8 @@ function verifyAdminAuth(req) {
   // this change intentionally signs existing admin tabs out once so a token
   // left in localStorage cannot continue authorising sensitive operations.
   const token = cookieValue(req, ADMIN_COOKIE);
-  const parts = token.split('.');
-  if (parts.length !== 2) return false;
-  const [payload, signature] = parts;
-  const expected = sign(payload);
-  const a = Buffer.from(signature);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return false;
-  try {
-    const { exp } = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    return typeof exp === 'number' && Date.now() < exp;
-  } catch (e) {
-    return false;
-  }
+  const parsed = verifySignedToken(token);
+  return !!parsed && parsed.mfa === true;
 }
 
 function requireAdmin(req, res) {
@@ -86,4 +109,4 @@ function requireAdmin(req, res) {
   return true;
 }
 
-module.exports = { signAdminToken, verifyPassword, verifyAdminAuth, requireAdmin, adminSessionCookie, clearAdminSessionCookie };
+module.exports = { signAdminToken, signMfaChallenge, verifyMfaChallenge, verifyPassword, verifyAdminAuth, requireAdmin, adminSessionCookie, clearAdminSessionCookie };
