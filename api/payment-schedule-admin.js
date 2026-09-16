@@ -21,7 +21,7 @@
 //
 // Admin-only, gated server-side via api/_lib/adminAuth.js.
 const { getSupabase } = require('./_lib/clients');
-const { validateSchedule, getConfig, computeMilestoneAmounts, ScheduleValidationError } = require('./_lib/paymentSchedule');
+const { validateSchedule, validateTemplateSchedule, getConfig, computeMilestoneAmounts, ScheduleValidationError } = require('./_lib/paymentSchedule');
 const { requireAdmin } = require('./_lib/adminAuth');
 
 module.exports = async (req, res) => {
@@ -82,12 +82,19 @@ module.exports = async (req, res) => {
       // dollar amounts (those get computed per-job at resolution time).
       const config = await getConfig(supabase);
       const representativePrice = template.max_price_cents || Math.max(template.min_price_cents, 100000000);
-      validateSchedule(template.milestones, representativePrice, config, representativePrice);
+      validateTemplateSchedule(template.milestones, representativePrice, config);
+
+      // Keep the top-level deposit percentage in sync with the actual
+      // deposit milestone the admin edited. Previously the milestone could
+      // change while the template header and resolved job schedule retained
+      // the stale original value.
+      const depositMilestone = template.milestones.find(m => m.milestone_type === 'deposit');
+      const depositPct = depositMilestone ? Number(depositMilestone.pct) : Number(template.deposit_pct || 0);
 
       const row = {
         name: template.name, schedule_type: template.schedule_type,
         min_price_cents: template.min_price_cents || 0, max_price_cents: template.max_price_cents || null,
-        deposit_pct: template.deposit_pct, milestones: template.milestones,
+        deposit_pct: depositPct, milestones: template.milestones,
         is_builtin: !!template.is_builtin,
         status: template.is_builtin ? 'approved' : 'pending_review', // custom templates need explicit approval before use
         created_by: actorId || 'admin',
