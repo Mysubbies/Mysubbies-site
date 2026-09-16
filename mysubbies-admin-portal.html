@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 92336)
-Total output lines: 5320
+Warning: truncated output (original token count: 92325)
+Total output lines: 5314
 
 <!doctype html>
 <html lang="en">
@@ -426,12 +426,8 @@ Total output lines: 5320
       const res = await fetch('/api/admin-account', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'login', password: val }) });
       const data = await res.json();
       if (!res.ok) { document.getElementById('adminLoginError').textContent = data.error || 'Incorrect password.'; return; }
-      if (data.mfaRequired && data.challenge) {
-        showAdminMfa(data.challenge);
-        return;
-      }
+      if (data.mfaRequired && data.challenge) { showAdminMfa(data.challenge); return; }
       document.getElementById('adminLoginError').textContent = 'Authenticator verification is required.';
-      return;
     } catch (e) {
       document.getElementById('adminLoginError').textContent = 'Login failed — check your connection and try again.';
     }
@@ -459,9 +455,7 @@ Total output lines: 5320
       if (!res.ok) { error.textContent = data.error || 'The authenticator code was not accepted.'; return; }
       document.body.classList.remove('logged-out');
       Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer(), hydrateDisputesFromServer(), hydrateInquiriesFromServer()]).then(render);
-    } catch (e) {
-      error.textContent = 'Login failed — check your connection and try again.';
-    }
+    } catch (e) { error.textContent = 'Login failed — check your connection and try again.'; }
   }
   async function adminLogout() {
     try {
@@ -831,7 +825,8 @@ Total output lines: 5320
   }
   function contractorThreadModalHtml() {
     return `
-      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===thi…62336 tokens truncated…td>
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this) closeContractorThread();">
+        <div sty…62325 tokens truncated…td>
               <td style="padding:3px;"><input type="number" value="${row.high}" oninput="researchRows[${i}].high=this.value; document.getElementById('researchAvg${i}').textContent = researchRowAvg(researchRows[${i}]) === null ? '—' : '$' + researchRowAvg(researchRows[${i}]).toLocaleString();" style="width:100%;font-size:12px;padding:6px 7px;border:1px solid var(--line);border-radius:5px;"></td>
               <td style="padding:3px;font-size:12.5px;font-weight:600;" id="researchAvg${i}">${avg === null ? '—' : '$' + avg.toLocaleString()}</td>
               <td style="padding:3px;text-align:center;"><span onclick="removeResearchRow(${i})" style="cursor:pointer;color:var(--stone-light);font-size:14px;" title="Remove row">✕</span></td>
