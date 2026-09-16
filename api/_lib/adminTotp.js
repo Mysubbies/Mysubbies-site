@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-const STEP_SECONDS = 30;
+const STEP_SECONDS = 30; // RFC 6238 default interval used by authenticator apps
 const CODE_DIGITS = 6;
 
 function decodeBase32(value) {
