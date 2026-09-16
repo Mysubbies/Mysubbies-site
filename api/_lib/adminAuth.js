@@ -10,7 +10,8 @@
 // window instead of staying valid forever.
 const crypto = require('crypto');
 
-const TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour emergency hardening
+const ADMIN_COOKIE = '__Host-mysubbies_admin_session';
 
 function base64url(input) {
   return Buffer.from(input).toString('base64url');
@@ -21,8 +22,27 @@ function sign(payload) {
 }
 
 function signAdminToken() {
+  if (!process.env.ADMIN_SESSION_SECRET) throw new Error('ADMIN_SESSION_SECRET is not configured.');
   const payload = base64url(JSON.stringify({ exp: Date.now() + TOKEN_TTL_MS }));
   return `${payload}.${sign(payload)}`;
+}
+
+function cookieValue(req, name) {
+  const header = String((req.headers && req.headers.cookie) || '');
+  for (const part of header.split(';')) {
+    const index = part.indexOf('=');
+    if (index < 0) continue;
+    if (part.slice(0, index).trim() === name) return decodeURIComponent(part.slice(index + 1).trim());
+  }
+  return '';
+}
+
+function adminSessionCookie(token) {
+  return `${ADMIN_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${Math.floor(TOKEN_TTL_MS / 1000)}; HttpOnly; Secure; SameSite=Strict`;
+}
+
+function clearAdminSessionCookie() {
+  return `${ADMIN_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict`;
 }
 
 function verifyPassword(submitted) {
@@ -39,8 +59,10 @@ function verifyAdminAuth(req) {
   // Fail closed if the secret was never configured -- an unset env var
   // must never be treated as "any token verifies."
   if (!process.env.ADMIN_SESSION_SECRET) return false;
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  // Do not accept the former browser-readable bearer token. Deployment of
+  // this change intentionally signs existing admin tabs out once so a token
+  // left in localStorage cannot continue authorising sensitive operations.
+  const token = cookieValue(req, ADMIN_COOKIE);
   const parts = token.split('.');
   if (parts.length !== 2) return false;
   const [payload, signature] = parts;
@@ -64,4 +86,4 @@ function requireAdmin(req, res) {
   return true;
 }
 
-module.exports = { signAdminToken, verifyPassword, verifyAdminAuth, requireAdmin };
+module.exports = { signAdminToken, verifyPassword, verifyAdminAuth, requireAdmin, adminSessionCookie, clearAdminSessionCookie };

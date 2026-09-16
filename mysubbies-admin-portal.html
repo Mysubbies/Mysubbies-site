@@ -316,7 +316,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MySubbies">
 </head>
-<body>
+<body class="logged-out">
 
 <header>
   <div class="navwrap">
@@ -391,8 +391,18 @@
   // server-side against ADMIN_PASSWORD and returns a signed, expiring
   // session token (see api/_lib/adminAuth.js) that every admin-only
   // endpoint now verifies before acting.
-  function checkAdminAuth() {
-    if (localStorage.getItem('mysubbies_admin_token')) { document.body.classList.remove('logged-out'); Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer(), hydrateDisputesFromServer(), hydrateInquiriesFromServer()]).then(render); return; }
+  async function checkAdminAuth() {
+    try {
+      const session = await fetch('/api/admin-account', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'session' }),
+      });
+      if (session.ok) {
+        document.body.classList.remove('logged-out');
+        Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer(), hydrateDisputesFromServer(), hydrateInquiriesFromServer()]).then(render);
+        return;
+      }
+    } catch (e) { /* show login below */ }
     document.body.classList.add('logged-out');
     document.getElementById('app').innerHTML = `
       <div style="max-width:360px;margin:80px auto 0;background:#fff;border:1px solid var(--line);border-radius:16px;padding:28px;">
@@ -413,15 +423,19 @@
       const res = await fetch('/api/admin-account', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'login', password: val }) });
       const data = await res.json();
       if (!res.ok) { document.getElementById('adminLoginError').textContent = data.error || 'Incorrect password.'; return; }
-      localStorage.setItem('mysubbies_admin_token', data.token);
       document.body.classList.remove('logged-out');
       Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer(), hydrateDisputesFromServer(), hydrateInquiriesFromServer()]).then(render);
     } catch (e) {
       document.getElementById('adminLoginError').textContent = 'Login failed — check your connection and try again.';
     }
   }
-  function adminLogout() {
-    localStorage.removeItem('mysubbies_admin_token');
+  async function adminLogout() {
+    try {
+      await fetch('/api/admin-account', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'logout' }),
+      });
+    } catch (e) { /* still return to the login screen */ }
     checkAdminAuth();
   }
   // Every admin-only API call goes through this instead of a bare fetch()
@@ -429,10 +443,9 @@
   // (401) cleanly drops back to the login screen instead of the dashboard
   // silently failing to load data.
   async function adminFetch(url, opts) {
-    const token = localStorage.getItem('mysubbies_admin_token');
-    const headers = Object.assign({}, (opts && opts.headers) || {}, token ? { Authorization: 'Bearer ' + token } : {});
-    const res = await fetch(url, Object.assign({}, opts, { headers }));
-    if (res.status === 401) { localStorage.removeItem('mysubbies_admin_token'); checkAdminAuth(); }
+    const headers = Object.assign({}, (opts && opts.headers) || {});
+    const res = await fetch(url, Object.assign({}, opts, { headers, credentials: 'same-origin' }));
+    if (res.status === 401) checkAdminAuth();
     return res;
   }
 
@@ -1424,7 +1437,7 @@
   function updateMobileTabbar() {
     const nav = document.querySelector('.mobile-tabbar');
     if (!nav) return;
-    if (!localStorage.getItem('mysubbies_admin_token')) { nav.style.display = 'none'; return; }
+    if (document.body.classList.contains('logged-out')) { nav.style.display = 'none'; return; }
     nav.style.display = '';
     ['mtOverview', 'mtApplications', 'mtMessages', 'mtDisputes', 'mtReports'].forEach(id => {
       const el = document.getElementById(id);
@@ -5007,7 +5020,7 @@
   // from local storage same as always, not actually re-fetched here.
   let lastKnownActionTotal = null;
   async function pollForNewActivity() {
-    if (!localStorage.getItem('mysubbies_admin_token')) return; // not logged in yet -- nothing to poll for
+    if (document.body.classList.contains('logged-out')) return; // not logged in yet -- nothing to poll for
     try {
       await Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateDisputesFromServer(), hydrateInquiriesFromServer()]);
       const unreadRes = await adminFetch('/api/get-admin-list?type=unread-contractor-messages');
@@ -5059,7 +5072,7 @@
   let notifItems = [];
   let notifUnreadCount = 0;
   async function pollNotifications() {
-    if (!localStorage.getItem('mysubbies_admin_token')) return;
+    if (document.body.classList.contains('logged-out')) return;
     try {
       const res = await adminFetch('/api/notifications?role=admin');
       if (!res.ok) return;
