@@ -27,7 +27,60 @@ module.exports = async (req, res) => {
   if (!requireAdmin(req, res)) return;
 
   try {
-    const { email, status, reason } = req.body || {};
+    const { action, email, status, reason } = req.body || {};
+    const supabase = getSupabase();
+
+    if (action === 'preview-activation-backfill') {
+      const { data, error } = await supabase.from('contractors')
+        .select('id, email, business_name, categories, full_application, status')
+        .in('status', ['approved', 'preferred']).is('auth_user_id', null).order('created_at');
+      if (error) throw error;
+      const recipients = (data || []).map(c => ({ id: c.id, email: c.email, business: c.business_name || (c.full_application && c.full_application.business) || c.email }));
+      res.status(200).json({ recipients, count: recipients.length, canSend: process.env.VERCEL_ENV === 'production' });
+      return;
+    }
+
+    if (action === 'send-activation-backfill' || action === 'resend-activation') {
+      if (process.env.VERCEL_ENV !== 'production') {
+        res.status(409).json({ error: 'Preview safety: activation emails can only be sent from production.' });
+        return;
+      }
+      const requestedIds = action === 'resend-activation'
+        ? [String(req.body.contractorId || '')]
+        : Array.isArray(req.body.contractorIds) ? req.body.contractorIds.map(String).slice(0, 200) : [];
+      if (!requestedIds.length || requestedIds.some(id => !id)) {
+        res.status(400).json({ error: 'At least one reviewed contractor ID is required.' });
+        return;
+      }
+      const { data: contractors, error: findError } = await supabase.from('contractors')
+        .select('id, auth_user_id, email, business_name, categories, full_application, status')
+        .in('id', requestedIds).in('status', ['approved', 'preferred']).is('auth_user_id', null);
+      if (findError) throw findError;
+      const results = [];
+      for (const contractor of (contractors || [])) {
+        const setupToken = applicationToken();
+        const expiry = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+        const { error: tokenError } = await supabase.from('contractors').update({
+          application_update_token_hash: tokenHash(setupToken), application_update_token_expires_at: expiry,
+          updated_at: new Date().toISOString(),
+        }).eq('id', contractor.id).is('auth_user_id', null);
+        if (tokenError) { results.push({ id: contractor.id, email: contractor.email, status: 'failed' }); continue; }
+        const message = approvedEmail(contractor, setupToken);
+        const delivery = await notifyContractor(supabase, {
+          email: contractor.email, eventType: 'contractor-portal-activation-sent',
+          title: 'Welcome to MySubbies', body: 'Activate your contractor portal using the secure link in your welcome email.',
+          subject: message.subject, html: message.html,
+          applicationRef: contractor.full_application && contractor.full_application.id,
+          metadata: { activationBackfill: action === 'send-activation-backfill', expiresAt: expiry },
+        });
+        results.push({ id: contractor.id, email: contractor.email, status: delivery.ok ? 'sent' : 'failed' });
+      }
+      const sent = results.filter(r => r.status === 'sent').length;
+      const failed = results.filter(r => r.status === 'failed').length;
+      res.status(200).json({ requested: requestedIds.length, eligible: (contractors || []).length, sent, failed, skipped: requestedIds.length - (contractors || []).length, results });
+      return;
+    }
+
     if (!email || !ALLOWED_STATUSES.includes(status)) {
       res.status(400).json({ error: 'email and a valid status are required.' });
       return;
@@ -37,7 +90,6 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const supabase = getSupabase();
     const { data: current, error: findError } = await supabase.from('contractors')
       .select('id, email, business_name, categories, full_application').eq('email', String(email).toLowerCase()).maybeSingle();
     if (findError) throw findError;
