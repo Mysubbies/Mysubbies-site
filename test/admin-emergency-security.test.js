@@ -71,3 +71,10 @@ test('admin security schema enables RLS on login attempts', () => {
   assert.match(schema, /admin_login_attempts enable row level security/i);
   assert.match(schema, /revoke all privileges.*anon, authenticated/i);
 });
+
+test('payment template edit buttons use a render-safe delegated handler', () => {
+  const portal = fs.readFileSync(path.join(root, 'mysubbies-admin-portal.html'), 'utf8');
+  assert.match(portal, /data-edit-template-id/);
+  assert.match(portal, /closest\('\[data-edit-template-id\]'\)/);
+  assert.match(portal, /startEditTemplate\(button\.dataset\.editTemplateId\)/);
+});
