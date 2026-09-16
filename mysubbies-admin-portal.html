@@ -3612,9 +3612,14 @@
       : all;
     const rows = contractorsStatusFilter === 'all' ? searched : searched.filter(a => a.status === contractorsStatusFilter);
     const approvedCount = all.filter(a => a.status === 'approved').length;
+    const unactivatedCount = all.filter(a => ['approved', 'preferred'].includes(a.status) && !a.portalActivated).length;
     return `
       <h1 class="pagetitle">Contractors</h1>
       <p class="pagesub">${all.length} account${all.length === 1 ? '' : 's'} total. Deactivating blocks login and new job matches until reactivated.</p>
+      ${unactivatedCount ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:14px 16px;margin-bottom:16px;max-width:720px;">
+        <div><strong>${unactivatedCount} approved contractor${unactivatedCount === 1 ? '' : 's'} still need portal activation</strong><div style="font-size:12px;color:var(--stone);margin-top:3px;">Review the exact recipients before any welcome emails are sent.</div></div>
+        <button type="button" class="btn btn-black" onclick="reviewContractorActivationBackfill()">Review welcome emails →</button>
+      </div>` : ''}
       ${contractorsStatusFilterChipsHtml(all)}
       <input class="searchbox" placeholder="Search by business, contact or email…" value="${escapeHtml(contractorSearchQuery)}" oninput="contractorSearchQuery=this.value; render();" />
       ${approvedCount > 0 ? `
@@ -3647,6 +3652,7 @@
           <div style="display:flex;gap:8px;margin-top:14px;">
             <button class="btn btn-outline" style="flex:1;" onclick="openContractorEditor('${a.contractorId || a.id}')">Edit</button>
             <button class="btn btn-outline" style="flex:1;" onclick="openContractorThread('${(a.email || '').replace(/'/g, "\\'")}')">💬 Messages</button>
+            ${['approved', 'preferred'].includes(a.status) && !a.portalActivated ? `<button type="button" class="btn btn-outline" style="flex:1;" onclick="resendContractorActivation('${a.contractorId || a.id}')">Send activation</button>` : ''}
             ${a.status === 'suspended'
               ? `<button class="btn btn-outline" style="flex:1;" onclick="reactivateContractor('${a.id}')">Reactivate</button>`
               : `<button class="btn btn-outline" style="flex:1;" onclick="deactivateContractor('${a.id}')">Deactivate</button>`}
@@ -3656,6 +3662,46 @@
       `).join('')}
       ${showMessageComposer ? messageComposerHtml() : ''}
     `;
+  }
+
+  async function reviewContractorActivationBackfill() {
+    try {
+      const previewResponse = await adminFetch('/api/update-contractor-status', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'preview-activation-backfill' }),
+      });
+      const preview = await previewResponse.json();
+      if (!previewResponse.ok) throw new Error(preview.error || 'Could not review activation recipients.');
+      if (!preview.count) { alert('All approved contractors have already activated their portal.'); return; }
+      const list = preview.recipients.map(r => `• ${r.business} — ${r.email}`).join('\n');
+      if (!preview.canSend) {
+        alert(`Preview safety check — no emails will be sent here.\n\nProduction recipient list (${preview.count}):\n${list}`);
+        return;
+      }
+      if (!confirm(`Send a fresh 14-day MySubbies welcome and portal activation email to these ${preview.count} contractors?\n\n${list}\n\nAlready activated contractors will be skipped.`)) return;
+      const sendResponse = await adminFetch('/api/update-contractor-status', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send-activation-backfill', contractorIds: preview.recipients.map(r => r.id) }),
+      });
+      const result = await sendResponse.json();
+      if (!sendResponse.ok) throw new Error(result.error || 'Could not send welcome emails.');
+      alert(`Welcome email result:\nSent: ${result.sent}\nFailed: ${result.failed}\nSkipped as already activated/ineligible: ${result.skipped}`);
+      await hydrateApplicationsFromServer();
+      render();
+    } catch (error) { alert(error.message || 'Could not process contractor welcome emails.'); }
+  }
+
+  async function resendContractorActivation(contractorId) {
+    if (!confirm('Send this approved contractor a fresh 14-day portal activation email?')) return;
+    try {
+      const response = await adminFetch('/api/update-contractor-status', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resend-activation', contractorId }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not send the activation email.');
+      alert(result.sent === 1 ? 'Activation email sent.' : 'This contractor is already activated or is no longer eligible.');
+    } catch (error) { alert(error.message || 'Could not send the activation email.'); }
   }
 
   async function deactivateCustomer(email) {

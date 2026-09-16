@@ -36,7 +36,7 @@ module.exports = async (req, res) => {
       // jsonb write didn't happen.
       const { data, error } = await supabase
         .from('contractors')
-        .select('id, email, business_name, phone, abn, acn, categories, suburb_ids, status, address, full_application, created_at, payout_details_confirmed, payout_details_updated_at, address_place_id, address_formatted, address_suburb, address_state, address_postcode, address_latitude, address_longitude, address_verified')
+        .select('id, auth_user_id, email, business_name, phone, abn, acn, categories, suburb_ids, status, address, full_application, created_at, payout_details_confirmed, payout_details_updated_at, address_place_id, address_formatted, address_suburb, address_state, address_postcode, address_latitude, address_longitude, address_verified')
         .limit(500);
       if (error) throw error;
       const applications = await Promise.all((data || []).map(async r => {
@@ -49,6 +49,7 @@ module.exports = async (req, res) => {
         application.payoutDetailsComplete = !!r.payout_details_confirmed;
         application.payoutDetailsUpdatedAt = r.payout_details_updated_at || null;
         application.contractorId = r.id;
+        application.portalActivated = !!r.auth_user_id;
         application.location = {
           placeId: r.address_place_id || null,
           formattedAddress: r.address_formatted || r.address || null,
