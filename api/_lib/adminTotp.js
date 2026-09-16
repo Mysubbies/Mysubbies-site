@@ -35,7 +35,6 @@ function verifyTotp(code, now = Date.now()) {
   if (!process.env.ADMIN_TOTP_SECRET || !/^\d{6}$/.test(String(code || ''))) return false;
   const submitted = Buffer.from(String(code));
   const counter = Math.floor(now / 1000 / STEP_SECONDS);
-  // Accept the previous/current/next interval to tolerate modest device clock drift.
   for (let drift = -1; drift <= 1; drift += 1) {
     const expected = Buffer.from(codeForCounter(process.env.ADMIN_TOTP_SECRET, counter + drift));
     if (submitted.length === expected.length && crypto.timingSafeEqual(submitted, expected)) return true;
