@@ -73,6 +73,28 @@ function validateSchedule(milestones, totalPriceCents, config, priceCentsForDepo
   return withAmounts;
 }
 
+// Template validation differs for the deliberate deposit-only template used
+// for high-value work. That template is a partial schedule: the remaining
+// balance is built by an admin per job, so requiring it to total 100% makes
+// the admin editor impossible to save. A zero deposit is allowed; the cap is
+// a maximum, not a mandatory charge.
+function validateTemplateSchedule(milestones, representativePriceCents, config) {
+  const depositOnly = Array.isArray(milestones) && milestones.length === 1 &&
+    milestones[0].milestone_type === 'deposit';
+  if (!depositOnly) {
+    return validateSchedule(milestones, representativePriceCents, config, representativePriceCents);
+  }
+  const pct = Number(milestones[0].pct);
+  if (!Number.isFinite(pct) || pct < 0) {
+    throw new ScheduleValidationError('Deposit percentage must be zero or greater.');
+  }
+  const cap = depositCapPct(config, representativePriceCents);
+  if (pct > cap + 0.01) {
+    throw new ScheduleValidationError(`Deposit cannot exceed ${cap}% for a contract of this value (currently ${pct}%).`);
+  }
+  return milestones;
+}
+
 // Resolves the schedule a job should use, from the category's configured
 // rule and the built-in/custom template that matches the price bracket.
 // Returns { status, schedule_type, template_id, deposit_pct, milestones }
@@ -178,6 +200,7 @@ function nextClaimableMilestone(milestoneRows, sequenceOverride) {
 
 module.exports = {
   ScheduleValidationError,
+  validateTemplateSchedule,
   getConfig,
   getCategoryRule,
   depositCapPct,
