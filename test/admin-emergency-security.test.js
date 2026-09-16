@@ -76,7 +76,10 @@ test('payment template edit buttons use a render-safe delegated handler', () => 
   const portal = fs.readFileSync(path.join(root, 'mysubbies-admin-portal.html'), 'utf8');
   assert.match(portal, /data-edit-template-id/);
   assert.match(portal, /closest\('\[data-edit-template-id\]'\)/);
-  assert.match(portal, /startEditTemplate\(button\.dataset\.editTemplateId\)/);
+  assert.match(portal, /startEditTemplate\(editButton\.dataset\.editTemplateId\)/);
+  assert.match(portal, /data-save-template-id/);
+  assert.match(portal, /saveEditedTemplate\(saveButton\.dataset\.saveTemplateId\)/);
+  assert.doesNotMatch(portal, /onclick="saveEditedTemplate\(\$\{JSON\.stringify\(t\.id\)\}\)"/);
 });
 
 test('deposit-only payment templates can be edited without totaling 100 percent', () => {
