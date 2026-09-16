@@ -71,3 +71,27 @@ test('admin security schema enables RLS on login attempts', () => {
   assert.match(schema, /admin_login_attempts enable row level security/i);
   assert.match(schema, /revoke all privileges.*anon, authenticated/i);
 });
+
+test('payment template edit buttons use a render-safe delegated handler', () => {
+  const portal = fs.readFileSync(path.join(root, 'mysubbies-admin-portal.html'), 'utf8');
+  assert.match(portal, /data-edit-template-id/);
+  assert.match(portal, /closest\('\[data-edit-template-id\]'\)/);
+  assert.match(portal, /startEditTemplate\(editButton\.dataset\.editTemplateId\)/);
+  assert.match(portal, /data-save-template-id/);
+  assert.match(portal, /saveEditedTemplate\(saveButton\.dataset\.saveTemplateId\)/);
+  assert.doesNotMatch(portal, /onclick="saveEditedTemplate\(\$\{JSON\.stringify\(t\.id\)\}\)"/);
+});
+
+test('deposit-only payment templates can be edited without totaling 100 percent', () => {
+  const { validateTemplateSchedule } = require('../api/_lib/paymentSchedule');
+  const config = { high_value_threshold_cents: 2000000, deposit_cap_low_pct: 10, deposit_cap_high_pct: 5 };
+  assert.doesNotThrow(() => validateTemplateSchedule([
+    { key: 'deposit', pct: 0, milestone_type: 'deposit' },
+  ], 2000000, config));
+  assert.doesNotThrow(() => validateTemplateSchedule([
+    { key: 'deposit', pct: 5, milestone_type: 'deposit' },
+  ], 2000000, config));
+  assert.throws(() => validateTemplateSchedule([
+    { key: 'deposit', pct: 6, milestone_type: 'deposit' },
+  ], 2000000, config), /cannot exceed 5%/);
+});

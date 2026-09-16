@@ -3845,7 +3845,7 @@
     const priceRange = t.min_price_cents != null ? `$${(t.min_price_cents / 100).toLocaleString()}${t.max_price_cents ? ' – $' + (t.max_price_cents / 100).toLocaleString() : '+'}` : '';
     const rows = editing ? editingTemplateDraft : t.milestones;
     return `
-      <div class="detailcard" style="max-width:none;margin-bottom:12px;">
+      <div class="detailcard" id="paymentTemplate_${escapeHtml(String(t.id))}" style="max-width:none;margin-bottom:12px;${editing ? 'border-color:var(--orange);box-shadow:0 0 0 2px rgba(255,90,31,.08);' : ''}">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
           <div>
             <div style="font-weight:700;font-size:14px;">${escapeHtml(t.name)}</div>
@@ -3876,12 +3876,12 @@
           <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
             <button class="btn btn-outline" onclick="addDraftMilestone()">+ Add milestone</button>
             <button class="btn btn-outline" onclick="cancelEditTemplate()">Cancel</button>
-            <button class="btn btn-black" onclick="saveEditedTemplate(${JSON.stringify(t.id)})">Save</button>
+            <button type="button" class="btn btn-black" data-save-template-id="${escapeHtml(String(t.id))}">Save</button>
           </div>
         ` : `
           <div style="display:flex;gap:8px;margin-top:10px;">
-            <button class="btn btn-outline" onclick="startEditTemplate(${JSON.stringify(t.id)})">Edit</button>
-            ${t.status === 'pending_review' ? `<button class="btn btn-black" onclick="approveTemplate(${JSON.stringify(t.id)})">Approve</button>` : ''}
+            <button type="button" class="btn btn-outline" data-edit-template-id="${escapeHtml(String(t.id))}">Edit</button>
+            ${t.status === 'pending_review' ? `<button type="button" class="btn btn-black" data-approve-template-id="${escapeHtml(String(t.id))}">Approve</button>` : ''}
           </div>
         `}
       </div>
@@ -3889,12 +3889,37 @@
   }
 
   function startEditTemplate(templateId) {
-    const t = paymentTabData.templates.find(x => x.id === templateId);
-    if (!t) return;
-    editingTemplateId = templateId;
+    const t = paymentTabData && paymentTabData.templates.find(x => String(x.id) === String(templateId));
+    if (!t || !Array.isArray(t.milestones)) {
+      showToast('Could not open this payment template. Refresh and try again.');
+      return;
+    }
+    editingTemplateId = t.id;
     editingTemplateDraft = t.milestones.map(m => ({ ...m }));
     render();
+    requestAnimationFrame(() => {
+      const card = document.getElementById('paymentTemplate_' + t.id);
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   }
+  // Payment template cards are rebuilt whenever the dashboard renders.
+  // Delegate the click from document so the Edit action survives every
+  // re-render instead of relying on a disposable inline handler.
+  document.addEventListener('click', (event) => {
+    const editButton = event.target.closest('[data-edit-template-id]');
+    const saveButton = event.target.closest('[data-save-template-id]');
+    const approveButton = event.target.closest('[data-approve-template-id]');
+    if (editButton) {
+      event.preventDefault();
+      startEditTemplate(editButton.dataset.editTemplateId);
+    } else if (saveButton) {
+      event.preventDefault();
+      saveEditedTemplate(saveButton.dataset.saveTemplateId);
+    } else if (approveButton) {
+      event.preventDefault();
+      approveTemplate(approveButton.dataset.approveTemplateId);
+    }
+  });
   function cancelEditTemplate() { editingTemplateId = null; editingTemplateDraft = null; render(); }
   function addDraftMilestone() {
     editingTemplateDraft.push({ key: 'milestone_' + editingTemplateDraft.length, label: 'New milestone', pct: 0, milestone_type: 'custom', requires_evidence_type: 'photos', requires_customer_approval: true });
@@ -3911,7 +3936,7 @@
   }
 
   async function saveEditedTemplate(templateId) {
-    const t = paymentTabData.templates.find(x => x.id === templateId);
+    const t = paymentTabData.templates.find(x => String(x.id) === String(templateId));
     const milestones = editingTemplateDraft.map((m, idx) => ({
       key: (document.getElementById('draftKey' + idx).value.trim() || m.key),
       label: document.getElementById('draftLabel' + idx).value.trim(),
