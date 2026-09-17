@@ -436,7 +436,7 @@
   function beginBookingFlow(customer) {
     const items = quote.items || [];
     const uniqueCats = [...new Set(items.map(i => i.catLabel))];
-    if (uniqueCats.length === 1 && stripe) {
+    if (uniqueCats.length === 1) {
       renderDepositPayment(customer, uniqueCats[0]);
     } else {
       createJob(customer);
@@ -545,6 +545,11 @@
     });
 
     if (!noDepositRequired) {
+      if (!stripe) {
+        document.getElementById('depositError').textContent = 'Card payment is temporarily unavailable. Please try again shortly.';
+        document.getElementById('payDepositBtn').disabled = true;
+        return;
+      }
       const elements = stripe.elements();
     // hidePostalCode: Stripe's built-in postal code field defaults to
     // US-style 5-digit validation with no way to configure it for
@@ -573,7 +578,7 @@
 
     try {
       const accessToken = await getBookingAccessToken();
-      if (!accessToken) throw new Error('Please log in again before paying.');
+      if (!accessToken) throw new Error('Please log in again before continuing.');
       const res = await fetch('/api/create-deposit-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken },
