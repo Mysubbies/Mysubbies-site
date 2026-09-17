@@ -97,7 +97,7 @@ module.exports = async (req, res) => {
         // Send the two notifications this held booking needs. These are
         // deliberately best-effort: email delivery must never turn a valid
         // booking into a failed booking.
-        const appBase = String(process.env.PUBLIC_APP_BASE_URL || process.env.APP_BASE_URL || '').trim().replace(/\\/+$/, '')
+        const appBase = String(process.env.PUBLIC_APP_BASE_URL || process.env.APP_BASE_URL || '').trim().replace(/\/+$/, '')
           || (process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://app.mysubbies.com.au');
         const customerPortalUrl = `${appBase}/mysubbies-customer-portal.html`;
         const customerName = auth.account.name || 'there';
