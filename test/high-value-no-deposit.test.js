@@ -54,6 +54,14 @@ test('zero-deposit booking bypasses the payment pipeline entirely', () => {
   assert.match(depositApi, /jobStatus: 'pending_contract_review'/);
 });
 
+test('high-value held booking sends customer and admin notifications', () => {
+  assert.match(depositApi, /Booking received/);
+  assert.match(depositApi, /high-value-booking-review/);
+  assert.match(depositApi, /notifications:/);
+  assert.match(depositApi, /customerEmail: !!customerDelivery\.ok/);
+  assert.match(depositApi, /adminEmail: !!adminDelivery\.ok/);
+});
+
 test('customer UI shows $0 due today and does not mount Stripe for zero deposit', () => {
   assert.match(bookingHtml, /Book job — \$0 due today/);
   assert.match(bookingHtml, /if \(!noDepositRequired\) \{/);
