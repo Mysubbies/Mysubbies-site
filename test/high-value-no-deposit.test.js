@@ -45,8 +45,9 @@ test('jobs above $9,900 resolve to zero-deposit contract review', async () => {
   assert.equal(resolved.milestones[0].amount_cents, 0);
 });
 
-test('zero-deposit booking bypasses Stripe and is stored for contract review', () => {
-  assert.match(depositApi, /status: depositMilestone\.amount_cents === 0 \? 'pending_contract_review' : 'pending_deposit'/);
+test('zero-deposit booking bypasses Stripe while keeping the existing DB payment status', () => {
+  assert.match(depositApi, /status: 'pending_deposit'/);
+  assert.doesNotMatch(depositApi, /status: depositMilestone\.amount_cents === 0 \? 'pending_contract_review'/);
   assert.match(depositApi, /if \(Number\(depositMilestoneRow\.amount_cents\) === 0\)/);
   assert.match(depositApi, /noDepositRequired: true/);
   assert.match(depositApi, /jobStatus: 'pending_contract_review'/);
