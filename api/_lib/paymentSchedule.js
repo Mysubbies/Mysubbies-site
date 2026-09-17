@@ -11,6 +11,12 @@ class ScheduleValidationError extends Error {
   constructor(message) { super(message); this.name = 'ScheduleValidationError'; }
 }
 
+// MySubbies control threshold: jobs above $9,900 are bookable online but
+// no deposit is collected at checkout. They remain under admin/contract
+// review until the correct project contract, builder and payment schedule
+// are confirmed.
+const NO_DEPOSIT_BOOKING_THRESHOLD_CENTS = 990000;
+
 async function getConfig(supabase) {
   const { data, error } = await supabase.from('payment_schedule_config').select('*').eq('id', true).single();
   if (error) throw error;
@@ -107,6 +113,20 @@ async function resolveScheduleForJob(supabase, category, priceCents) {
   const config = await getConfig(supabase);
   const rule = await getCategoryRule(supabase, category);
 
+  if (priceCents > NO_DEPOSIT_BOOKING_THRESHOLD_CENTS) {
+    return {
+      status: 'pending_admin_schedule',
+      schedule_type: 'manual_review',
+      template_id: null,
+      deposit_pct: 0,
+      milestones: [{
+        key: 'deposit', label: 'Booking deposit', pct: 0, milestone_type: 'deposit',
+        requires_evidence_type: 'none', requires_customer_approval: false,
+        review_period_hours: 72, auto_capture_enabled: false, amount_cents: 0,
+      }],
+    };
+  }
+
   if (rule.schedule_type === 'manual_review') {
     // Deposit-only, same as the $20,000+ structural case below — this is
     // NOT a full 100%-summing schedule (there's deliberately only one
@@ -200,6 +220,7 @@ function nextClaimableMilestone(milestoneRows, sequenceOverride) {
 
 module.exports = {
   ScheduleValidationError,
+  NO_DEPOSIT_BOOKING_THRESHOLD_CENTS,
   validateTemplateSchedule,
   getConfig,
   getCategoryRule,
