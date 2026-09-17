@@ -71,6 +71,36 @@ module.exports = async (req, res) => {
       const resolved = await resolveScheduleForJob(supabase, category, basePriceCents);
       const depositMilestone = resolved.milestones.find(m => m.milestone_type === 'deposit') || resolved.milestones[0];
 
+      // High-value MySubbies bookings have no payment due at checkout.
+      // Persist only the authoritative job row here and stop before the
+      // payment-schedule / milestone / Stripe pipeline. Admin will build the
+      // appropriate contract/payment structure after review.
+      if (Number(depositMilestone.amount_cents) === 0) {
+        if (!job) {
+          const { data: inserted, error: insertError } = await supabase
+            .from('jobs')
+            .insert({
+              id: jobId, category, suburb: suburb || null, contractor_email: contractorEmail || null,
+              customer_id: authenticatedCustomerId,
+              customer_email: authenticatedCustomerEmail,
+              base_price_cents: basePriceCents,
+              deposit_pct: 0,
+              deposit_amount_cents: 0,
+              status: 'pending_deposit',
+            })
+            .select().single();
+          if (insertError) throw insertError;
+          job = inserted;
+        }
+        res.status(200).json({
+          noDepositRequired: true,
+          bookingConfirmed: true,
+          scheduleStatus: 'pending_admin_schedule',
+          jobStatus: 'pending_contract_review',
+        });
+        return;
+      }
+
       // Referral credit (Sep 2026, "Give $50, Get $50") -- applied once,
       // right here, the first time this job's schedule is ever created
       // (this whole `if (!schedule)` branch only runs once per job).
@@ -186,25 +216,6 @@ module.exports = async (req, res) => {
     if (depErr) throw depErr;
     if (!depositMilestoneRow) throw new Error('No deposit milestone found for this job.');
     if (depositMilestoneRow.status === 'paid') { res.status(409).json({ error: 'The deposit for this job has already been paid.' }); return; }
-
-    // High-value bookings intentionally have a $0 booking deposit. The
-    // booking is persisted above, but no Stripe intent is created and the
-    // job remains pending contract/compliance review before contractor
-    // publication or any payment request.
-    if (Number(depositMilestoneRow.amount_cents) === 0) {
-      await supabase.from('payment_audit_logs').insert({
-        entity_type: 'job_payment_schedule', entity_id: schedule.id,
-        action: 'booking_confirmed_no_deposit', actor_role: 'customer', actor_id: authenticatedCustomerId,
-        after_state: { status: schedule.status, deposit_amount_cents: 0, job_status: 'pending_contract_review' },
-      });
-      res.status(200).json({
-        noDepositRequired: true,
-        bookingConfirmed: true,
-        scheduleStatus: schedule.status,
-        jobStatus: 'pending_contract_review',
-      });
-      return;
-    }
 
     const stripe = getStripe();
     const paymentIntent = await stripe.paymentIntents.create({
