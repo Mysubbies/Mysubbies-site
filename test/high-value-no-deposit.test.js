@@ -8,6 +8,7 @@ const payment = require(join(root, 'api/_lib/paymentSchedule'));
 const bookingHtml = readFileSync(join(root, 'mysubbies-booking.html'), 'utf8');
 const depositApi = readFileSync(join(root, 'api/create-deposit-intent.js'), 'utf8');
 const getJobs = readFileSync(join(root, 'api/get-jobs.js'), 'utf8');
+const jobMutationSecurity = readFileSync(join(root, 'api/_lib/jobMutationSecurity.js'), 'utf8');
 
 function fakeSupabase() {
   return {
@@ -58,6 +59,11 @@ test('customer UI shows $0 due today and does not mount Stripe for zero deposit'
   assert.match(bookingHtml, /if \(!noDepositRequired\) \{/);
   assert.match(bookingHtml, /pendingContractReview: true/);
   assert.match(bookingHtml, /status: \(useRealPayment && paymentInfo\.pendingContractReview\) \? 'pending_contract_review' : 'feed'/);
+});
+
+test('server-side job reconstruction maps zero-deposit pending jobs to contract review', () => {
+  assert.match(jobMutationSecurity, /isZeroDepositReview = row\.status === 'pending_deposit' && Number\(row\.deposit_amount_cents\) === 0/);
+  assert.match(jobMutationSecurity, /'pending_contract_review'/);
 });
 
 test('contract-review jobs are excluded from contractor feed', () => {
