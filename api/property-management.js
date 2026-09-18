@@ -93,6 +93,8 @@ function safeMemberOrder(order, property, job, files, events) {
     quoteReference: order.quote_reference,
     contractorStatus: fr.operationalStage || order.contractor_status || (job ? job.stage : null),
     contractorEta: order.contractor_eta,
+    beforePhotos: Array.isArray(fr.beforePhotos) ? fr.beforePhotos.slice(0, 20) : [],
+    completionPhotos: Array.isArray(fr.afterPhotos) ? fr.afterPhotos.slice(0, 20) : [],
     completionNotes: order.completion_notes,
     completedAt: order.completed_at,
     invoiceReference: order.invoice_reference,
