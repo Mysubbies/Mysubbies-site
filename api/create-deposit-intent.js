@@ -16,6 +16,8 @@
 const { getStripe, getSupabase } = require('./_lib/clients');
 const { resolveScheduleForJob, ScheduleValidationError } = require('./_lib/paymentSchedule');
 const { requireAccount } = require('./_lib/userAuth');
+const { sendEmailWithResult, wrapEmail, escapeHtml, emailDetailsTable, emailButton } = require('./_lib/email');
+const { notifyAdmin } = require('./_lib/contractorNotifications');
 
 // GET ?email=... -- referral-credit preview (Sep 2026, "Give $50, Get
 // $50"), read by mysubbies-booking.html's payment-schedule review screen
@@ -71,6 +73,90 @@ module.exports = async (req, res) => {
       const resolved = await resolveScheduleForJob(supabase, category, basePriceCents);
       const depositMilestone = resolved.milestones.find(m => m.milestone_type === 'deposit') || resolved.milestones[0];
 
+      // High-value MySubbies bookings have no payment due at checkout.
+      // Persist only the authoritative job row here and stop before the
+      // payment-schedule / milestone / Stripe pipeline. Admin will build the
+      // appropriate contract/payment structure after review.
+      if (Number(depositMilestone.amount_cents) === 0) {
+        if (!job) {
+          const { data: inserted, error: insertError } = await supabase
+            .from('jobs')
+            .insert({
+              id: jobId, category, suburb: suburb || null, contractor_email: contractorEmail || null,
+              customer_id: authenticatedCustomerId,
+              customer_email: authenticatedCustomerEmail,
+              base_price_cents: basePriceCents,
+              deposit_pct: 0,
+              deposit_amount_cents: 0,
+              status: 'pending_deposit',
+            })
+            .select().single();
+          if (insertError) throw insertError;
+          job = inserted;
+        }
+        // Send the two notifications this held booking needs. These are
+        // deliberately best-effort: email delivery must never turn a valid
+        // booking into a failed booking.
+        const appBase = String(process.env.PUBLIC_APP_BASE_URL || process.env.APP_BASE_URL || '').trim().replace(/\/+$/, '')
+          || (process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://app.mysubbies.com.au');
+        const customerPortalUrl = `${appBase}/mysubbies-customer-portal.html`;
+        const customerName = auth.account.name || 'there';
+        const total = (Number(basePriceCents) / 100).toLocaleString('en-AU', { style: 'currency', currency: 'AUD' });
+        const jobRef = job.job_number ? `Job #${job.job_number}` : jobId;
+
+        const customerHtml = wrapEmail(`
+          <h2 style="margin-top:0;">Booking received</h2>
+          <p>Hi ${escapeHtml(customerName)},</p>
+          <p>We've received your <strong>${escapeHtml(category)}</strong> booking${suburb ? ` in <strong>${escapeHtml(suburb)}</strong>` : ''}. <strong>No payment is due today.</strong></p>
+          ${emailDetailsTable([
+            { label: 'Reference', value: escapeHtml(jobRef) },
+            { label: 'Job', value: escapeHtml(category) },
+            { label: 'Suburb', value: suburb ? escapeHtml(suburb) : '' },
+            { label: 'Total', value: escapeHtml(total) },
+            { label: 'Due today', value: '<strong>$0.00</strong>' },
+            { label: 'Status', value: 'Pending contract review' },
+          ])}
+          <p>MySubbies will review the contract and compliance requirements before the job is released to contractors or any payment is requested.</p>
+          ${emailButton('Track in My Jobs →', customerPortalUrl)}
+        `);
+
+        const [customerDelivery, adminDelivery] = await Promise.all([
+          sendEmailWithResult({
+            to: authenticatedCustomerEmail,
+            subject: `Booking received — ${category} — ${jobRef}`,
+            html: customerHtml,
+          }).catch(error => ({ ok: false, error: error && error.message })),
+          notifyAdmin(supabase, {
+            eventType: 'high-value-booking-review',
+            title: 'High-value booking requires contract review',
+            body: `${jobRef}: ${category}${suburb ? ' in ' + suburb : ''}, total ${total}. Customer: ${authenticatedCustomerEmail}. No deposit was taken. Review contract/compliance requirements before contractor release.`,
+            jobId,
+            metadata: {
+              category,
+              suburb: suburb || null,
+              totalCents: Number(basePriceCents),
+              customerEmail: authenticatedCustomerEmail,
+              noDepositRequired: true,
+            },
+          }).catch(error => ({ ok: false, error: error && error.message })),
+        ]);
+
+        if (!customerDelivery.ok) console.error('high-value customer confirmation email failed:', { jobId });
+        if (!adminDelivery.ok) console.error('high-value admin notification email failed:', { jobId });
+
+        res.status(200).json({
+          noDepositRequired: true,
+          bookingConfirmed: true,
+          scheduleStatus: 'pending_admin_schedule',
+          jobStatus: 'pending_contract_review',
+          notifications: {
+            customerEmail: !!customerDelivery.ok,
+            adminEmail: !!adminDelivery.ok,
+          },
+        });
+        return;
+      }
+
       // Referral credit (Sep 2026, "Give $50, Get $50") -- applied once,
       // right here, the first time this job's schedule is ever created
       // (this whole `if (!schedule)` branch only runs once per job).
@@ -116,7 +202,7 @@ module.exports = async (req, res) => {
             base_price_cents: basePriceCents,
             deposit_pct: resolved.deposit_pct,
             deposit_amount_cents: depositMilestone.amount_cents,
-            status: 'pending_deposit',
+            status: depositMilestone.amount_cents === 0 ? 'pending_contract_review' : 'pending_deposit',
           })
           .select().single();
         if (insertError) throw insertError;

@@ -67,7 +67,7 @@ module.exports = async (req, res) => {
 
       const assigned = (ownJobs || []).filter(r => r.full_record)
         .map(r => ({ ...r.full_record, jobNumber: r.job_number }));
-      const offers = (feedJobs || []).filter(r => r.full_record)
+      const offers = (feedJobs || []).filter(r => r.full_record && r.full_record.status === 'feed')
         .map(r => toSafeUnassignedOffer(r.full_record, r.job_number));
       res.status(200).json({ jobs: [...assigned, ...offers] });
       return;

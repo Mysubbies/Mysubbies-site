@@ -436,7 +436,7 @@
   function beginBookingFlow(customer) {
     const items = quote.items || [];
     const uniqueCats = [...new Set(items.map(i => i.catLabel))];
-    if (uniqueCats.length === 1 && stripe) {
+    if (uniqueCats.length === 1) {
       renderDepositPayment(customer, uniqueCats[0]);
     } else {
       createJob(customer);
@@ -496,6 +496,7 @@
 
     const depositMilestone = preview.milestones.find(m => m.milestone_type === 'deposit') || preview.milestones[0];
     const rawDepositCents = depositMilestone.amount_cents;
+    const noDepositRequired = rawDepositCents === 0;
     const appliedCreditCents = Math.min(creditCents, Math.max(0, rawDepositCents - 100));
     const depositAmount = (rawDepositCents - appliedCreditCents) / 100;
     const isPendingAdminSchedule = preview.status === 'pending_admin_schedule';
@@ -516,7 +517,7 @@
 
       ${isPendingAdminSchedule ? `
         <div style="background:#FFF6E5;border:1px solid #F0DCA6;border-radius:10px;padding:14px;margin-bottom:16px;font-size:12.5px;color:#7A5C1E;line-height:1.6;">
-          <strong>Large or complex project:</strong> only the ${preview.deposit_pct}% booking deposit is collected now. Because this job is a large or structural project, MySubbies will prepare a project-specific payment plan with you before any further payment is requested. Domestic building insurance, registration, permits, contract requirements and legally compliant progress-payment stages may apply to a project of this size.
+          <strong>Large project booking:</strong> no payment is required today. Your booking will be recorded and held for MySubbies contract/compliance review before it is released to contractors or any payment is requested.
         </div>
       ` : `
         <div style="font-size:12.5px;color:var(--stone);line-height:1.6;margin-bottom:16px;">
@@ -529,12 +530,12 @@
 
       <label class="terms" style="display:flex;gap:8px;align-items:flex-start;margin-bottom:16px;">
         <input type="checkbox" id="fScheduleAccept" style="margin-top:3px;" />
-        <span style="font-size:12.5px;">I have reviewed and agree to the total price and milestone payment schedule.</span>
+        <span style="font-size:12.5px;">${noDepositRequired ? 'I confirm I want to book this job and understand it will be reviewed before contractor release or payment.' : 'I have reviewed and agree to the total price and milestone payment schedule.'}</span>
       </label>
 
-      <div id="cardElement" style="padding:13px 14px;border:1.5px solid var(--line);border-radius:10px;background:#fff;margin-bottom:10px;"></div>
+      ${noDepositRequired ? '' : '<div id="cardElement" style="padding:13px 14px;border:1.5px solid var(--line);border-radius:10px;background:#fff;margin-bottom:10px;"></div>'}
       <div id="depositError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
-      <button class="btn btn-black" id="payDepositBtn" disabled style="opacity:0.5;" onclick="confirmDepositPayment()">Pay $${depositAmount.toLocaleString()} deposit →</button>
+      <button class="btn btn-black" id="payDepositBtn" disabled style="opacity:0.5;" onclick="confirmDepositPayment()">${noDepositRequired ? 'Book job — $0 due today →' : 'Pay $' + depositAmount.toLocaleString() + ' deposit →'}</button>
     `;
 
     document.getElementById('fScheduleAccept').addEventListener('change', (e) => {
@@ -543,16 +544,25 @@
       btn.style.opacity = e.target.checked ? '1' : '0.5';
     });
 
-    const elements = stripe.elements();
+    if (!noDepositRequired) {
+      if (!stripe) {
+        document.getElementById('depositError').textContent = 'Card payment is temporarily unavailable. Please try again shortly.';
+        document.getElementById('payDepositBtn').disabled = true;
+        return;
+      }
+      const elements = stripe.elements();
     // hidePostalCode: Stripe's built-in postal code field defaults to
     // US-style 5-digit validation with no way to configure it for
     // Australia's 4-digit postcodes — it rejected a real postcode like
     // "3000" as "incomplete". We already collect suburb/address in the
     // registration step above, so the field is redundant anyway; hiding it
     // removes the confusing mismatch instead of working around it.
-    window.__mysubbiesCardElement = elements.create('card', { hidePostalCode: true });
-    window.__mysubbiesCardElement.mount('#cardElement');
-    window.__mysubbiesPendingBooking = { customer, catLabel, catBase, depositAmount, jobId };
+      window.__mysubbiesCardElement = elements.create('card', { hidePostalCode: true });
+      window.__mysubbiesCardElement.mount('#cardElement');
+    } else {
+      window.__mysubbiesCardElement = null;
+    }
+    window.__mysubbiesPendingBooking = { customer, catLabel, catBase, depositAmount, jobId, noDepositRequired };
   }
 
   async function confirmDepositPayment() {
@@ -568,7 +578,7 @@
 
     try {
       const accessToken = await getBookingAccessToken();
-      if (!accessToken) throw new Error('Please log in again before paying.');
+      if (!accessToken) throw new Error('Please log in again before continuing.');
       const res = await fetch('/api/create-deposit-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken },
@@ -587,6 +597,11 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not start payment.');
 
+      if (data.noDepositRequired) {
+        createJob(pending.customer, { presetJobId: pending.jobId, depositPaid: false, noDepositRequired: true, pendingContractReview: true });
+        return;
+      }
+
       const result = await stripe.confirmCardPayment(data.clientSecret, {
         payment_method: { card: window.__mysubbiesCardElement },
       });
@@ -596,7 +611,7 @@
     } catch (err) {
       errBox.textContent = err.message || 'Payment failed. Please try again.';
       btn.disabled = false;
-      btn.textContent = `Pay $${pending.depositAmount.toLocaleString()} deposit →`;
+      btn.textContent = pending.noDepositRequired ? 'Book job — $0 due today →' : 'Pay $' + pending.depositAmount.toLocaleString() + ' deposit →';
     }
   }
 
@@ -662,7 +677,7 @@
         customerName: customer.name, customerPhone: customer.phone, customerEmail: customer.email,
         jobType: customer.jobType || 'private', businessName: customer.businessName || '',
         site: quote.site, access: quote.access, urgency: quote.urgency, hasPhoto: quote.hasPhoto, photoDataUrl: quote.photoDataUrl || null, photoDataUrls: quote.photoDataUrls || (quote.photoDataUrl ? [quote.photoDataUrl] : []),
-        status: 'feed', contractor: null,
+        status: (useRealPayment && paymentInfo.pendingContractReview) ? 'pending_contract_review' : 'feed', contractor: null,
         bundleId, bundleCategories: isBundle ? uniqueCats : null,
         paymentSchedule,
         // Bundles (and any booking made before Stripe was wired up) still use
@@ -690,7 +705,7 @@
     // minimum offer details (category, quantity, suburb and urgency).
     // Access instructions, site notes and customer photos are deliberately
     // withheld until the accepting contractor is authoritatively assigned.
-    createdJobs.forEach(async (job) => {
+    createdJobs.filter(job => job.status === 'feed').forEach(async (job) => {
       const taskName = job.items && job.items.length === 1 ? job.items[0].taskName
         : job.items && job.items.length > 1 ? job.items.length + ' items'
         : null;
@@ -707,10 +722,12 @@
     app.innerHTML = `
       <div class="confirm">
         <div class="tick">✓</div>
-        <h1>${isBundle ? createdJobs.length + ' jobs sent!' : 'Job sent!'}</h1>
-        <p>${isBundle
-          ? `Your renovation in ${createdJobs[0].suburb} is now live on the contractor board \u2014 ${uniqueCats.join(', ')}, dispatched separately to the right trade for each.`
-          : `${createdJobs[0].category} in ${createdJobs[0].suburb} is now live on the contractor board.`}</p>
+        <h1>${createdJobs[0].status === 'pending_contract_review' ? 'Booking received!' : (isBundle ? createdJobs.length + ' jobs sent!' : 'Job sent!')}</h1>
+        <p>${createdJobs[0].status === 'pending_contract_review'
+          ? `Your ${createdJobs[0].category} booking in ${createdJobs[0].suburb} has been recorded with $0 due today. MySubbies will review the contract and compliance requirements before the job is released to contractors or any payment is requested.`
+          : (isBundle
+            ? `Your renovation in ${createdJobs[0].suburb} is now live on the contractor board \u2014 ${uniqueCats.join(', ')}, dispatched separately to the right trade for each.`
+            : `${createdJobs[0].category} in ${createdJobs[0].suburb} is now live on the contractor board.`)}</p>
         <a class="btn btn-black" href="mysubbies-customer-portal.html" style="max-width:320px;margin:0 auto 12px;">Track ${isBundle ? 'them' : 'it'} in My Jobs →</a>
         <a class="btn btn-ghost" href="mysubbies-website.html" style="max-width:320px;margin:0 auto;">Back to site</a>
       </div>`;
