@@ -2,7 +2,7 @@
 // One serverless surface keeps the Hobby-plan function footprint small.
 // All commercial data access is identity-bound server-side or protected by the
 // existing MFA-backed admin session cookie.
-const { getSupabase } = require('./_lib/clients');
+const { getPropertySupabase } = require('./_lib/clients');
 const { requireAdmin, verifyAdminAuth } = require('./_lib/adminAuth');
 const { authenticatedUser, requirePropertyMember } = require('./_lib/propertyManagementAuth');
 const { requireApprovedContractor } = require('./_lib/userAuth');
@@ -578,12 +578,12 @@ async function contractorCompletion(supabase, req, body, res) {
 
 module.exports = async (req, res) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getPropertySupabase();
     const action = text((req.query && req.query.action) || (req.body && req.body.action), 80);
 
     if (req.method === 'GET' && action === 'public-config') {
-      const supabaseUrl = String(process.env.SUPABASE_URL || '').trim();
-      const publishableKey = String(process.env.SUPABASE_PUBLISHABLE_KEY || '').trim();
+      const supabaseUrl = String(process.env.PROPERTY_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
+      const publishableKey = String(process.env.PROPERTY_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || '').trim();
       if (!supabaseUrl || !publishableKey) {
         res.status(500).json({ error: 'Preview Supabase public configuration is not set.' });
         return;
