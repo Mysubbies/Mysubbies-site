@@ -17,6 +17,7 @@ const categories = [{
   tasks: [
     { name: 'TV wall mounting', itemId: 'handy-tv', unit: 'unit', rate: 149, minJobPrice: 149 },
     { name: 'Custom carpentry', unit: 'job', rate: null, unavailable: true },
+    { name: 'Missing rate', unit: 'job', rate: null },
     { name: 'Hidden service', unit: 'job', rate: 50, disabled: true },
   ],
 }];
@@ -24,11 +25,13 @@ const categories = [{
 test('AI-safe catalogue separates instant-price and project-quote services', () => {
   const result = catalog.publicCatalog(categories);
   assert.equal(result.length, 1);
-  assert.equal(result[0].tasks.length, 2);
+  assert.equal(result[0].tasks.length, 3);
   assert.equal(result[0].tasks[0].serviceMode, 'instant_price');
   assert.equal(result[0].tasks[0].rate, 149);
   assert.equal(result[0].tasks[1].serviceMode, 'project_quote');
   assert.equal(result[0].tasks[1].rate, null);
+  assert.equal(result[0].tasks[2].serviceMode, 'project_quote');
+  assert.equal(result[0].tasks[2].rate, null);
 });
 
 test('server estimate uses live rate and minimum price, never an unavailable task', () => {
@@ -49,6 +52,8 @@ test('commercial workflow enforces identity-bound member and MFA-backed admin pa
   assert.match(propertyApi, /verifyAdminAuth\(req\)/);
   assert.match(propertyApi, /Only the assigned contractor can add completion evidence/);
   assert.match(propertyApi, /Required client approval has not been recorded/);
+  assert.match(propertyApi, /High-value work requires contract\/legal review before contractor release/);
+  assert.match(propertyApi, /LEGAL_REVIEW_THRESHOLD_CENTS = 990000/);
 });
 
 test('pre-assignment contractor feed still hides exact property and customer data', () => {
@@ -75,4 +80,5 @@ test('property portal contains requested commercial proposition and approval wor
   assert.match(portal, /approve-work-order/);
   assert.match(portal, /Request a project quote/);
   assert.match(portal, /recurring maintenance/);
+  assert.match(portal, /invoiceFiles/);
 });
