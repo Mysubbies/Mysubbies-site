@@ -1,13 +1,13 @@
 // AI-ready booking surface. This endpoint deliberately exposes only public service/pricing
 // information and authenticated customer-owned job status. It does NOT expose contractor
 // identities, admin data, service-role credentials or other customers' records.
-const { getSupabase } = require('./_lib/clients');
+const { getPropertySupabase } = require('./_lib/clients');
 const { requireAccount } = require('./_lib/userAuth');
 const { loadCategories, publicCatalog, estimateLine } = require('./_lib/serviceCatalog');
 
 module.exports = async (req, res) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getPropertySupabase();
     const action = String((req.query && req.query.action) || (req.body && req.body.action) || 'catalog');
 
     if (req.method === 'GET' && action === 'catalog') {
