@@ -189,6 +189,7 @@ async function bootstrap(supabase, req, res) {
     },
     properties: (properties || []).map(p => ({
       id: p.id, name: p.name, address: p.address, suburb: p.suburb, state: p.state, postcode: p.postcode, accessNotes: p.access_notes,
+      preferredContractorId: p.preferred_contractor_id || null,
     })),
     workOrders: orderRows.map(o => safeMemberOrder(o, propertyMap[o.property_id], o.job_id ? jobMap[o.job_id] : null, fileMap[o.id], eventMap[o.id])),
   });
@@ -467,10 +468,34 @@ async function adminAddProperty(supabase, body, res) {
     state: text(body.state, 10) || 'VIC',
     postcode: text(body.postcode, 10) || null,
     access_notes: text(body.accessNotes, 1500) || null,
+    preferred_contractor_id: text(body.preferredContractorId, 80) || null,
   }).select('*').single();
   if (error) throw error;
   res.status(201).json({ property: data });
 }
+async function adminSetPreferredContractor(supabase, body, res) {
+  const propertyId = text(body.propertyId, 80);
+  const contractorId = text(body.contractorId, 80) || null;
+  if (!propertyId) { res.status(400).json({ error: 'propertyId is required.' }); return; }
+
+  if (contractorId) {
+    const { data: contractor, error: contractorError } = await supabase.from('contractors')
+      .select('id, status').eq('id', contractorId).maybeSingle();
+    if (contractorError) throw contractorError;
+    if (!contractor || !['approved','preferred'].includes(contractor.status)) {
+      res.status(409).json({ error: 'Choose an approved contractor.' }); return;
+    }
+  }
+
+  const { data: property, error: propertyError } = await supabase.from('pm_properties')
+    .update({ preferred_contractor_id: contractorId, updated_at: new Date().toISOString() })
+    .eq('id', propertyId).select('id, preferred_contractor_id').maybeSingle();
+  if (propertyError) throw propertyError;
+  if (!property) { res.status(404).json({ error: 'Property not found.' }); return; }
+
+  res.status(200).json({ updated: true, property });
+}
+
 async function adminSetQuote(supabase, body, res) {
   const amount = cents(body.quotedPriceCents);
   if (!body.workOrderId || amount == null || amount <= 0) { res.status(400).json({ error: 'workOrderId and a positive quotedPriceCents are required.' }); return; }
@@ -516,13 +541,14 @@ async function adminRelease(supabase, body, res) {
   if (!order) { res.status(404).json({ error: 'Work order not found.' }); return; }
   if (order.job_id) { res.status(409).json({ error: 'This work order has already been released.' }); return; }
   if (!order.quoted_price_cents || order.quoted_price_cents <= 0) { res.status(409).json({ error: 'Set a price before releasing the work order.' }); return; }
-  const selectedContractorId = text(body.contractorId, 80);
-  if (!selectedContractorId) { res.status(400).json({ error: 'Select the site contractor before releasing the work order.' }); return; }
+  let selectedContractorId = text(body.contractorId, 80);
   if (order.approval_required && order.approval_status !== 'approved') { res.status(409).json({ error: 'Required client approval has not been recorded.' }); return; }
   if (order.legal_review_status === 'pending') { res.status(409).json({ error: 'High-value work requires contract/legal review before contractor release.' }); return; }
 
   const { data: property, error: propertyError } = await supabase.from('pm_properties').select('*').eq('id', order.property_id).single();
   if (propertyError) throw propertyError;
+  if (!selectedContractorId) selectedContractorId = property.preferred_contractor_id || '';
+  if (!selectedContractorId) { res.status(400).json({ error: 'Select a site contractor or set a preferred contractor for this property.' }); return; }
   const { data: org, error: orgError } = await supabase.from('pm_organisations').select('id, name').eq('id', order.organisation_id).single();
   if (orgError) throw orgError;
 
@@ -710,6 +736,7 @@ module.exports = async (req, res) => {
       if (action === 'admin-add-member') { await adminAddMember(supabase, req.body || {}, res); return; }
       if (action === 'admin-resend-invite') { await adminResendInvite(supabase, req.body || {}, res); return; }
       if (action === 'admin-add-property') { await adminAddProperty(supabase, req.body || {}, res); return; }
+      if (action === 'admin-set-preferred-contractor') { await adminSetPreferredContractor(supabase, req.body || {}, res); return; }
       if (action === 'admin-set-quote') { await adminSetQuote(supabase, req.body || {}, res); return; }
       if (action === 'admin-release-work-order') { await adminRelease(supabase, req.body || {}, res); return; }
       if (action === 'admin-update-work-order') { await adminUpdate(supabase, req.body || {}, res); return; }
