@@ -2932,6 +2932,8 @@
   let quoteBuilderSaving = false;
   let quoteIssuedLink = null;
   let quoteBuilderPreviewOpen = false;
+  let invoiceDraft = null;
+  let invoiceSaving = false;
 
   async function loadQuotesTab() {
     quotesTabLoading = true;
@@ -3344,6 +3346,64 @@
   }
   function closeQuoteDetail() { selectedQuoteId = null; quoteDetailData = null; quoteIssuedLink = null; render(); }
 
+  function openInvoiceBuilder() {
+    const options = quoteDetailData.invoiceMilestoneOptions || [];
+    const used = new Set((quoteDetailData.invoices || []).filter(i => i.status !== 'void').map(i => i.milestoneKey));
+    const first = options.find(o => !used.has(o.key));
+    const due = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+    invoiceDraft = first
+      ? { milestoneKey:first.key, milestoneLabel:first.label, milestonePercentage:first.percentage, amountCents:first.amountCents, dueDate:due }
+      : { milestoneKey:'custom_'+Date.now(), milestoneLabel:'Payment milestone', milestonePercentage:null, amountCents:0, dueDate:due };
+    render();
+  }
+  function closeInvoiceBuilder() { invoiceDraft = null; render(); }
+  function selectInvoiceMilestone(key) {
+    const option = (quoteDetailData.invoiceMilestoneOptions || []).find(o => o.key === key);
+    if (option) Object.assign(invoiceDraft, { milestoneKey:option.key, milestoneLabel:option.label, milestonePercentage:option.percentage, amountCents:option.amountCents });
+    else Object.assign(invoiceDraft, { milestoneKey:'custom_'+Date.now(), milestoneLabel:'Payment milestone', milestonePercentage:null, amountCents:0 });
+    render();
+  }
+  async function createMilestoneInvoice() {
+    if (!invoiceDraft || !invoiceDraft.milestoneLabel || !(Number(invoiceDraft.amountCents) > 0) || !invoiceDraft.dueDate) { alert('Complete the milestone, amount and due date.'); return; }
+    if (!confirm(`Create a tax invoice for ${invoiceDraft.milestoneLabel} — ${fmtCents(invoiceDraft.amountCents)}?`)) return;
+    invoiceSaving = true; render();
+    try {
+      const res = await adminFetch('/api/quotes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'create_invoice', quoteId:selectedQuoteId, ...invoiceDraft }) });
+      const data = await res.json(); invoiceSaving = false;
+      if (!res.ok) { alert(data.error || 'Could not create invoice.'); render(); return; }
+      invoiceDraft = null; await openQuoteDetail(selectedQuoteId);
+    } catch (e) { invoiceSaving = false; alert('Could not create invoice — check your connection.'); render(); }
+  }
+  async function sendMilestoneInvoice(invoiceId) {
+    if (!confirm('Email this tax invoice to the customer and BCC Accounts?')) return;
+    try {
+      const res = await adminFetch('/api/quotes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'send_invoice', invoiceId }) });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Could not send invoice.'); return; }
+      await openQuoteDetail(selectedQuoteId); alert('Tax invoice sent successfully.');
+    } catch (e) { alert('Could not send invoice — check your connection.'); }
+  }
+  function downloadAdminInvoicePdf(invoiceId) {
+    const invoice=(quoteDetailData.invoices||[]).find(i=>i.id===invoiceId); if(!invoice)return;
+    const { jsPDF } = window.jspdf, doc = new jsPDF(), q = quoteDetailData.quote, entityName='Mysubbies Holdings Pty Ltd', abn='69 693 675 268';
+    pdfLetterhead(doc,{docType:'TAX INVOICE',docRef:`INV-${invoice.invoiceNumber} · Quote #${q.quoteNumber}`,dateStr:new Date(invoice.issuedAt).toLocaleDateString('en-AU'),validUntil:`Due ${new Date(invoice.dueAt).toLocaleDateString('en-AU')}`,legalName:entityName,abn});
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(20); doc.text('BILL TO',14,49); doc.setFont('helvetica','normal'); doc.text([(invoice.customer&&invoice.customer.name)||'',(invoice.customer&&invoice.customer.email)||''].filter(Boolean),14,56);
+    doc.autoTable({startY:70,head:[['Description','Amount']],body:[[invoice.description,fmtCents(invoice.totalIncGstCents)]],theme:'grid',headStyles:{fillColor:[20,33,61]},columnStyles:{1:{halign:'right'}}});
+    let y=doc.lastAutoTable.finalY+12; doc.text(`Subtotal (ex. GST): ${fmtCents(invoice.subtotalExGstCents)}`,196,y,{align:'right'}); doc.text(`GST: ${fmtCents(invoice.gstCents)}`,196,y+7,{align:'right'}); doc.setFont('helvetica','bold'); doc.text(`Total (inc. GST): ${fmtCents(invoice.totalIncGstCents)}`,196,y+16,{align:'right'});
+    doc.setFillColor(255,248,237); doc.rect(14,y+27,182,39,'F'); doc.text('PAYMENT BY BANK TRANSFER',20,y+37); doc.setFont('helvetica','normal'); doc.text([`Account: ${invoice.bankAccountName}`,`BSB: ${invoice.bankBsb}   Account: ${invoice.bankAccountNumber}`,`Reference: INV-${invoice.invoiceNumber}`],20,y+46);
+    pdfFooter(doc,'Tax invoice issued by Mysubbies Holdings Pty Ltd.',entityName,abn); doc.save(`mysubbies-tax-invoice-INV-${invoice.invoiceNumber}.pdf`);
+  }
+
+  function renderInvoiceBuilder() {
+    if (!invoiceDraft) return '';
+    const options=quoteDetailData.invoiceMilestoneOptions||[], used=new Set((quoteDetailData.invoices||[]).filter(i=>i.status!=='void').map(i=>i.milestoneKey));
+    return `<div class="quote-card" style="border-color:#F3C671;background:#FFFBF2;"><div class="quote-card-title"><h2>Create milestone tax invoice</h2><button class="btn btn-outline" style="width:auto;padding:6px 10px" onclick="closeInvoiceBuilder()">Cancel</button></div>
+      <div style="font-size:11.5px;color:var(--stone);margin-bottom:12px;">Prefilled from the accepted quote. Review every field before creating the invoice.</div>
+      <label class="fieldlabel">Payment milestone</label><select class="fieldinput" onchange="selectInvoiceMilestone(this.value)"><option value="custom">Custom milestone</option>${options.map(o=>`<option value="${escapeHtml(o.key)}" ${invoiceDraft.milestoneKey===o.key?'selected':''} ${used.has(o.key)?'disabled':''}>${escapeHtml(o.label)} — ${o.percentage}% (${fmtCents(o.amountCents)})${used.has(o.key)?' · already invoiced':''}</option>`).join('')}</select>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-top:10px;"><label><span class="fieldlabel">Invoice description</span><input class="fieldinput" value="${escapeHtml(invoiceDraft.milestoneLabel)}" oninput="invoiceDraft.milestoneLabel=this.value"></label><label><span class="fieldlabel">Amount inc. GST</span><input class="fieldinput" type="number" step="0.01" value="${(invoiceDraft.amountCents/100).toFixed(2)}" oninput="invoiceDraft.amountCents=Math.round(Number(this.value)*100)"></label><label><span class="fieldlabel">Due date</span><input class="fieldinput" type="date" value="${invoiceDraft.dueDate}" oninput="invoiceDraft.dueDate=this.value"></label></div>
+      <button class="btn btn-black" style="margin-top:12px" ${invoiceSaving?'disabled':''} onclick="createMilestoneInvoice()">${invoiceSaving?'Creating…':'Create tax invoice'}</button></div>`;
+  }
+
   let quoteEmailSending = false;
   // Founder feedback (Sep 2026): generating a link the admin then had to
   // copy and forward themselves was an extra, unnecessary step. The
@@ -3499,6 +3559,7 @@
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
             ${quote.currentStatus === 'accepted' ? (quote.jobId ? `<button class="btn btn-black" onclick="openLinkedQuoteJob('${quote.jobId}')">View portal job ${escapeHtml(quote.jobId)} →</button>` : `<button class="btn btn-black" onclick="pushSelectedQuoteToPortal()">Push to Portal →</button>`) : ''}
+            ${quote.currentStatus === 'accepted' ? `<button class="btn btn-black" onclick="openInvoiceBuilder()">＋ Create invoice</button>` : ''}
             ${v.status === 'draft' ? `
               <button class="btn btn-outline" onclick="editDraftQuote()">Edit draft</button>
               <button class="btn btn-black" ${quoteEmailSending ? 'disabled' : ''} onclick="issueAndEmailSelectedQuote()">${quoteEmailSending ? 'Sending…' : '📧 Issue & email to customer'}</button>
@@ -3509,6 +3570,10 @@
             `}
             ${quote.currentStatus === 'sent' ? `<button class="btn btn-outline" onclick="reviseSelectedQuote()">Revise (new version)</button><button class="btn btn-outline" onclick="withdrawSelectedQuote()">Withdraw</button>` : ''}
           </div>
+        </div>
+        ${renderInvoiceBuilder()}
+        <div class="detailcard" style="margin-bottom:16px;"><h2 style="font-size:14px;margin-bottom:10px;">Milestone invoices</h2>
+          ${(quoteDetailData.invoices||[]).length ? (quoteDetailData.invoices||[]).map(i=>`<div style="padding:10px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;"><span><strong>INV-${i.invoiceNumber}</strong> · ${escapeHtml(i.milestoneLabel)} · ${fmtCents(i.totalIncGstCents)}<br><small style="color:var(--stone);">${escapeHtml(i.status)} · due ${new Date(i.dueAt).toLocaleDateString('en-AU')}</small></span><span style="display:flex;gap:6px;"><button class="btn btn-outline" style="padding:7px 10px" onclick="downloadAdminInvoicePdf('${i.id}')">Download PDF</button><button class="btn btn-outline" style="padding:7px 10px" onclick="sendMilestoneInvoice('${i.id}')">${i.sentAt?'Resend':'Email customer'}</button></span></div>`).join('') : '<div class="empty">No invoices created for this accepted quote yet.</div>'}
         </div>
         ${(v.scopeText || v.inclusionsText || v.exclusionsText || v.paymentTermsText) ? `
         <div class="detailcard" style="margin-bottom:16px;">

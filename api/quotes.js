@@ -41,6 +41,8 @@ const { paymentTermsFromVersion, quoteVersionContent } = require('./_lib/quotePe
 const { getRecommendedServices, identifyQuotedCategories } = require('./_lib/quoteRecommendations');
 const { quoteBaseUrl } = require('./_lib/quoteUrl');
 const { renderQuoteEmail } = require('./_lib/quoteEmail');
+const { milestoneOptions, validateInvoiceAmount, gstBreakdown } = require('./_lib/quoteInvoice');
+const { renderInvoiceEmail } = require('./_lib/invoiceEmail');
 
 const TOKEN_BYTES = 32;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
@@ -84,6 +86,106 @@ function hashToken(raw) {
 }
 function generateToken() {
   return crypto.randomBytes(TOKEN_BYTES).toString('base64url');
+}
+function invoiceBaseUrl() {
+  const base = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://app.mysubbies.com.au';
+  return `${base}/mysubbies-invoice.html`;
+}
+
+function bankConfig() {
+  const accountName = String(process.env.INVOICE_BANK_ACCOUNT_NAME || '').trim();
+  const bsb = String(process.env.INVOICE_BANK_BSB || '').replace(/\s/g, '');
+  const accountNumber = String(process.env.INVOICE_BANK_ACCOUNT_NUMBER || '').replace(/\s/g, '');
+  if (!accountName || !/^\d{3}-?\d{3}$/.test(bsb) || !/^\d{5,10}$/.test(accountNumber)) return null;
+  return { accountName, bsb: bsb.replace(/^(\d{3})(\d{3})$/, '$1-$2'), accountNumber };
+}
+
+function serializeInvoice(row, { publicView = false } = {}) {
+  const output = {
+    id: row.id, invoiceNumber: row.invoice_number, quoteId: row.quote_id,
+    status: row.status, milestoneKey: row.milestone_key, milestoneLabel: row.milestone_label,
+    milestonePercentage: row.milestone_percentage == null ? null : Number(row.milestone_percentage),
+    customer: row.customer_snapshot || {}, property: row.property_snapshot || null,
+    description: row.description, subtotalExGstCents: row.subtotal_ex_gst_cents,
+    gstCents: row.gst_cents, totalIncGstCents: row.total_inc_gst_cents,
+    bankAccountName: row.bank_account_name, bankBsb: row.bank_bsb,
+    bankAccountNumber: row.bank_account_number, issuedAt: row.issued_at,
+    dueAt: row.due_at, sentAt: row.sent_at, paidAt: row.paid_at,
+  };
+  if (!publicView) output.createdAt = row.created_at;
+  return output;
+}
+
+async function resolveInvoiceToken(req, res, supabase) {
+  const raw = String((req.query || {}).invoiceToken || '');
+  if (!raw) { res.status(400).json({ error: 'A valid invoice link is required.' }); return null; }
+  const tokenHash = hashToken(raw);
+  const { data: tokenRow } = await supabase.from('document_access_tokens').select('*')
+    .eq('token_hash', tokenHash).eq('document_type', 'invoice').maybeSingle();
+  if (!tokenRow || tokenRow.revoked_at || new Date(tokenRow.expires_at) <= new Date()) {
+    res.status(404).json({ error: 'This invoice link is not valid.' }); return null;
+  }
+  const { data: invoice } = await supabase.from('invoices').select('*').eq('id', tokenRow.document_id).maybeSingle();
+  if (!invoice || invoice.status === 'void') { res.status(404).json({ error: 'This invoice is not available.' }); return null; }
+  const { data: entity } = await supabase.from('issuing_entities').select('*').eq('id', invoice.issuing_entity_id).maybeSingle();
+  const { data: quote } = await supabase.from('quotes').select('quote_number').eq('id', invoice.quote_id).maybeSingle();
+  await supabase.from('document_access_tokens').update({ last_accessed_at: new Date().toISOString() }).eq('id', tokenRow.id);
+  return { invoice, entity, quote };
+}
+
+async function handleCreateInvoice(req, res, supabase) {
+  const { quoteId, milestoneKey, milestoneLabel, milestonePercentage, amountCents, dueDate } = req.body || {};
+  if (!quoteId || !milestoneKey || !milestoneLabel || !dueDate) { res.status(400).json({ error: 'Quote, milestone, label and due date are required.' }); return; }
+  const bank = bankConfig();
+  if (!bank) { res.status(409).json({ error: 'Invoice bank details are not configured. Add INVOICE_BANK_ACCOUNT_NAME, INVOICE_BANK_BSB and INVOICE_BANK_ACCOUNT_NUMBER in Vercel.' }); return; }
+  const dueAt = new Date(`${dueDate}T23:59:59.999Z`);
+  if (Number.isNaN(dueAt.getTime())) { res.status(400).json({ error: 'A valid due date is required.' }); return; }
+  const { data: quote } = await supabase.from('quotes').select('*').eq('id', quoteId).maybeSingle();
+  if (!quote || quote.current_status !== 'accepted') { res.status(409).json({ error: 'Invoices can only be created from an accepted quote.' }); return; }
+  const { data: version } = await supabase.from('quote_versions').select('*').eq('id', quote.current_version_id).maybeSingle();
+  if (!version || version.status !== 'accepted') { res.status(409).json({ error: 'The accepted quote version could not be found.' }); return; }
+  const { data: existing } = await supabase.from('invoices').select('id,status,total_inc_gst_cents,milestone_key').eq('quote_id', quote.id).neq('status', 'void');
+  if ((existing || []).some(row => row.milestone_key === milestoneKey)) { res.status(409).json({ error: 'An invoice already exists for this milestone.' }); return; }
+  const previous = (existing || []).reduce((sum, row) => sum + Number(row.total_inc_gst_cents || 0), 0);
+  const amountError = validateInvoiceAmount({ amountCents: Number(amountCents), quoteTotalCents: version.total_inc_gst_cents, previouslyInvoicedCents: previous });
+  if (amountError) { res.status(400).json({ error: amountError }); return; }
+  const { data: entity } = await supabase.from('issuing_entities').select('*').eq('id', version.issuing_entity_id).maybeSingle();
+  if (!entity || entity.legal_name !== 'Mysubbies Holdings Pty Ltd') { res.status(409).json({ error: 'Mysubbies Holdings Pty Ltd is not configured as the issuing entity.' }); return; }
+  const totals = gstBreakdown(Number(amountCents));
+  const { data: invoice, error } = await supabase.from('invoices').insert({
+    quote_id: quote.id, quote_version_id: version.id, issuing_entity_id: entity.id,
+    status: 'issued', milestone_key: String(milestoneKey).slice(0, 80), milestone_label: String(milestoneLabel).trim().slice(0, 120),
+    milestone_percentage: milestonePercentage == null ? null : Number(milestonePercentage),
+    customer_snapshot: version.customer_snapshot || {}, property_snapshot: version.property_snapshot || null,
+    description: `${String(milestoneLabel).trim()} — accepted Quote #${quote.quote_number}`,
+    subtotal_ex_gst_cents: totals.subtotalExGstCents, gst_cents: totals.gstCents, total_inc_gst_cents: totals.totalIncGstCents,
+    bank_account_name: bank.accountName, bank_bsb: bank.bsb, bank_account_number: bank.accountNumber,
+    due_at: dueAt.toISOString(),
+  }).select().single();
+  if (error) throw error;
+  await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'invoice_created', actorRole: 'admin', payload: { invoiceId: invoice.id, invoiceNumber: invoice.invoice_number } });
+  res.status(200).json({ invoice: serializeInvoice(invoice) });
+}
+
+async function handleSendInvoice(req, res, supabase) {
+  const { invoiceId } = req.body || {};
+  const { data: invoice } = await supabase.from('invoices').select('*').eq('id', invoiceId).maybeSingle();
+  if (!invoice || invoice.status === 'void') { res.status(404).json({ error: 'Invoice not found.' }); return; }
+  const email = invoice.customer_snapshot && invoice.customer_snapshot.email;
+  if (!email) { res.status(400).json({ error: 'This invoice has no customer email.' }); return; }
+  const { data: quote } = await supabase.from('quotes').select('*').eq('id', invoice.quote_id).maybeSingle();
+  const now = new Date();
+  await supabase.from('document_access_tokens').update({ revoked_at: now.toISOString() }).eq('document_type', 'invoice').eq('document_id', invoice.id).is('revoked_at', null);
+  const rawToken = generateToken();
+  const expiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
+  const { error: tokenError } = await supabase.from('document_access_tokens').insert({ document_type: 'invoice', document_id: invoice.id, token_hash: hashToken(rawToken), expires_at: expiresAt });
+  if (tokenError) throw tokenError;
+  const url = `${invoiceBaseUrl()}?token=${encodeURIComponent(rawToken)}`;
+  const result = await sendEmailWithResult({ to: email, bcc: 'accounts@mysubbies.com.au', subject: `Tax invoice INV-${invoice.invoice_number} — MySubbies`, html: renderInvoiceEmail({ invoice, quote, secureInvoiceUrl: url }) });
+  if (!result.ok) { res.status(502).json({ error: result.error, url }); return; }
+  const { data: updated } = await supabase.from('invoices').update({ status: 'sent', sent_at: now.toISOString(), updated_at: now.toISOString() }).eq('id', invoice.id).select().single();
+  await logQuoteEvent(supabase, { quoteId: invoice.quote_id, quoteVersionId: invoice.quote_version_id, eventType: 'invoice_sent', actorRole: 'admin', payload: { invoiceId: invoice.id, invoiceNumber: invoice.invoice_number } });
+  res.status(200).json({ ok: true, url, invoice: serializeInvoice(updated) });
 }
 function getRequestIp(req) {
   return (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || (req.socket && req.socket.remoteAddress) || null;
@@ -506,7 +608,19 @@ module.exports = async (req, res) => {
 
   try {
     if (req.method === 'GET') {
-      const { action, token } = req.query || {};
+      const { action, token, invoiceToken } = req.query || {};
+
+      if (invoiceToken) {
+        res.setHeader('Cache-Control', 'private, no-store');
+        const resolvedInvoice = await resolveInvoiceToken(req, res, supabase);
+        if (!resolvedInvoice) return;
+        const { invoice, entity, quote } = resolvedInvoice;
+        res.status(200).json({
+          invoice: serializeInvoice(invoice, { publicView: true }), quoteNumber: quote && quote.quote_number,
+          issuingEntity: entity ? { legalName: entity.legal_name, abn: entity.abn, tradingName: entity.trading_name, addressLine: entity.address_line, suburb: entity.suburb, state: entity.state, postcode: entity.postcode, email: entity.email, phone: entity.phone } : null,
+        });
+        return;
+      }
 
       if (token) {
         // Private financial document -- must never be cached by a shared
@@ -547,10 +661,13 @@ module.exports = async (req, res) => {
         if (eErr) throw eErr;
         const { data: customer } = await supabase.from('customers').select('*').eq('id', quote.customer_id).maybeSingle();
         const current = (versions || []).find(v => v.id === quote.current_version_id) || null;
+        const { data: invoices } = await supabase.from('invoices').select('*').eq('quote_id', id).order('created_at');
         res.status(200).json({
           quote: serializeQuoteAdmin(quote, current, customer),
           versions: (versions || []).map(serializeVersionAdmin),
           events: (events || []).map(ev => ({ id: ev.id, eventType: ev.event_type, actorRole: ev.actor_role, actorId: ev.actor_id, payload: ev.payload, createdAt: ev.created_at })),
+          invoices: (invoices || []).map(row => serializeInvoice(row)),
+          invoiceMilestoneOptions: current ? milestoneOptions(paymentTermsFromVersion(current), current.total_inc_gst_cents) : [],
         });
         return;
       }
@@ -658,6 +775,8 @@ module.exports = async (req, res) => {
       if (action === 'revise') { await handleRevise(req, res, supabase); return; }
       if (action === 'withdraw') { await handleWithdraw(req, res, supabase); return; }
       if (action === 'send_quote_email') { await handleSendQuoteEmail(req, res, supabase); return; }
+      if (action === 'create_invoice') { await handleCreateInvoice(req, res, supabase); return; }
+      if (action === 'send_invoice') { await handleSendInvoice(req, res, supabase); return; }
       if (action === 'push_to_portal') {
         try {
           const converted = await convertAcceptedQuoteToJob(supabase, (req.body || {}).quoteId);
