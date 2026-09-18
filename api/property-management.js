@@ -350,13 +350,14 @@ async function approveWorkOrder(supabase, auth, body, res) {
 }
 async function adminSummary(supabase, req, res) {
   if (!requireAdmin(req, res)) return;
-  const [orgsResult, membersResult, propertiesResult, ordersResult] = await Promise.all([
+  const [orgsResult, membersResult, propertiesResult, ordersResult, contractorsResult] = await Promise.all([
     supabase.from('pm_organisations').select('*').order('created_at', { ascending: false }).limit(1000),
     supabase.from('pm_members').select('id, organisation_id, email, name, phone, role, can_approve, status, created_at, activated_at').order('created_at', { ascending: false }).limit(3000),
     supabase.from('pm_properties').select('*').order('created_at', { ascending: false }).limit(5000),
     supabase.from('pm_work_orders').select('*').order('created_at', { ascending: false }).limit(5000),
+    supabase.from('contractors').select('id, email, business_name, status, categories').in('status', ['approved','preferred']).order('business_name').limit(1000),
   ]);
-  for (const r of [orgsResult,membersResult,propertiesResult,ordersResult]) if (r.error) throw r.error;
+  for (const r of [orgsResult,membersResult,propertiesResult,ordersResult,contractorsResult]) if (r.error) throw r.error;
   const orders = ordersResult.data || [];
   const [jobs, fileMap] = await Promise.all([
     linkedJobMap(supabase, orders.map(o => o.job_id).filter(Boolean)),
@@ -366,6 +367,10 @@ async function adminSummary(supabase, req, res) {
     organisations: orgsResult.data || [],
     members: membersResult.data || [],
     properties: propertiesResult.data || [],
+    contractors: (contractorsResult.data || []).map(c => ({
+      id: c.id, businessName: c.business_name || c.email, email: c.email,
+      status: c.status, categories: Array.isArray(c.categories) ? c.categories : [],
+    })),
     workOrders: orders.map(o => ({
       ...o,
       linkedJob: o.job_id && jobs[o.job_id] ? {
@@ -511,7 +516,8 @@ async function adminRelease(supabase, body, res) {
   if (!order) { res.status(404).json({ error: 'Work order not found.' }); return; }
   if (order.job_id) { res.status(409).json({ error: 'This work order has already been released.' }); return; }
   if (!order.quoted_price_cents || order.quoted_price_cents <= 0) { res.status(409).json({ error: 'Set a price before releasing the work order.' }); return; }
-  if (!order.category) { res.status(409).json({ error: 'Choose a contractor service category before releasing the work order.' }); return; }
+  const selectedContractorId = text(body.contractorId, 80);
+  if (!selectedContractorId) { res.status(400).json({ error: 'Select the site contractor before releasing the work order.' }); return; }
   if (order.approval_required && order.approval_status !== 'approved') { res.status(409).json({ error: 'Required client approval has not been recorded.' }); return; }
   if (order.legal_review_status === 'pending') { res.status(409).json({ error: 'High-value work requires contract/legal review before contractor release.' }); return; }
 
@@ -558,33 +564,55 @@ async function adminRelease(supabase, body, res) {
   }).select('id, job_number').single();
   if (jobError) throw jobError;
 
-  const { data: contractors, error: contractorError } = await supabase.from('contractors')
-    .select('id, email, business_name, status, categories').in('status', ['approved','preferred']).limit(1000);
+  const { data: selectedContractor, error: contractorError } = await supabase.from('contractors')
+    .select('id, email, business_name, status, categories').eq('id', selectedContractorId).maybeSingle();
   if (contractorError) throw contractorError;
-  const matches = (contractors || []).filter(c => Array.isArray(c.categories) && c.categories.includes(fullRecord.category));
-  if (matches.length) {
-    const payoutCents = Math.max(0, Math.round(order.quoted_price_cents * 0.82));
-    const { error: offerError } = await supabase.from('job_offers').upsert(matches.map(c => ({
-      job_id: jobId, contractor_id: c.id, contractor_payout_cents: payoutCents, status: 'pending',
-    })), { onConflict: 'job_id,contractor_id' });
-    if (offerError) throw offerError;
-    await Promise.all(matches.map(c => notifyContractor(supabase, {
-      email: c.email,
-      eventType: 'new-property-job-available',
-      title: 'New property maintenance job available',
-      body: order.task_summary + (property.suburb ? ' in ' + property.suburb : '') + '. Review the job feed for timing and payout.',
-      subject: 'New ' + fullRecord.category + ' job available' + (property.suburb ? ' in ' + property.suburb : ''),
-      jobId,
-      metadata: { category: fullRecord.category, suburb: property.suburb || null, urgency: order.priority, source: 'property_management' },
-    }).catch(() => ({ ok: false }))));
+  if (!selectedContractor || !['approved','preferred'].includes(selectedContractor.status)) {
+    res.status(409).json({ error: 'The selected contractor is not currently approved for allocation.' }); return;
   }
 
+  const resolvedCategory = order.category || (Array.isArray(selectedContractor.categories) && selectedContractor.categories[0]) || 'Property Maintenance';
+  if (resolvedCategory !== fullRecord.category) {
+    fullRecord.category = resolvedCategory;
+    fullRecord.items = [{ taskName: order.task_summary, qty: 1, unit: 'job', base: basePrice }];
+    const { error: jobCategoryError } = await supabase.from('jobs').update({
+      category: resolvedCategory,
+      full_record: fullRecord,
+      updated_at: now,
+    }).eq('id', jobId);
+    if (jobCategoryError) throw jobCategoryError;
+  }
+
+  const payoutCents = Math.max(0, Math.round(order.quoted_price_cents * 0.82));
+  const { error: offerError } = await supabase.from('job_offers').upsert({
+    job_id: jobId, contractor_id: selectedContractor.id, contractor_payout_cents: payoutCents, status: 'pending',
+  }, { onConflict: 'job_id,contractor_id' });
+  if (offerError) throw offerError;
+
+  await notifyContractor(supabase, {
+    email: selectedContractor.email,
+    eventType: 'new-property-job-allocated',
+    title: 'Property maintenance job allocated to you',
+    body: order.task_summary + (property.suburb ? ' in ' + property.suburb : '') + '. This job has been allocated to you for this site. Review and accept it in the contractor portal.',
+    subject: 'MySubbies property job allocated to you' + (property.suburb ? ' — ' + property.suburb : ''),
+    jobId,
+    metadata: { category: resolvedCategory, suburb: property.suburb || null, urgency: order.priority, source: 'property_management', siteAllocated: true },
+  }).catch(() => ({ ok: false }));
+
   const { error: updateError } = await supabase.from('pm_work_orders').update({
-    job_id: jobId, status: 'released', contractor_status: 'offered', updated_at: now,
+    job_id: jobId, category: resolvedCategory, status: 'released',
+    contractor_status: 'allocated to ' + (selectedContractor.business_name || selectedContractor.email),
+    updated_at: now,
   }).eq('id', order.id);
   if (updateError) throw updateError;
-  await event(supabase, order.id, 'admin', 'admin', 'released_to_contractors', { jobId, jobNumber: job.job_number, contractorOfferCount: matches.length });
-  res.status(200).json({ released: true, jobId, jobNumber: job.job_number, contractorOfferCount: matches.length });
+  await event(supabase, order.id, 'admin', 'admin', 'allocated_to_site_contractor', {
+    jobId, jobNumber: job.job_number, contractorId: selectedContractor.id,
+    contractorName: selectedContractor.business_name || selectedContractor.email,
+  });
+  res.status(200).json({
+    released: true, jobId, jobNumber: job.job_number, contractorOfferCount: 1,
+    contractor: { id: selectedContractor.id, name: selectedContractor.business_name || selectedContractor.email },
+  });
 }
 async function adminUpdate(supabase, body, res) {
   const { data: order, error: findError } = await supabase.from('pm_work_orders').select('*').eq('id', body.workOrderId).maybeSingle();
