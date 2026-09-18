@@ -329,6 +329,27 @@ async function adminCreateOrganisation(supabase, body, res) {
   if (memberError) throw memberError;
   res.status(201).json({ organisation: org, invitedMember: { id: member.id, email: member.email, status: member.status } });
 }
+async function adminAddMember(supabase, body, res) {
+  const organisationId = text(body.organisationId, 50);
+  const email = validEmail(body.email);
+  const role = ['org_admin','approver','requester','viewer'].includes(body.role) ? body.role : 'requester';
+  if (!organisationId || !email) { res.status(400).json({ error: 'organisationId and a valid email are required.' }); return; }
+  const { data: org, error: orgError } = await supabase.from('pm_organisations').select('id').eq('id', organisationId).maybeSingle();
+  if (orgError) throw orgError;
+  if (!org) { res.status(404).json({ error: 'Organisation not found.' }); return; }
+  const { data, error } = await supabase.from('pm_members').insert({
+    organisation_id: organisationId,
+    email,
+    name: text(body.name, 120) || null,
+    phone: text(body.phone, 50) || null,
+    role,
+    can_approve: role === 'org_admin' || role === 'approver' || body.canApprove === true,
+    status: 'invited',
+  }).select('id, organisation_id, email, name, phone, role, can_approve, status, created_at').single();
+  if (error) throw error;
+  res.status(201).json({ member: data });
+}
+
 async function adminAddProperty(supabase, body, res) {
   const organisationId = text(body.organisationId, 50);
   const address = text(body.address, 300);
@@ -372,7 +393,7 @@ async function adminRelease(supabase, body, res) {
   if (orderError) throw orderError;
   if (!order) { res.status(404).json({ error: 'Work order not found.' }); return; }
   if (order.job_id) { res.status(409).json({ error: 'This work order has already been released.' }); return; }
-  if (!order.quoted_price_cents || order.quoted_price_cents <= 0) { res.status(409).json({ error: 'Set a price before releasing the work order.' }); return; }
+  if (!order.quoted_price_cents || order.quoted_price_cents <= 0) { res.status(409).json({ error: 'Set a price before releasing the work order.' }); return; }\n  if (!order.category) { res.status(409).json({ error: 'Choose a contractor service category before releasing the work order.' }); return; }
   if (order.approval_required && order.approval_status !== 'approved') { res.status(409).json({ error: 'Required client approval has not been recorded.' }); return; }
 
   const { data: property, error: propertyError } = await supabase.from('pm_properties').select('*').eq('id', order.property_id).single();
@@ -386,7 +407,7 @@ async function adminRelease(supabase, body, res) {
   const fullRecord = {
     id: jobId,
     source: 'property_management',
-    category: order.category || 'Property Maintenance',
+    category: order.category,
     icon: '🏢',
     suburb: property.suburb || null,
     address: property.address,
@@ -507,7 +528,7 @@ module.exports = async (req, res) => {
     if (action.startsWith('admin-')) {
       if (!verifyAdminAuth(req)) { res.status(401).json({ error: 'Unauthorized' }); return; }
       if (action === 'admin-create-organisation') { await adminCreateOrganisation(supabase, req.body || {}, res); return; }
-      if (action === 'admin-add-property') { await adminAddProperty(supabase, req.body || {}, res); return; }
+      if (action === 'admin-add-member') { await adminAddMember(supabase, req.body || {}, res); return; }\n      if (action === 'admin-add-property') { await adminAddProperty(supabase, req.body || {}, res); return; }
       if (action === 'admin-set-quote') { await adminSetQuote(supabase, req.body || {}, res); return; }
       if (action === 'admin-release-work-order') { await adminRelease(supabase, req.body || {}, res); return; }
       if (action === 'admin-update-work-order') { await adminUpdate(supabase, req.body || {}, res); return; }
