@@ -326,6 +326,47 @@ async function createWorkOrder(supabase, auth, body, res) {
     pricing: pricedLine,
   });
 }
+async function cancelWorkOrder(supabase, auth, body, res) {
+  const order = await memberWorkOrder(supabase, auth.organisation.id, body.workOrderId);
+  if (!order) { res.status(404).json({ error: 'Work order not found.' }); return; }
+  const canCancel = auth.member.role === 'org_admin' || auth.member.role === 'approver' || order.requested_by_member_id === auth.member.id;
+  if (!canCancel) { res.status(403).json({ error: 'You do not have permission to cancel this work order.' }); return; }
+  if (order.status === 'cancelled') { res.status(200).json({ cancelled: true, alreadyCancelled: true }); return; }
+  if (order.status === 'completed') { res.status(409).json({ error: 'Completed work orders cannot be cancelled.' }); return; }
+  if (order.job_id || ['released','assigned','in_progress'].includes(order.status)) {
+    res.status(409).json({ error: 'This job has already been released to a contractor. Please contact MySubbies to arrange cancellation.' });
+    return;
+  }
+
+  const reason = text(body.reason, 1000) || null;
+  const now = new Date().toISOString();
+  const { error } = await supabase.from('pm_work_orders').update({
+    status: 'cancelled',
+    approval_status: order.approval_status === 'pending' ? 'rejected' : order.approval_status,
+    updated_at: now,
+  }).eq('id', order.id).eq('organisation_id', auth.organisation.id);
+  if (error) throw error;
+
+  await event(supabase, order.id, 'member', auth.member.id, 'work_order_cancelled', { reason });
+  const property = await propertyForOrg(supabase, auth.organisation.id, order.property_id);
+  await notifyAdmin(supabase, {
+    eventType: 'property-work-order-cancelled',
+    title: 'Property work order cancelled',
+    body: auth.organisation.name + ' cancelled ' + order.task_summary + (property ? ' at ' + property.address : '') + (reason ? '. Reason: ' + reason : '.'),
+    metadata: { workOrderId: order.id, organisationId: auth.organisation.id },
+  }).catch(() => {});
+  await sendWorkOrderEmail({
+    to: auth.member.email,
+    subject: 'MySubbies work order cancelled',
+    heading: 'Work order cancelled',
+    body: order.task_summary + (property ? ' at ' + property.address : '') + ' has been cancelled.',
+    ctaText: 'Open Property Portal →',
+    ctaUrl: propertyPortalUrl(),
+  }).catch(() => ({}));
+
+  res.status(200).json({ cancelled: true });
+}
+
 async function approveWorkOrder(supabase, auth, body, res) {
   if (!(auth.member.can_approve || ['org_admin','approver'].includes(auth.member.role))) {
     res.status(403).json({ error: 'Approval permission is required.' }); return;
@@ -749,6 +790,7 @@ module.exports = async (req, res) => {
     if (action === 'create-property') { await createProperty(supabase, auth, req.body || {}, res); return; }
     if (action === 'create-work-order') { await createWorkOrder(supabase, auth, req.body || {}, res); return; }
     if (action === 'approve-work-order') { await approveWorkOrder(supabase, auth, req.body || {}, res); return; }
+    if (action === 'cancel-work-order') { await cancelWorkOrder(supabase, auth, req.body || {}, res); return; }
 
     res.status(400).json({ error: 'Unknown property-management action.' });
   } catch (err) {
