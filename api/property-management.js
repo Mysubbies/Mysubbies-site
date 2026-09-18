@@ -389,6 +389,25 @@ async function adminAddMember(supabase, body, res) {
   res.status(201).json({ member: data, inviteEmailSent: !!invite.ok });
 }
 
+async function adminResendInvite(supabase, body, res) {
+  const memberId = text(body.memberId, 50);
+  if (!memberId) { res.status(400).json({ error: 'memberId is required.' }); return; }
+  const { data: member, error: memberError } = await supabase.from('pm_members')
+    .select('id, organisation_id, email, role, status').eq('id', memberId).maybeSingle();
+  if (memberError) throw memberError;
+  if (!member) { res.status(404).json({ error: 'Contact not found.' }); return; }
+  if (member.status === 'active') { res.status(409).json({ error: 'This contact has already activated their portal account.' }); return; }
+  const { data: org, error: orgError } = await supabase.from('pm_organisations')
+    .select('name').eq('id', member.organisation_id).maybeSingle();
+  if (orgError) throw orgError;
+  const invite = await sendPropertyInvite(member.email, org ? org.name : 'Your organisation', member.role);
+  if (!invite.ok) {
+    res.status(502).json({ error: invite.error || 'Invitation email could not be sent.' });
+    return;
+  }
+  res.status(200).json({ sent: true });
+}
+
 async function adminAddProperty(supabase, body, res) {
   const organisationId = text(body.organisationId, 50);
   const address = text(body.address, 300);
@@ -604,6 +623,7 @@ module.exports = async (req, res) => {
       if (!verifyAdminAuth(req)) { res.status(401).json({ error: 'Unauthorized' }); return; }
       if (action === 'admin-create-organisation') { await adminCreateOrganisation(supabase, req.body || {}, res); return; }
       if (action === 'admin-add-member') { await adminAddMember(supabase, req.body || {}, res); return; }
+      if (action === 'admin-resend-invite') { await adminResendInvite(supabase, req.body || {}, res); return; }
       if (action === 'admin-add-property') { await adminAddProperty(supabase, req.body || {}, res); return; }
       if (action === 'admin-set-quote') { await adminSetQuote(supabase, req.body || {}, res); return; }
       if (action === 'admin-release-work-order') { await adminRelease(supabase, req.body || {}, res); return; }
