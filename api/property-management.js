@@ -76,6 +76,11 @@ async function linkedJobMap(supabase, jobIds) {
 }
 function safeMemberOrder(order, property, job, files, events) {
   const fr = (job && job.full_record) || {};
+  const operational = fr.operationalStage || null;
+  let displayStatus = order.status;
+  if (operational === 'completed') displayStatus = 'completed';
+  else if (['on_the_way','started'].includes(operational)) displayStatus = 'in_progress';
+  else if (operational === 'scheduled' || fr.status === 'assigned') displayStatus = 'assigned';
   return {
     id: order.id,
     propertyId: order.property_id,
@@ -90,10 +95,10 @@ function safeMemberOrder(order, property, job, files, events) {
     recurrenceRule: order.recurrence_rule,
     approvalRequired: order.approval_required,
     approvalStatus: order.approval_status,
-    status: order.status,
+    status: displayStatus,
     quotedPriceCents: order.quoted_price_cents,
     quoteReference: order.quote_reference,
-    contractorStatus: fr.operationalStage || order.contractor_status || (job ? job.stage : null),
+    contractorStatus: operational || (fr.status === 'assigned' ? 'assigned' : null) || order.contractor_status || (job ? job.stage : null),
     contractorEta: order.contractor_eta,
     beforePhotos: Array.isArray(fr.beforePhotos) ? fr.beforePhotos.slice(0, 20) : [],
     completionPhotos: Array.isArray(fr.afterPhotos) ? fr.afterPhotos.slice(0, 20) : [],
