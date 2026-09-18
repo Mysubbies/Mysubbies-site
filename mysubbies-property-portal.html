@@ -23,7 +23,7 @@ header{height:68px;background:#fff;border-bottom:1px solid var(--line);display:f
 </style>
 </head>
 <body>
-<header><div class="nav"><a class="logo" href="mysubbies-website.html">My<span>Subbies</span></a><div class="nav-right"><span class="orgname" id="navOrg"></span><button class="btn btn-outline" id="logoutBtn" style="display:none" onclick="logout()">Log out</button></div></div></header>
+<header><div class="nav"><a class="logo" href="mysubbies-website.html">My<span>Subbies</span></a><div class="nav-right"><span class="orgname" id="navOrg"></span><div style="position:relative"><button class="btn btn-outline" id="propertyNotifBtn" style="display:none;position:relative" onclick="togglePropertyNotifications()">🔔 <span id="propertyNotifBadge" style="display:none;position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:999px;min-width:18px;height:18px;padding:0 5px;font-size:11px;line-height:18px;text-align:center"></span></button><div id="propertyNotifMenu" style="display:none;position:absolute;right:0;top:44px;width:340px;max-height:420px;overflow:auto;background:#fff;border:1px solid #ddd;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.15);z-index:1000;padding:10px"></div></div><button class="btn btn-outline" id="logoutBtn" style="display:none" onclick="logout()">Log out</button></div></div></header>
 <main class="wrap" id="app"></main>
 <script>
 let sb=null;
@@ -96,7 +96,19 @@ async function registerInvite(){
 function renderInviteError(msg){
   app.innerHTML=`<div class="loginwrap"><div class="loginbox"><h1>Account not linked yet</h1><p>${esc(msg)}</p><div class="error">Property portal access is invitation-only. Make sure you are signed in with the exact email your organisation supplied to MySubbies.</div><button class="btn btn-outline" style="width:100%" onclick="logout()">Use another account</button></div></div>`;
 }
-async function logout(){await sb.auth.signOut();state={...state,data:null,selected:null};renderAuth();}
+async function logout(){await sb.auth.signOut();const b=document.getElementById('propertyNotifBtn');if(b)b.style.display='none';const m=document.getElementById('propertyNotifMenu');if(m)m.style.display='none';state={...state,data:null,selected:null};renderAuth();}
+function updatePropertyNotifications(){
+  const btn=document.getElementById('propertyNotifBtn'),badge=document.getElementById('propertyNotifBadge'),menu=document.getElementById('propertyNotifMenu');
+  if(!btn||!state.data)return;
+  const events=(state.data.workOrders||[]).flatMap(o=>(o.events||[]).map(e=>({...e,workOrder:o}))).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const pending=(state.data.workOrders||[]).filter(o=>o.approvalStatus==='pending'||o.status==='quote_required'||o.status==='ready_to_release').length;
+  btn.style.display='';
+  badge.style.display=pending?'':'none';
+  badge.textContent=String(pending);
+  menu.innerHTML=events.length?events.slice(0,20).map(e=>'<div style="padding:10px;border-bottom:1px solid #eee"><b style="font-size:13px">'+esc(statusLabel(e.eventType))+'</b><div class="wo-meta">'+esc(e.workOrder.taskSummary)+' · '+esc(dateFmt(e.createdAt))+'</div></div>').join(''):'<div class="wo-meta" style="padding:10px">No notifications yet.</div>';
+}
+function togglePropertyNotifications(){const m=document.getElementById('propertyNotifMenu');if(m)m.style.display=m.style.display==='none'?'block':'none';}
+
 function counts(){
   const w=state.data.workOrders||[];return {all:w.length,approval:w.filter(x=>x.approvalStatus==='pending').length,active:w.filter(x=>['released','assigned','in_progress'].includes(x.status)).length,done:w.filter(x=>x.status==='completed').length};
 }
@@ -112,6 +124,7 @@ function render(){
   <div class="stats"><div class="stat"><strong>${c.all}</strong><span>Total work orders</span></div><div class="stat"><strong>${c.approval}</strong><span>Awaiting approval</span></div><div class="stat"><strong>${c.active}</strong><span>Active jobs</span></div><div class="stat"><strong>${c.done}</strong><span>Completed</span></div></div>
   <div class="toolbar"><div class="tabs"><button class="${state.view==='orders'?'active':''}" onclick="state.view='orders';render()">Work orders</button><button onclick="state.view='properties';render()">Properties</button></div>${member.role==='org_admin'?'<button class="btn btn-outline" onclick="state.view=\'property\';render()">+ Add property</button>':''}</div>
   ${state.view==='properties'?propertiesHtml():ordersHtml()}`;
+  updatePropertyNotifications();
 }
 function propertiesHtml(){
   const rows=state.data.properties||[];if(!rows.length)return '<div class="empty">No properties have been added yet.</div>';
