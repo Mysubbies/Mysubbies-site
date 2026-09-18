@@ -10,6 +10,8 @@ const { storeAttachments, signFiles } = require('./_lib/propertyWorkOrderFiles')
 const { loadCategories, estimateLine } = require('./_lib/serviceCatalog');
 const { notifyAdmin, notifyContractor } = require('./_lib/contractorNotifications');
 
+const LEGAL_REVIEW_THRESHOLD_CENTS = 990000;
+
 function text(value, max) {
   const clean = String(value || '').trim();
   return max ? clean.slice(0, max) : clean;
@@ -97,6 +99,7 @@ function safeMemberOrder(order, property, job, files, events) {
     completionPhotos: Array.isArray(fr.afterPhotos) ? fr.afterPhotos.slice(0, 20) : [],
     completionNotes: order.completion_notes,
     completedAt: order.completed_at,
+    legalReviewStatus: order.legal_review_status || 'not_required',
     invoiceReference: order.invoice_reference,
     invoiceStatus: order.invoice_status,
     invoiceAmountCents: order.invoice_amount_cents,
@@ -237,6 +240,7 @@ async function createWorkOrder(supabase, auth, body, res) {
     approval_status: approvalStatus,
     status,
     quoted_price_cents: quotedPriceCents,
+    legal_review_status: quotedPriceCents != null && quotedPriceCents > LEGAL_REVIEW_THRESHOLD_CENTS ? 'pending' : 'not_required',
   };
   const { data: order, error } = await supabase.from('pm_work_orders').insert(row).select('*').single();
   if (error) throw error;
@@ -382,6 +386,7 @@ async function adminSetQuote(supabase, body, res) {
     quoted_price_cents: amount,
     category: text(body.category, 120) || order.category || null,
     quote_reference: text(body.quoteReference, 100) || null,
+    legal_review_status: amount > LEGAL_REVIEW_THRESHOLD_CENTS ? 'pending' : 'not_required',
     approval_status: approvalStatus,
     status: nextStatus,
     updated_at: new Date().toISOString(),
@@ -398,6 +403,7 @@ async function adminRelease(supabase, body, res) {
   if (!order.quoted_price_cents || order.quoted_price_cents <= 0) { res.status(409).json({ error: 'Set a price before releasing the work order.' }); return; }
   if (!order.category) { res.status(409).json({ error: 'Choose a contractor service category before releasing the work order.' }); return; }
   if (order.approval_required && order.approval_status !== 'approved') { res.status(409).json({ error: 'Required client approval has not been recorded.' }); return; }
+  if (order.legal_review_status === 'pending') { res.status(409).json({ error: 'High-value work requires contract/legal review before contractor release.' }); return; }
 
   const { data: property, error: propertyError } = await supabase.from('pm_properties').select('*').eq('id', order.property_id).single();
   if (propertyError) throw propertyError;
@@ -479,6 +485,7 @@ async function adminUpdate(supabase, body, res) {
   if (body.contractorStatus !== undefined) patch.contractor_status = text(body.contractorStatus, 120) || null;
   if (body.completionNotes !== undefined) patch.completion_notes = text(body.completionNotes, 5000) || null;
   if (body.status === 'completed') { patch.completed_at = new Date().toISOString(); }
+  if (body.legalReviewStatus === 'cleared' && order.legal_review_status === 'pending') patch.legal_review_status = 'cleared';
   if (body.invoiceReference !== undefined) patch.invoice_reference = text(body.invoiceReference, 120) || null;
   if (['not_issued','issued','paid','void'].includes(body.invoiceStatus)) patch.invoice_status = body.invoiceStatus;
   if (body.invoiceAmountCents !== undefined) patch.invoice_amount_cents = cents(body.invoiceAmountCents);
@@ -486,7 +493,7 @@ async function adminUpdate(supabase, body, res) {
   if (error) throw error;
   await event(supabase, order.id, 'admin', 'admin', 'admin_update', {
     status: patch.status || null, contractorStatus: patch.contractor_status || null,
-    invoiceStatus: patch.invoice_status || null, invoiceReference: patch.invoice_reference || null,
+    legalReviewStatus: patch.legal_review_status || null, invoiceStatus: patch.invoice_status || null, invoiceReference: patch.invoice_reference || null,
   });
   res.status(200).json({ updated: true });
 }
