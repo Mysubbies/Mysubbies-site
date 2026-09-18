@@ -2,7 +2,6 @@
 // One serverless surface keeps the Hobby-plan function footprint small.
 // All commercial data access is identity-bound server-side or protected by the
 // existing MFA-backed admin session cookie.
-const crypto = require('crypto');
 const { getSupabase } = require('./_lib/clients');
 const { requireAdmin, verifyAdminAuth } = require('./_lib/adminAuth');
 const { authenticatedUser, requirePropertyMember } = require('./_lib/propertyManagementAuth');
