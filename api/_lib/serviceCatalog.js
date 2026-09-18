@@ -1,5 +1,9 @@
 function normalizeText(v) { return String(v || '').trim().toLowerCase(); }
 
+function hasNumericRate(task) {
+  return task && task.rate !== null && task.rate !== undefined && task.rate !== '' && Number.isFinite(Number(task.rate));
+}
+
 function publicCatalog(categories) {
   return (Array.isArray(categories) ? categories : []).filter(c => !c.deleted).map(c => ({
     category: c.label,
@@ -8,13 +12,13 @@ function publicCatalog(categories) {
       id: t.itemId || null,
       name: t.name,
       unit: t.unit || 'job',
-      priceAvailable: Number.isFinite(Number(t.rate)) && !t.unavailable,
-      rate: Number.isFinite(Number(t.rate)) && !t.unavailable ? Number(t.rate) : null,
+      priceAvailable: hasNumericRate(t) && !t.unavailable,
+      rate: hasNumericRate(t) && !t.unavailable ? Number(t.rate) : null,
       minJobPrice: Number.isFinite(Number(t.minJobPrice)) ? Number(t.minJobPrice) : null,
       notes: t.notes || null,
       typicalRange: t.typicalRange || null,
       estimatedTime: t.estTime || null,
-      serviceMode: Number.isFinite(Number(t.rate)) && !t.unavailable ? 'instant_price' : 'project_quote',
+      serviceMode: hasNumericRate(t) && !t.unavailable ? 'instant_price' : 'project_quote',
     })),
   })).filter(c => c.tasks.length);
 }
@@ -30,7 +34,7 @@ function estimateLine(categories, line) {
   const found = findTask(categories, line.category, line.taskName);
   if (!found) return { ok: false, reason: 'Service not found.' };
   const t = found.task;
-  if (t.unavailable || !Number.isFinite(Number(t.rate))) {
+  if (t.unavailable || !hasNumericRate(t)) {
     return { ok: false, reason: 'This service needs a project quote.', serviceMode: 'project_quote' };
   }
   const qty = Number(line.qty);
