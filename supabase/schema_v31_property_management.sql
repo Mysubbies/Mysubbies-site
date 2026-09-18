@@ -136,3 +136,6 @@ alter table public.pm_work_orders add column if not exists invoice_reference tex
 alter table public.pm_work_orders add column if not exists invoice_status text not null default 'not_issued'
   check (invoice_status in ('not_issued','issued','paid','void'));
 alter table public.pm_work_orders add column if not exists invoice_amount_cents bigint;
+
+alter table public.pm_work_orders add column if not exists legal_review_status text not null default 'not_required'
+  check (legal_review_status in ('not_required','pending','cleared'));
