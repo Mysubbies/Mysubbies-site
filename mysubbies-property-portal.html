@@ -204,6 +204,7 @@ function openOrder(id){state.selected=(state.data.workOrders||[]).find(x=>x.id==
 function back(){state.view='orders';state.selected=null;history.replaceState(null,'',location.pathname);render();}
 function renderDetail(){
   const o=state.selected;if(!o){back();return;}const canApprove=state.data.member.canApprove&&o.approvalStatus==='pending';
+  const canCancel=o.status!=='cancelled'&&o.status!=='completed'&&!['released','assigned','in_progress'].includes(o.status);
   const requestFiles=(o.files||[]).filter(f=>f.kind==='request_photo'),completionFiles=(o.files||[]).filter(f=>f.kind==='completion_photo'),invoiceFiles=(o.files||[]).filter(f=>f.kind==='invoice');
   app.innerHTML=`<button class="btn btn-outline" onclick="back()" style="margin-bottom:14px">← Work orders</button>
   <div class="detail-grid"><div class="panel"><div style="display:flex;justify-content:space-between;gap:14px"><div><h2>${esc(o.taskSummary)}</h2><div class="sub">${esc(o.property?o.property.address:'')}</div></div><span class="badge ${badgeClass(o.status)}">${statusLabel(o.status)}</span></div>
@@ -222,13 +223,25 @@ function renderDetail(){
   ${(o.beforePhotos||[]).length?'<div style="margin-top:16px"><b style="font-size:12px">Before photos</b><div class="filegrid">'+jobPhotosHtml(o.beforePhotos)+'</div></div>':''}
   ${(o.completionPhotos||[]).length?'<div style="margin-top:16px"><b style="font-size:12px">After photos</b><div class="filegrid">'+jobPhotosHtml(o.completionPhotos)+'</div></div>':''}
   ${o.completionNotes?'<div style="margin-top:15px"><b style="font-size:12px">Completion notes</b><p style="font-size:13px;margin-top:6px">'+esc(o.completionNotes)+'</p></div>':''}
-  ${canApprove?'<div style="display:flex;gap:8px;margin-top:18px"><button class="btn btn-primary" onclick="approve(\'approved\')">Approve work</button><button class="btn btn-danger" onclick="approve(\'rejected\')">Reject</button></div>':''}
+  ${(canApprove||canCancel)?'<div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">'+(canApprove?'<button class="btn btn-primary" onclick="approve(\'approved\')">Approve work</button><button class="btn btn-danger" onclick="approve(\'rejected\')">Reject</button>':'')+(canCancel?'<button class="btn btn-outline" onclick="cancelOrder()">Cancel work order</button>':'')+'</div>':''}
   </div><aside><div class="card"><div class="wo-title">Invoice</div><div class="wo-meta" style="margin-top:7px">Status: <b>${statusLabel(o.invoiceStatus)}</b></div>${o.invoiceReference?'<div class="wo-meta">Reference: <b>'+esc(o.invoiceReference)+'</b></div>':''}${o.invoiceAmountCents!=null?'<div class="wo-meta">Amount: <b>'+money(o.invoiceAmountCents)+'</b></div>':''}${invoiceFiles.length?'<div class="filegrid">'+filesHtml(invoiceFiles)+'</div>':''}</div>
   <div class="card"><div class="wo-title">Activity</div><div class="timeline">${eventsHtml(o.events)}</div></div></aside></div>`;
 }
 function filesHtml(files){return files.map(f=>f.signedUrl?'<a class="file" target="_blank" rel="noopener" href="'+esc(f.signedUrl)+'">📎 '+esc(f.name)+'</a>':'<span class="file">'+esc(f.name)+' unavailable</span>').join('');}
 function jobPhotosHtml(photos){return (photos||[]).map((src,i)=>'<a class="file" target="_blank" rel="noopener" href="'+esc(src)+'">📷 Photo '+(i+1)+'</a>').join('');}
 function eventsHtml(events){if(!events||!events.length)return '<div class="wo-meta">No activity yet.</div>';return events.slice(0,20).map(e=>'<div class="event"><b>'+esc(statusLabel(e.eventType))+'</b><span>'+esc(dateFmt(e.createdAt))+' · '+esc(statusLabel(e.actorType))+'</span></div>').join('');}
+async function cancelOrder(){
+  const reason=prompt('Optional: tell us why you are cancelling this work order.','');
+  if(reason===null)return;
+  if(!confirm('Cancel this work order? This cannot be undone from the portal.'))return;
+  try{
+    await api('/api/property-management',{method:'POST',body:JSON.stringify({action:'cancel-work-order',workOrderId:state.selected.id,reason})});
+    state.notice='Work order cancelled successfully.';
+    state.data=await api('/api/property-management?action=bootstrap');
+    state.selected=state.data.workOrders.find(x=>x.id===state.selected.id)||null;
+    render();
+  }catch(e){alert(e.message);}
+}
 async function approve(decision){
   if(!confirm(decision==='approved'?'Approve this work order?':'Reject this work order?'))return;
   try{await api('/api/property-management',{method:'POST',body:JSON.stringify({action:'approve-work-order',workOrderId:state.selected.id,decision})});await refresh();}catch(e){alert(e.message);}
