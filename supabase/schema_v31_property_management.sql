@@ -124,3 +124,15 @@ revoke all privileges on table public.pm_properties from anon, authenticated;
 revoke all privileges on table public.pm_work_orders from anon, authenticated;
 revoke all privileges on table public.pm_work_order_files from anon, authenticated;
 revoke all privileges on table public.pm_work_order_events from anon, authenticated;
+
+
+-- Bridge fields kept additive so existing residential jobs continue unchanged.
+-- A property-management job can be identified without overloading customer ownership.
+alter table public.jobs drop constraint if exists jobs_source_check;
+alter table public.jobs add constraint jobs_source_check
+  check (source in ('browse','fix_something','search','property_management'));
+
+alter table public.pm_work_orders add column if not exists invoice_reference text;
+alter table public.pm_work_orders add column if not exists invoice_status text not null default 'not_issued'
+  check (invoice_status in ('not_issued','issued','paid','void'));
+alter table public.pm_work_orders add column if not exists invoice_amount_cents bigint;
