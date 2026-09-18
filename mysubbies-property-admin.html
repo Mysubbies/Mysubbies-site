@@ -14,6 +14,20 @@ function orgsHtml(){return '<div class="list">'+(data.organisations||[]).map(o=>
 function propertiesHtml(){return '<table><thead><tr><th>Organisation</th><th>Property</th><th>Address</th><th>Access</th></tr></thead><tbody>'+(data.properties||[]).map(p=>'<tr><td>'+esc(orgName(p.organisation_id))+'</td><td>'+esc(p.name||'—')+'</td><td>'+esc(p.address)+' '+esc(p.suburb||'')+'</td><td>'+esc(p.access_notes||'—')+'</td></tr>').join('')+'</tbody></table>'}
 function contactsHtml(){return '<table><thead><tr><th>Organisation</th><th>Contact</th><th>Email</th><th>Role</th><th>Status</th></tr></thead><tbody>'+(data.members||[]).map(m=>'<tr><td>'+esc(orgName(m.organisation_id))+'</td><td>'+esc(m.name||'—')+'</td><td>'+esc(m.email)+'</td><td>'+nice(m.role)+(m.can_approve?' · approver':'')+'</td><td>'+nice(m.status)+'</td></tr>').join('')+'</tbody></table>'}
 function show(title,body,save){modal.innerHTML='<div class="modalback" onclick="if(event.target===this)closeM()"><div class="modal"><h2>'+esc(title)+'</h2><div class="sub">Changes stay on this branch until you approve production deployment.</div><div id="merr"></div>'+body+'<div class="actions"><button class="btn primary" onclick="'+save+'">Save</button><button class="btn outline" onclick="closeM()">Cancel</button></div></div></div>'}function closeM(){modal.innerHTML=''}function merr(e){document.getElementById('merr').innerHTML='<div class="error">'+esc(e.message||e)+'</div>'}
+function showSuccess(message){
+  let el=document.getElementById('pmSuccessToast');
+  if(!el){
+    el=document.createElement('div');
+    el.id='pmSuccessToast';
+    el.style.cssText='position:fixed;right:24px;bottom:24px;z-index:10000;background:#102a43;color:#fff;padding:14px 18px;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.18);font-size:14px;font-weight:700;max-width:360px;opacity:0;transform:translateY(8px);transition:.2s ease';
+    document.body.appendChild(el);
+  }
+  el.textContent=message;
+  el.style.opacity='1';
+  el.style.transform='translateY(0)';
+  clearTimeout(window.pmSuccessTimer);
+  window.pmSuccessTimer=setTimeout(()=>{el.style.opacity='0';el.style.transform='translateY(8px)'},3500);
+}
 function newOrg(){show('Onboard organisation','<div class="field"><label>Organisation name</label><input id="mName"></div><div class="grid2"><div class="field"><label>Type</label><select id="mType"><option value="property_manager">Property manager</option><option value="strata">Strata / body corporate</option><option value="real_estate">Real-estate agency</option><option value="commercial">Commercial property</option><option value="facilities">Facilities management</option></select></div><div class="field"><label>Approval workflow</label><select id="mApproval"><option value="yes">Approval required</option><option value="no">No approval required</option></select></div></div><div class="grid2"><div class="field"><label>Primary contact name</label><input id="mAdminName"></div><div class="field"><label>Primary contact email</label><input id="mEmail" type="email"></div></div>','saveOrg()')}
 async function saveOrg(){try{const r=await req('admin-create-organisation',{name:mName.value,organisationType:mType.value,approvalRequired:mApproval.value==='yes',adminName:mAdminName.value,adminEmail:mEmail.value});closeM();await load();showSuccess('Organisation added successfully. Primary contact invitation created.')}catch(e){merr(e)}}
 function addProperty(id){show('Add property','<div class="field"><label>Property name</label><input id="pName"></div><div class="field"><label>Address</label><input id="pAddress"></div><div class="grid2"><div class="field"><label>Suburb</label><input id="pSuburb"></div><div class="field"><label>Postcode</label><input id="pPost"></div></div><div class="field"><label>Access notes</label><textarea id="pAccess"></textarea></div>','saveProperty(\''+id+'\')')}
