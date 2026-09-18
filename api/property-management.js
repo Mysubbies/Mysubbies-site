@@ -2,7 +2,7 @@
 // One serverless surface keeps the Hobby-plan function footprint small.
 // All commercial data access is identity-bound server-side or protected by the
 // existing MFA-backed admin session cookie.
-const { getPropertySupabase } = require('./_lib/clients');
+const { getPropertySupabase, getSupabase } = require('./_lib/clients');
 const { requireAdmin, verifyAdminAuth } = require('./_lib/adminAuth');
 const { authenticatedUser, requirePropertyMember } = require('./_lib/propertyManagementAuth');
 const { requireApprovedContractor } = require('./_lib/userAuth');
@@ -206,7 +206,10 @@ async function createProperty(supabase, auth, body, res) {
   if (auth.member.role !== 'org_admin') { res.status(403).json({ error: 'Organisation admin access is required.' }); return; }
   const address = text(body.address, 300);
   if (!address) { res.status(400).json({ error: 'Property address is required.' }); return; }
+  const requestedId = text(body.workOrderId, 80);
+  const workOrderId = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedId) ? requestedId : null;
   const row = {
+    ...(workOrderId ? { id: workOrderId } : {}),
     organisation_id: auth.organisation.id,
     name: text(body.name, 120) || null,
     address,
@@ -232,7 +235,7 @@ async function createWorkOrder(supabase, auth, body, res) {
   let taskSummary = text(body.taskSummary, 300);
   let pricedLine = null;
   if (serviceMode === 'instant_price') {
-    const { categories } = await loadCategories(supabase);
+    const { categories } = await loadCategories(getSupabase());
     const estimate = estimateLine(categories, { category, taskName: body.taskName, qty: body.qty });
     if (!estimate.ok) {
       serviceMode = 'project_quote';
@@ -270,7 +273,22 @@ async function createWorkOrder(supabase, auth, body, res) {
     legal_review_status: quotedPriceCents != null && quotedPriceCents > LEGAL_REVIEW_THRESHOLD_CENTS ? 'pending' : 'not_required',
   };
   const { data: order, error } = await supabase.from('pm_work_orders').insert(row).select('*').single();
-  if (error) throw error;
+  if (error) {
+    if (error.code === '23505' && workOrderId) {
+      const { data: existing, error: existingError } = await supabase.from('pm_work_orders')
+        .select('*').eq('id', workOrderId).eq('organisation_id', auth.organisation.id).maybeSingle();
+      if (existingError) throw existingError;
+      if (existing) {
+        res.status(200).json({
+          workOrder: safeMemberOrder(existing, property, null, [], []),
+          pricing: pricedLine,
+          duplicatePrevented: true,
+        });
+        return;
+      }
+    }
+    throw error;
+  }
   const attachments = await storeAttachments(supabase, auth.organisation.id, order.id, auth.member.id, body.attachments, 'request_photo');
   await event(supabase, order.id, 'member', auth.member.id, 'work_order_created', {
     serviceMode, priority: row.priority, quotedPriceCents, recurring: recur, recurrenceRule,
