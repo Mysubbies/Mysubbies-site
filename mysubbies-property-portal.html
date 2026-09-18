@@ -126,6 +126,7 @@ function renderDetail(){
   <div class="detail-row"><span>Service route</span><b>${o.serviceMode==='project_quote'?'Project quote':'Instant price'}</b></div>
   <div class="detail-row"><span>Price</span><b>${money(o.quotedPriceCents)}</b></div>
   <div class="detail-row"><span>Approval</span><b>${statusLabel(o.approvalStatus)}</b></div>
+  <div class="detail-row"><span>Contract / legal review</span><b>${statusLabel(o.legalReviewStatus||'not_required')}</b></div>
   <div class="detail-row"><span>Priority</span><b>${statusLabel(o.priority)}</b></div>
   <div class="detail-row"><span>Requested completion</span><b>${dateFmt(o.requestedCompletionDate)}</b></div>
   <div class="detail-row"><span>Contractor status</span><b>${statusLabel(o.contractorStatus||'Not released')}</b></div>
