@@ -319,7 +319,10 @@ async function adminSummary(supabase, req, res) {
   ]);
   for (const r of [orgsResult,membersResult,propertiesResult,ordersResult]) if (r.error) throw r.error;
   const orders = ordersResult.data || [];
-  const jobs = await linkedJobMap(supabase, orders.map(o => o.job_id).filter(Boolean));
+  const [jobs, fileMap] = await Promise.all([
+    linkedJobMap(supabase, orders.map(o => o.job_id).filter(Boolean)),
+    signedFilesForOrders(supabase, orders.map(o => o.id)),
+  ]);
   res.status(200).json({
     organisations: orgsResult.data || [],
     members: membersResult.data || [],
@@ -332,6 +335,7 @@ async function adminSummary(supabase, req, res) {
         contractorAssigned: !!jobs[o.job_id].contractor_email,
         updatedAt: jobs[o.job_id].updated_at,
       } : null,
+      files: fileMap[o.id] || [],
     })),
   });
 }
