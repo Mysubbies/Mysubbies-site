@@ -497,6 +497,26 @@ async function adminUpdate(supabase, body, res) {
   });
   res.status(200).json({ updated: true });
 }
+async function adminUploadInvoice(supabase, body, res) {
+  const { data: order, error: orderError } = await supabase.from('pm_work_orders').select('*').eq('id', body.workOrderId).maybeSingle();
+  if (orderError) throw orderError;
+  if (!order) { res.status(404).json({ error: 'Work order not found.' }); return; }
+  if (!Array.isArray(body.attachments) || body.attachments.length !== 1 || !String(body.attachments[0].dataUrl || '').startsWith('data:application/pdf;base64,')) {
+    res.status(400).json({ error: 'Upload one PDF invoice of 1.5 MB or less.' }); return;
+  }
+  const files = await storeAttachments(supabase, order.organisation_id, order.id, null, body.attachments, 'invoice');
+  const patch = {
+    invoice_status: 'issued',
+    invoice_reference: text(body.invoiceReference, 120) || order.invoice_reference || null,
+    invoice_amount_cents: cents(body.invoiceAmountCents) == null ? order.invoice_amount_cents : cents(body.invoiceAmountCents),
+    updated_at: new Date().toISOString(),
+  };
+  const { error: updateError } = await supabase.from('pm_work_orders').update(patch).eq('id', order.id);
+  if (updateError) throw updateError;
+  await event(supabase, order.id, 'admin', 'admin', 'invoice_uploaded', { invoiceReference: patch.invoice_reference, fileCount: files.length });
+  res.status(200).json({ uploaded: files.length, invoiceStatus: 'issued' });
+}
+
 async function contractorCompletion(supabase, req, body, res) {
   const auth = await requireApprovedContractor(supabase, req);
   if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
@@ -543,6 +563,7 @@ module.exports = async (req, res) => {
       if (action === 'admin-set-quote') { await adminSetQuote(supabase, req.body || {}, res); return; }
       if (action === 'admin-release-work-order') { await adminRelease(supabase, req.body || {}, res); return; }
       if (action === 'admin-update-work-order') { await adminUpdate(supabase, req.body || {}, res); return; }
+      if (action === 'admin-upload-invoice') { await adminUploadInvoice(supabase, req.body || {}, res); return; }
       res.status(400).json({ error: 'Unknown admin action.' }); return;
     }
 
