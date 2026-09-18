@@ -378,6 +378,7 @@ async function adminSetQuote(supabase, body, res) {
   const nextStatus = order.approval_required ? 'awaiting_approval' : 'ready_to_release';
   const { error } = await supabase.from('pm_work_orders').update({
     quoted_price_cents: amount,
+    category: text(body.category, 120) || order.category || null,
     quote_reference: text(body.quoteReference, 100) || null,
     approval_status: approvalStatus,
     status: nextStatus,
@@ -392,7 +393,8 @@ async function adminRelease(supabase, body, res) {
   if (orderError) throw orderError;
   if (!order) { res.status(404).json({ error: 'Work order not found.' }); return; }
   if (order.job_id) { res.status(409).json({ error: 'This work order has already been released.' }); return; }
-  if (!order.quoted_price_cents || order.quoted_price_cents <= 0) { res.status(409).json({ error: 'Set a price before releasing the work order.' }); return; }\n  if (!order.category) { res.status(409).json({ error: 'Choose a contractor service category before releasing the work order.' }); return; }
+  if (!order.quoted_price_cents || order.quoted_price_cents <= 0) { res.status(409).json({ error: 'Set a price before releasing the work order.' }); return; }
+  if (!order.category) { res.status(409).json({ error: 'Choose a contractor service category before releasing the work order.' }); return; }
   if (order.approval_required && order.approval_status !== 'approved') { res.status(409).json({ error: 'Required client approval has not been recorded.' }); return; }
 
   const { data: property, error: propertyError } = await supabase.from('pm_properties').select('*').eq('id', order.property_id).single();
@@ -527,7 +529,8 @@ module.exports = async (req, res) => {
     if (action.startsWith('admin-')) {
       if (!verifyAdminAuth(req)) { res.status(401).json({ error: 'Unauthorized' }); return; }
       if (action === 'admin-create-organisation') { await adminCreateOrganisation(supabase, req.body || {}, res); return; }
-      if (action === 'admin-add-member') { await adminAddMember(supabase, req.body || {}, res); return; }\n      if (action === 'admin-add-property') { await adminAddProperty(supabase, req.body || {}, res); return; }
+      if (action === 'admin-add-member') { await adminAddMember(supabase, req.body || {}, res); return; }
+      if (action === 'admin-add-property') { await adminAddProperty(supabase, req.body || {}, res); return; }
       if (action === 'admin-set-quote') { await adminSetQuote(supabase, req.body || {}, res); return; }
       if (action === 'admin-release-work-order') { await adminRelease(supabase, req.body || {}, res); return; }
       if (action === 'admin-update-work-order') { await adminUpdate(supabase, req.body || {}, res); return; }
