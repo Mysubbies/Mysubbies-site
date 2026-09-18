@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>MySubbies — Property & Facilities Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--ink:#151A26;--navy:#14213D;--paper:#F7F7F5;--stone:#6B7280;--line:#E7E7E4;--orange:#FF6A1A;--orange-dark:#E85A0A;--good:#2F7A50;--warn:#B0592E;--pale:#FFF4EC}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--paper);color:var(--ink);line-height:1.5}button,input,select,textarea{font:inherit}a{color:inherit;text-decoration:none}
+header{height:68px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;position:sticky;top:0;z-index:20}.nav{width:min(1180px,calc(100% - 32px));margin:auto;display:flex;align-items:center;justify-content:space-between;gap:18px}.logo{font-size:20px;font-weight:800;color:var(--navy)}.logo span{color:var(--orange)}.nav-right{display:flex;align-items:center;gap:12px}.orgname{font-size:12.5px;color:var(--stone);font-weight:600}
+.btn{border:0;border-radius:999px;padding:11px 18px;font-weight:700;font-size:13px;cursor:pointer}.btn-primary{background:var(--orange);color:var(--navy)}.btn-primary:hover{background:var(--orange-dark)}.btn-outline{background:#fff;border:1.5px solid var(--line);color:var(--ink)}.btn-danger{background:#FDEDEA;color:#9C2E25}.btn:disabled{opacity:.45;cursor:not-allowed}.wrap{max-width:1180px;margin:auto;padding:34px 20px 80px}
+.hero{background:var(--navy);color:#fff;border-radius:22px;padding:30px;margin-bottom:20px;display:flex;justify-content:space-between;gap:22px;align-items:center}.hero h1{font-size:clamp(25px,4vw,38px);line-height:1.08;margin-bottom:8px}.hero h1 span{color:var(--orange)}.hero p{color:rgba(255,255,255,.74);max-width:700px;font-size:14px}.hero-actions{flex-shrink:0}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}.stat{background:#fff;border:1px solid var(--line);border-radius:15px;padding:17px}.stat strong{font-size:23px;display:block}.stat span{font-size:11.5px;color:var(--stone)}
+.toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:22px 0 12px}.tabs{display:flex;gap:6px;background:#ECEAE6;padding:4px;border-radius:10px}.tabs button{border:0;background:transparent;padding:8px 13px;border-radius:7px;font-size:12.5px;font-weight:700;color:var(--stone);cursor:pointer}.tabs button.active{background:#fff;color:var(--ink)}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:11px}.wo{cursor:pointer}.wo:hover{border-color:#b8b8b3}.wo-top{display:flex;justify-content:space-between;gap:16px}.wo-title{font-weight:800;font-size:15px}.wo-meta{font-size:12px;color:var(--stone);margin-top:3px}.badge{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:10.5px;font-weight:800;background:#F1F2F4;color:#4B5563}.badge.orange{background:#FFF0E6;color:#A7460F}.badge.green{background:#EAF5EE;color:#266841}.badge.blue{background:#E9F1F9;color:#2E5E8A}.wo-bottom{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--stone)}.price{font-weight:800;color:var(--ink);margin-left:auto}.empty{text-align:center;padding:58px 20px;color:var(--stone)}
+.panel{background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px;max-width:760px}.panel h2{font-size:20px;margin-bottom:5px}.sub{font-size:13px;color:var(--stone);margin-bottom:20px}.field{margin-bottom:14px}.field label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}.field input,.field select,.field textarea{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;background:#fff;outline:none}.field textarea{min-height:105px;resize:vertical}.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--navy)}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.hint{font-size:11px;color:var(--stone);margin-top:5px}.estimate{background:var(--pale);border:1px solid #F4D7C5;border-radius:12px;padding:14px;margin:12px 0;font-size:13px}.estimate strong{font-size:19px}.check{display:flex;align-items:flex-start;gap:8px;font-size:12.5px}.check input{margin-top:4px}
+.detail-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:16px}.detail-row{display:flex;justify-content:space-between;gap:18px;padding:9px 0;border-bottom:1px solid var(--paper);font-size:13px}.detail-row span:first-child{color:var(--stone)}.filegrid{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}.file{display:block;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:11.5px}.timeline{border-left:2px solid var(--line);margin:12px 0 0 5px;padding-left:16px}.event{margin-bottom:13px}.event b{display:block;font-size:12px}.event span{font-size:10.5px;color:var(--stone)}
+.loginwrap{max-width:460px;margin:55px auto}.loginbox{background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px}.loginbox h1{font-size:23px;margin-bottom:8px}.loginbox p{font-size:13px;color:var(--stone);margin-bottom:18px}.auth-tabs{display:flex;gap:6px;margin-bottom:18px}.auth-tabs button{flex:1;border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px;font-weight:700;font-size:12px}.auth-tabs button.active{background:var(--navy);color:#fff}.error{background:#FDEDEA;color:#8F2E27;border-radius:9px;padding:10px 12px;font-size:12px;margin-bottom:12px}.success{background:#EAF5EE;color:#286842;border-radius:9px;padding:10px 12px;font-size:12px;margin-bottom:12px}
+@media(max-width:800px){.stats{grid-template-columns:1fr 1fr}.hero{align-items:flex-start;flex-direction:column}.detail-grid{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.orgname{display:none}}@media(max-width:520px){.stats{grid-template-columns:1fr 1fr}.wrap{padding:20px 14px 70px}.hero{padding:22px}.toolbar{align-items:flex-start;flex-direction:column}.wo-top{flex-direction:column}.price{margin-left:0}}
+</style>
+</head>
+<body>
+<header><div class="nav"><a class="logo" href="mysubbies-website.html">My<span>Subbies</span></a><div class="nav-right"><span class="orgname" id="navOrg"></span><button class="btn btn-outline" id="logoutBtn" style="display:none" onclick="logout()">Log out</button></div></div></header>
+<main class="wrap" id="app"></main>
+<script>
+const SUPABASE_URL='https://yloiecuvrejaxxqvjglw.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_dxp8_eCHY9nP1xF-LmxfuQ_h427tK3Y';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+let state={data:null,catalog:null,view:'orders',selected:null,authMode:'login',attachments:[],estimate:null};
+
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function money(c){return c==null?'To be quoted':new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(Number(c)/100);}
+function dateFmt(v){if(!v)return '—';const d=new Date(v.length===10?v+'T12:00:00':v);return isNaN(d)?'—':d.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});}
+function statusLabel(v){return String(v||'submitted').replaceAll('_',' ').replace(/\b\w/g,m=>m.toUpperCase());}
+function badgeClass(s){return ['completed','approved','paid'].includes(s)?'green':['released','assigned','in_progress','ready_to_release'].includes(s)?'blue':'orange';}
+async function token(){const {data}=await sb.auth.getSession();return data&&data.session?data.session.access_token:null;}
+async function api(url,opts={}){
+  const t=await token();const headers={...(opts.headers||{}),'Content-Type':'application/json'};if(t)headers.Authorization='Bearer '+t;
+  const r=await fetch(url,{...opts,headers});let data={};try{data=await r.json();}catch(e){}
+  if(!r.ok)throw new Error(data.error||'Request failed.');return data;
+}
+async function boot(){
+  const {data}=await sb.auth.getSession();
+  if(!data.session){renderAuth();return;}
+  try{
+    state.data=await api('/api/property-management?action=bootstrap');
+    document.getElementById('logoutBtn').style.display='';
+    document.getElementById('navOrg').textContent=state.data.organisation.name;
+    await loadCatalog();render();
+  }catch(e){
+    try{
+      await api('/api/property-management',{method:'POST',body:JSON.stringify({action:'activate-invite'})});
+      state.data=await api('/api/property-management?action=bootstrap');
+      document.getElementById('logoutBtn').style.display='';
+      document.getElementById('navOrg').textContent=state.data.organisation.name;
+      await loadCatalog();render();
+    }catch(inner){renderInviteError(inner.message);}
+  }
+}
+async function loadCatalog(){try{state.catalog=await api('/api/booking-api?action=catalog');}catch(e){state.catalog={categories:[]};}}
+function renderAuth(message){
+  document.getElementById('logoutBtn').style.display='none';document.getElementById('navOrg').textContent='';
+  const register=state.authMode==='register';
+  app.innerHTML=`<div class="loginwrap"><div class="loginbox">
+    <h1>Property & Facilities Portal</h1><p>One maintenance partner. One portal. Complete job visibility.</p>
+    <div class="auth-tabs"><button class="${register?'':'active'}" onclick="state.authMode='login';renderAuth()">Log in</button><button class="${register?'active':''}" onclick="state.authMode='register';renderAuth()">Activate invite</button></div>
+    ${message?'<div class="error">'+esc(message)+'</div>':''}
+    <div id="authMsg"></div>
+    <div class="field"><label>Email</label><input id="authEmail" type="email" autocomplete="email"></div>
+    <div class="field"><label>Password</label><input id="authPassword" type="password" autocomplete="${register?'new-password':'current-password'}"></div>
+    ${register?'<div class="hint" style="margin:-5px 0 14px">Use the same email address your MySubbies invitation was sent to.</div>':''}
+    <button class="btn btn-primary" style="width:100%" onclick="${register?'registerInvite()':'login()'}">${register?'Create account':'Log in'}</button>
+  </div></div>`;
+}
+async function login(){
+  const email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value;
+  const {error}=await sb.auth.signInWithPassword({email,password});
+  if(error){renderAuth(error.message);return;}await boot();
+}
+async function registerInvite(){
+  const email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value;
+  if(password.length<8){renderAuth('Use a password of at least 8 characters.');return;}
+  const {data,error}=await sb.auth.signUp({email,password});
+  if(error){renderAuth(error.message);return;}
+  if(data.session){await boot();return;}
+  const box=document.getElementById('authMsg');box.innerHTML='<div class="success">Account created. Check your email to confirm it, then return here and log in.</div>';
+}
+function renderInviteError(msg){
+  app.innerHTML=`<div class="loginwrap"><div class="loginbox"><h1>Account not linked yet</h1><p>${esc(msg)}</p><div class="error">Property portal access is invitation-only. Make sure you are signed in with the exact email your organisation supplied to MySubbies.</div><button class="btn btn-outline" style="width:100%" onclick="logout()">Use another account</button></div></div>`;
+}
+async function logout(){await sb.auth.signOut();state={...state,data:null,selected:null};renderAuth();}
+function counts(){
+  const w=state.data.workOrders||[];return {all:w.length,approval:w.filter(x=>x.approvalStatus==='pending').length,active:w.filter(x=>['released','assigned','in_progress'].includes(x.status)).length,done:w.filter(x=>x.status==='completed').length};
+}
+function render(){
+  if(!state.data)return renderAuth();
+  if(state.view==='new')return renderNewOrder();
+  if(state.view==='property')return renderNewProperty();
+  if(state.view==='detail')return renderDetail();
+  const c=counts(),member=state.data.member;
+  app.innerHTML=`
+  <section class="hero"><div><h1>One maintenance partner. <span>One portal.</span><br>Complete job visibility.</h1><p>Raise work orders across your portfolio, approve work, track contractor progress, review completion evidence and keep the job history together.</p></div><div class="hero-actions"><button class="btn btn-primary" onclick="state.view='new';state.attachments=[];state.estimate=null;render()">+ New work order</button></div></section>
+  <div class="stats"><div class="stat"><strong>${c.all}</strong><span>Total work orders</span></div><div class="stat"><strong>${c.approval}</strong><span>Awaiting approval</span></div><div class="stat"><strong>${c.active}</strong><span>Active jobs</span></div><div class="stat"><strong>${c.done}</strong><span>Completed</span></div></div>
+  <div class="toolbar"><div class="tabs"><button class="${state.view==='orders'?'active':''}" onclick="state.view='orders';render()">Work orders</button><button onclick="state.view='properties';render()">Properties</button></div>${member.role==='org_admin'?'<button class="btn btn-outline" onclick="state.view=\'property\';render()">+ Add property</button>':''}</div>
+  ${state.view==='properties'?propertiesHtml():ordersHtml()}`;
+}
+function propertiesHtml(){
+  const rows=state.data.properties||[];if(!rows.length)return '<div class="empty">No properties have been added yet.</div>';
+  return rows.map(p=>`<div class="card"><div class="wo-title">${esc(p.name||p.address)}</div><div class="wo-meta">${esc(p.address)}${p.suburb?' · '+esc(p.suburb):''}</div>${p.accessNotes?'<div class="wo-meta" style="margin-top:8px"><b>Access:</b> '+esc(p.accessNotes)+'</div>':''}</div>`).join('');
+}
+function ordersHtml(){
+  const rows=state.data.workOrders||[];if(!rows.length)return '<div class="empty">No work orders yet. Create your first job to start building the property history.</div>';
+  return rows.map(o=>`<div class="card wo" onclick="openOrder('${o.id}')"><div class="wo-top"><div><div class="wo-title">${esc(o.taskSummary)}</div><div class="wo-meta">${esc(o.property?o.property.address:'Property')} · ${dateFmt(o.createdAt)}</div></div><span class="badge ${badgeClass(o.status)}">${statusLabel(o.status)}</span></div><div class="wo-bottom"><span>${statusLabel(o.priority)} priority</span><span>·</span><span>${o.serviceMode==='project_quote'?'Project quote':'Instant-price service'}</span>${o.requestedCompletionDate?'<span>· Requested '+dateFmt(o.requestedCompletionDate)+'</span>':''}<span class="price">${money(o.quotedPriceCents)}</span></div></div>`).join('');
+}
+function openOrder(id){state.selected=(state.data.workOrders||[]).find(x=>x.id===id)||null;state.view='detail';render();}
+function back(){state.view='orders';state.selected=null;render();}
+function renderDetail(){
+  const o=state.selected;if(!o){back();return;}const canApprove=state.data.member.canApprove&&o.approvalStatus==='pending';
+  const requestFiles=(o.files||[]).filter(f=>f.kind==='request_photo'),completionFiles=(o.files||[]).filter(f=>f.kind==='completion_photo');
+  app.innerHTML=`<button class="btn btn-outline" onclick="back()" style="margin-bottom:14px">← Work orders</button>
+  <div class="detail-grid"><div class="panel"><div style="display:flex;justify-content:space-between;gap:14px"><div><h2>${esc(o.taskSummary)}</h2><div class="sub">${esc(o.property?o.property.address:'')}</div></div><span class="badge ${badgeClass(o.status)}">${statusLabel(o.status)}</span></div>
+  <div class="detail-row"><span>Work order</span><b>${o.jobNumber?'Job #'+esc(o.jobNumber):esc(o.id.slice(0,8).toUpperCase())}</b></div>
+  <div class="detail-row"><span>Service route</span><b>${o.serviceMode==='project_quote'?'Project quote':'Instant price'}</b></div>
+  <div class="detail-row"><span>Price</span><b>${money(o.quotedPriceCents)}</b></div>
+  <div class="detail-row"><span>Approval</span><b>${statusLabel(o.approvalStatus)}</b></div>
+  <div class="detail-row"><span>Priority</span><b>${statusLabel(o.priority)}</b></div>
+  <div class="detail-row"><span>Requested completion</span><b>${dateFmt(o.requestedCompletionDate)}</b></div>
+  <div class="detail-row"><span>Contractor status</span><b>${statusLabel(o.contractorStatus||'Not released')}</b></div>
+  <div class="detail-row"><span>Recurring</span><b>${o.recurring?statusLabel(o.recurrenceRule):'No'}</b></div>
+  ${o.description?'<div style="margin-top:15px"><b style="font-size:12px">Scope / notes</b><p style="font-size:13px;margin-top:6px;white-space:pre-wrap">'+esc(o.description)+'</p></div>':''}
+  ${requestFiles.length?'<div style="margin-top:16px"><b style="font-size:12px">Request files</b><div class="filegrid">'+filesHtml(requestFiles)+'</div></div>':''}
+  ${completionFiles.length?'<div style="margin-top:16px"><b style="font-size:12px">Completion evidence</b><div class="filegrid">'+filesHtml(completionFiles)+'</div></div>':''}
+  ${o.completionNotes?'<div style="margin-top:15px"><b style="font-size:12px">Completion notes</b><p style="font-size:13px;margin-top:6px">'+esc(o.completionNotes)+'</p></div>':''}
+  ${canApprove?'<div style="display:flex;gap:8px;margin-top:18px"><button class="btn btn-primary" onclick="approve(\'approved\')">Approve work</button><button class="btn btn-danger" onclick="approve(\'rejected\')">Reject</button></div>':''}
+  </div><aside><div class="card"><div class="wo-title">Invoice</div><div class="wo-meta" style="margin-top:7px">Status: <b>${statusLabel(o.invoiceStatus)}</b></div>${o.invoiceReference?'<div class="wo-meta">Reference: <b>'+esc(o.invoiceReference)+'</b></div>':''}${o.invoiceAmountCents!=null?'<div class="wo-meta">Amount: <b>'+money(o.invoiceAmountCents)+'</b></div>':''}</div>
+  <div class="card"><div class="wo-title">Activity</div><div class="timeline">${eventsHtml(o.events)}</div></div></aside></div>`;
+}
+function filesHtml(files){return files.map(f=>f.signedUrl?'<a class="file" target="_blank" rel="noopener" href="'+esc(f.signedUrl)+'">📎 '+esc(f.name)+'</a>':'<span class="file">'+esc(f.name)+' unavailable</span>').join('');}
+function eventsHtml(events){if(!events||!events.length)return '<div class="wo-meta">No activity yet.</div>';return events.slice(0,20).map(e=>'<div class="event"><b>'+esc(statusLabel(e.eventType))+'</b><span>'+esc(dateFmt(e.createdAt))+' · '+esc(statusLabel(e.actorType))+'</span></div>').join('');}
+async function approve(decision){
+  if(!confirm(decision==='approved'?'Approve this work order?':'Reject this work order?'))return;
+  try{await api('/api/property-management',{method:'POST',body:JSON.stringify({action:'approve-work-order',workOrderId:state.selected.id,decision})});await refresh();}catch(e){alert(e.message);}
+}
+async function refresh(){state.data=await api('/api/property-management?action=bootstrap');if(state.selected)state.selected=state.data.workOrders.find(x=>x.id===state.selected.id)||null;render();}
+function renderNewOrder(){
+  const props=state.data.properties||[];if(!props.length){app.innerHTML='<div class="panel"><h2>Add a property first</h2><p class="sub">A work order must belong to a property in your organisation.</p><button class="btn btn-primary" onclick="state.view=\'property\';render()">Add property</button> <button class="btn btn-outline" onclick="back()">Cancel</button></div>';return;}
+  const cats=(state.catalog&&state.catalog.categories)||[];
+  app.innerHTML=`<button class="btn btn-outline" onclick="back()" style="margin-bottom:14px">← Cancel</button><div class="panel"><h2>New work order</h2><p class="sub">Use instant pricing for predictable services, or request a project quote for variable work.</p>
+  <div class="field"><label>Property</label><select id="woProperty">${props.map(p=>'<option value="'+p.id+'">'+esc(p.name||p.address)+'</option>').join('')}</select></div>
+  <div class="field"><label>Pricing route</label><select id="woMode" onchange="routeChanged()"><option value="instant_price">Get an instant price</option><option value="project_quote">Request a project quote</option></select></div>
+  <div id="instantFields"><div class="grid2"><div class="field"><label>Service category</label><select id="woCategory" onchange="categoryChanged()"><option value="">Choose…</option>${cats.map(c=>'<option value="'+esc(c.category)+'">'+esc(c.category)+'</option>').join('')}</select></div><div class="field"><label>Service</label><select id="woTask" onchange="estimateNow()"><option value="">Choose category first</option></select></div></div><div class="field"><label>Quantity / size</label><input id="woQty" type="number" min="0.01" step="0.01" value="1" oninput="estimateNow()"><div class="hint" id="woUnitHint"></div></div><div id="estimateBox"></div></div>
+  <div id="quoteFields" style="display:none"><div class="field"><label>What work is required?</label><input id="woProjectSummary" placeholder="e.g. Repair damaged common-area fence"></div></div>
+  <div class="field"><label>Scope / access / instructions</label><textarea id="woDescription" placeholder="Describe the issue, access arrangements, tenant/site contact instructions and any important constraints."></textarea></div>
+  <div class="grid2"><div class="field"><label>Priority</label><select id="woPriority"><option value="low">Low</option><option value="normal" selected>Normal</option><option value="urgent">Urgent</option><option value="emergency">Emergency</option></select><div class="hint">For immediate threats to life or property, use emergency services/utility emergency lines first.</div></div><div class="field"><label>Requested completion date</label><input id="woDate" type="date"></div></div>
+  <div class="field"><label>Photos / documents (optional)</label><input id="woFiles" type="file" accept="image/jpeg,image/png,application/pdf" multiple onchange="prepareFiles(event)"><div class="hint">Up to 4 files. Images are compressed before upload; PDFs must be under 1.5 MB.</div><div id="fileNames" class="wo-meta"></div></div>
+  <div class="field"><label class="check"><input id="woRecurring" type="checkbox" onchange="document.getElementById('woRecurrenceWrap').style.display=this.checked?'':'none'"><span>This is recurring maintenance</span></label><div id="woRecurrenceWrap" style="display:none;margin-top:8px"><select id="woRecurrence"><option value="weekly">Weekly</option><option value="fortnightly">Fortnightly</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="biannual">Every 6 months</option><option value="annual">Annually</option></select><div class="hint">This MVP records the recurring plan. Automatic creation of future work orders is the next automation phase.</div></div></div>
+  <div class="hint" style="margin:10px 0 15px">${state.data.organisation.approvalRequired?'Your organisation requires approval before priced work is released.':'Approved priced work can be prepared for release by MySubbies.'}</div>
+  <div id="woError"></div><button class="btn btn-primary" onclick="submitOrder()">Submit work order</button></div>`;
+}
+function routeChanged(){const q=document.getElementById('woMode').value==='project_quote';document.getElementById('instantFields').style.display=q?'none':'';document.getElementById('quoteFields').style.display=q?'':'none';state.estimate=null;}
+function categoryChanged(){
+  const cat=((state.catalog||{}).categories||[]).find(c=>c.category===document.getElementById('woCategory').value);const sel=document.getElementById('woTask');
+  sel.innerHTML='<option value="">Choose…</option>'+((cat&&cat.tasks)||[]).map(t=>'<option value="'+esc(t.name)+'" data-unit="'+esc(t.unit)+'">'+esc(t.name)+(t.serviceMode==='project_quote'?' — quote required':'')+'</option>').join('');estimateNow();
+}
+let estimateTimer=null;function estimateNow(){clearTimeout(estimateTimer);estimateTimer=setTimeout(runEstimate,180);}
+async function runEstimate(){
+  const cat=document.getElementById('woCategory')?.value,task=document.getElementById('woTask')?.value,qty=Number(document.getElementById('woQty')?.value);
+  const box=document.getElementById('estimateBox');if(!box)return;state.estimate=null;if(!cat||!task||!qty){box.innerHTML='';return;}
+  const taskObj=(((state.catalog||{}).categories||[]).find(c=>c.category===cat)?.tasks||[]).find(t=>t.name===task);
+  document.getElementById('woUnitHint').textContent=taskObj?'Unit: '+taskObj.unit:'';
+  try{const data=await api('/api/booking-api',{method:'POST',body:JSON.stringify({action:'estimate',category:cat,taskName:task,qty})});if(data.serviceMode==='project_quote'){box.innerHTML='<div class="estimate">This service needs a project quote. The work order will be routed to MySubbies for review.</div>';state.estimate={project:true};}else{state.estimate=data;box.innerHTML='<div class="estimate"><span>Estimated job price</span><br><strong>'+money(data.totalCents)+'</strong><div class="hint">GST inclusive. Subject to the listed scope, assumptions and site conditions.</div></div>';}}catch(e){box.innerHTML='<div class="error">'+esc(e.message)+'</div>';}
+}
+async function prepareFiles(e){
+  state.attachments=[];const files=Array.from(e.target.files||[]).slice(0,4);
+  for(const f of files){try{if(f.type==='application/pdf'){if(f.size>1.5*1024*1024)throw new Error(f.name+' is too large.');state.attachments.push({name:f.name,dataUrl:await readFile(f)});}else{state.attachments.push({name:f.name,dataUrl:await compressImage(f)});}}catch(err){alert(err.message);}}
+  document.getElementById('fileNames').textContent=state.attachments.map(x=>x.name).join(' · ');
+}
+function readFile(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file);});}
+function compressImage(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{let w=img.width,h=img.height,m=1200;if(w>m||h>m){if(w>h){h=Math.round(h*m/w);w=m}else{w=Math.round(w*m/h);h=m}}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);resolve(c.toDataURL('image/jpeg',.72));};img.onerror=reject;img.src=r.result;};r.onerror=reject;r.readAsDataURL(file);});}
+async function submitOrder(){
+  const mode=document.getElementById('woMode').value;let payload={action:'create-work-order',propertyId:document.getElementById('woProperty').value,serviceMode:mode,description:document.getElementById('woDescription').value,priority:document.getElementById('woPriority').value,requestedCompletionDate:document.getElementById('woDate').value||null,recurring:document.getElementById('woRecurring').checked,recurrenceRule:document.getElementById('woRecurring').checked?document.getElementById('woRecurrence').value:null,attachments:state.attachments};
+  if(mode==='instant_price'){payload.category=document.getElementById('woCategory').value;payload.taskName=document.getElementById('woTask').value;payload.qty=Number(document.getElementById('woQty').value);if(!payload.category||!payload.taskName){showWoError('Choose a category and service.');return;}}else{payload.taskSummary=document.getElementById('woProjectSummary').value.trim();if(!payload.taskSummary){showWoError('Describe the project you need quoted.');return;}}
+  try{await api('/api/property-management',{method:'POST',body:JSON.stringify(payload)});state.attachments=[];state.view='orders';state.data=await api('/api/property-management?action=bootstrap');render();}catch(e){showWoError(e.message);}
+}
+function showWoError(msg){document.getElementById('woError').innerHTML='<div class="error">'+esc(msg)+'</div>';}
+function renderNewProperty(){app.innerHTML=`<button class="btn btn-outline" onclick="back()" style="margin-bottom:14px">← Cancel</button><div class="panel"><h2>Add property</h2><p class="sub">Add another managed property under ${esc(state.data.organisation.name)}.</p><div class="field"><label>Property name (optional)</label><input id="pName" placeholder="e.g. Smith Street Apartments"></div><div class="field"><label>Street address</label><input id="pAddress" placeholder="Full property address"></div><div class="grid2"><div class="field"><label>Suburb</label><input id="pSuburb"></div><div class="field"><label>Postcode</label><input id="pPostcode"></div></div><div class="field"><label>Access notes (optional)</label><textarea id="pAccess" placeholder="Keys, loading access, concierge, tenant contact rules…"></textarea></div><div id="pError"></div><button class="btn btn-primary" onclick="saveProperty()">Add property</button></div>`;}
+async function saveProperty(){try{await api('/api/property-management',{method:'POST',body:JSON.stringify({action:'create-property',name:pName.value,address:pAddress.value,suburb:pSuburb.value,postcode:pPostcode.value,state:'VIC',accessNotes:pAccess.value})});state.data=await api('/api/property-management?action=bootstrap');state.view='properties';render();}catch(e){document.getElementById('pError').innerHTML='<div class="error">'+esc(e.message)+'</div>';}}
+sb.auth.onAuthStateChange((event)=>{if(event==='SIGNED_OUT')renderAuth();});
+boot();
+</script>
+</body>
+</html>
