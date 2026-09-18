@@ -87,7 +87,8 @@ async function login(){
 async function registerInvite(){
   const email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value;
   if(password.length<8){renderAuth('Use a password of at least 8 characters.');return;}
-  const {data,error}=await sb.auth.signUp({email,password});
+  const redirectTo=location.origin+'/property';
+  const {data,error}=await sb.auth.signUp({email,password,options:{emailRedirectTo:redirectTo}});
   if(error){renderAuth(error.message);return;}
   if(data.session){await boot();return;}
   const box=document.getElementById('authMsg');box.innerHTML='<div class="success">Account created. Check your email to confirm it, then return here and log in.</div>';
