@@ -120,31 +120,7 @@ function render(){
   const c=counts(),member=state.data.member;
   app.innerHTML=`
   ${state.notice?'<div class="success" style="margin-bottom:16px">'+esc(state.notice)+'</div>':''}
-  <section class="hero">
-    <div class="hero-copy">
-      <div class="hero-kicker">MySubbies Property & Facilities</div>
-      <h1>Maintenance control without the phone calls.</h1>
-      <p>Raise jobs, approve quotes, track contractors and keep completion photos, invoices and site history together — all from one portal.</p>
-      <div class="hero-actions">
-        <button class="btn btn-primary" onclick="state.notice='';state.view='new';state.attachments=[];state.estimate=null;state.workOrderDraftId=crypto.randomUUID();state.submitting=false;render()">+ Raise a work order</button>
-        <button class="btn btn-secondary" onclick="state.view='properties';render()">View properties</button>
-      </div>
-      <div class="hero-benefits">
-        <span class="hero-benefit">✓ Fast job requests</span>
-        <span class="hero-benefit">✓ Quote approvals</span>
-        <span class="hero-benefit">✓ Contractor progress</span>
-        <span class="hero-benefit">✓ Photos & invoices</span>
-      </div>
-    </div>
-    <div class="hero-visual">
-      <div class="hero-visual-title"><span>Portfolio activity</span><span class="live-dot">Live</span></div>
-      <div class="hero-mini-row"><span>Work orders</span><b>${c.all}</b></div>
-      <div class="hero-mini-row"><span>Awaiting approval</span><b>${c.approval}</b></div>
-      <div class="hero-mini-row"><span>Active jobs</span><b>${c.active}</b></div>
-      <div class="hero-mini-row"><span>Completed</span><b>${c.done}</b></div>
-    </div>
-  </section>
-  <div class="dashboard-intro"><div><h2>Your maintenance dashboard</h2><p>Everything needing attention across your properties, in one place.</p></div></div>
+  <section class="hero"><div><h1>One maintenance partner. <span>One portal.</span><br>Complete job visibility.</h1><p>Raise work orders across your portfolio, approve work, track contractor progress, review completion evidence and keep the job history together.</p></div><div class="hero-actions"><button class="btn btn-primary" onclick="state.notice='';state.view='new';state.attachments=[];state.estimate=null;state.workOrderDraftId=crypto.randomUUID();state.submitting=false;render()">+ New work order</button></div></section>
   <div class="stats"><div class="stat"><strong>${c.all}</strong><span>Total work orders</span></div><div class="stat"><strong>${c.approval}</strong><span>Awaiting approval</span></div><div class="stat"><strong>${c.active}</strong><span>Active jobs</span></div><div class="stat"><strong>${c.done}</strong><span>Completed</span></div></div>
   <div class="toolbar"><div class="tabs"><button class="${state.view==='orders'?'active':''}" onclick="state.view='orders';render()">Work orders</button><button onclick="state.view='properties';render()">Properties</button></div>${member.role==='org_admin'?'<button class="btn btn-outline" onclick="state.view=\'property\';render()">+ Add property</button>':''}</div>
   ${state.view==='properties'?propertiesHtml():ordersHtml()}`;
@@ -156,7 +132,7 @@ function propertiesHtml(){
 }
 function ordersHtml(){
   const rows=state.data.workOrders||[];if(!rows.length)return '<div class="empty">No work orders yet. Create your first job to start building the property history.</div>';
-  return rows.map(o=>`<div class="card wo" onclick="openOrder('${o.id}')"><div class="wo-top"><div><div class="wo-meta" style="text-transform:uppercase;letter-spacing:.05em;font-weight:800;margin-bottom:4px">Work order</div><div class="wo-title">${esc(o.taskSummary)}</div><div class="wo-meta">${esc(o.property?o.property.address:'Property')} · ${dateFmt(o.createdAt)}</div></div><span class="badge ${badgeClass(o.status)}">${statusLabel(o.status)}</span></div><div class="wo-bottom"><span>${statusLabel(o.priority)} priority</span><span>·</span><span>${o.serviceMode==='project_quote'?'Project quote':'Instant-price service'}</span>${o.requestedCompletionDate?'<span>· Requested '+dateFmt(o.requestedCompletionDate)+'</span>':''}<span class="price">${money(o.quotedPriceCents)}</span></div></div>`).join('');
+  return rows.map(o=>`<div class="card wo" onclick="openOrder('${o.id}')"><div class="wo-top"><div><div class="wo-title">${esc(o.taskSummary)}</div><div class="wo-meta">${esc(o.property?o.property.address:'Property')} · ${dateFmt(o.createdAt)}</div></div><span class="badge ${badgeClass(o.status)}">${statusLabel(o.status)}</span></div><div class="wo-bottom"><span>${statusLabel(o.priority)} priority</span><span>·</span><span>${o.serviceMode==='project_quote'?'Project quote':'Instant-price service'}</span>${o.requestedCompletionDate?'<span>· Requested '+dateFmt(o.requestedCompletionDate)+'</span>':''}<span class="price">${money(o.quotedPriceCents)}</span></div></div>`).join('');
 }
 function openOrder(id){state.selected=(state.data.workOrders||[]).find(x=>x.id===id)||null;state.view='detail';render();}
 function back(){state.view='orders';state.selected=null;render();}
