@@ -50,6 +50,13 @@ create table if not exists public.pm_properties (
 );
 create index if not exists pm_properties_org_idx on public.pm_properties(organisation_id);
 
+alter table public.pm_properties
+  add column if not exists preferred_contractor_id uuid references public.contractors(id) on delete set null;
+
+create index if not exists pm_properties_preferred_contractor_idx on public.pm_properties(preferred_contractor_id);
+
+
+
 create table if not exists public.pm_work_orders (
   id uuid primary key default gen_random_uuid(),
   organisation_id uuid not null references public.pm_organisations(id) on delete cascade,
