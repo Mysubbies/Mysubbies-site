@@ -581,6 +581,17 @@ module.exports = async (req, res) => {
     const supabase = getSupabase();
     const action = text((req.query && req.query.action) || (req.body && req.body.action), 80);
 
+    if (req.method === 'GET' && action === 'public-config') {
+      const supabaseUrl = String(process.env.SUPABASE_URL || '').trim();
+      const publishableKey = String(process.env.SUPABASE_PUBLISHABLE_KEY || '').trim();
+      if (!supabaseUrl || !publishableKey) {
+        res.status(500).json({ error: 'Preview Supabase public configuration is not set.' });
+        return;
+      }
+      res.setHeader('Cache-Control', 'no-store, max-age=0');
+      res.status(200).json({ supabaseUrl, publishableKey });
+      return;
+    }
     if (req.method === 'GET' && action === 'bootstrap') { await bootstrap(supabase, req, res); return; }
     if (req.method === 'GET' && action === 'admin-summary') { await adminSummary(supabase, req, res); return; }
 
