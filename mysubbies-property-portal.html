@@ -133,12 +133,15 @@ function renderDetail(){
   ${o.description?'<div style="margin-top:15px"><b style="font-size:12px">Scope / notes</b><p style="font-size:13px;margin-top:6px;white-space:pre-wrap">'+esc(o.description)+'</p></div>':''}
   ${requestFiles.length?'<div style="margin-top:16px"><b style="font-size:12px">Request files</b><div class="filegrid">'+filesHtml(requestFiles)+'</div></div>':''}
   ${completionFiles.length?'<div style="margin-top:16px"><b style="font-size:12px">Completion evidence</b><div class="filegrid">'+filesHtml(completionFiles)+'</div></div>':''}
+  ${(o.beforePhotos||[]).length?'<div style="margin-top:16px"><b style="font-size:12px">Before photos</b><div class="filegrid">'+jobPhotosHtml(o.beforePhotos)+'</div></div>':''}
+  ${(o.completionPhotos||[]).length?'<div style="margin-top:16px"><b style="font-size:12px">After photos</b><div class="filegrid">'+jobPhotosHtml(o.completionPhotos)+'</div></div>':''}
   ${o.completionNotes?'<div style="margin-top:15px"><b style="font-size:12px">Completion notes</b><p style="font-size:13px;margin-top:6px">'+esc(o.completionNotes)+'</p></div>':''}
   ${canApprove?'<div style="display:flex;gap:8px;margin-top:18px"><button class="btn btn-primary" onclick="approve(\'approved\')">Approve work</button><button class="btn btn-danger" onclick="approve(\'rejected\')">Reject</button></div>':''}
   </div><aside><div class="card"><div class="wo-title">Invoice</div><div class="wo-meta" style="margin-top:7px">Status: <b>${statusLabel(o.invoiceStatus)}</b></div>${o.invoiceReference?'<div class="wo-meta">Reference: <b>'+esc(o.invoiceReference)+'</b></div>':''}${o.invoiceAmountCents!=null?'<div class="wo-meta">Amount: <b>'+money(o.invoiceAmountCents)+'</b></div>':''}</div>
   <div class="card"><div class="wo-title">Activity</div><div class="timeline">${eventsHtml(o.events)}</div></div></aside></div>`;
 }
 function filesHtml(files){return files.map(f=>f.signedUrl?'<a class="file" target="_blank" rel="noopener" href="'+esc(f.signedUrl)+'">📎 '+esc(f.name)+'</a>':'<span class="file">'+esc(f.name)+' unavailable</span>').join('');}
+function jobPhotosHtml(photos){return (photos||[]).map((src,i)=>'<a class="file" target="_blank" rel="noopener" href="'+esc(src)+'">📷 Photo '+(i+1)+'</a>').join('');}
 function eventsHtml(events){if(!events||!events.length)return '<div class="wo-meta">No activity yet.</div>';return events.slice(0,20).map(e=>'<div class="event"><b>'+esc(statusLabel(e.eventType))+'</b><span>'+esc(dateFmt(e.createdAt))+' · '+esc(statusLabel(e.actorType))+'</span></div>').join('');}
 async function approve(decision){
   if(!confirm(decision==='approved'?'Approve this work order?':'Reject this work order?'))return;
