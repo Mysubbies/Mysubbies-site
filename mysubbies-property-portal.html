@@ -26,9 +26,13 @@ header{height:68px;background:#fff;border-bottom:1px solid var(--line);display:f
 <header><div class="nav"><a class="logo" href="mysubbies-website.html">My<span>Subbies</span></a><div class="nav-right"><span class="orgname" id="navOrg"></span><button class="btn btn-outline" id="logoutBtn" style="display:none" onclick="logout()">Log out</button></div></div></header>
 <main class="wrap" id="app"></main>
 <script>
-const SUPABASE_URL='https://yloiecuvrejaxxqvjglw.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY='sb_publishable_dxp8_eCHY9nP1xF-LmxfuQ_h427tK3Y';
-const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+let sb=null;
+async function initSupabase(){
+  const r=await fetch('/api/property-management?action=public-config',{cache:'no-store'});
+  let cfg={};try{cfg=await r.json();}catch(e){}
+  if(!r.ok||!cfg.supabaseUrl||!cfg.publishableKey)throw new Error(cfg.error||'Preview Supabase configuration is unavailable.');
+  sb=window.supabase.createClient(cfg.supabaseUrl,cfg.publishableKey);
+}
 let state={data:null,catalog:null,view:'orders',selected:null,authMode:'login',attachments:[],estimate:null};
 
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -192,8 +196,16 @@ async function submitOrder(){
 function showWoError(msg){document.getElementById('woError').innerHTML='<div class="error">'+esc(msg)+'</div>';}
 function renderNewProperty(){app.innerHTML=`<button class="btn btn-outline" onclick="back()" style="margin-bottom:14px">← Cancel</button><div class="panel"><h2>Add property</h2><p class="sub">Add another managed property under ${esc(state.data.organisation.name)}.</p><div class="field"><label>Property name (optional)</label><input id="pName" placeholder="e.g. Smith Street Apartments"></div><div class="field"><label>Street address</label><input id="pAddress" placeholder="Full property address"></div><div class="grid2"><div class="field"><label>Suburb</label><input id="pSuburb"></div><div class="field"><label>Postcode</label><input id="pPostcode"></div></div><div class="field"><label>Access notes (optional)</label><textarea id="pAccess" placeholder="Keys, loading access, concierge, tenant contact rules…"></textarea></div><div id="pError"></div><button class="btn btn-primary" onclick="saveProperty()">Add property</button></div>`;}
 async function saveProperty(){try{await api('/api/property-management',{method:'POST',body:JSON.stringify({action:'create-property',name:pName.value,address:pAddress.value,suburb:pSuburb.value,postcode:pPostcode.value,state:'VIC',accessNotes:pAccess.value})});state.data=await api('/api/property-management?action=bootstrap');state.view='properties';render();}catch(e){document.getElementById('pError').innerHTML='<div class="error">'+esc(e.message)+'</div>';}}
-sb.auth.onAuthStateChange((event)=>{if(event==='SIGNED_OUT')renderAuth();});
-boot();
+async function start(){
+  try{
+    await initSupabase();
+    sb.auth.onAuthStateChange((event)=>{if(event==='SIGNED_OUT')renderAuth();});
+    await boot();
+  }catch(e){
+    app.innerHTML='<div class="loginwrap"><div class="loginbox"><h1>Property & Facilities Portal</h1><div class="error">'+esc(e.message)+'</div><p>Preview configuration is incomplete. Ask the MySubbies administrator to configure the staging Supabase environment for this preview branch.</p></div></div>';
+  }
+}
+start();
 </script>
 </body>
 </html>
