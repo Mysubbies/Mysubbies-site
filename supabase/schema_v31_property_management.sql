@@ -139,3 +139,7 @@ alter table public.pm_work_orders add column if not exists invoice_amount_cents 
 
 alter table public.pm_work_orders add column if not exists legal_review_status text not null default 'not_required'
   check (legal_review_status in ('not_required','pending','cleared'));
+
+alter table public.pm_work_order_files drop constraint if exists pm_work_order_files_file_kind_check;
+alter table public.pm_work_order_files add constraint pm_work_order_files_file_kind_check
+  check (file_kind in ('request_photo','completion_photo','document','invoice'));
