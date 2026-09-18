@@ -34,6 +34,19 @@ async function sendPropertyInvite(email, organisationName, role) {
   });
 }
 
+async function sendWorkOrderEmail({ to, subject, heading, body, ctaText, ctaUrl }) {
+  if (!to) return { ok: false, error: 'Recipient email is missing.' };
+  return sendEmailWithResult({
+    to,
+    subject,
+    html: wrapEmail(
+      '<h2 style="margin-top:0;">' + escapeHtml(heading) + '</h2>' +
+      '<p>' + escapeHtml(body) + '</p>' +
+      (ctaText && ctaUrl ? emailButton(ctaText, ctaUrl) : '')
+    ),
+  });
+}
+
 function text(value, max) {
   const clean = String(value || '').trim();
   return max ? clean.slice(0, max) : clean;
@@ -299,6 +312,14 @@ async function createWorkOrder(supabase, auth, body, res) {
     body: auth.organisation.name + ' submitted ' + taskSummary + ' at ' + property.address + '.',
     metadata: { workOrderId: order.id, organisationId: auth.organisation.id, priority: row.priority, serviceMode },
   }).catch(() => {});
+  await sendWorkOrderEmail({
+    to: auth.member.email,
+    subject: 'Your MySubbies work order has been received',
+    heading: 'Work order received',
+    body: taskSummary + ' at ' + property.address + ' has been received. You can track approvals, quotes and job progress in the Property & Facilities Portal.',
+    ctaText: 'Open Property Portal →',
+    ctaUrl: propertyPortalUrl(),
+  }).catch(() => {});
   res.status(201).json({
     workOrder: safeMemberOrder(order, property, null, await signFiles(supabase, attachments), []),
     pricing: pricedLine,
@@ -464,7 +485,25 @@ async function adminSetQuote(supabase, body, res) {
   }).eq('id', order.id);
   if (error) throw error;
   await event(supabase, order.id, 'admin', 'admin', 'quote_set', { quotedPriceCents: amount, quoteReference: text(body.quoteReference, 100) || null });
-  res.status(200).json({ updated: true, status: nextStatus, approvalStatus });
+  const { data: requester } = await supabase.from('pm_members')
+    .select('email, name').eq('id', order.requested_by_member_id).maybeSingle();
+  const { data: prop } = await supabase.from('pm_properties')
+    .select('address').eq('id', order.property_id).maybeSingle();
+  let quoteEmailSent = false;
+  if (requester && requester.email) {
+    const delivery = await sendWorkOrderEmail({
+      to: requester.email,
+      subject: 'Your MySubbies work order quote is ready',
+      heading: 'Quote ready for review',
+      body: 'A quote is ready for ' + order.task_summary + (prop && prop.address ? ' at ' + prop.address : '') +
+        '. Quote amount: ' + new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(amount / 100) +
+        (order.approval_required ? '. Approval is required before this work can be released.' : '.'),
+      ctaText: 'Review quote in portal →',
+      ctaUrl: propertyPortalUrl(),
+    }).catch(() => ({ ok: false }));
+    quoteEmailSent = !!delivery.ok;
+  }
+  res.status(200).json({ updated: true, status: nextStatus, approvalStatus, quoteEmailSent });
 }
 async function adminRelease(supabase, body, res) {
   const { data: order, error: orderError } = await supabase.from('pm_work_orders').select('*').eq('id', body.workOrderId).maybeSingle();
