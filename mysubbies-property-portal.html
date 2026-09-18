@@ -33,7 +33,7 @@ async function initSupabase(){
   if(!r.ok||!cfg.supabaseUrl||!cfg.publishableKey)throw new Error(cfg.error||'Preview Supabase configuration is unavailable.');
   sb=window.supabase.createClient(cfg.supabaseUrl,cfg.publishableKey);
 }
-let state={data:null,catalog:null,view:'orders',selected:null,authMode:'login',attachments:[],estimate:null};
+let state={data:null,catalog:null,view:'orders',selected:null,authMode:'login',attachments:[],estimate:null,notice:'',workOrderDraftId:null,submitting:false};
 
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function money(c){return c==null?'To be quoted':new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(Number(c)/100);}
@@ -107,7 +107,8 @@ function render(){
   if(state.view==='detail')return renderDetail();
   const c=counts(),member=state.data.member;
   app.innerHTML=`
-  <section class="hero"><div><h1>One maintenance partner. <span>One portal.</span><br>Complete job visibility.</h1><p>Raise work orders across your portfolio, approve work, track contractor progress, review completion evidence and keep the job history together.</p></div><div class="hero-actions"><button class="btn btn-primary" onclick="state.view='new';state.attachments=[];state.estimate=null;render()">+ New work order</button></div></section>
+  ${state.notice?'<div class="success" style="margin-bottom:16px">'+esc(state.notice)+'</div>':''}
+  <section class="hero"><div><h1>One maintenance partner. <span>One portal.</span><br>Complete job visibility.</h1><p>Raise work orders across your portfolio, approve work, track contractor progress, review completion evidence and keep the job history together.</p></div><div class="hero-actions"><button class="btn btn-primary" onclick="state.notice='';state.view='new';state.attachments=[];state.estimate=null;state.workOrderDraftId=crypto.randomUUID();state.submitting=false;render()">+ New work order</button></div></section>
   <div class="stats"><div class="stat"><strong>${c.all}</strong><span>Total work orders</span></div><div class="stat"><strong>${c.approval}</strong><span>Awaiting approval</span></div><div class="stat"><strong>${c.active}</strong><span>Active jobs</span></div><div class="stat"><strong>${c.done}</strong><span>Completed</span></div></div>
   <div class="toolbar"><div class="tabs"><button class="${state.view==='orders'?'active':''}" onclick="state.view='orders';render()">Work orders</button><button onclick="state.view='properties';render()">Properties</button></div>${member.role==='org_admin'?'<button class="btn btn-outline" onclick="state.view=\'property\';render()">+ Add property</button>':''}</div>
   ${state.view==='properties'?propertiesHtml():ordersHtml()}`;
@@ -167,7 +168,7 @@ function renderNewOrder(){
   <div class="field"><label>Photos / documents (optional)</label><input id="woFiles" type="file" accept="image/jpeg,image/png,application/pdf" multiple onchange="prepareFiles(event)"><div class="hint">Up to 4 files. Images are compressed before upload; PDFs must be under 1.5 MB.</div><div id="fileNames" class="wo-meta"></div></div>
   <div class="field"><label class="check"><input id="woRecurring" type="checkbox" onchange="document.getElementById('woRecurrenceWrap').style.display=this.checked?'':'none'"><span>This is recurring maintenance</span></label><div id="woRecurrenceWrap" style="display:none;margin-top:8px"><select id="woRecurrence"><option value="weekly">Weekly</option><option value="fortnightly">Fortnightly</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="biannual">Every 6 months</option><option value="annual">Annually</option></select><div class="hint">This MVP records the recurring plan. Automatic creation of future work orders is the next automation phase.</div></div></div>
   <div class="hint" style="margin:10px 0 15px">${state.data.organisation.approvalRequired?'Your organisation requires approval before priced work is released.':'Approved priced work can be prepared for release by MySubbies.'}</div>
-  <div id="woError"></div><button class="btn btn-primary" onclick="submitOrder()">Submit work order</button></div>`;
+  <div id="woError"></div><div id="woSubmitStatus"></div><button id="woSubmitBtn" class="btn btn-primary" onclick="submitOrder()">Submit work order</button></div>`;
 }
 function routeChanged(){const q=document.getElementById('woMode').value==='project_quote';document.getElementById('instantFields').style.display=q?'none':'';document.getElementById('quoteFields').style.display=q?'':'none';state.estimate=null;}
 function categoryChanged(){
@@ -190,9 +191,28 @@ async function prepareFiles(e){
 function readFile(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file);});}
 function compressImage(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{let w=img.width,h=img.height,m=1200;if(w>m||h>m){if(w>h){h=Math.round(h*m/w);w=m}else{w=Math.round(w*m/h);h=m}}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);resolve(c.toDataURL('image/jpeg',.72));};img.onerror=reject;img.src=r.result;};r.onerror=reject;r.readAsDataURL(file);});}
 async function submitOrder(){
-  const mode=document.getElementById('woMode').value;let payload={action:'create-work-order',propertyId:document.getElementById('woProperty').value,serviceMode:mode,description:document.getElementById('woDescription').value,priority:document.getElementById('woPriority').value,requestedCompletionDate:document.getElementById('woDate').value||null,recurring:document.getElementById('woRecurring').checked,recurrenceRule:document.getElementById('woRecurring').checked?document.getElementById('woRecurrence').value:null,attachments:state.attachments};
+  if(state.submitting)return;
+  if(!state.workOrderDraftId)state.workOrderDraftId=crypto.randomUUID();
+  const btn=document.getElementById('woSubmitBtn'),status=document.getElementById('woSubmitStatus');
+  const mode=document.getElementById('woMode').value;let payload={action:'create-work-order',workOrderId:state.workOrderDraftId,propertyId:document.getElementById('woProperty').value,serviceMode:mode,description:document.getElementById('woDescription').value,priority:document.getElementById('woPriority').value,requestedCompletionDate:document.getElementById('woDate').value||null,recurring:document.getElementById('woRecurring').checked,recurrenceRule:document.getElementById('woRecurring').checked?document.getElementById('woRecurrence').value:null,attachments:state.attachments};
   if(mode==='instant_price'){payload.category=document.getElementById('woCategory').value;payload.taskName=document.getElementById('woTask').value;payload.qty=Number(document.getElementById('woQty').value);if(!payload.category||!payload.taskName){showWoError('Choose a category and service.');return;}}else{payload.taskSummary=document.getElementById('woProjectSummary').value.trim();if(!payload.taskSummary){showWoError('Describe the project you need quoted.');return;}}
-  try{await api('/api/property-management',{method:'POST',body:JSON.stringify(payload)});state.attachments=[];state.view='orders';state.data=await api('/api/property-management?action=bootstrap');render();}catch(e){showWoError(e.message);}
+  try{
+    state.submitting=true;
+    if(btn){btn.disabled=true;btn.textContent='Submitting…';}
+    if(status)status.innerHTML='<div class="hint" style="margin-bottom:10px">Submitting your work order. Please do not click again.</div>';
+    const result=await api('/api/property-management',{method:'POST',body:JSON.stringify(payload)});
+    state.attachments=[];
+    state.view='orders';
+    state.notice=result.duplicatePrevented?'This work order was already submitted. A duplicate was prevented.':'Work order submitted successfully.';
+    state.workOrderDraftId=null;
+    state.data=await api('/api/property-management?action=bootstrap');
+    render();
+  }catch(e){
+    state.submitting=false;
+    if(btn){btn.disabled=false;btn.textContent='Submit work order';}
+    if(status)status.innerHTML='';
+    showWoError(e.message);
+  }
 }
 function showWoError(msg){document.getElementById('woError').innerHTML='<div class="error">'+esc(msg)+'</div>';}
 function renderNewProperty(){app.innerHTML=`<button class="btn btn-outline" onclick="back()" style="margin-bottom:14px">← Cancel</button><div class="panel"><h2>Add property</h2><p class="sub">Add another managed property under ${esc(state.data.organisation.name)}.</p><div class="field"><label>Property name (optional)</label><input id="pName" placeholder="e.g. Smith Street Apartments"></div><div class="field"><label>Street address</label><input id="pAddress" placeholder="Full property address"></div><div class="grid2"><div class="field"><label>Suburb</label><input id="pSuburb"></div><div class="field"><label>Postcode</label><input id="pPostcode"></div></div><div class="field"><label>Access notes (optional)</label><textarea id="pAccess" placeholder="Keys, loading access, concierge, tenant contact rules…"></textarea></div><div id="pError"></div><button class="btn btn-primary" onclick="saveProperty()">Add property</button></div>`;}
