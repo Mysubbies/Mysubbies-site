@@ -9,8 +9,30 @@ const { requireApprovedContractor } = require('./_lib/userAuth');
 const { storeAttachments, signFiles } = require('./_lib/propertyWorkOrderFiles');
 const { loadCategories, estimateLine } = require('./_lib/serviceCatalog');
 const { notifyAdmin, notifyContractor } = require('./_lib/contractorNotifications');
+const { sendEmailWithResult, wrapEmail, escapeHtml, emailButton } = require('./_lib/email');
 
 const LEGAL_REVIEW_THRESHOLD_CENTS = 990000;
+
+function propertyPortalUrl() {
+  const explicit = String(process.env.APP_BASE_URL || process.env.PUBLIC_APP_BASE_URL || '').trim().replace(/\/+$/, '');
+  if (explicit) return explicit + '/mysubbies-property-portal.html';
+  if (process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL) return 'https://' + process.env.VERCEL_URL + '/mysubbies-property-portal.html';
+  return 'https://app.mysubbies.com.au/mysubbies-property-portal.html';
+}
+
+async function sendPropertyInvite(email, organisationName, role) {
+  return sendEmailWithResult({
+    to: email,
+    subject: 'Your MySubbies Property & Facilities Portal invitation',
+    html: wrapEmail(
+      '<h2 style="margin-top:0;">You\'re invited to MySubbies</h2>' +
+      '<p><strong>' + escapeHtml(organisationName) + '</strong> has been set up in the MySubbies Property & Facilities Portal.</p>' +
+      '<p>Your access role is <strong>' + escapeHtml(String(role || 'requester').replace(/_/g, ' ')) + '</strong>. Use this exact email address when you activate your account.</p>' +
+      emailButton('Activate your portal access →', propertyPortalUrl()) +
+      '<p style="font-size:12px;color:#6B7280;margin-top:18px;">The portal lets your team raise work orders, manage approvals, track jobs, review completion photos and access invoices.</p>'
+    ),
+  });
+}
 
 function text(value, max) {
   const clean = String(value || '').trim();
@@ -337,7 +359,8 @@ async function adminCreateOrganisation(supabase, body, res) {
     status: 'invited',
   }).select('*').single();
   if (memberError) throw memberError;
-  res.status(201).json({ organisation: org, invitedMember: { id: member.id, email: member.email, status: member.status } });
+  const invite = await sendPropertyInvite(member.email, org.name, member.role).catch(() => ({ ok: false }));
+  res.status(201).json({ organisation: org, invitedMember: { id: member.id, email: member.email, status: member.status }, inviteEmailSent: !!invite.ok });
 }
 async function adminAddMember(supabase, body, res) {
   const organisationId = text(body.organisationId, 50);
@@ -357,7 +380,9 @@ async function adminAddMember(supabase, body, res) {
     status: 'invited',
   }).select('id, organisation_id, email, name, phone, role, can_approve, status, created_at').single();
   if (error) throw error;
-  res.status(201).json({ member: data });
+  const { data: orgNameRow } = await supabase.from('pm_organisations').select('name').eq('id', organisationId).maybeSingle();
+  const invite = await sendPropertyInvite(data.email, orgNameRow ? orgNameRow.name : 'Your organisation', data.role).catch(() => ({ ok: false }));
+  res.status(201).json({ member: data, inviteEmailSent: !!invite.ok });
 }
 
 async function adminAddProperty(supabase, body, res) {
