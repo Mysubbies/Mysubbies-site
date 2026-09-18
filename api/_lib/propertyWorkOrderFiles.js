@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 
 const BUCKET = 'property-work-orders';
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_FILE_BYTES = Math.floor(1.5 * 1024 * 1024);\nconst MAX_TOTAL_BYTES = 3 * 1024 * 1024;
 const ALLOWED = {
   'image/jpeg': bytes => bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff,
   'image/png': bytes => bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])),
@@ -64,4 +64,4 @@ async function signFiles(supabase, rows) {
   return result;
 }
 
-module.exports = { BUCKET, MAX_FILE_BYTES, safeFilename, decodeAttachment, storeAttachments, signFiles };
+module.exports = { BUCKET, MAX_FILE_BYTES, MAX_TOTAL_BYTES, safeFilename, decodeAttachment, storeAttachments, signFiles };
