@@ -2020,8 +2020,8 @@
           ${j.contractor ? `<span>· ${escapeHtml(j.contractor)}</span>` : ''}
         </div>
         <div class="bcard-actions" onclick="event.stopPropagation();">
-          ${progress.action ? `<button class="btn btn-black" style="width:auto;padding:9px 16px;font-size:12.5px;" onclick="${progress.action.onclick}">${progress.action.label}</button>` : ''}
-          <button class="btn btn-outline" style="width:auto;padding:9px 16px;font-size:12.5px;" onclick="selectedJobId='${j.id}'; render();">View booking</button>
+          <button class="btn btn-black" style="width:auto;padding:9px 16px;font-size:12.5px;" onclick="selectedJobId='${j.id}'; render();">View booking</button>
+          ${progress.action ? `<button class="btn btn-outline" style="width:auto;padding:9px 16px;font-size:12.5px;" onclick="${progress.action.onclick}">${progress.action.label}</button>` : ''}
         </div>
       </div>`;
   }
