@@ -1985,10 +1985,19 @@
       return { label: 'Review variation', dot: 'st-amber', action: { label: 'Review variation', onclick: `selectedJobId='${j.id}'; render();` } };
     }
     if (!j.contractor) {
-      return { label: 'Awaiting contractor match', dot: 'st-amber', action: { label: 'View booking', onclick: `selectedJobId='${j.id}'; render();` } };
+      return { label: 'Awaiting contractor match', dot: 'st-amber', action: { label: 'Cancel booking', onclick: `openCancelBookingFromCard('${j.id}')` } };
     }
     return { label: 'In progress', dot: 'st-blue', action: { label: 'View booking', onclick: `selectedJobId='${j.id}'; render();` } };
   }
+  function openCancelBookingFromCard(jobId) {
+    selectedJobId = jobId;
+    render();
+    setTimeout(() => {
+      const wrap = document.getElementById('cancelJobFormWrap');
+      if (wrap) openCancelJobConfirm(jobId);
+    }, 0);
+  }
+
   function bookingCardHtml(j, email) {
     const progress = deriveBookingProgress(j, email);
     const priceHtml = (j.priceLow || j.basePrice)
@@ -2011,8 +2020,8 @@
           ${j.contractor ? `<span>· ${escapeHtml(j.contractor)}</span>` : ''}
         </div>
         <div class="bcard-actions" onclick="event.stopPropagation();">
-          ${progress.action ? `<button class="btn btn-black" style="width:auto;padding:9px 16px;font-size:12.5px;" onclick="${progress.action.onclick}">${progress.action.label}</button>` : ''}
-          <button class="btn btn-outline" style="width:auto;padding:9px 16px;font-size:12.5px;" onclick="selectedJobId='${j.id}'; render();">View booking</button>
+          <button class="btn btn-black" style="width:auto;padding:9px 16px;font-size:12.5px;" onclick="selectedJobId='${j.id}'; render();">View booking</button>
+          ${progress.action ? `<button class="btn btn-outline" style="width:auto;padding:9px 16px;font-size:12.5px;" onclick="${progress.action.onclick}">${progress.action.label}</button>` : ''}
         </div>
       </div>`;
   }
@@ -2259,7 +2268,7 @@
         ${j.status === 'cancelled' ? `<div class="note" style="margin-top:12px;">This job has been cancelled.</div>` : ''}
         ${j.contractor && !['completed', 'cancellation_requested', 'cancelled'].includes(j.status) ? `<button class="btn btn-outline btn-full" style="margin-top:12px;" onclick="openDisputeForm()">⚠ Report a problem</button>` : ''}
         <div id="disputeFormWrap"></div>
-        ${!j.contractor && j.status === 'feed' ? `
+        ${!j.contractor && !['completed', 'cancellation_requested', 'cancelled'].includes(j.status) ? `
           <div style="display:flex;gap:8px;margin-top:12px;">
             <button class="btn btn-outline" style="flex:1;" onclick="openEditJobForm()">Edit job</button>
             <button class="btn btn-outline" style="flex:1;color:var(--warn);" onclick="openCancelJobConfirm('${j.id}')">Cancel job</button>
