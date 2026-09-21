@@ -36,6 +36,7 @@ const { requireAdmin } = require('./_lib/adminAuth');
 const { computeQuoteTotals } = require('./_lib/quoteMath');
 const { notifyAdmin } = require('./_lib/adminNotify');
 const { sendEmailWithResult, escapeHtml } = require('./_lib/email');
+const { generateQuotePdf } = require('./_lib/quotePdf');
 const { convertAcceptedQuoteToJob, QuoteConversionError } = require('./_lib/quoteToJob');
 const { paymentTermsFromVersion, quoteVersionContent } = require('./_lib/quotePersistence');
 const { getRecommendedServices, identifyQuotedCategories } = require('./_lib/quoteRecommendations');
@@ -426,6 +427,14 @@ async function handleSendQuoteEmail(req, res, supabase) {
   const url = `${quoteBaseUrl()}?token=${encodeURIComponent(rawToken)}`;
 
   const { recommendations, sourceCategory } = await loadRecommendations(supabase, version);
+  let pdf;
+  try {
+    pdf = await generateQuotePdf({ quote, version: { ...version, terms_text: getTermsText(version.terms_version) } });
+  } catch (pdfError) {
+    console.error('quote PDF generation failed:', { message: pdfError && pdfError.message ? pdfError.message : 'unknown' });
+    res.status(500).json({ error: 'Could not create the quote PDF. No email was sent.', url });
+    return;
+  }
   const emailResult = await sendEmailWithResult({
     to: customerEmail,
     // One Resend delivery with an internal BCC gives Accounts the exact
@@ -434,6 +443,7 @@ async function handleSendQuoteEmail(req, res, supabase) {
     bcc: 'accounts@mysubbies.com.au',
     subject: `Your Mysubbies quote is ready (Quote #${quote.quote_number})`,
     html: renderQuoteEmail({ quote, version, secureQuoteUrl: url, recommendations, sourceCategory }),
+    attachments: [{ filename: `mysubbies-quote-${quote.quote_number}-v${version.version_number}.pdf`, content: pdf.toString('base64') }],
   });
 
   // Unlike every other notification in this codebase (deliberately fire-

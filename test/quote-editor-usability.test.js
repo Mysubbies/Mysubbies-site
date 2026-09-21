@@ -15,6 +15,16 @@ test('quote editor uses large multiline description and scope fields', () => {
   assert.match(admin, /\.quote-scope-input \{ min-height:190px/);
 });
 
+test('quote textareas stay stable while typing and mobile fields stack cleanly', () => {
+  const builder = admin.slice(admin.indexOf('function renderQuoteBuilder()'), admin.indexOf('function renderQuoteBuilderPreview()'));
+  assert.doesNotMatch(builder, /autoGrowQuoteTextarea/);
+  assert.doesNotMatch(admin, /el\.style\.height = el\.scrollHeight/);
+  assert.match(admin, /\.quote-item-grid \{ grid-template-columns:1fr 1fr !important/);
+  assert.match(admin, /\.quote-item-description \{ grid-column:1\/-1/);
+  assert.match(admin, /\.quote-mobile-actions \{ position:sticky; bottom:0/);
+  assert.match(admin, /@media \(max-width:520px\)/);
+});
+
 test('normal quote typing updates state and totals without replacing the editor DOM', () => {
   const builder = admin.slice(admin.indexOf('function renderQuoteBuilder()'), admin.indexOf('function renderQuoteBuilderPreview()'));
   assert.match(builder, /oninput="onQuoteLineItemField\('[^']+','qty',this\.value\); updateQuoteBuilderTotals\(\);"/);
@@ -58,7 +68,7 @@ test('linear-metre length populates quantity without applying width', () => {
 });
 
 test('live area input updates quantity and totals without rendering the editor', () => {
-  const handler = admin.slice(admin.indexOf('function onQuoteAreaMeasurement'), admin.indexOf('function autoGrowQuoteTextarea'));
+  const handler = admin.slice(admin.indexOf('function onQuoteAreaMeasurement'), admin.indexOf('function onQuoteRateCardPick'));
   assert.match(handler, /Math\.round\(li\.lengthM \* li\.widthM \* 10000\) \/ 10000/);
   assert.match(handler, /updateQuoteBuilderTotals\(\)/);
   assert.doesNotMatch(handler, /render\(/);

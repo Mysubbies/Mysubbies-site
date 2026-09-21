@@ -91,8 +91,8 @@
   .fieldinput { width:100%; font-family:'Plus Jakarta Sans',sans-serif; font-size:13.5px; color:var(--ink); border:1.5px solid var(--line); border-radius:8px; padding:9px 11px; outline:none; background:#fff; }
   .fieldinput:focus { border-color:var(--black); }
   textarea.fieldinput { resize:vertical; }
-  .quote-description-input { min-height:142px; line-height:1.55; overflow-y:hidden; resize:none; }
-  .quote-scope-input { min-height:190px; line-height:1.55; overflow-y:hidden; resize:none; }
+  .quote-description-input { min-height:142px; line-height:1.55; overflow-y:auto; resize:vertical; }
+  .quote-scope-input { min-height:190px; line-height:1.55; overflow-y:auto; resize:vertical; }
   .quote-preserve-lines { white-space:pre-wrap; overflow-wrap:anywhere; }
   .quote-area-fields { display:grid; grid-template-columns:1fr 1fr minmax(180px,1.2fr); gap:10px; align-items:end; margin:10px 0; padding:12px; background:#F7F7F5; border-radius:9px; }
   .quote-area-fields[hidden] { display:none; }
@@ -138,6 +138,27 @@
     .quote-line > *:first-child { grid-column:1/-1; }
     .quote-area-fields { grid-template-columns:1fr 1fr; }
     .quote-calculated-area { grid-column:1/-1; }
+    .quote-builder-head { align-items:center; }
+    .quote-workflow { margin-bottom:16px; }
+    .quote-card { padding:15px; border-radius:13px; }
+    .quote-item-grid { grid-template-columns:1fr 1fr !important; align-items:end; }
+    .quote-item-description { grid-column:1/-1; }
+    .quote-item-remove { width:100%; }
+    .quote-side .quote-total-card { margin-bottom:0; }
+    .quote-side { gap:10px; }
+    .quote-mobile-actions { position:sticky; bottom:0; z-index:25; box-shadow:0 -8px 24px rgba(20,33,61,.10); }
+  }
+  @media (max-width:520px) {
+    .wrap { padding:16px 10px 100px; }
+    .quote-builder-head .pagesub { display:none; }
+    .quote-builder-head .pagetitle { font-size:23px; }
+    .quote-card { padding:13px; }
+    .quote-customer-grid, .quote-property-grid, .quote-area-fields { grid-template-columns:1fr !important; }
+    .quote-calculated-area { grid-column:auto; }
+    .quote-preview-overlay { padding:0; align-items:flex-end; }
+    .quote-preview-sheet { max-height:96dvh; border-radius:18px 18px 0 0; }
+    .quote-preview-top, .quote-preview-body { padding:20px 16px; }
+    .quote-preview-actions { padding:12px; display:grid; grid-template-columns:1fr 1fr; }
   }
   .badge-active { background:#EAF5EE; color:var(--good); }
   .badge-deactivated { background:#FDEDEA; color:var(--warn); }
@@ -3101,14 +3122,9 @@
     }
     updateQuoteBuilderTotals();
   }
-  function autoGrowQuoteTextarea(el) {
-    // Resizing can make mobile browsers scroll the caret into view. Restore
-    // the viewport while leaving the focused element and selection untouched.
-    const x = window.scrollX, y = window.scrollY;
-    el.style.height = 'auto';
-    el.style.height = el.scrollHeight + 'px';
-    window.scrollTo(x, y);
-  }
+  // Do not resize a focused textarea while the user types. Changing its
+  // height on every keypress makes Safari/Chrome recalculate the viewport
+  // around the on-screen keyboard and visibly jumps the quote form.
   function onQuoteRateCardPick(id, taskKey) {
     const li = quoteBuilderDraft.lineItems.find(x => x.id === id);
     if (!li || !taskKey) return;
@@ -3227,7 +3243,7 @@
       <div class="quote-card">
         <div class="quote-card-title"><h2>Customer details</h2><span style="font-size:11.5px;color:var(--stone);">${d.customerId ? 'Existing customer' : 'New CRM contact'}</span></div>
         <div style="margin-bottom:12px;"><label class="fieldlabel">Select customer</label><select class="fieldinput" onchange="selectQuoteCustomer(this.value)"><option value="">＋ Create a new customer</option>${(customersTabData && customersTabData.rows || []).map(c => `<option value="${c.id}" ${d.customerId === c.id ? 'selected' : ''}>${escapeHtml(c.name || c.email)} · ${escapeHtml(c.email)}</option>`).join('')}</select></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="quote-customer-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
           <div><label class="fieldlabel">Name</label><input class="fieldinput" value="${escapeHtml(d.customerName)}" ${d.customerId ? 'disabled' : ''} oninput="quoteBuilderDraft.customerName=this.value" /></div>
           <div><label class="fieldlabel">Email</label><input class="fieldinput" value="${escapeHtml(d.customerEmail)}" ${d.customerId ? 'disabled' : ''} oninput="quoteBuilderDraft.customerEmail=this.value" /></div>
         </div>
@@ -3243,7 +3259,7 @@
 
       <div class="quote-card">
         <h2 style="font-size:14px;margin-bottom:10px;">Property (optional)</h2>
-        <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;">
+        <div class="quote-property-grid" style="display:grid;grid-template-columns:2fr 1fr;gap:10px;">
           <div><label class="fieldlabel">Address</label><input class="fieldinput" value="${escapeHtml(d.propertyAddress)}" oninput="quoteBuilderDraft.propertyAddress=this.value" /></div>
           <div><label class="fieldlabel">Suburb</label><input class="fieldinput" value="${escapeHtml(d.propertySuburb)}" oninput="quoteBuilderDraft.propertySuburb=this.value" /></div>
         </div>
@@ -3257,12 +3273,12 @@
               <option value="">— Pick a rate card item, or type a custom one below —</option>
               ${rateCard.map(cat => `<optgroup label="${escapeHtml(cat.label)}">${(cat.tasks || []).filter(t => !t.disabled && !t.unavailable).map(t => `<option value="${escapeHtml(cat.label)}|||${escapeHtml(t.name)}" ${li.rateCardItemId === t.name ? 'selected' : ''}>${escapeHtml(t.name)} (${fmtCents(Math.round((t.rate || 0) * 100))}/${escapeHtml(t.unit || '')})</option>`).join('')}</optgroup>`).join('')}
             </select>
-            <div style="display:grid;grid-template-columns:2fr 0.7fr 0.7fr 0.9fr auto;gap:8px;align-items:end;">
-              <div><label class="fieldlabel">Description / Materials &amp; Inclusions</label><textarea class="fieldinput quote-description-input" rows="6" onfocus="autoGrowQuoteTextarea(this)" oninput="onQuoteLineItemField('${li.id}','description',this.value); autoGrowQuoteTextarea(this)">${escapeHtml(li.description)}</textarea></div>
+            <div class="quote-item-grid" style="display:grid;grid-template-columns:2fr 0.7fr 0.7fr 0.9fr auto;gap:8px;align-items:end;">
+              <div class="quote-item-description"><label class="fieldlabel">Description / Materials &amp; Inclusions</label><textarea class="fieldinput quote-description-input" rows="6" oninput="onQuoteLineItemField('${li.id}','description',this.value)">${escapeHtml(li.description)}</textarea></div>
               <div><label class="fieldlabel">Qty</label><input class="fieldinput" id="quoteQty_${li.id}" type="number" min="0" step="0.01" value="${li.calculatedAreaM2 || (isLinearMetreUnit(li.unit) && li.lengthM) ? Number(li.qty).toFixed(2) : li.qty}" ${li.calculatedAreaM2 || (isLinearMetreUnit(li.unit) && li.lengthM) ? 'readonly' : ''} oninput="onQuoteLineItemField('${li.id}','qty',this.value); updateQuoteBuilderTotals();" /></div>
               <div><label class="fieldlabel">Unit</label><select class="fieldinput" onchange="onQuoteUnitField('${li.id}',this.value)">${quoteUnitOptions(li.unit)}</select></div>
               <div><label class="fieldlabel">Unit price ($)</label><input class="fieldinput" type="number" min="0" step="0.01" value="${(li.unitPriceCents / 100).toFixed(2)}" oninput="onQuoteLineItemField('${li.id}','unitPriceDollars',this.value); updateQuoteBuilderTotals();" /></div>
-              <button class="btn btn-outline" style="padding:10px;" onclick="removeQuoteLineItem('${li.id}')" title="Remove">✕</button>
+              <button class="btn btn-outline quote-item-remove" style="padding:10px;" onclick="removeQuoteLineItem('${li.id}')" title="Remove">✕</button>
             </div>
             <div class="quote-area-fields" id="quoteAreaFields_${li.id}" aria-label="Area measurements" ${isSquareMetreUnit(li.unit) ? '' : 'hidden'}>
               <div><label class="fieldlabel" for="quoteLength_${li.id}">Length (m)</label><input class="fieldinput" id="quoteLength_${li.id}" type="number" inputmode="decimal" min="0" step="0.01" value="${li.lengthM || ''}" oninput="onQuoteAreaMeasurement('${li.id}','lengthM',this.value)" /></div>
@@ -3285,9 +3301,9 @@
           <button class="btn btn-outline" style="width:auto;padding:7px 12px;font-size:12px;" ${aiDraftLoading ? 'disabled' : ''} onclick="aiDraftQuoteText()">${aiDraftLoading ? 'Drafting…' : '✨ Draft with AI'}</button>
         </div>
         <div style="font-size:11.5px;color:var(--stone);margin-bottom:10px;">Type a few short notes below, then click "Draft with AI" to expand them into full professional text -- review and edit the result before saving. Nothing is sent to the customer until you click Issue.</div>
-        <label class="fieldlabel">Scope of Works / Notes / Inclusions</label><textarea class="fieldinput quote-scope-input" rows="8" onfocus="autoGrowQuoteTextarea(this)" oninput="quoteBuilderDraft.scopeText=this.value; autoGrowQuoteTextarea(this)">${escapeHtml(d.scopeText)}</textarea>
-        <label class="fieldlabel" style="margin-top:10px;">Inclusions</label><textarea class="fieldinput" rows="5" oninput="quoteBuilderDraft.inclusionsText=this.value; autoGrowQuoteTextarea(this)">${escapeHtml(d.inclusionsText)}</textarea>
-        <label class="fieldlabel" style="margin-top:10px;">Exclusions</label><textarea class="fieldinput" rows="5" oninput="quoteBuilderDraft.exclusionsText=this.value; autoGrowQuoteTextarea(this)">${escapeHtml(d.exclusionsText)}</textarea>
+        <label class="fieldlabel">Scope of Works / Notes / Inclusions</label><textarea class="fieldinput quote-scope-input" rows="8" oninput="quoteBuilderDraft.scopeText=this.value">${escapeHtml(d.scopeText)}</textarea>
+        <label class="fieldlabel" style="margin-top:10px;">Inclusions</label><textarea class="fieldinput" rows="5" oninput="quoteBuilderDraft.inclusionsText=this.value">${escapeHtml(d.inclusionsText)}</textarea>
+        <label class="fieldlabel" style="margin-top:10px;">Exclusions</label><textarea class="fieldinput" rows="5" oninput="quoteBuilderDraft.exclusionsText=this.value">${escapeHtml(d.exclusionsText)}</textarea>
         <label class="fieldlabel" style="margin-top:10px;">Payment schedule</label><textarea class="fieldinput" rows="2" placeholder="e.g. 10% deposit on acceptance, 40% at frame stage, 50% on completion" oninput="quoteBuilderDraft.paymentTermsText=this.value">${escapeHtml(d.paymentTermsText)}</textarea>
         <label class="fieldlabel" style="margin-top:10px;">Valid for (days)</label><input class="fieldinput" type="number" min="1" style="max-width:120px;" value="${d.validityDays}" oninput="quoteBuilderDraft.validityDays=this.value" />
         <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:11.5px;color:var(--stone);">
@@ -3302,7 +3318,7 @@
           <div class="quote-total-row"><span>GST (10%)</span><span id="qbGst">${fmtCents(totals.gstCents)}</span></div>
           <div class="quote-total-row final"><span>Total</span><span id="qbTotal">${fmtCents(totals.totalCents)}</span></div>
         </div>
-        <div class="quote-card" style="margin:0;">
+        <div class="quote-card quote-mobile-actions" style="margin:0;">
           <div style="font-size:13px;font-weight:800;margin-bottom:5px;">Ready for review?</div>
           <p style="font-size:11.5px;color:var(--stone);margin-bottom:14px;">Preview exactly what the customer will see before saving and sending.</p>
           <button class="btn btn-black" style="width:100%;margin-bottom:8px;" onclick="openQuoteBuilderPreview()">Preview &amp; Send →</button>

@@ -38,6 +38,7 @@ test('premium quote email includes customer, quote summary, total and secure CTA
   assert.match(html, /Prepared for Ava Nguyen/);
   assert.match(html, /Prepare garden beds<br>Remove green waste/);
   assert.match(html, /Labour<br>Materials/);
+  assert.match(html, /A PDF copy is attached/);
 });
 
 test('email recommendations show authoritative rates and estimate fallback', () => {

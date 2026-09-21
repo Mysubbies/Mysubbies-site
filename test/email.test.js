@@ -42,20 +42,22 @@ test('Resend rejection is converted to a safe configuration error', async () => 
   }
 });
 
-test('configured quote email sends the selected verified from address', async () => {
+test('configured quote email sends the selected verified from address and PDF attachment', async () => {
   process.env.RESEND_API_KEY = 're_test';
   const originalFetch = global.fetch;
   let request;
   global.fetch = async (url, options) => { request = { url, options }; return { ok: true }; };
   try {
     const { sendEmailWithResult } = loadEmail('MySubbies Quotes <quotes@example.test>');
-    const result = await sendEmailWithResult({ to: 'customer@example.com', bcc: 'accounts@mysubbies.com.au', subject: 'Quote', html: '<p>Quote</p>' });
+    const attachments = [{ filename: 'quote-1.pdf', content: 'JVBERi0xLjQ=' }];
+    const result = await sendEmailWithResult({ to: 'customer@example.com', bcc: 'accounts@mysubbies.com.au', subject: 'Quote', html: '<p>Quote</p>', attachments });
     assert.equal(result.ok, true);
     assert.equal(request.url, 'https://api.resend.com/emails');
     const payload = JSON.parse(request.options.body);
     assert.equal(payload.from, 'MySubbies Quotes <quotes@example.test>');
     assert.equal(payload.to, 'customer@example.com');
     assert.equal(payload.bcc, 'accounts@mysubbies.com.au');
+    assert.deepEqual(payload.attachments, attachments);
     assert.doesNotMatch(payload.html, /accounts@mysubbies\.com\.au/);
   } finally {
     global.fetch = originalFetch;
