@@ -51,6 +51,17 @@ test('admin and customer invoice surfaces show balances, payment history and rec
   assert.match(apiSource(), /payments: publicView\s*\? serializedPayments\.map/);
 });
 
+test('admin has a dedicated invoice register with balances and quote drill-through', () => {
+  const admin = fs.readFileSync(path.join(__dirname, '..', 'mysubbies-admin-portal.html'), 'utf8');
+  const api = apiSource();
+  assert.match(admin, />Invoices<\/button>/);
+  assert.match(admin, /function renderInvoicesTab/);
+  assert.match(admin, /Outstanding balance/);
+  assert.match(admin, /openInvoiceQuote/);
+  assert.match(api, /action === 'list_invoices'/);
+  assert.match(api, /quoteNumber: quoteNumberById/);
+});
+
 function apiSource() {
   return fs.readFileSync(path.join(__dirname, '..', 'api', 'quotes.js'), 'utf8');
 }
