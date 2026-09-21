@@ -127,6 +127,9 @@
   .quote-kpi { background:#fff; border:1px solid var(--line); border-radius:13px; padding:15px; }
   .quote-kpi strong { display:block; font-size:22px; color:var(--black); }
   .quote-kpi span { font-size:11.5px; color:var(--stone); }
+  .quote-detail-items { width:100%; }
+  .quote-detail-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+  .quote-list-table { width:100%; }
   @media (max-width:1000px) { .quote-builder-grid { grid-template-columns:1fr; } .quote-side { position:static; } }
   @media (max-width:860px) {
     .admin-shell { display:block; }
@@ -147,6 +150,25 @@
     .quote-side .quote-total-card { margin-bottom:0; }
     .quote-side { gap:10px; }
     .quote-mobile-actions { position:sticky; bottom:0; z-index:25; box-shadow:0 -8px 24px rgba(20,33,61,.10); }
+    body.quote-editor-active .mobile-tabbar { display:none !important; }
+    body.quote-editor-active .wrap { padding-bottom:24px; }
+    .quote-builder-grid { overflow-anchor:none; }
+    .quote-builder-grid .fieldinput { font-size:16px; }
+    .quote-builder-grid textarea.fieldinput { resize:none; }
+    .quote-detail-items thead { display:none; }
+    .quote-detail-items, .quote-detail-items tbody, .quote-detail-items tr, .quote-detail-items td { display:block; width:100%; }
+    .quote-detail-items tr { border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px; background:#fff; }
+    .quote-detail-items td { display:flex; justify-content:space-between; gap:16px; border:0; padding:5px 0; text-align:right; }
+    .quote-detail-items td::before { content:attr(data-label); color:var(--stone); font-size:11px; font-weight:800; text-transform:uppercase; text-align:left; }
+    .quote-detail-items td:first-child { display:block; text-align:left; padding-bottom:10px; font-weight:700; }
+    .quote-detail-items td:first-child::before { display:block; margin-bottom:5px; }
+    .quote-detail-actions { display:grid; grid-template-columns:1fr 1fr; }
+    .quote-detail-actions .btn { width:100%; min-width:0; padding-left:10px; padding-right:10px; }
+    .quote-list-table thead { display:none; }
+    .quote-list-table, .quote-list-table tbody, .quote-list-table tr, .quote-list-table td { display:block; width:100%; }
+    .quote-list-table tr { border:1px solid var(--line); border-radius:12px; padding:13px; margin-bottom:10px; background:#fff; }
+    .quote-list-table td { display:flex; justify-content:space-between; align-items:center; gap:12px; border:0; padding:5px 0; }
+    .quote-list-table td::before { content:attr(data-label); color:var(--stone); font-size:11px; font-weight:800; text-transform:uppercase; }
   }
   @media (max-width:520px) {
     .wrap { padding:16px 10px 100px; }
@@ -159,6 +181,11 @@
     .quote-preview-sheet { max-height:96dvh; border-radius:18px 18px 0 0; }
     .quote-preview-top, .quote-preview-body { padding:20px 16px; }
     .quote-preview-actions { padding:12px; display:grid; grid-template-columns:1fr 1fr; }
+    .quote-detail-actions { grid-template-columns:1fr; }
+    .quote-detail-card { padding:14px !important; overflow:hidden; }
+    .quote-link-card { padding:16px !important; }
+    .quote-link-card input { font-size:16px; }
+    .quote-detail-totals { max-width:none !important; margin-left:0 !important; }
   }
   .badge-active { background:#EAF5EE; color:var(--good); }
   .badge-deactivated { background:#FDEDEA; color:var(--warn); }
@@ -1479,7 +1506,11 @@
   // rather than editing render()'s early-return branch is the safe way to
   // keep the active-tab highlight and badge counts in sync without
   // touching the many existing call sites that already call render().
-  function render() { renderInner(); updateMobileTabbar(); }
+  function render() {
+    document.body.classList.toggle('quote-editor-active', Boolean(quoteBuilderOpen));
+    renderInner();
+    updateMobileTabbar();
+  }
   function updateMobileTabbar() {
     const nav = document.querySelector('.mobile-tabbar');
     if (!nav) return;
@@ -3499,21 +3530,21 @@
       </div>
       <p class="pagesub">${escapeHtml((quote.customer && quote.customer.name) || (quote.customer && quote.customer.email) || '')}</p>
 
-      ${quoteIssuedLink ? `<div class="detailcard" style="margin-bottom:16px;background:#EAF5EE;border-color:#B9DDC6;"><strong>Quote link ready.</strong> If you emailed it, the customer already has this link -- you can also share it directly:<br><input class="fieldinput" style="margin-top:8px;" readonly value="${escapeHtml(quoteIssuedLink)}" onclick="this.select()" /></div>` : ''}
+      ${quoteIssuedLink ? `<div class="detailcard quote-link-card" style="margin-bottom:16px;background:#EAF5EE;border-color:#B9DDC6;"><strong>Quote link ready.</strong> If you emailed it, the customer already has this link -- you can also share it directly:<br><input class="fieldinput" style="margin-top:8px;" readonly value="${escapeHtml(quoteIssuedLink)}" onclick="this.select()" /></div>` : ''}
 
       ${v ? `
-        <div class="detailcard" style="margin-bottom:16px;">
+        <div class="detailcard quote-detail-card" style="margin-bottom:16px;">
           <h2 style="font-size:14px;margin-bottom:10px;">Current version (v${v.versionNumber}, ${escapeHtml(v.status)})</h2>
-          <table>
+          <table class="quote-detail-items">
             <thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Amount</th></tr></thead>
-            <tbody>${(v.lineItems || []).map(li => `<tr><td class="quote-preserve-lines">${escapeHtml(li.description)}</td><td>${li.qty}${li.unit ? ' ' + escapeHtml(li.unit) : ''}</td><td>${fmtCents(li.unitPriceCents)}</td><td>${fmtCents(li.lineTotalCents)}</td></tr>`).join('')}</tbody>
+            <tbody>${(v.lineItems || []).map(li => `<tr><td data-label="Description" class="quote-preserve-lines">${escapeHtml(li.description)}</td><td data-label="Quantity">${li.qty}${li.unit ? ' ' + escapeHtml(li.unit) : ''}</td><td data-label="Unit price">${fmtCents(li.unitPriceCents)}</td><td data-label="Amount">${fmtCents(li.lineTotalCents)}</td></tr>`).join('')}</tbody>
           </table>
-          <div style="max-width:260px;margin-left:auto;margin-top:14px;font-size:13.5px;">
+          <div class="quote-detail-totals" style="max-width:260px;margin-left:auto;margin-top:14px;font-size:13.5px;">
             <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Subtotal (ex. GST)</span><span>${fmtCents(v.subtotalExGstCents)}</span></div>
             <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>GST (10%)</span><span>${fmtCents(v.gstCents)}</span></div>
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-weight:800;font-size:15px;"><span>Total</span><span>${fmtCents(v.totalIncGstCents)}</span></div>
           </div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
+          <div class="quote-detail-actions">
             ${quote.currentStatus === 'accepted' ? (quote.jobId ? `<button class="btn btn-black" onclick="openLinkedQuoteJob('${quote.jobId}')">View portal job ${escapeHtml(quote.jobId)} →</button>` : `<button class="btn btn-black" onclick="pushSelectedQuoteToPortal()">Push to Portal →</button>`) : ''}
             ${v.status === 'draft' ? `
               <button class="btn btn-outline" onclick="editDraftQuote()">Edit draft</button>
@@ -3578,16 +3609,16 @@
       </div>` : ''}
       ${rows.length === 0 ? '<div class="empty">No quotes yet.</div>' : `
         <div class="quote-card-title"><h2>Recent quote activity</h2><span style="font-size:11.5px;color:var(--stone);">Select a quote to view activity and next actions</span></div>
-        <table>
+        <table class="quote-list-table">
           <thead><tr><th>#</th><th>Customer</th><th>Status</th><th>Total</th><th>Created</th></tr></thead>
           <tbody>
             ${rows.map(q => `
               <tr class="jobrow" onclick="openQuoteDetail('${q.id}')">
-                <td>#${q.quoteNumber}</td>
-                <td>${escapeHtml((q.customer && q.customer.name) || (q.customer && q.customer.email) || '—')}</td>
-                <td><span class="badge ${quoteStatusBadgeClass(q.currentStatus)}">${escapeHtml(q.currentStatus)}</span></td>
-                <td>${q.currentVersion ? fmtCents(q.currentVersion.totalIncGstCents) : '—'}</td>
-                <td>${new Date(q.createdAt).toLocaleDateString('en-AU')}</td>
+                <td data-label="Quote">#${q.quoteNumber}</td>
+                <td data-label="Customer">${escapeHtml((q.customer && q.customer.name) || (q.customer && q.customer.email) || '—')}</td>
+                <td data-label="Status"><span class="badge ${quoteStatusBadgeClass(q.currentStatus)}">${escapeHtml(q.currentStatus)}</span></td>
+                <td data-label="Total">${q.currentVersion ? fmtCents(q.currentVersion.totalIncGstCents) : '—'}</td>
+                <td data-label="Created">${new Date(q.createdAt).toLocaleDateString('en-AU')}</td>
               </tr>`).join('')}
           </tbody>
         </table>
@@ -5133,6 +5164,7 @@
   let lastKnownActionTotal = null;
   async function pollForNewActivity() {
     if (document.body.classList.contains('logged-out')) return; // not logged in yet -- nothing to poll for
+    if (quoteBuilderOpen) return; // never disturb a quote while the admin is typing
     try {
       await Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateDisputesFromServer(), hydrateInquiriesFromServer()]);
       const unreadRes = await adminFetch('/api/get-admin-list?type=unread-contractor-messages');
@@ -5165,7 +5197,7 @@
         notify(`${delta} new item${delta === 1 ? '' : 's'} need${delta === 1 ? 's' : ''} your attention in MySubbies admin.`);
       }
       lastKnownActionTotal = freshTotal;
-      render();
+      if (!quoteBuilderOpen) render();
     } catch (e) { /* offline or transient -- next interval will catch up */ }
   }
   setInterval(pollForNewActivity, 25000);

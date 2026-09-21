@@ -73,7 +73,7 @@ function renderQuoteEmail({ quote, version, secureQuoteUrl, recommendations = []
             <div style="margin-top:5px;font-size:12px;color:#6B7280;">Valid until: ${version.expires_at ? new Date(version.expires_at).toLocaleDateString('en-AU') : 'See quote'}</div>
           </td></tr>
         </table>
-        <a class="primary-button" href="${escapeHtml(secureQuoteUrl)}" style="display:inline-block;margin-top:20px;background:#FFD400;color:#111111;text-decoration:none;border-radius:999px;padding:14px 24px;font-size:14px;font-weight:800;">View &amp; accept your quote →</a>
+        <a class="primary-button" href="${escapeHtml(secureQuoteUrl)}" style="display:inline-block;margin-top:20px;background:#FFD400;color:#111111;text-decoration:none;border-radius:999px;padding:14px 24px;font-size:14px;font-weight:800;">View your quote →</a>
         <p style="margin:12px 0 0;color:#6B7280;font-size:12px;line-height:19px;">Review the full scope, inclusions, pricing and terms securely online.</p>
       </td></tr>
       <tr><td class="email-pad" style="padding:4px 34px 25px;"><table role="presentation" width="100%"><tr style="font-size:11px;color:#4B5563;"><td class="trust-item">✓ Vetted professionals</td><td class="trust-item">✓ Upfront pricing</td><td class="trust-item">✓ Secure payments</td><td class="trust-item">✓ Australian support</td></tr></table></td></tr>

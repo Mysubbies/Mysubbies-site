@@ -23,6 +23,18 @@ test('quote textareas stay stable while typing and mobile fields stack cleanly',
   assert.match(admin, /\.quote-item-description \{ grid-column:1\/-1/);
   assert.match(admin, /\.quote-mobile-actions \{ position:sticky; bottom:0/);
   assert.match(admin, /@media \(max-width:520px\)/);
+  assert.match(admin, /if \(quoteBuilderOpen\) return; \/\/ never disturb a quote while the admin is typing/);
+  assert.match(admin, /if \(!quoteBuilderOpen\) render\(\);/);
+  assert.match(admin, /\.quote-builder-grid \.fieldinput \{ font-size:16px; \}/);
+  assert.match(admin, /body\.quote-editor-active \.mobile-tabbar \{ display:none !important; \}/);
+});
+
+test('quote list and detail views use mobile card layouts instead of wide tables', () => {
+  assert.match(admin, /class="quote-detail-items"/);
+  assert.match(admin, /data-label="Unit price"/);
+  assert.match(admin, /class="quote-list-table"/);
+  assert.match(admin, /data-label="Customer"/);
+  assert.match(admin, /\.quote-detail-actions \{ display:grid; grid-template-columns:1fr 1fr; \}/);
 });
 
 test('normal quote typing updates state and totals without replacing the editor DOM', () => {
