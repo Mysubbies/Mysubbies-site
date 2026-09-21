@@ -1726,6 +1726,7 @@
     if ((tab === 'customers' || tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !customersTabData && !customersTabLoading) loadCustomersTab();
     if (tab === 'leads' && !leadsTabData && !leadsTabLoading) loadLeadsTab();
     if ((tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !quotesTabData && !quotesTabLoading) loadQuotesTab();
+    if (tab === 'invoices' && !invoicesTabData && !invoicesTabLoading) loadInvoicesTab();
     if (!staffListData && !staffListLoading) loadStaffList();
     if (tab === 'messages' && !messageThreadsData && !messageThreadsLoading) loadMessageThreads();
     if (tab === 'reports' && !contractorPayoutsData && !contractorPayoutsLoading) loadContractorPayouts();
@@ -1824,7 +1825,7 @@
               : jobsTableHtml(filtered);
           })()}
         `}
-      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
+      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'invoices' ? renderInvoicesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
     } catch (e) {
       console.error('Tab render error on tab=' + tab, e);
       tabContentHtml = `
@@ -1851,6 +1852,7 @@
         <button class="${tab==='messages'?'active':''}" onclick="tab='messages'; render();">Messages ${unreadContractorMessageCount ? '(' + unreadContractorMessageCount + ')' : ''}</button>
         <button class="${tab==='customers'?'active':''}" onclick="tab='customers'; render();">Customers</button>
         <button class="${tab==='quotes'?'active':''}" onclick="tab='quotes'; render();">Quotes</button>
+        <button class="${tab==='invoices'?'active':''}" onclick="tab='invoices'; render();">Invoices</button>
         <button class="${tab==='disputes'?'active':''}" onclick="tab='disputes'; render();">Disputes ${openDisputeCount ? '(' + openDisputeCount + ')' : ''}</button>
         <button class="${tab==='inquiries'?'active':''}" onclick="tab='inquiries'; render();">Inquiries ${openInquiryCount ? '(' + openInquiryCount + ')' : ''}</button>
         <button class="${tab==='payments'?'active':''}" onclick="tab='payments'; render();">Payment Schedules ${paymentBadgeCount ? '(' + paymentBadgeCount + ')' : ''}</button>
@@ -2988,6 +2990,8 @@
   let invoiceDraft = null;
   let invoiceSaving = false;
   let invoicePaymentDraft = null;
+  let invoicesTabData = null;
+  let invoicesTabLoading = false;
 
   async function loadQuotesTab() {
     quotesTabLoading = true;
@@ -2997,6 +3001,16 @@
       quotesTabData = res.ok ? { rows: body.quotes || [] } : { error: body.error || 'Could not load quotes.' };
     } catch (e) { quotesTabData = { error: 'Could not load quotes.' }; }
     quotesTabLoading = false;
+    render();
+  }
+  async function loadInvoicesTab() {
+    invoicesTabLoading = true;
+    try {
+      const res = await adminFetch('/api/quotes?action=list_invoices');
+      const body = await res.json();
+      invoicesTabData = res.ok ? { rows: body.invoices || [] } : { error: body.error || 'Could not load invoices.' };
+    } catch (e) { invoicesTabData = { error: 'Could not load invoices.' }; }
+    invoicesTabLoading = false;
     render();
   }
   async function loadStaffList() {
@@ -3011,6 +3025,44 @@
   }
   function quoteStatusBadgeClass(status) {
     return { draft: 'badge-feed', sent: 'badge-assigned', accepted: 'badge-completed', declined: 'badge-rejected', expired: 'badge-rejected', withdrawn: 'badge-rejected' }[status] || 'badge-feed';
+  }
+  function invoiceStatusBadgeClass(status) {
+    return { paid: 'badge-completed', part_paid: 'badge-assigned', sent: 'badge-assigned', issued: 'badge-feed', draft: 'badge-feed', void: 'badge-rejected' }[status] || 'badge-feed';
+  }
+  async function openInvoiceQuote(quoteId) {
+    tab = 'quotes';
+    await openQuoteDetail(quoteId);
+  }
+
+  function renderInvoicesTab() {
+    if (!invoicesTabData || invoicesTabLoading) return '<h1 class="pagetitle">Invoices</h1><div class="empty">Loading…</div>';
+    if (invoicesTabData.error) return `<h1 class="pagetitle">Invoices</h1><div class="empty">${escapeHtml(invoicesTabData.error)}</div>`;
+    const rows = invoicesTabData.rows || [];
+    const paid = rows.filter(i => i.status === 'paid');
+    const outstanding = rows.filter(i => !['paid','void'].includes(i.status));
+    const overdue = outstanding.filter(i => i.dueAt && new Date(i.dueAt) < new Date());
+    const outstandingCents = outstanding.reduce((sum, i) => sum + Number(i.balanceCents || 0), 0);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+      <div><h1 class="pagetitle" style="margin-bottom:3px;">Invoices</h1><p class="pagesub">Track every customer invoice, payment and outstanding balance.</p></div>
+      <button class="btn btn-outline" style="width:auto;padding:9px 16px;" onclick="invoicesTabData=null;loadInvoicesTab()">Refresh</button>
+    </div>
+    <div class="quote-kpis">
+      <div class="quote-kpi"><strong>${rows.length}</strong><span>Total invoices</span></div>
+      <div class="quote-kpi"><strong>${fmtCents(outstandingCents)}</strong><span>Outstanding balance</span></div>
+      <div class="quote-kpi"><strong>${overdue.length}</strong><span>Overdue</span></div>
+      <div class="quote-kpi"><strong>${paid.length}</strong><span>Paid in full</span></div>
+    </div>
+    ${rows.length === 0 ? '<div class="empty">No invoices created yet. Open an accepted quote to create the first invoice.</div>' : `<div class="quote-card-title"><h2>All invoices</h2><span style="font-size:11.5px;color:var(--stone);">Select an invoice to view, email, download or record payment</span></div>
+      <table class="quote-list-table">
+        <thead><tr><th>Invoice</th><th>Customer</th><th>Status</th><th>Total</th><th>Paid</th><th>Balance</th><th>Due</th></tr></thead>
+        <tbody>${rows.map(i => `<tr class="jobrow" onclick="openInvoiceQuote('${i.quoteId}')">
+          <td data-label="Invoice"><strong>INV-${i.invoiceNumber}</strong><br><small style="color:var(--stone);">Quote #${i.quoteNumber || '—'}</small></td>
+          <td data-label="Customer">${escapeHtml((i.customer && (i.customer.name || i.customer.email)) || '—')}</td>
+          <td data-label="Status"><span class="badge ${invoiceStatusBadgeClass(i.status)}">${escapeHtml(String(i.status || '').replace('_',' '))}</span></td>
+          <td data-label="Total">${fmtCents(i.totalIncGstCents)}</td><td data-label="Paid">${fmtCents(i.paidCents)}</td><td data-label="Balance"><strong>${fmtCents(i.balanceCents)}</strong></td>
+          <td data-label="Due">${i.dueAt ? new Date(i.dueAt).toLocaleDateString('en-AU') : '—'}</td>
+        </tr>`).join('')}</tbody>
+      </table>`}`;
   }
 
   function blankLineItem() {
