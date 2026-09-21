@@ -50,6 +50,11 @@ test('line breaks are preserved in admin previews and the customer quote', () =>
   assert.match(customerQuote, /<td class="item-description">\$\{escapeHtml\(it\.description\)\}<\/td>/);
 });
 
+test('customer quote presents Ask a question as an app action button', () => {
+  assert.match(customerQuote, /<button class="btn btn-outline" onclick="openQuestionModal\(\)">Ask a question<\/button>/);
+  assert.doesNotMatch(customerQuote, /btn btn-link" onclick="openQuestionModal/);
+});
+
 test('square-metre measurements calculate quantity and existing quote totals', () => {
   assert.equal(calculateAreaQuantity(7.5, 4), 30);
   assert.equal(calculateAreaQuantity(7.5, 4.2), 31.5);
