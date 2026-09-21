@@ -702,6 +702,33 @@ module.exports = async (req, res) => {
         return;
       }
 
+      if (action === 'list_invoices') {
+        if (!requireAdmin(req, res)) return;
+        const { data: invoiceRows, error: invoiceError } = await supabase.from('invoices').select('*').order('created_at', { ascending: false }).limit(300);
+        if (invoiceError) throw invoiceError;
+        const invoiceIds = (invoiceRows || []).map(row => row.id);
+        const quoteIds = [...new Set((invoiceRows || []).map(row => row.quote_id).filter(Boolean))];
+        const [{ data: payments, error: paymentError }, { data: quotes, error: quoteError }] = await Promise.all([
+          invoiceIds.length ? supabase.from('invoice_payments').select('*').in('invoice_id', invoiceIds).order('received_at') : Promise.resolve({ data: [] }),
+          quoteIds.length ? supabase.from('quotes').select('id,quote_number').in('id', quoteIds) : Promise.resolve({ data: [] }),
+        ]);
+        if (paymentError) throw paymentError;
+        if (quoteError) throw quoteError;
+        const paymentsByInvoice = new Map();
+        for (const payment of payments || []) {
+          if (!paymentsByInvoice.has(payment.invoice_id)) paymentsByInvoice.set(payment.invoice_id, []);
+          paymentsByInvoice.get(payment.invoice_id).push(payment);
+        }
+        const quoteNumberById = new Map((quotes || []).map(quote => [quote.id, quote.quote_number]));
+        res.status(200).json({
+          invoices: (invoiceRows || []).map(row => ({
+            ...serializeInvoice(row, { payments: paymentsByInvoice.get(row.id) || [] }),
+            quoteNumber: quoteNumberById.get(row.quote_id) || null,
+          })),
+        });
+        return;
+      }
+
       if (action === 'get') {
         if (!requireAdmin(req, res)) return;
         const { id } = req.query || {};
