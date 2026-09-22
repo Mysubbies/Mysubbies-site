@@ -587,7 +587,7 @@
     doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
     doc.text('MySubbies', 14, 16);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(200, 206, 220);
-    doc.text(`${legalName}  ·  ABN ${abn}  ·  Melbourne, VIC`, 14, 23);
+    doc.text(`${legalName}  ·  ABN ${abn}  ·  PO Box 1126, Craigieburn VIC 3064`, 14, 23);
     doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
     doc.text(docType, 196, 15, { align: 'right' });
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(200, 206, 220);
@@ -604,7 +604,7 @@
       doc.setDrawColor(230, 230, 227); doc.setLineWidth(0.2);
       doc.line(14, h - 18, 196, h - 18);
       doc.setFontSize(7.5); doc.setTextColor(140, 140, 138);
-      doc.text(`${legalName} · ABN ${abn} · Melbourne, VIC`, 14, h - 12);
+      doc.text(`${legalName} · ABN ${abn} · PO Box 1126, Craigieburn VIC 3064`, 14, h - 12);
       doc.text(noteLine, 14, h - 8);
       doc.text(`Page ${i} of ${pageCount}`, 196, h - 8, { align: 'right' });
     }
