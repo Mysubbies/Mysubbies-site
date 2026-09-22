@@ -15,6 +15,28 @@ test('quote editor uses large multiline description and scope fields', () => {
   assert.match(admin, /\.quote-scope-input \{ min-height:190px/);
 });
 
+test('quote textareas stay stable while typing and mobile fields stack cleanly', () => {
+  const builder = admin.slice(admin.indexOf('function renderQuoteBuilder()'), admin.indexOf('function renderQuoteBuilderPreview()'));
+  assert.doesNotMatch(builder, /autoGrowQuoteTextarea/);
+  assert.doesNotMatch(admin, /el\.style\.height = el\.scrollHeight/);
+  assert.match(admin, /\.quote-item-grid \{ grid-template-columns:1fr 1fr !important/);
+  assert.match(admin, /\.quote-item-description \{ grid-column:1\/-1/);
+  assert.match(admin, /\.quote-mobile-actions \{ position:sticky; bottom:0/);
+  assert.match(admin, /@media \(max-width:520px\)/);
+  assert.match(admin, /if \(quoteBuilderOpen\) return; \/\/ never disturb a quote while the admin is typing/);
+  assert.match(admin, /if \(!quoteBuilderOpen\) render\(\);/);
+  assert.match(admin, /\.quote-builder-grid \.fieldinput \{ font-size:16px; \}/);
+  assert.match(admin, /body\.quote-editor-active \.mobile-tabbar \{ display:none !important; \}/);
+});
+
+test('quote list and detail views use mobile card layouts instead of wide tables', () => {
+  assert.match(admin, /class="quote-detail-items"/);
+  assert.match(admin, /data-label="Unit price"/);
+  assert.match(admin, /class="quote-list-table"/);
+  assert.match(admin, /data-label="Customer"/);
+  assert.match(admin, /\.quote-detail-actions \{ display:grid; grid-template-columns:1fr 1fr; \}/);
+});
+
 test('normal quote typing updates state and totals without replacing the editor DOM', () => {
   const builder = admin.slice(admin.indexOf('function renderQuoteBuilder()'), admin.indexOf('function renderQuoteBuilderPreview()'));
   assert.match(builder, /oninput="onQuoteLineItemField\('[^']+','qty',this\.value\); updateQuoteBuilderTotals\(\);"/);
@@ -26,6 +48,11 @@ test('line breaks are preserved in admin previews and the customer quote', () =>
   assert.match(admin, /quote-preserve-lines/);
   assert.match(customerQuote, /\.item-description \{ white-space:pre-wrap/);
   assert.match(customerQuote, /<td class="item-description">\$\{escapeHtml\(it\.description\)\}<\/td>/);
+});
+
+test('customer quote presents Ask a question as an app action button', () => {
+  assert.match(customerQuote, /<button class="btn btn-outline" onclick="openQuestionModal\(\)">Ask a question<\/button>/);
+  assert.doesNotMatch(customerQuote, /btn btn-link" onclick="openQuestionModal/);
 });
 
 test('square-metre measurements calculate quantity and existing quote totals', () => {
@@ -58,7 +85,7 @@ test('linear-metre length populates quantity without applying width', () => {
 });
 
 test('live area input updates quantity and totals without rendering the editor', () => {
-  const handler = admin.slice(admin.indexOf('function onQuoteAreaMeasurement'), admin.indexOf('function autoGrowQuoteTextarea'));
+  const handler = admin.slice(admin.indexOf('function onQuoteAreaMeasurement'), admin.indexOf('function onQuoteRateCardPick'));
   assert.match(handler, /Math\.round\(li\.lengthM \* li\.widthM \* 10000\) \/ 10000/);
   assert.match(handler, /updateQuoteBuilderTotals\(\)/);
   assert.doesNotMatch(handler, /render\(/);
