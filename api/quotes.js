@@ -574,8 +574,12 @@ async function handleRemoveDraftQuote(req, res, supabase) {
   if (quote.current_status !== 'draft' || quote.job_id) {
     res.status(409).json({ error: 'Only an unissued draft quote can be removed.' }); return;
   }
-  const { data: version, error: vErr } = await supabase.from('quote_versions').select('id,status').eq('id', quote.current_version_id).maybeSingle();
-  if (vErr) throw vErr;
+  let version = null;
+  if (quote.current_version_id) {
+    const { data, error: vErr } = await supabase.from('quote_versions').select('id,status').eq('id', quote.current_version_id).maybeSingle();
+    if (vErr) throw vErr;
+    version = data;
+  }
   if (!version || version.status !== 'draft') {
     res.status(409).json({ error: 'Only an unissued draft quote can be removed.' }); return;
   }
