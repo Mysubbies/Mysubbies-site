@@ -440,6 +440,20 @@
   // server-side against ADMIN_PASSWORD and returns a signed, expiring
   // session token (see api/_lib/adminAuth.js) that every admin-only
   // endpoint now verifies before acting.
+  let adminHydrationStarted = false;
+  function startAdminWorkspace() {
+    document.body.classList.remove('logged-out');
+    // Paint the cached workspace immediately. Live data refreshes in the
+    // background instead of holding the entire portal behind the slowest
+    // of several independent API requests (especially noticeable on mobile).
+    render();
+    if (adminHydrationStarted) return;
+    adminHydrationStarted = true;
+    Promise.allSettled([
+      hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer(),
+      hydrateDisputesFromServer(), hydrateInquiriesFromServer(),
+    ]).then(() => render());
+  }
   async function checkAdminAuth() {
     try {
       const session = await fetch('/api/admin-account', {
@@ -447,8 +461,7 @@
         body: JSON.stringify({ action: 'session' }),
       });
       if (session.ok) {
-        document.body.classList.remove('logged-out');
-        Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer(), hydrateDisputesFromServer(), hydrateInquiriesFromServer()]).then(render);
+        startAdminWorkspace();
         return;
       }
     } catch (e) { /* show login below */ }
@@ -499,8 +512,7 @@
       const res = await fetch('/api/admin-account', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verifyMfa', challenge: window.adminMfaChallenge, code }) });
       const data = await res.json();
       if (!res.ok) { error.textContent = data.error || 'The authenticator code was not accepted.'; return; }
-      document.body.classList.remove('logged-out');
-      Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateRateCardFromServer(), hydrateDisputesFromServer(), hydrateInquiriesFromServer()]).then(render);
+      startAdminWorkspace();
     } catch (e) { error.textContent = 'Login failed — check your connection and try again.'; }
   }
   async function adminLogout() {
@@ -510,6 +522,7 @@
         body: JSON.stringify({ action: 'logout' }),
       });
     } catch (e) { /* still return to the login screen */ }
+    adminHydrationStarted = false;
     checkAdminAuth();
   }
   // Every admin-only API call goes through this instead of a bare fetch()
@@ -1727,7 +1740,7 @@
     if (tab === 'leads' && !leadsTabData && !leadsTabLoading) loadLeadsTab();
     if ((tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !quotesTabData && !quotesTabLoading) loadQuotesTab();
     if (tab === 'invoices' && !invoicesTabData && !invoicesTabLoading) loadInvoicesTab();
-    if (!staffListData && !staffListLoading) loadStaffList();
+    if (tab === 'quotes' && !staffListData && !staffListLoading) loadStaffList();
     if (tab === 'messages' && !messageThreadsData && !messageThreadsLoading) loadMessageThreads();
     if (tab === 'reports' && !contractorPayoutsData && !contractorPayoutsLoading) loadContractorPayouts();
     const paymentBadgeCount = paymentTabData ? (paymentTabData.disputedMilestones || []).length + (paymentTabData.pendingScheduleJobs || []).length : 0;
@@ -3607,10 +3620,17 @@
     } catch (e) { alert('Could not issue this quote — check your connection.'); }
   }
   async function resendQuoteEmail() {
-    if (!confirm('Send this quote to the customer\'s email again? A fresh link will be generated and the old one will stop working.')) return;
+    const quote = quoteDetailData && quoteDetailData.quote;
+    const version = quote && quote.currentVersion;
+    const currentEmail = (quote && quote.customer && quote.customer.email) || (version && version.customerSnapshot && version.customerSnapshot.email) || '';
+    const enteredEmail = prompt('Check the customer email before resending.\n\nEdit it below if this quote should be resent to a different address:', currentEmail);
+    if (enteredEmail === null) return;
+    const recipientEmail = enteredEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) { alert('Enter a valid customer email address.'); return; }
+    if (!confirm(`Resend Quote #${quote.quoteNumber} to ${recipientEmail}?\n\nA fresh secure link will be generated and the old link will stop working.`)) return;
     quoteEmailSending = true; render();
     try {
-      const res = await adminFetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send_quote_email', quoteId: selectedQuoteId }) });
+      const res = await adminFetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send_quote_email', quoteId: selectedQuoteId, recipientEmail }) });
       const data = await res.json();
       quoteEmailSending = false;
       if (!res.ok) { alert(data.error || 'Could not email this quote.'); render(); return; }
