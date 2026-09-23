@@ -50,6 +50,40 @@ test('admin can duplicate an existing quote into a separate editable draft', () 
   assert.match(admin, /Copied from Quote #\$\{d\.copiedFromQuoteNumber\}/);
 });
 
+test('admin can safely cancel, archive and restore quotes', () => {
+  assert.match(admin, /onclick="cancelSelectedQuote\(\)">Cancel quote<\/button>/);
+  assert.match(admin, /\['draft', 'sent'\]\.includes\(quote\.currentStatus\)/);
+  assert.match(admin, /onclick="setSelectedQuoteArchived\(/);
+  assert.match(admin, /Archived Quotes/);
+  assert.match(admin, /action: 'cancel_quote'/);
+  assert.match(admin, /action: archived \? 'archive_quote' : 'unarchive_quote'/);
+  assert.match(quoteApi, /if \(!\['draft', 'sent'\]\.includes\(quote\.current_status\)\)/);
+  assert.match(quoteApi, /eventType: 'cancelled'/);
+  assert.match(quoteApi, /eventType: archived \? 'archived' : 'unarchived'/);
+  assert.match(quoteApi, /const showArchived = archived === 'true'/);
+  assert.match(quoteApi, /document_access_tokens.*update\(\{ revoked_at: nowIso \}\)/s);
+});
+
+test('quote resend confirms and allows editing the recipient email', () => {
+  const resend = admin.slice(admin.indexOf('async function resendQuoteEmail()'), admin.indexOf('async function reviseSelectedQuote()'));
+  assert.match(resend, /prompt\('Check the customer email before resending/);
+  assert.match(resend, /const recipientEmail = enteredEmail\.trim\(\)\.toLowerCase\(\)/);
+  assert.match(resend, /Resend Quote #\$\{quote\.quoteNumber\} to \$\{recipientEmail\}/);
+  assert.match(resend, /quoteId: selectedQuoteId, recipientEmail/);
+  assert.match(quoteApi, /const \{ quoteId, recipientEmail \} = req\.body \|\| \{\}/);
+  assert.match(quoteApi, /const requestedEmail = String\(recipientEmail \|\| ''\)\.trim\(\)\.toLowerCase\(\)/);
+});
+
+test('admin portal paints immediately and hydrates live data in the background', () => {
+  const workspace = admin.slice(admin.indexOf('function startAdminWorkspace()'), admin.indexOf('async function checkAdminAuth()'));
+  assert.match(workspace, /render\(\);/);
+  assert.match(workspace, /Promise\.allSettled\(/);
+  assert.ok(workspace.indexOf('render();') < workspace.indexOf('Promise.allSettled('));
+  const auth = admin.slice(admin.indexOf('async function checkAdminAuth()'), admin.indexOf('async function adminLogout()'));
+  assert.doesNotMatch(auth, /Promise\.all\(\[hydrateJobsFromServer\(\), hydrateApplicationsFromServer\(\)/);
+  assert.match(admin, /if \(tab === 'quotes' && !staffListData && !staffListLoading\) loadStaffList\(\)/);
+});
+
 test('normal quote typing updates state and totals without replacing the editor DOM', () => {
   const builder = admin.slice(admin.indexOf('function renderQuoteBuilder()'), admin.indexOf('function renderQuoteBuilderPreview()'));
   assert.match(builder, /oninput="onQuoteLineItemField\('[^']+','qty',this\.value\); updateQuoteBuilderTotals\(\);"/);
