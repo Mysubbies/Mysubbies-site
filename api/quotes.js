@@ -588,7 +588,14 @@ async function handleRemoveDraftQuote(req, res, supabase) {
   if ((invoices || []).length) {
     res.status(409).json({ error: 'A quote linked to an invoice cannot be removed.' }); return;
   }
-  await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version && version.id, eventType: 'draft_removed', actorRole: 'admin' });
+  const { error: removeErr } = await supabase.from('quote_events').insert({
+    quote_id: quote.id,
+    quote_version_id: version && version.id || null,
+    event_type: 'archived',
+    actor_role: 'admin',
+    payload: { removedDraft: true },
+  });
+  if (removeErr) throw removeErr;
   res.status(200).json({ ok: true });
 }
 
@@ -817,7 +824,7 @@ module.exports = async (req, res) => {
           if (!paymentsByInvoice.has(payment.invoice_id)) paymentsByInvoice.set(payment.invoice_id, []);
           paymentsByInvoice.get(payment.invoice_id).push(payment);
         });
-        if ((events || []).some(ev => ev.event_type === 'draft_removed')) {
+        if ((events || []).some(ev => ev.event_type === 'archived' && ev.payload && ev.payload.removedDraft === true)) {
           res.status(404).json({ error: 'This draft quote has been removed.' }); return;
         }
         const latestArchiveEvent = (events || []).slice().reverse().find(ev => ['archived', 'unarchived'].includes(ev.event_type));
@@ -854,7 +861,7 @@ module.exports = async (req, res) => {
       const customerById = new Map((customers || []).map(c => [c.id, c]));
       const quoteIds = (quoteRows || []).map(row => row.id);
       const [{ data: recentEvents }, { data: openQuestions }] = quoteIds.length ? await Promise.all([
-        supabase.from('quote_events').select('quote_id, event_type, created_at').in('quote_id', quoteIds).order('created_at', { ascending: false }),
+        supabase.from('quote_events').select('quote_id, event_type, created_at, payload').in('quote_id', quoteIds).order('created_at', { ascending: false }),
         supabase.from('inquiries').select('quote_id').in('quote_id', quoteIds).eq('status', 'open'),
       ]) : [{ data: [] }, { data: [] }];
       const activityByQuote = new Map();
@@ -866,7 +873,7 @@ module.exports = async (req, res) => {
         if (!activity.lastActivityAt) activity.lastActivityAt = event.created_at;
         activityByQuote.set(event.quote_id, activity);
         if (event.event_type === 'cancelled') cancelledQuoteIds.add(event.quote_id);
-        if (event.event_type === 'draft_removed') removedDraftIds.add(event.quote_id);
+        if (event.event_type === 'archived' && event.payload && event.payload.removedDraft === true) removedDraftIds.add(event.quote_id);
         if (!archiveStateByQuote.has(event.quote_id) && ['archived', 'unarchived'].includes(event.event_type)) {
           archiveStateByQuote.set(event.quote_id, event.event_type === 'archived');
         }
