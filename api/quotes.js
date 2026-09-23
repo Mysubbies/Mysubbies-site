@@ -576,7 +576,7 @@ async function handleQuoteArchive(req, res, supabase, archived) {
 // the "same" link is never actually possible anyway -- a fresh one every
 // time is simplest, not just secure.
 async function handleSendQuoteEmail(req, res, supabase) {
-  const { quoteId } = req.body || {};
+  const { quoteId, recipientEmail } = req.body || {};
   if (!quoteId) { res.status(400).json({ error: 'quoteId is required.' }); return; }
   const { data: quote, error: qErr } = await supabase.from('quotes').select('*').eq('id', quoteId).maybeSingle();
   if (qErr) throw qErr;
@@ -584,7 +584,11 @@ async function handleSendQuoteEmail(req, res, supabase) {
   const { data: version, error: vErr } = await supabase.from('quote_versions').select('*').eq('id', quote.current_version_id).maybeSingle();
   if (vErr) throw vErr;
   if (!version || version.status !== 'issued') { res.status(409).json({ error: 'This quote must be issued before it can be emailed.' }); return; }
-  const customerEmail = (version.customer_snapshot && version.customer_snapshot.email) || null;
+  const requestedEmail = String(recipientEmail || '').trim().toLowerCase();
+  if (requestedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(requestedEmail)) {
+    res.status(400).json({ error: 'Enter a valid customer email address.' }); return;
+  }
+  const customerEmail = requestedEmail || (version.customer_snapshot && version.customer_snapshot.email) || null;
   if (!customerEmail) { res.status(400).json({ error: 'This quote has no customer email on file.' }); return; }
 
   const nowIso = new Date().toISOString();
