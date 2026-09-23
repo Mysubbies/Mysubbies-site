@@ -50,6 +50,20 @@ test('admin can duplicate an existing quote into a separate editable draft', () 
   assert.match(admin, /Copied from Quote #\$\{d\.copiedFromQuoteNumber\}/);
 });
 
+test('admin can safely cancel, archive and restore quotes', () => {
+  assert.match(admin, /onclick="cancelSelectedQuote\(\)">Cancel quote<\/button>/);
+  assert.match(admin, /\['draft', 'sent'\]\.includes\(quote\.currentStatus\)/);
+  assert.match(admin, /onclick="setSelectedQuoteArchived\(/);
+  assert.match(admin, /Archived Quotes/);
+  assert.match(admin, /action: 'cancel_quote'/);
+  assert.match(admin, /action: archived \? 'archive_quote' : 'unarchive_quote'/);
+  assert.match(quoteApi, /if \(!\['draft', 'sent'\]\.includes\(quote\.current_status\)\)/);
+  assert.match(quoteApi, /eventType: 'cancelled'/);
+  assert.match(quoteApi, /eventType: archived \? 'archived' : 'unarchived'/);
+  assert.match(quoteApi, /const showArchived = archived === 'true'/);
+  assert.match(quoteApi, /document_access_tokens.*update\(\{ revoked_at: nowIso \}\)/s);
+});
+
 test('normal quote typing updates state and totals without replacing the editor DOM', () => {
   const builder = admin.slice(admin.indexOf('function renderQuoteBuilder()'), admin.indexOf('function renderQuoteBuilderPreview()'));
   assert.match(builder, /oninput="onQuoteLineItemField\('[^']+','qty',this\.value\); updateQuoteBuilderTotals\(\);"/);
