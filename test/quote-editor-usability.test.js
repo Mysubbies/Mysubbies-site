@@ -64,6 +64,18 @@ test('admin can safely cancel, archive and restore quotes', () => {
   assert.match(quoteApi, /document_access_tokens.*update\(\{ revoked_at: nowIso \}\)/s);
 });
 
+test('admin can remove only unissued draft quotes with explicit confirmation', () => {
+  assert.match(admin, /quote\.currentStatus === 'draft' && v\.status === 'draft'/);
+  assert.match(admin, /onclick="removeSelectedDraftQuote\(\)">Delete draft<\/button>/);
+  assert.match(admin, /Type DELETE to continue/);
+  assert.match(admin, /if \(confirmation !== 'DELETE'\) return/);
+  assert.match(admin, /action: 'remove_draft_quote'/);
+  assert.match(quoteApi, /quote\.current_status !== 'draft' \|\| quote\.job_id/);
+  assert.match(quoteApi, /version\.status !== 'draft'/);
+  assert.match(quoteApi, /eventType: 'draft_removed'/);
+  assert.match(quoteApi, /!removedDraftIds\.has\(row\.id\)/);
+});
+
 test('quote resend confirms and allows editing the recipient email', () => {
   const resend = admin.slice(admin.indexOf('async function resendQuoteEmail()'), admin.indexOf('async function reviseSelectedQuote()'));
   assert.match(resend, /prompt\('Check the customer email before resending/);
