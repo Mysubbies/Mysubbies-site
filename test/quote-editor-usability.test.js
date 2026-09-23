@@ -37,6 +37,19 @@ test('quote list and detail views use mobile card layouts instead of wide tables
   assert.match(admin, /\.quote-detail-actions \{ display:grid; grid-template-columns:1fr 1fr; \}/);
 });
 
+test('admin can duplicate an existing quote into a separate editable draft', () => {
+  assert.match(admin, /onclick="duplicateSelectedQuote\(\)">⧉ Duplicate as new quote<\/button>/);
+  const duplicate = admin.slice(admin.indexOf('function duplicateSelectedQuote()'), admin.indexOf('function renderQuoteDetailView()'));
+  assert.match(duplicate, /quoteId: null/);
+  assert.match(duplicate, /copiedFromQuoteNumber: quote\.quoteNumber/);
+  assert.match(duplicate, /customerId: quote\.customerId \|\| null/);
+  assert.match(duplicate, /lineItems: .*\.map\(li => \(\{ \.\.\.li, id: 'li_' \+ Math\.random/);
+  assert.match(duplicate, /scopeText: v\.scopeText \|\| ''/);
+  assert.match(duplicate, /paymentTermsText: v\.paymentTermsText \|\| ''/);
+  assert.match(duplicate, /propertyPostcode: .*propertySnapshot\.postcode/);
+  assert.match(admin, /Copied from Quote #\$\{d\.copiedFromQuoteNumber\}/);
+});
+
 test('normal quote typing updates state and totals without replacing the editor DOM', () => {
   const builder = admin.slice(admin.indexOf('function renderQuoteBuilder()'), admin.indexOf('function renderQuoteBuilderPreview()'));
   assert.match(builder, /oninput="onQuoteLineItemField\('[^']+','qty',this\.value\); updateQuoteBuilderTotals\(\);"/);
