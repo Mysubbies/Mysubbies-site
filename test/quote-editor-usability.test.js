@@ -64,6 +64,29 @@ test('admin can safely cancel, archive and restore quotes', () => {
   assert.match(quoteApi, /document_access_tokens.*update\(\{ revoked_at: nowIso \}\)/s);
 });
 
+test('admin can remove only unissued draft quotes with explicit confirmation', () => {
+  assert.match(admin, /quote\.currentStatus === 'draft'/);
+  assert.match(admin, /onclick="removeSelectedDraftQuote\(\)">Delete draft<\/button>/);
+  assert.match(admin, /Type DELETE to continue/);
+  assert.match(admin, /if \(confirmation !== 'DELETE'\) return/);
+  assert.match(admin, /action: 'remove_draft_quote'/);
+  assert.match(quoteApi, /quote\.current_status !== 'draft' \|\| quote\.job_id/);
+  assert.match(quoteApi, /version && version\.status !== 'draft'/);
+  assert.match(quoteApi, /if \(quote\.current_version_id\)/);\n  assert.match(admin, /This incomplete draft has no quote details saved/);
+  assert.match(quoteApi, /event_type: 'archived'/);
+  assert.match(quoteApi, /removedDraft: true/);
+  assert.match(quoteApi, /!removedDraftIds\.has\(row\.id\)/);
+});
+
+test('quotes and invoices have explicit admin search controls', () => {
+  assert.match(admin, /placeholder="Search quote, customer, email or status/);
+  assert.match(admin, /onclick="applyQuoteSearch\(\)">Search/);
+  assert.match(admin, /placeholder="Search invoice, quote, customer, email or status/);
+  assert.match(admin, /onclick="applyInvoiceSearch\(\)">Search/);
+  assert.match(admin, /No quotes match your search/);
+  assert.match(admin, /No invoices match your search/);
+});
+
 test('quote resend confirms and allows editing the recipient email', () => {
   const resend = admin.slice(admin.indexOf('async function resendQuoteEmail()'), admin.indexOf('async function reviseSelectedQuote()'));
   assert.match(resend, /prompt\('Check the customer email before resending/);

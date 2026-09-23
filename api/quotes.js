@@ -434,7 +434,7 @@ async function handleUpdateDraft(req, res, supabase) {
   if (!quote) { res.status(404).json({ error: 'Quote not found.' }); return; }
   const { data: version, error: vErr } = await supabase.from('quote_versions').select('*').eq('id', quote.current_version_id).maybeSingle();
   if (vErr) throw vErr;
-  if (!version || version.status !== 'draft') {
+  if (version && version.status !== 'draft') {
     res.status(409).json({ error: "Only a draft version can be edited -- use 'revise' to create a new version." });
     return;
   }
@@ -563,6 +563,40 @@ async function handleQuoteArchive(req, res, supabase, archived) {
     actorRole: 'admin',
   });
   res.status(200).json({ ok: true, archived });
+}
+
+async function handleRemoveDraftQuote(req, res, supabase) {
+  const { quoteId } = req.body || {};
+  if (!quoteId) { res.status(400).json({ error: 'quoteId is required.' }); return; }
+  const { data: quote, error: qErr } = await supabase.from('quotes').select('*').eq('id', quoteId).maybeSingle();
+  if (qErr) throw qErr;
+  if (!quote) { res.status(404).json({ error: 'Quote not found.' }); return; }
+  if (quote.current_status !== 'draft' || quote.job_id) {
+    res.status(409).json({ error: 'Only an unissued draft quote can be removed.' }); return;
+  }
+  let version = null;
+  if (quote.current_version_id) {
+    const { data, error: vErr } = await supabase.from('quote_versions').select('id,status').eq('id', quote.current_version_id).maybeSingle();
+    if (vErr) throw vErr;
+    version = data;
+  }
+  if (!version || version.status !== 'draft') {
+    res.status(409).json({ error: 'Only an unissued draft quote can be removed.' }); return;
+  }
+  const { data: invoices, error: invoiceErr } = await supabase.from('invoices').select('id').eq('quote_id', quote.id).limit(1);
+  if (invoiceErr) throw invoiceErr;
+  if ((invoices || []).length) {
+    res.status(409).json({ error: 'A quote linked to an invoice cannot be removed.' }); return;
+  }
+  const { error: removeErr } = await supabase.from('quote_events').insert({
+    quote_id: quote.id,
+    quote_version_id: version && version.id || null,
+    event_type: 'archived',
+    actor_role: 'admin',
+    payload: { removedDraft: true },
+  });
+  if (removeErr) throw removeErr;
+  res.status(200).json({ ok: true });
 }
 
 // Email the quote directly (Sep 2026, founder feedback: generating a link
@@ -790,6 +824,9 @@ module.exports = async (req, res) => {
           if (!paymentsByInvoice.has(payment.invoice_id)) paymentsByInvoice.set(payment.invoice_id, []);
           paymentsByInvoice.get(payment.invoice_id).push(payment);
         });
+        if ((events || []).some(ev => ev.event_type === 'archived' && ev.payload && ev.payload.removedDraft === true)) {
+          res.status(404).json({ error: 'This draft quote has been removed.' }); return;
+        }
         const latestArchiveEvent = (events || []).slice().reverse().find(ev => ['archived', 'unarchived'].includes(ev.event_type));
         const wasCancelled = (events || []).some(ev => ev.event_type === 'cancelled');
         res.status(200).json({
@@ -824,17 +861,19 @@ module.exports = async (req, res) => {
       const customerById = new Map((customers || []).map(c => [c.id, c]));
       const quoteIds = (quoteRows || []).map(row => row.id);
       const [{ data: recentEvents }, { data: openQuestions }] = quoteIds.length ? await Promise.all([
-        supabase.from('quote_events').select('quote_id, event_type, created_at').in('quote_id', quoteIds).order('created_at', { ascending: false }),
+        supabase.from('quote_events').select('quote_id, event_type, created_at, payload').in('quote_id', quoteIds).order('created_at', { ascending: false }),
         supabase.from('inquiries').select('quote_id').in('quote_id', quoteIds).eq('status', 'open'),
       ]) : [{ data: [] }, { data: [] }];
       const activityByQuote = new Map();
       const archiveStateByQuote = new Map();
       const cancelledQuoteIds = new Set();
+      const removedDraftIds = new Set();
       for (const event of recentEvents || []) {
         const activity = activityByQuote.get(event.quote_id) || { questionCount: 0, lastActivityAt: null };
         if (!activity.lastActivityAt) activity.lastActivityAt = event.created_at;
         activityByQuote.set(event.quote_id, activity);
         if (event.event_type === 'cancelled') cancelledQuoteIds.add(event.quote_id);
+        if (event.event_type === 'archived' && event.payload && event.payload.removedDraft === true) removedDraftIds.add(event.quote_id);
         if (!archiveStateByQuote.has(event.quote_id) && ['archived', 'unarchived'].includes(event.event_type)) {
           archiveStateByQuote.set(event.quote_id, event.event_type === 'archived');
         }
@@ -845,7 +884,7 @@ module.exports = async (req, res) => {
         activityByQuote.set(inquiry.quote_id, activity);
       }
       const showArchived = archived === 'true';
-      const visibleQuotes = (quoteRows || []).filter(row => (archiveStateByQuote.get(row.id) === true) === showArchived);
+      const visibleQuotes = (quoteRows || []).filter(row => !removedDraftIds.has(row.id) && (archiveStateByQuote.get(row.id) === true) === showArchived);
       res.status(200).json({
         quotes: visibleQuotes.map(q2 => ({
           ...serializeQuoteAdmin(q2, versionById.get(q2.current_version_id) || null, customerById.get(q2.customer_id) || null),
@@ -921,6 +960,7 @@ module.exports = async (req, res) => {
       if (action === 'cancel_quote') { await handleCancelQuote(req, res, supabase); return; }
       if (action === 'archive_quote') { await handleQuoteArchive(req, res, supabase, true); return; }
       if (action === 'unarchive_quote') { await handleQuoteArchive(req, res, supabase, false); return; }
+      if (action === 'remove_draft_quote') { await handleRemoveDraftQuote(req, res, supabase); return; }
       if (action === 'send_quote_email') { await handleSendQuoteEmail(req, res, supabase); return; }
       if (action === 'create_invoice') { await handleCreateInvoice(req, res, supabase); return; }
       if (action === 'send_invoice') { await handleSendInvoice(req, res, supabase); return; }
