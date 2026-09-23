@@ -565,6 +565,29 @@ async function handleQuoteArchive(req, res, supabase, archived) {
   res.status(200).json({ ok: true, archived });
 }
 
+async function handleRemoveDraftQuote(req, res, supabase) {
+  const { quoteId } = req.body || {};
+  if (!quoteId) { res.status(400).json({ error: 'quoteId is required.' }); return; }
+  const { data: quote, error: qErr } = await supabase.from('quotes').select('*').eq('id', quoteId).maybeSingle();
+  if (qErr) throw qErr;
+  if (!quote) { res.status(404).json({ error: 'Quote not found.' }); return; }
+  if (quote.current_status !== 'draft' || quote.job_id) {
+    res.status(409).json({ error: 'Only an unissued draft quote can be removed.' }); return;
+  }
+  const { data: version, error: vErr } = await supabase.from('quote_versions').select('id,status').eq('id', quote.current_version_id).maybeSingle();
+  if (vErr) throw vErr;
+  if (!version || version.status !== 'draft') {
+    res.status(409).json({ error: 'Only an unissued draft quote can be removed.' }); return;
+  }
+  const { data: invoices, error: invoiceErr } = await supabase.from('invoices').select('id').eq('quote_id', quote.id).limit(1);
+  if (invoiceErr) throw invoiceErr;
+  if ((invoices || []).length) {
+    res.status(409).json({ error: 'A quote linked to an invoice cannot be removed.' }); return;
+  }
+  await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'draft_removed', actorRole: 'admin' });
+  res.status(200).json({ ok: true });
+}
+
 // Email the quote directly (Sep 2026, founder feedback: generating a link
 // to copy/forward manually was an extra, unnecessary step). Always issues
 // a FRESH token when (re)sending -- revokes whatever was active first, so
@@ -790,6 +813,9 @@ module.exports = async (req, res) => {
           if (!paymentsByInvoice.has(payment.invoice_id)) paymentsByInvoice.set(payment.invoice_id, []);
           paymentsByInvoice.get(payment.invoice_id).push(payment);
         });
+        if ((events || []).some(ev => ev.event_type === 'draft_removed')) {
+          res.status(404).json({ error: 'This draft quote has been removed.' }); return;
+        }
         const latestArchiveEvent = (events || []).slice().reverse().find(ev => ['archived', 'unarchived'].includes(ev.event_type));
         const wasCancelled = (events || []).some(ev => ev.event_type === 'cancelled');
         res.status(200).json({
@@ -830,11 +856,13 @@ module.exports = async (req, res) => {
       const activityByQuote = new Map();
       const archiveStateByQuote = new Map();
       const cancelledQuoteIds = new Set();
+      const removedDraftIds = new Set();
       for (const event of recentEvents || []) {
         const activity = activityByQuote.get(event.quote_id) || { questionCount: 0, lastActivityAt: null };
         if (!activity.lastActivityAt) activity.lastActivityAt = event.created_at;
         activityByQuote.set(event.quote_id, activity);
         if (event.event_type === 'cancelled') cancelledQuoteIds.add(event.quote_id);
+        if (event.event_type === 'draft_removed') removedDraftIds.add(event.quote_id);
         if (!archiveStateByQuote.has(event.quote_id) && ['archived', 'unarchived'].includes(event.event_type)) {
           archiveStateByQuote.set(event.quote_id, event.event_type === 'archived');
         }
@@ -845,7 +873,7 @@ module.exports = async (req, res) => {
         activityByQuote.set(inquiry.quote_id, activity);
       }
       const showArchived = archived === 'true';
-      const visibleQuotes = (quoteRows || []).filter(row => (archiveStateByQuote.get(row.id) === true) === showArchived);
+      const visibleQuotes = (quoteRows || []).filter(row => !removedDraftIds.has(row.id) && (archiveStateByQuote.get(row.id) === true) === showArchived);
       res.status(200).json({
         quotes: visibleQuotes.map(q2 => ({
           ...serializeQuoteAdmin(q2, versionById.get(q2.current_version_id) || null, customerById.get(q2.customer_id) || null),
@@ -921,6 +949,7 @@ module.exports = async (req, res) => {
       if (action === 'cancel_quote') { await handleCancelQuote(req, res, supabase); return; }
       if (action === 'archive_quote') { await handleQuoteArchive(req, res, supabase, true); return; }
       if (action === 'unarchive_quote') { await handleQuoteArchive(req, res, supabase, false); return; }
+      if (action === 'remove_draft_quote') { await handleRemoveDraftQuote(req, res, supabase); return; }
       if (action === 'send_quote_email') { await handleSendQuoteEmail(req, res, supabase); return; }
       if (action === 'create_invoice') { await handleCreateInvoice(req, res, supabase); return; }
       if (action === 'send_invoice') { await handleSendInvoice(req, res, supabase); return; }
