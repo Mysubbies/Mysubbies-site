@@ -3684,6 +3684,22 @@
       await loadQuotesTab();
     } catch (e) { alert(`Could not ${verb.toLowerCase()} this quote — check your connection.`); }
   }
+  async function removeSelectedDraftQuote() {
+    const quote = quoteDetailData && quoteDetailData.quote;
+    if (!quote) return;
+    const confirmation = prompt(`Permanently remove draft Quote #${quote.quoteNumber} from the admin portal?\n\nThis is only allowed before the quote has been issued. Type DELETE to continue:`);
+    if (confirmation !== 'DELETE') return;
+    try {
+      const res = await adminFetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'remove_draft_quote', quoteId: selectedQuoteId }) });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Could not remove this draft quote.'); return; }
+      selectedQuoteId = null;
+      quoteDetailData = null;
+      quotesTabData = null;
+      await loadQuotesTab();
+      alert('Draft quote removed.');
+    } catch (e) { alert('Could not remove this draft quote — check your connection.'); }
+  }
   function showQuoteArchive(archived) {
     quoteArchiveView = archived;
     selectedQuoteId = null;
@@ -3802,6 +3818,7 @@
             <button class="btn btn-outline" onclick="duplicateSelectedQuote()">⧉ Duplicate as new quote</button>
             ${['draft', 'sent'].includes(quote.currentStatus) ? `<button class="btn btn-danger" onclick="cancelSelectedQuote()">Cancel quote</button>` : ''}
             <button class="btn btn-outline" onclick="setSelectedQuoteArchived(${quote.archived ? 'false' : 'true'})">${quote.archived ? 'Restore from archive' : 'Archive quote'}</button>
+            ${quote.currentStatus === 'draft' && v.status === 'draft' ? `<button class="btn btn-danger" onclick="removeSelectedDraftQuote()">Delete draft</button>` : ''}
             ${quote.currentStatus === 'accepted' ? (quote.jobId ? `<button class="btn btn-black" onclick="openLinkedQuoteJob('${quote.jobId}')">View portal job ${escapeHtml(quote.jobId)} →</button>` : `<button class="btn btn-black" onclick="pushSelectedQuoteToPortal()">Push to Portal →</button>`) : ''}
             ${quote.currentStatus === 'accepted' ? `<button class="btn btn-black" onclick="openInvoiceBuilder()">＋ Create invoice</button>` : ''}
             ${v.status === 'draft' ? `
