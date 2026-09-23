@@ -3069,13 +3069,13 @@
     return { id: 'li_' + Math.random().toString(36).slice(2), rateCardItemId: null, description: '', qty: 1, unit: '', unitPriceCents: 0, taxTreatment: 'gst_inclusive_10', lengthM: null, widthM: null, calculatedAreaM2: null };
   }
   function openNewQuoteBuilder() {
-    quoteBuilderDraft = { quoteId: null, customerId: null, customerEmail: '', customerName: '', customerPhone: '', assignedStaffId: '', lineItems: [blankLineItem()], scopeText: '', inclusionsText: '', exclusionsText: '', paymentTermsText: '', validityDays: 30, propertyAddress: '', propertySuburb: '' };
+    quoteBuilderDraft = { quoteId: null, customerId: null, customerEmail: '', customerName: '', customerPhone: '', assignedStaffId: '', lineItems: [blankLineItem()], scopeText: '', inclusionsText: '', exclusionsText: '', paymentTermsText: '', validityDays: 30, propertyAddress: '', propertySuburb: '', propertyPostcode: '' };
     quoteBuilderOpen = true; selectedQuoteId = null; quoteIssuedLink = null;
     render();
   }
   function openQuoteBuilderForCustomer(email, customerId) {
     const c = (customersTabData && customersTabData.rows || []).find(x => x.email === email);
-    quoteBuilderDraft = { quoteId: null, customerId: customerId || (c && c.id) || null, customerEmail: email, customerName: (c && c.name) || '', customerPhone: (c && c.phone) || '', assignedStaffId: '', lineItems: [blankLineItem()], scopeText: '', inclusionsText: '', exclusionsText: '', paymentTermsText: '', validityDays: 30, propertyAddress: '', propertySuburb: '' };
+    quoteBuilderDraft = { quoteId: null, customerId: customerId || (c && c.id) || null, customerEmail: email, customerName: (c && c.name) || '', customerPhone: (c && c.phone) || '', assignedStaffId: '', lineItems: [blankLineItem()], scopeText: '', inclusionsText: '', exclusionsText: '', paymentTermsText: '', validityDays: 30, propertyAddress: '', propertySuburb: '', propertyPostcode: '' };
     quoteBuilderOpen = true; selectedQuoteId = null; quoteIssuedLink = null;
     tab = 'quotes';
     render();
@@ -3271,7 +3271,7 @@
       scopeText: d.scopeText, inclusionsText: d.inclusionsText, exclusionsText: d.exclusionsText,
       paymentTermsText: d.paymentTermsText,
       validityDays: Number(d.validityDays) || 30,
-      propertySnapshot: (d.propertyAddress || d.propertySuburb) ? { address: d.propertyAddress, suburb: d.propertySuburb } : null,
+      propertySnapshot: (d.propertyAddress || d.propertySuburb || d.propertyPostcode) ? { address: d.propertyAddress, suburb: d.propertySuburb, postcode: d.propertyPostcode } : null,
     };
     try {
       const res = await adminFetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -3315,7 +3315,7 @@
     const rateCard = getRateCard();
     return `
       <div class="quote-builder-head">
-        <div><button class="backbtn" onclick="closeQuoteBuilder()">← Back to quotes</button><h1 class="pagetitle" style="margin-bottom:4px;">${d.quoteId ? 'Edit quote draft' : 'Create quote'}</h1><p class="pagesub">Build a clear, professional quote your customer can review securely.</p></div>
+        <div><button class="backbtn" onclick="closeQuoteBuilder()">← Back to quotes</button><h1 class="pagetitle" style="margin-bottom:4px;">${d.quoteId ? 'Edit quote draft' : 'Create quote'}</h1><p class="pagesub">${d.copiedFromQuoteNumber ? `Copied from Quote #${d.copiedFromQuoteNumber}. Review and edit every detail before saving the new draft.` : 'Build a clear, professional quote your customer can review securely.'}</p></div>
         <span class="badge badge-feed">Draft</span>
       </div>
       <div class="quote-workflow" aria-label="Quote workflow">
@@ -3346,9 +3346,10 @@
 
       <div class="quote-card">
         <h2 style="font-size:14px;margin-bottom:10px;">Property (optional)</h2>
-        <div class="quote-property-grid" style="display:grid;grid-template-columns:2fr 1fr;gap:10px;">
+        <div class="quote-property-grid" style="display:grid;grid-template-columns:2fr 1fr 0.7fr;gap:10px;">
           <div><label class="fieldlabel">Address</label><input class="fieldinput" value="${escapeHtml(d.propertyAddress)}" oninput="quoteBuilderDraft.propertyAddress=this.value" /></div>
           <div><label class="fieldlabel">Suburb</label><input class="fieldinput" value="${escapeHtml(d.propertySuburb)}" oninput="quoteBuilderDraft.propertySuburb=this.value" /></div>
+          <div><label class="fieldlabel">Postcode</label><input class="fieldinput" inputmode="numeric" value="${escapeHtml(d.propertyPostcode || '')}" oninput="quoteBuilderDraft.propertyPostcode=this.value" /></div>
         </div>
       </div>
 
@@ -3681,9 +3682,38 @@
       scopeText: v.scopeText || '', inclusionsText: v.inclusionsText || '', exclusionsText: v.exclusionsText || '',
       paymentTermsText: v.paymentTermsText || '',
       validityDays: v.validityDays || 30,
-      propertyAddress: (v.propertySnapshot && v.propertySnapshot.address) || '', propertySuburb: (v.propertySnapshot && v.propertySnapshot.suburb) || '',
+      propertyAddress: (v.propertySnapshot && v.propertySnapshot.address) || '', propertySuburb: (v.propertySnapshot && v.propertySnapshot.suburb) || '', propertyPostcode: (v.propertySnapshot && v.propertySnapshot.postcode) || '',
     };
     quoteBuilderOpen = true; selectedQuoteId = null;
+    render();
+  }
+
+  function duplicateSelectedQuote() {
+    if (!quoteDetailData || !quoteDetailData.quote || !quoteDetailData.quote.currentVersion) return;
+    const { quote } = quoteDetailData;
+    const v = quote.currentVersion;
+    quoteBuilderDraft = {
+      quoteId: null,
+      copiedFromQuoteNumber: quote.quoteNumber,
+      customerId: quote.customerId || null,
+      customerEmail: (quote.customer && quote.customer.email) || (v.customerSnapshot && v.customerSnapshot.email) || '',
+      customerName: (quote.customer && quote.customer.name) || (v.customerSnapshot && v.customerSnapshot.name) || '',
+      customerPhone: (quote.customer && (quote.customer.phone || quote.customer.mobile)) || (v.customerSnapshot && (v.customerSnapshot.phone || v.customerSnapshot.mobile)) || '',
+      assignedStaffId: quote.assignedStaffId || '',
+      lineItems: (v.lineItems && v.lineItems.length ? v.lineItems : [blankLineItem()]).map(li => ({ ...li, id: 'li_' + Math.random().toString(36).slice(2) })),
+      scopeText: v.scopeText || '',
+      inclusionsText: v.inclusionsText || '',
+      exclusionsText: v.exclusionsText || '',
+      paymentTermsText: v.paymentTermsText || '',
+      validityDays: v.validityDays || 30,
+      propertyAddress: (v.propertySnapshot && v.propertySnapshot.address) || '',
+      propertySuburb: (v.propertySnapshot && v.propertySnapshot.suburb) || '',
+      propertyPostcode: (v.propertySnapshot && v.propertySnapshot.postcode) || '',
+    };
+    quoteBuilderOpen = true;
+    selectedQuoteId = null;
+    quoteIssuedLink = null;
+    quoteBuilderPreviewOpen = false;
     render();
   }
 
@@ -3715,6 +3745,7 @@
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-weight:800;font-size:15px;"><span>Total</span><span>${fmtCents(v.totalIncGstCents)}</span></div>
           </div>
           <div class="quote-detail-actions">
+            <button class="btn btn-outline" onclick="duplicateSelectedQuote()">⧉ Duplicate as new quote</button>
             ${quote.currentStatus === 'accepted' ? (quote.jobId ? `<button class="btn btn-black" onclick="openLinkedQuoteJob('${quote.jobId}')">View portal job ${escapeHtml(quote.jobId)} →</button>` : `<button class="btn btn-black" onclick="pushSelectedQuoteToPortal()">Push to Portal →</button>`) : ''}
             ${quote.currentStatus === 'accepted' ? `<button class="btn btn-black" onclick="openInvoiceBuilder()">＋ Create invoice</button>` : ''}
             ${v.status === 'draft' ? `
