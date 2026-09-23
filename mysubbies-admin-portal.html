@@ -2977,6 +2977,7 @@
   // ============================================================
   let quotesTabData = null;
   let quotesTabLoading = false;
+  let quoteArchiveView = false;
   let staffListData = null;
   let staffListLoading = false;
   let selectedQuoteId = null;
@@ -2996,7 +2997,7 @@
   async function loadQuotesTab() {
     quotesTabLoading = true;
     try {
-      const res = await adminFetch('/api/quotes?action=list');
+      const res = await adminFetch(`/api/quotes?action=list&archived=${quoteArchiveView ? 'true' : 'false'}`);
       const body = await res.json();
       quotesTabData = res.ok ? { rows: body.quotes || [] } : { error: body.error || 'Could not load quotes.' };
     } catch (e) { quotesTabData = { error: 'Could not load quotes.' }; }
@@ -3024,7 +3025,7 @@
     render();
   }
   function quoteStatusBadgeClass(status) {
-    return { draft: 'badge-feed', sent: 'badge-assigned', accepted: 'badge-completed', declined: 'badge-rejected', expired: 'badge-rejected', withdrawn: 'badge-rejected' }[status] || 'badge-feed';
+    return { draft: 'badge-feed', sent: 'badge-assigned', accepted: 'badge-completed', declined: 'badge-rejected', expired: 'badge-rejected', withdrawn: 'badge-rejected', cancelled: 'badge-rejected' }[status] || 'badge-feed';
   }
   function invoiceStatusBadgeClass(status) {
     return { paid: 'badge-completed', part_paid: 'badge-assigned', sent: 'badge-assigned', issued: 'badge-feed', draft: 'badge-feed', void: 'badge-rejected' }[status] || 'badge-feed';
@@ -3637,6 +3638,39 @@
       await openQuoteDetail(selectedQuoteId);
     } catch (e) { alert('Could not withdraw this quote — check your connection.'); }
   }
+  async function cancelSelectedQuote() {
+    if (!confirm('Cancel this quote?\n\nThe customer link will stop working. The quote will remain in your records and can then be archived.')) return;
+    try {
+      const res = await adminFetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cancel_quote', quoteId: selectedQuoteId }) });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Could not cancel this quote.'); return; }
+      quotesTabData = null;
+      await openQuoteDetail(selectedQuoteId);
+    } catch (e) { alert('Could not cancel this quote — check your connection.'); }
+  }
+  async function setSelectedQuoteArchived(archived) {
+    const verb = archived ? 'Archive' : 'Restore';
+    const message = archived
+      ? 'Archive this quote?\n\nIt will be hidden from the active quote list. No quote, invoice, payment or activity history will be deleted.'
+      : 'Restore this quote to the active quote list?';
+    if (!confirm(message)) return;
+    try {
+      const res = await adminFetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: archived ? 'archive_quote' : 'unarchive_quote', quoteId: selectedQuoteId }) });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || `Could not ${verb.toLowerCase()} this quote.`); return; }
+      selectedQuoteId = null;
+      quoteDetailData = null;
+      quotesTabData = null;
+      await loadQuotesTab();
+    } catch (e) { alert(`Could not ${verb.toLowerCase()} this quote — check your connection.`); }
+  }
+  function showQuoteArchive(archived) {
+    quoteArchiveView = archived;
+    selectedQuoteId = null;
+    quoteDetailData = null;
+    quotesTabData = null;
+    loadQuotesTab();
+  }
   async function pushSelectedQuoteToPortal() {
     if (!confirm('Push this accepted quote to the MySubbies portal?\n\nThis will create the operational job and make it available for contractor allocation. The accepted quote version and total will be used exactly as recorded.')) return;
     try {
@@ -3746,6 +3780,8 @@
           </div>
           <div class="quote-detail-actions">
             <button class="btn btn-outline" onclick="duplicateSelectedQuote()">⧉ Duplicate as new quote</button>
+            ${['draft', 'sent'].includes(quote.currentStatus) ? `<button class="btn btn-danger" onclick="cancelSelectedQuote()">Cancel quote</button>` : ''}
+            <button class="btn btn-outline" onclick="setSelectedQuoteArchived(${quote.archived ? 'false' : 'true'})">${quote.archived ? 'Restore from archive' : 'Archive quote'}</button>
             ${quote.currentStatus === 'accepted' ? (quote.jobId ? `<button class="btn btn-black" onclick="openLinkedQuoteJob('${quote.jobId}')">View portal job ${escapeHtml(quote.jobId)} →</button>` : `<button class="btn btn-black" onclick="pushSelectedQuoteToPortal()">Push to Portal →</button>`) : ''}
             ${quote.currentStatus === 'accepted' ? `<button class="btn btn-black" onclick="openInvoiceBuilder()">＋ Create invoice</button>` : ''}
             ${v.status === 'draft' ? `
@@ -3798,12 +3834,15 @@
     const rows = quotesTabData.rows;
     const countStatus = status => rows.filter(q => q.currentStatus === status).length;
     const pipelineCents = rows.filter(q => ['draft', 'sent'].includes(q.currentStatus)).reduce((sum, q) => sum + ((q.currentVersion && q.currentVersion.totalIncGstCents) || 0), 0);
-    const acceptedToConvert = rows.filter(q => q.currentStatus === 'accepted' && !q.jobId);
-    const questions = rows.filter(q => q.questionCount > 0);
+    const acceptedToConvert = quoteArchiveView ? [] : rows.filter(q => q.currentStatus === 'accepted' && !q.jobId);
+    const questions = quoteArchiveView ? [] : rows.filter(q => q.questionCount > 0);
     return `
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div><h1 class="pagetitle" style="margin-bottom:3px;">Quotes</h1><p class="pagesub">Create, send and track customer proposals from one place.</p></div>
-        <button class="btn btn-black" style="width:auto;padding:9px 16px;" onclick="openNewQuoteBuilder()">＋ New Quote</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div><h1 class="pagetitle" style="margin-bottom:3px;">${quoteArchiveView ? 'Archived Quotes' : 'Quotes'}</h1><p class="pagesub">${quoteArchiveView ? 'Review or restore quotes removed from the active list.' : 'Create, send and track customer proposals from one place.'}</p></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline" style="width:auto;padding:9px 16px;" onclick="showQuoteArchive(${quoteArchiveView ? 'false' : 'true'})">${quoteArchiveView ? '← Active Quotes' : 'Archived Quotes'}</button>
+          ${quoteArchiveView ? '' : '<button class="btn btn-black" style="width:auto;padding:9px 16px;" onclick="openNewQuoteBuilder()">＋ New Quote</button>'}
+        </div>
       </div>
       <div class="quote-workflow" style="margin-top:20px;"><span class="quote-workflow-step active">Draft</span><span class="quote-workflow-arrow">→</span><span class="quote-workflow-step">Sent</span><span class="quote-workflow-arrow">→</span><span class="quote-workflow-step">Accepted</span><span class="quote-workflow-arrow">→</span><span class="quote-workflow-step">Job</span><span class="quote-workflow-arrow">→</span><span class="quote-workflow-step">Invoice</span></div>
       <div class="quote-kpis">
@@ -3817,7 +3856,7 @@
         ${acceptedToConvert.map(q => `<button class="detailcard" style="display:flex;justify-content:space-between;align-items:center;width:100%;max-width:none;margin-bottom:8px;text-align:left;cursor:pointer;padding:13px;" onclick="openQuoteDetail('${q.id}')"><span><strong>Accepted quote #${q.quoteNumber}</strong><br><small style="color:var(--stone);">${escapeHtml((q.customer && (q.customer.name || q.customer.email)) || '')} · held in CRM until you publish it</small></span><span>Push to Portal →</span></button>`).join('')}
         ${questions.map(q => `<button class="detailcard" style="display:flex;justify-content:space-between;align-items:center;width:100%;max-width:none;margin-bottom:8px;text-align:left;cursor:pointer;padding:13px;" onclick="tab='inquiries';render();"><span><strong>${q.questionCount} customer question${q.questionCount === 1 ? '' : 's'} on quote #${q.quoteNumber}</strong><br><small style="color:var(--stone);">Open Support to review</small></span><span>Review →</span></button>`).join('')}
       </div>` : ''}
-      ${rows.length === 0 ? '<div class="empty">No quotes yet.</div>' : `
+      ${rows.length === 0 ? `<div class="empty">${quoteArchiveView ? 'No archived quotes.' : 'No quotes yet.'}</div>` : `
         <div class="quote-card-title"><h2>Recent quote activity</h2><span style="font-size:11.5px;color:var(--stone);">Select a quote to view activity and next actions</span></div>
         <table class="quote-list-table">
           <thead><tr><th>#</th><th>Customer</th><th>Status</th><th>Total</th><th>Created</th></tr></thead>
