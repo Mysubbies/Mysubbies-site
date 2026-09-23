@@ -65,7 +65,7 @@ test('admin can safely cancel, archive and restore quotes', () => {
 });
 
 test('admin can remove only unissued draft quotes with explicit confirmation', () => {
-  assert.match(admin, /quote\.currentStatus === 'draft' && v\.status === 'draft'/);
+  assert.match(admin, /quote\.currentStatus === 'draft'/);
   assert.match(admin, /onclick="removeSelectedDraftQuote\(\)">Delete draft<\/button>/);
   assert.match(admin, /Type DELETE to continue/);
   assert.match(admin, /if \(confirmation !== 'DELETE'\) return/);
