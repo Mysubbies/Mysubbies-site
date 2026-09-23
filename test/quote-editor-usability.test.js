@@ -73,7 +73,8 @@ test('admin can remove only unissued draft quotes with explicit confirmation', (
   assert.match(quoteApi, /quote\.current_status !== 'draft' \|\| quote\.job_id/);
   assert.match(quoteApi, /version && version\.status !== 'draft'/);
   assert.match(quoteApi, /if \(quote\.current_version_id\)/);\n  assert.match(admin, /This incomplete draft has no quote details saved/);
-  assert.match(quoteApi, /eventType: 'draft_removed'/);
+  assert.match(quoteApi, /event_type: 'archived'/);
+  assert.match(quoteApi, /removedDraft: true/);
   assert.match(quoteApi, /!removedDraftIds\.has\(row\.id\)/);
 });
 
