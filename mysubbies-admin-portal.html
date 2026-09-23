@@ -3802,6 +3802,15 @@
 
       ${quoteIssuedLink ? `<div class="detailcard quote-link-card" style="margin-bottom:16px;background:#EAF5EE;border-color:#B9DDC6;"><strong>Quote link ready.</strong> If you emailed it, the customer already has this link -- you can also share it directly:<br><input class="fieldinput" style="margin-top:8px;" readonly value="${escapeHtml(quoteIssuedLink)}" onclick="this.select()" /></div>` : ''}
 
+      ${!v && quote.currentStatus === 'draft' ? `
+        <div class="detailcard quote-detail-card" style="margin-bottom:16px;">
+          <p style="margin:0 0 14px;color:var(--stone);">This incomplete draft has no quote details saved.</p>
+          <div class="quote-detail-actions">
+            <button class="btn btn-danger" onclick="removeSelectedDraftQuote()">Delete draft</button>
+          </div>
+        </div>
+      ` : ''}
+
       ${v ? `
         <div class="detailcard quote-detail-card" style="margin-bottom:16px;">
           <h2 style="font-size:14px;margin-bottom:10px;">Current version (v${v.versionNumber}, ${escapeHtml(v.status)})</h2>
