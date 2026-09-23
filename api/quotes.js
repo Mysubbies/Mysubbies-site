@@ -434,7 +434,7 @@ async function handleUpdateDraft(req, res, supabase) {
   if (!quote) { res.status(404).json({ error: 'Quote not found.' }); return; }
   const { data: version, error: vErr } = await supabase.from('quote_versions').select('*').eq('id', quote.current_version_id).maybeSingle();
   if (vErr) throw vErr;
-  if (!version || version.status !== 'draft') {
+  if (version && version.status !== 'draft') {
     res.status(409).json({ error: "Only a draft version can be edited -- use 'revise' to create a new version." });
     return;
   }
@@ -584,7 +584,7 @@ async function handleRemoveDraftQuote(req, res, supabase) {
   if ((invoices || []).length) {
     res.status(409).json({ error: 'A quote linked to an invoice cannot be removed.' }); return;
   }
-  await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'draft_removed', actorRole: 'admin' });
+  await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version && version.id, eventType: 'draft_removed', actorRole: 'admin' });
   res.status(200).json({ ok: true });
 }
 
