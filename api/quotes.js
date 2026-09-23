@@ -531,6 +531,40 @@ async function handleWithdraw(req, res, supabase) {
   res.status(200).json({ ok: true });
 }
 
+async function handleCancelQuote(req, res, supabase) {
+  const { quoteId } = req.body || {};
+  if (!quoteId) { res.status(400).json({ error: 'quoteId is required.' }); return; }
+  const { data: quote, error: qErr } = await supabase.from('quotes').select('*').eq('id', quoteId).maybeSingle();
+  if (qErr) throw qErr;
+  if (!quote) { res.status(404).json({ error: 'Quote not found.' }); return; }
+  if (!['draft', 'sent'].includes(quote.current_status)) {
+    res.status(409).json({ error: 'Only draft or sent quotes can be cancelled. Archive completed or accepted quotes instead.' });
+    return;
+  }
+  const nowIso = new Date().toISOString();
+  await supabase.from('quote_versions').update({ status: 'withdrawn', updated_at: nowIso }).eq('id', quote.current_version_id);
+  await supabase.from('quotes').update({ current_status: 'withdrawn', updated_at: nowIso }).eq('id', quote.id);
+  await supabase.from('document_access_tokens').update({ revoked_at: nowIso })
+    .eq('document_type', 'quote_version').eq('document_id', quote.current_version_id).is('revoked_at', null);
+  await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: quote.current_version_id, eventType: 'cancelled', actorRole: 'admin' });
+  res.status(200).json({ ok: true });
+}
+
+async function handleQuoteArchive(req, res, supabase, archived) {
+  const { quoteId } = req.body || {};
+  if (!quoteId) { res.status(400).json({ error: 'quoteId is required.' }); return; }
+  const { data: quote, error: qErr } = await supabase.from('quotes').select('id,current_version_id').eq('id', quoteId).maybeSingle();
+  if (qErr) throw qErr;
+  if (!quote) { res.status(404).json({ error: 'Quote not found.' }); return; }
+  await logQuoteEvent(supabase, {
+    quoteId: quote.id,
+    quoteVersionId: quote.current_version_id,
+    eventType: archived ? 'archived' : 'unarchived',
+    actorRole: 'admin',
+  });
+  res.status(200).json({ ok: true, archived });
+}
+
 // Email the quote directly (Sep 2026, founder feedback: generating a link
 // to copy/forward manually was an extra, unnecessary step). Always issues
 // a FRESH token when (re)sending -- revokes whatever was active first, so
@@ -752,8 +786,14 @@ module.exports = async (req, res) => {
           if (!paymentsByInvoice.has(payment.invoice_id)) paymentsByInvoice.set(payment.invoice_id, []);
           paymentsByInvoice.get(payment.invoice_id).push(payment);
         });
+        const latestArchiveEvent = (events || []).slice().reverse().find(ev => ['archived', 'unarchived'].includes(ev.event_type));
+        const wasCancelled = (events || []).some(ev => ev.event_type === 'cancelled');
         res.status(200).json({
-          quote: serializeQuoteAdmin(quote, current, customer),
+          quote: {
+            ...serializeQuoteAdmin(quote, current, customer),
+            currentStatus: wasCancelled ? 'cancelled' : quote.current_status,
+            archived: latestArchiveEvent ? latestArchiveEvent.event_type === 'archived' : false,
+          },
           versions: (versions || []).map(serializeVersionAdmin),
           events: (events || []).map(ev => ({ id: ev.id, eventType: ev.event_type, actorRole: ev.actor_role, actorId: ev.actor_id, payload: ev.payload, createdAt: ev.created_at })),
           invoices: (invoices || []).map(row => serializeInvoice(row, { payments: paymentsByInvoice.get(row.id) || [] })),
@@ -764,7 +804,7 @@ module.exports = async (req, res) => {
 
       // default: list
       if (!requireAdmin(req, res)) return;
-      const { customerId, status } = req.query || {};
+      const { customerId, status, archived } = req.query || {};
       let q = supabase.from('quotes').select('*').order('created_at', { ascending: false }).limit(200);
       if (customerId) q = q.eq('customer_id', customerId);
       if (status) q = q.eq('current_status', status);
@@ -784,19 +824,29 @@ module.exports = async (req, res) => {
         supabase.from('inquiries').select('quote_id').in('quote_id', quoteIds).eq('status', 'open'),
       ]) : [{ data: [] }, { data: [] }];
       const activityByQuote = new Map();
+      const archiveStateByQuote = new Map();
+      const cancelledQuoteIds = new Set();
       for (const event of recentEvents || []) {
         const activity = activityByQuote.get(event.quote_id) || { questionCount: 0, lastActivityAt: null };
         if (!activity.lastActivityAt) activity.lastActivityAt = event.created_at;
         activityByQuote.set(event.quote_id, activity);
+        if (event.event_type === 'cancelled') cancelledQuoteIds.add(event.quote_id);
+        if (!archiveStateByQuote.has(event.quote_id) && ['archived', 'unarchived'].includes(event.event_type)) {
+          archiveStateByQuote.set(event.quote_id, event.event_type === 'archived');
+        }
       }
       for (const inquiry of openQuestions || []) {
         const activity = activityByQuote.get(inquiry.quote_id) || { questionCount: 0, lastActivityAt: null };
         activity.questionCount++;
         activityByQuote.set(inquiry.quote_id, activity);
       }
+      const showArchived = archived === 'true';
+      const visibleQuotes = (quoteRows || []).filter(row => (archiveStateByQuote.get(row.id) === true) === showArchived);
       res.status(200).json({
-        quotes: (quoteRows || []).map(q2 => ({
+        quotes: visibleQuotes.map(q2 => ({
           ...serializeQuoteAdmin(q2, versionById.get(q2.current_version_id) || null, customerById.get(q2.customer_id) || null),
+          currentStatus: cancelledQuoteIds.has(q2.id) ? 'cancelled' : q2.current_status,
+          archived: archiveStateByQuote.get(q2.id) === true,
           ...(activityByQuote.get(q2.id) || { questionCount: 0, lastActivityAt: q2.updated_at }),
         })),
       });
@@ -864,6 +914,9 @@ module.exports = async (req, res) => {
       if (action === 'issue') { await handleIssue(req, res, supabase); return; }
       if (action === 'revise') { await handleRevise(req, res, supabase); return; }
       if (action === 'withdraw') { await handleWithdraw(req, res, supabase); return; }
+      if (action === 'cancel_quote') { await handleCancelQuote(req, res, supabase); return; }
+      if (action === 'archive_quote') { await handleQuoteArchive(req, res, supabase, true); return; }
+      if (action === 'unarchive_quote') { await handleQuoteArchive(req, res, supabase, false); return; }
       if (action === 'send_quote_email') { await handleSendQuoteEmail(req, res, supabase); return; }
       if (action === 'create_invoice') { await handleCreateInvoice(req, res, supabase); return; }
       if (action === 'send_invoice') { await handleSendInvoice(req, res, supabase); return; }
