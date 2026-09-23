@@ -78,6 +78,15 @@ test('admin can remove only unissued draft quotes with explicit confirmation', (
   assert.match(quoteApi, /!removedDraftIds\.has\(row\.id\)/);
 });
 
+test('quotes and invoices have explicit admin search controls', () => {
+  assert.match(admin, /placeholder="Search quote, customer, email or status/);
+  assert.match(admin, /onclick="applyQuoteSearch\(\)">Search/);
+  assert.match(admin, /placeholder="Search invoice, quote, customer, email or status/);
+  assert.match(admin, /onclick="applyInvoiceSearch\(\)">Search/);
+  assert.match(admin, /No quotes match your search/);
+  assert.match(admin, /No invoices match your search/);
+});
+
 test('quote resend confirms and allows editing the recipient email', () => {
   const resend = admin.slice(admin.indexOf('async function resendQuoteEmail()'), admin.indexOf('async function reviseSelectedQuote()'));
   assert.match(resend, /prompt\('Check the customer email before resending/);
