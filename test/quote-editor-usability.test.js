@@ -30,15 +30,31 @@ test('quote textareas stay stable while typing and mobile fields stack cleanly',
 });
 
 test('quote list and detail views use mobile card layouts instead of wide tables', () => {
-  assert.match(admin, /class="quote-detail-items"/);
-  assert.match(admin, /data-label="Unit price"/);
+  assert.match(admin, /class="quote-detail-items quote-detail-list"/);
+  assert.match(admin, /<span>Unit price<\/span>/);
   assert.match(admin, /class="quote-list-table"/);
   assert.match(admin, /data-label="Customer"/);
-  assert.match(admin, /\.quote-detail-actions \{ display:grid; grid-template-columns:1fr 1fr; \}/);
+  assert.match(admin, /\.quote-action-group \{ display:grid; grid-template-columns:1fr 1fr; \}/);
+});
+
+test('quote actions use professional grouped hierarchy without duplicate destructive actions', () => {
+  assert.match(admin, /quote-action-primary/);
+  assert.match(admin, /quote-action-secondary/);
+  assert.match(admin, /quote-action-danger/);
+  assert.match(admin, /Cancel draft quote/);
+  assert.match(admin, /Withdraw quote/);
+  assert.doesNotMatch(admin, /\['draft', 'sent'\]\.includes\(quote\.currentStatus\).*Cancel quote/);
+});
+
+test('detailed quote items use full-width readable cards', () => {
+  assert.match(admin, /quote-lineitem-description/);
+  assert.match(admin, /quote-lineitem-meta/);
+  assert.match(admin, /white-space:pre-wrap/);
+  assert.match(admin, /<span>Quantity<\/span>/);
 });
 
 test('admin can duplicate an existing quote into a separate editable draft', () => {
-  assert.match(admin, /onclick="duplicateSelectedQuote\(\)">⧉ Duplicate as new quote<\/button>/);
+  assert.match(admin, /onclick="duplicateSelectedQuote\(\)">Duplicate as new quote<\/button>/);
   const duplicate = admin.slice(admin.indexOf('function duplicateSelectedQuote()'), admin.indexOf('function renderQuoteDetailView()'));
   assert.match(duplicate, /quoteId: null/);
   assert.match(duplicate, /copiedFromQuoteNumber: quote\.quoteNumber/);
@@ -51,8 +67,8 @@ test('admin can duplicate an existing quote into a separate editable draft', () 
 });
 
 test('admin can safely cancel, archive and restore quotes', () => {
-  assert.match(admin, /onclick="cancelSelectedQuote\(\)">Cancel quote<\/button>/);
-  assert.match(admin, /\['draft', 'sent'\]\.includes\(quote\.currentStatus\)/);
+  assert.match(admin, /onclick="cancelSelectedQuote\(\)">Cancel draft quote<\/button>/);
+  assert.match(admin, /onclick="withdrawSelectedQuote\(\)">Withdraw quote<\/button>/);
   assert.match(admin, /onclick="setSelectedQuoteArchived\(/);
   assert.match(admin, /Archived Quotes/);
   assert.match(admin, /action: 'cancel_quote'/);
@@ -72,7 +88,8 @@ test('admin can remove only unissued draft quotes with explicit confirmation', (
   assert.match(admin, /action: 'remove_draft_quote'/);
   assert.match(quoteApi, /quote\.current_status !== 'draft' \|\| quote\.job_id/);
   assert.match(quoteApi, /version && version\.status !== 'draft'/);
-  assert.match(quoteApi, /if \(quote\.current_version_id\)/);\n  assert.match(admin, /This incomplete draft has no quote details saved/);
+  assert.match(quoteApi, /if \(quote\.current_version_id\)/);
+  assert.match(admin, /This incomplete draft has no quote details saved/);
   assert.match(quoteApi, /event_type: 'archived'/);
   assert.match(quoteApi, /removedDraft: true/);
   assert.match(quoteApi, /!removedDraftIds\.has\(row\.id\)/);
@@ -127,8 +144,17 @@ test('normal quote typing updates state and totals without replacing the editor 
 
 test('line breaks are preserved in admin previews and the customer quote', () => {
   assert.match(admin, /quote-preserve-lines/);
-  assert.match(customerQuote, /\.item-description \{ white-space:pre-wrap/);
-  assert.match(customerQuote, /<td class="item-description">\$\{escapeHtml\(it\.description\)\}<\/td>/);
+  assert.match(customerQuote, /\.quote-item-details \{[^}]*white-space:pre-wrap/);
+  assert.match(customerQuote, /copy\.details \? `<div class="quote-item-details">\$\{escapeHtml\(copy\.details\)\}<\/div>`/);
+});
+
+test('customer quote mirrors the professional itemised email layout', () => {
+  assert.match(customerQuote, /<h1 class="quotetitle">Your quote is ready<\/h1>/);
+  assert.match(customerQuote, /Prepared for <strong>/);
+  assert.match(customerQuote, /<h2>Itemised quote<\/h2>/);
+  assert.match(customerQuote, /class="quote-item-price">\$\{fmtCents\(it\.lineTotalCents\)\}/);
+  assert.doesNotMatch(customerQuote, /<th class="num">Unit price<\/th>/);
+  assert.doesNotMatch(customerQuote, /class="hero-total"/);
 });
 
 test('customer quote presents Ask a question as an app action button', () => {

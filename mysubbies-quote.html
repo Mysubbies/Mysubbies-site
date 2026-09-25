@@ -33,17 +33,14 @@
   .navlinks { display:flex; align-items:center; gap:18px; font-size:13px; color:var(--stone); }
   .navlinks a:hover { color:var(--black); }
 
-  .wrap { max-width:860px; margin:0 auto; padding:34px 20px 70px; }
-  .quotehero { background:linear-gradient(135deg,#14213D 0%,#1F335A 100%); color:#fff; border-radius:20px; padding:28px; box-shadow:0 18px 45px rgba(20,33,61,.16); }
-  .quotehero .badge { background:rgba(255,255,255,.13); color:#fff; }
-  .quotehero .quotemeta { color:#C8D0DF; }
+  .wrap { max-width:760px; margin:0 auto; padding:34px 20px 70px; }
+  .quotehero { background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:18px; padding:28px; box-shadow:0 12px 35px rgba(20,33,61,.07); }
+  .quotehero .quotemeta { color:var(--stone); }
   .quotehero-grid { display:flex; justify-content:space-between; align-items:flex-end; gap:20px; }
-  .hero-total { text-align:right; white-space:nowrap; }
-  .hero-total .label { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#BFC8D8; }
-  .hero-total strong { display:block; font-size:30px; letter-spacing:-.04em; }
-  .journey { display:flex; align-items:center; gap:7px; overflow-x:auto; margin-top:20px; padding-top:13px; border-top:1px solid rgba(255,255,255,.14); }
-  .journey span { font-size:10.5px; color:#AEB9CC; white-space:nowrap; font-weight:700; }
-  .journey span.done, .journey span.current { color:#fff; }
+  .hero-customer { margin-top:8px; color:var(--stone); font-size:14px; }
+  .journey { display:flex; align-items:center; gap:7px; overflow-x:auto; margin-top:20px; padding-top:13px; border-top:1px solid var(--line); }
+  .journey span { font-size:10.5px; color:var(--stone-light); white-space:nowrap; font-weight:700; }
+  .journey span.done, .journey span.current { color:var(--black); }
   .journey span.current::before { content:'●'; color:#FF6A1A; margin-right:5px; }
   .journey i { color:#77859E; font-style:normal; }
 
@@ -56,7 +53,7 @@
   .quotetitle { font-size:24px; margin:10px 0 4px; }
   .quotemeta { font-size:13px; color:var(--stone); }
   .summarygrid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:18px; }
-  @media (max-width:560px) { .summarygrid { grid-template-columns:1fr; } .quotehero { padding:22px 18px; border-radius:16px; } .quotehero-grid { display:block; } .hero-total { text-align:left; margin-top:18px; } .actions .btn { width:100%; } }
+  @media (max-width:560px) { .summarygrid { grid-template-columns:1fr; } .quotehero { padding:22px 18px; border-radius:16px; } .quotehero-grid { display:block; } .actions .btn { width:100%; } }
   .summarybox { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
   .summarybox .label { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--stone-light); margin-bottom:4px; }
   .summarybox .val { font-size:14px; font-weight:600; }
@@ -64,10 +61,12 @@
   /* C -- document content */
   .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:22px; margin-top:20px; box-shadow:0 8px 28px rgba(20,33,61,.045); }
   .card h2 { font-size:16px; margin-bottom:12px; }
-  table.itemstable { width:100%; border-collapse:collapse; font-size:13.5px; }
-  table.itemstable th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--stone-light); padding:0 0 8px; border-bottom:1px solid var(--line); }
-  table.itemstable td { padding:10px 0; border-bottom:1px solid var(--line); vertical-align:top; }
-  table.itemstable td.num, table.itemstable th.num { text-align:right; }
+  .items-head { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:18px; padding:0 0 9px; border-bottom:1px solid var(--line); font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--stone-light); }
+  .quote-item { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:18px; padding:18px 0; border-bottom:1px solid var(--line); align-items:start; }
+  .quote-item-title { color:var(--black); font-size:14px; font-weight:700; line-height:1.45; }
+  .quote-item-details { margin-top:8px; color:#364152; font-size:13px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .quote-item-qty { min-width:52px; color:var(--stone); font-size:12.5px; line-height:1.5; }
+  .quote-item-price { min-width:92px; color:var(--black); text-align:right; font-size:14px; font-weight:800; white-space:nowrap; }
   .totalsbox { margin-top:14px; margin-left:auto; max-width:280px; font-size:13.5px; }
   .totalsbox .row { display:flex; justify-content:space-between; padding:5px 0; }
   .totalsbox .row.total { border-top:1px solid var(--line); margin-top:6px; padding-top:10px; font-weight:800; font-size:16px; }
@@ -75,6 +74,15 @@
   .item-description { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.55; }
   .textblock + .textblock { margin-top:14px; }
   .textlabel { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--stone-light); margin-bottom:6px; }
+  @media (max-width:560px) {
+    .card { padding:19px 17px; }
+    .items-head { grid-template-columns:minmax(0,1fr) 72px; }
+    .items-head .qty-heading { display:none; }
+    .quote-item { grid-template-columns:minmax(0,1fr) 72px; gap:12px; }
+    .quote-item-qty { grid-column:1; min-width:0; margin-top:8px; }
+    .quote-item-price { grid-column:2; grid-row:1 / span 2; min-width:0; }
+    .totalsbox { max-width:none; }
+  }
 
   /* D -- actions */
   .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:20px; }
@@ -162,6 +170,10 @@
   }
   function fmtCents(c) { return '$' + ((c || 0) / 100).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function fmtDate(iso) { return iso ? new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'; }
+  function quoteItemCopy(description) {
+    const lines = String(description || 'Quoted service').split(/\r?\n/);
+    return { title: lines.shift() || 'Quoted service', details: lines.join('\n').trim() };
+  }
   function showToast(msg) {
     const wrap = document.getElementById('toastWrap');
     wrap.innerHTML = `<div class="toast">${escapeHtml(msg)}</div>`;
@@ -172,7 +184,7 @@
   // Receipt / Statement of Account (copied verbatim, per the no-shared-JS
   // convention) -- this file renders from the already-fetched quote
   // snapshot instead of live job/payment data.
-  const MYSUBBIES_LOCATION = 'Melbourne, VIC';
+  const MYSUBBIES_LOCATION = 'PO Box 1126, Craigieburn VIC 3064';
   const PDF_NAVY = [20, 33, 61];
   const PDF_PAPER = [247, 247, 245];
   function gstBreakdown(totalIncGstCents) {
@@ -311,14 +323,14 @@
     app.innerHTML = `
       <section class="quotehero">
         <div class="quotehero-grid"><div><span class="badge ${STATUS_BADGE_CLASS[q.status] || 'badge-draft'}">${escapeHtml(STATUS_LABEL[q.status] || q.status)}</span>
-        <h1 class="quotetitle">Your home project, clearly quoted.</h1>
-        <div class="quotemeta">Quote #${q.quoteNumber} · Version ${q.versionNumber}${q.versionStatus === 'superseded' ? ' (superseded by a newer version)' : ''}</div></div>
-        <div class="hero-total"><div class="label">Total including GST</div><strong>${fmtCents(q.totalIncGstCents)}</strong></div></div>
+        <h1 class="quotetitle">Your quote is ready</h1>
+        <div class="quotemeta">Quote #${q.quoteNumber} · Version ${q.versionNumber}${q.versionStatus === 'superseded' ? ' (superseded by a newer version)' : ''}</div>
+        <div class="hero-customer">Prepared for <strong>${escapeHtml((q.customer && q.customer.name) || (q.customer && q.customer.email) || 'Customer')}</strong></div></div></div>
         <div class="journey"><span class="done">Quote prepared</span><i>→</i><span class="${q.status === 'sent' ? 'current' : q.status === 'accepted' ? 'done' : ''}">Your review</span><i>→</i><span class="${q.status === 'accepted' ? 'current' : ''}">Accepted</span><i>→</i><span>Job booked</span><i>→</i><span>Invoice</span></div>
       </section>
 
       <div class="summarygrid">
-        <div class="summarybox"><div class="label">Issued by</div><div class="val">${escapeHtml((q.issuingEntity && q.issuingEntity.legalName) || 'Mysubbies')}</div></div>
+        <div class="summarybox"><div class="label">Issued by</div><div class="val">${escapeHtml((q.issuingEntity && q.issuingEntity.legalName) || 'Mysubbies')}<br><span style="font-size:12px;color:var(--muted);">${escapeHtml(q.issuingEntity ? [q.issuingEntity.addressLine,q.issuingEntity.suburb,q.issuingEntity.state,q.issuingEntity.postcode].filter(Boolean).join(', ') : MYSUBBIES_LOCATION)}</span></div></div>
         <div class="summarybox"><div class="label">Prepared for</div><div class="val">${escapeHtml((q.customer && q.customer.name) || (q.customer && q.customer.email) || '—')}</div></div>
         <div class="summarybox"><div class="label">Issued</div><div class="val">${fmtDate(q.issuedAt)}</div></div>
         <div class="summarybox"><div class="label">Valid until</div><div class="val">${fmtDate(q.expiresAt)}</div></div>
@@ -327,19 +339,18 @@
       ${q.property && q.property.address ? `<div class="summarybox" style="margin-top:14px;"><div class="label">Property</div><div class="val">${escapeHtml(q.property.address)}${q.property.suburb ? ', ' + escapeHtml(q.property.suburb) : ''}</div></div>` : ''}
 
       <div class="card">
-        <h2>Scope of work</h2>
-        <table class="itemstable">
-          <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Amount</th></tr></thead>
-          <tbody>
-            ${items.map(it => `
-              <tr>
-                <td class="item-description">${escapeHtml(it.description)}</td>
-                <td class="num">${it.qty}${it.unit ? ' ' + escapeHtml(it.unit) : ''}</td>
-                <td class="num">${fmtCents(it.unitPriceCents)}</td>
-                <td class="num">${fmtCents(it.lineTotalCents)}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
+        <h2>Itemised quote</h2>
+        <div class="items-head"><span>Description</span><span class="qty-heading">Qty</span><span style="text-align:right;">Price</span></div>
+        <div class="quote-items">
+          ${items.map(it => {
+            const copy = quoteItemCopy(it.description);
+            return `<article class="quote-item">
+              <div class="item-description"><div class="quote-item-title">${escapeHtml(copy.title)}</div>${copy.details ? `<div class="quote-item-details">${escapeHtml(copy.details)}</div>` : ''}</div>
+              <div class="quote-item-qty">${it.qty}${it.unit ? '<br>' + escapeHtml(it.unit) : ''}</div>
+              <div class="quote-item-price">${fmtCents(it.lineTotalCents)}</div>
+            </article>`;
+          }).join('')}
+        </div>
         <div class="totalsbox">
           <div class="row"><span>Subtotal (ex. GST)</span><span>${fmtCents(q.subtotalExGstCents)}</span></div>
           <div class="row"><span>GST (10%)</span><span>${fmtCents(q.gstCents)}</span></div>
