@@ -9,9 +9,11 @@ function email(overrides = {}) {
     version: {
       customer_snapshot: { name: 'Ava Nguyen' },
       property_snapshot: { suburb: 'Richmond' },
-      line_items: [{ description: 'Garden clean-up' }],
+      line_items: [{ description: 'Garden clean-up', qty: 2, unit: 'hours', unitPriceCents: 61725, lineTotalCents: 123450 }],
       scope_text: 'Prepare garden beds\nRemove green waste',
       inclusions_text: 'Labour\nMaterials',
+      subtotal_ex_gst_cents: 112227,
+      gst_cents: 11223,
       total_inc_gst_cents: 123450,
       expires_at: '2026-10-10T00:00:00.000Z',
     },
@@ -37,9 +39,25 @@ test('premium quote email includes customer, quote summary, total and secure CTA
   assert.match(html, /class="primary-button"[^>]*background:#FFD400;color:#111111/);
   assert.match(html, /Richmond/);
   assert.match(html, /Prepared for Ava Nguyen/);
+  assert.match(html, /Itemised quote/);
+  assert.match(html, /Garden clean-up/);
+  assert.match(html, /2 hours/);
+  assert.match(html, /Subtotal \(ex\. GST\)/);
+  assert.match(html, /\$1,122\.27/);
+  assert.match(html, /GST \(10%\)/);
+  assert.match(html, /\$112\.23/);
   assert.match(html, /Prepare garden beds<br>Remove green waste/);
   assert.match(html, /Labour<br>Materials/);
   assert.match(html, /A PDF copy is attached/);
+});
+
+test('itemised pricing uses accessible table headings and email document metadata', () => {
+  const html = email();
+  assert.match(html, /<html lang="en" dir="ltr">/);
+  assert.match(html, /<title>Your MySubbies quote is ready \(Quote #2042\)<\/title>/);
+  assert.match(html, /<th scope="col"[^>]*>Description<\/th>/);
+  assert.match(html, /<th scope="col"[^>]*>Qty<\/th>/);
+  assert.match(html, /<th scope="col"[^>]*>Price<\/th>/);
 });
 
 test('email recommendations show authoritative rates and estimate fallback', () => {
