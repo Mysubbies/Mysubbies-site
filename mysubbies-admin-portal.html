@@ -128,7 +128,21 @@
   .quote-kpi strong { display:block; font-size:22px; color:var(--black); }
   .quote-kpi span { font-size:11.5px; color:var(--stone); }
   .quote-detail-items { width:100%; }
-  .quote-detail-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+  .quote-detail-list { display:flex; flex-direction:column; gap:10px; }
+  .quote-lineitem-card { border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#fff; }
+  .quote-lineitem-description { padding:15px 16px; white-space:pre-wrap; line-height:1.55; font-size:13.5px; color:var(--ink); }
+  .quote-lineitem-meta { display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid var(--line); background:#F8F8F6; }
+  .quote-lineitem-stat { padding:10px 14px; border-right:1px solid var(--line); }
+  .quote-lineitem-stat:last-child { border-right:0; text-align:right; }
+  .quote-lineitem-stat span { display:block; color:var(--stone); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px; }
+  .quote-lineitem-stat strong { font-size:13px; font-weight:750; }
+  .quote-detail-actions { display:flex; flex-direction:column; gap:10px; margin-top:18px; padding-top:16px; border-top:1px solid var(--line); }
+  .quote-action-group { display:flex; gap:9px; flex-wrap:wrap; }
+  .quote-action-group .btn { min-height:42px; padding:9px 16px; border-radius:10px; }
+  .quote-action-primary .btn { font-weight:750; }
+  .quote-action-secondary .btn { background:#fff; }
+  .quote-action-danger { padding-top:10px; margin-top:2px; border-top:1px dashed #E5D8D6; }
+  .quote-action-danger .btn { color:#9B1C24; border-color:#E9C7C4; background:#FFFDFC; }
   .quote-list-table { width:100%; }
   @media (max-width:1000px) { .quote-builder-grid { grid-template-columns:1fr; } .quote-side { position:static; } }
   @media (max-width:860px) {
@@ -162,7 +176,8 @@
     .quote-detail-items td::before { content:attr(data-label); color:var(--stone); font-size:11px; font-weight:800; text-transform:uppercase; text-align:left; }
     .quote-detail-items td:first-child { display:block; text-align:left; padding-bottom:10px; font-weight:700; }
     .quote-detail-items td:first-child::before { display:block; margin-bottom:5px; }
-    .quote-detail-actions { display:grid; grid-template-columns:1fr 1fr; }
+    .quote-lineitem-meta { grid-template-columns:1fr 1fr 1fr; }
+    .quote-action-group { display:grid; grid-template-columns:1fr 1fr; }
     .quote-detail-actions .btn { width:100%; min-width:0; padding-left:10px; padding-right:10px; }
     .quote-list-table thead { display:none; }
     .quote-list-table, .quote-list-table tbody, .quote-list-table tr, .quote-list-table td { display:block; width:100%; }
@@ -181,11 +196,14 @@
     .quote-preview-sheet { max-height:96dvh; border-radius:18px 18px 0 0; }
     .quote-preview-top, .quote-preview-body { padding:20px 16px; }
     .quote-preview-actions { padding:12px; display:grid; grid-template-columns:1fr 1fr; }
-    .quote-detail-actions { grid-template-columns:1fr; }
+    .quote-action-group { grid-template-columns:1fr; }
     .quote-detail-card { padding:14px !important; overflow:hidden; }
     .quote-link-card { padding:16px !important; }
     .quote-link-card input { font-size:16px; }
     .quote-detail-totals { max-width:none !important; margin-left:0 !important; }
+    .quote-lineitem-description { padding:13px; font-size:13px; }
+    .quote-lineitem-stat { padding:9px 8px; }
+    .quote-lineitem-stat strong { font-size:12px; }
     .invoice-payment-grid { grid-template-columns:1fr !important; }
   }
   .badge-active { background:#EAF5EE; color:var(--good); }
@@ -3861,31 +3879,35 @@
       ${v ? `
         <div class="detailcard quote-detail-card" style="margin-bottom:16px;">
           <h2 style="font-size:14px;margin-bottom:10px;">Current version (v${v.versionNumber}, ${escapeHtml(v.status)})</h2>
-          <table class="quote-detail-items">
-            <thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Amount</th></tr></thead>
-            <tbody>${(v.lineItems || []).map(li => `<tr><td data-label="Description" class="quote-preserve-lines">${escapeHtml(li.description)}</td><td data-label="Quantity">${li.qty}${li.unit ? ' ' + escapeHtml(li.unit) : ''}</td><td data-label="Unit price">${fmtCents(li.unitPriceCents)}</td><td data-label="Amount">${fmtCents(li.lineTotalCents)}</td></tr>`).join('')}</tbody>
-          </table>
+          <div class="quote-detail-items quote-detail-list">
+            ${(v.lineItems || []).map(li => `<div class="quote-lineitem-card">
+              <div class="quote-lineitem-description">${escapeHtml(li.description)}</div>
+              <div class="quote-lineitem-meta">
+                <div class="quote-lineitem-stat"><span>Quantity</span><strong>${li.qty}${li.unit ? ' ' + escapeHtml(li.unit) : ''}</strong></div>
+                <div class="quote-lineitem-stat"><span>Unit price</span><strong>${fmtCents(li.unitPriceCents)}</strong></div>
+                <div class="quote-lineitem-stat"><span>Amount</span><strong>${fmtCents(li.lineTotalCents)}</strong></div>
+              </div>
+            </div>`).join('')}
+          </div>
           <div class="quote-detail-totals" style="max-width:260px;margin-left:auto;margin-top:14px;font-size:13.5px;">
             <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Subtotal (ex. GST)</span><span>${fmtCents(v.subtotalExGstCents)}</span></div>
             <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>GST (10%)</span><span>${fmtCents(v.gstCents)}</span></div>
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-weight:800;font-size:15px;"><span>Total</span><span>${fmtCents(v.totalIncGstCents)}</span></div>
           </div>
           <div class="quote-detail-actions">
-            <button class="btn btn-outline" onclick="duplicateSelectedQuote()">⧉ Duplicate as new quote</button>
-            ${['draft', 'sent'].includes(quote.currentStatus) ? `<button class="btn btn-danger" onclick="cancelSelectedQuote()">Cancel quote</button>` : ''}
-            <button class="btn btn-outline" onclick="setSelectedQuoteArchived(${quote.archived ? 'false' : 'true'})">${quote.archived ? 'Restore from archive' : 'Archive quote'}</button>
-            ${quote.currentStatus === 'accepted' ? (quote.jobId ? `<button class="btn btn-black" onclick="openLinkedQuoteJob('${quote.jobId}')">View portal job ${escapeHtml(quote.jobId)} →</button>` : `<button class="btn btn-black" onclick="pushSelectedQuoteToPortal()">Push to Portal →</button>`) : ''}
-            ${quote.currentStatus === 'sent' ? `<button class="btn btn-black" onclick="acceptSelectedQuoteAsAdmin()">✓ Accept quote</button>` : ''}
-            ${quote.currentStatus === 'accepted' ? `<button class="btn btn-black" ${invoiceSaving ? 'disabled' : ''} onclick="createNextMilestoneInvoice()">${invoiceSaving ? 'Creating…' : '⚡ Create next invoice'}</button><button class="btn btn-outline" onclick="openInvoiceBuilder()">＋ Create custom invoice</button>` : ''}
-            ${v.status === 'draft' ? `
-              <button class="btn btn-outline" onclick="editDraftQuote()">Edit draft</button>
-              <button class="btn btn-black" ${quoteEmailSending ? 'disabled' : ''} onclick="issueAndEmailSelectedQuote()">${quoteEmailSending ? 'Sending…' : '📧 Issue & email to customer'}</button>
-              <button class="btn btn-outline" ${quoteEmailSending ? 'disabled' : ''} onclick="issueSelectedQuote()">Issue link only</button>
-            ` : `
-              <button class="btn btn-outline" onclick="downloadIssuedQuotePdf()">Download PDF</button>
-              ${quote.currentStatus === 'sent' ? `<button class="btn btn-outline" ${quoteEmailSending ? 'disabled' : ''} onclick="resendQuoteEmail()">${quoteEmailSending ? 'Sending…' : '📧 Resend email'}</button>` : ''}
-            `}
-            ${quote.currentStatus === 'sent' ? `<button class="btn btn-outline" onclick="reviseSelectedQuote()">Revise (new version)</button><button class="btn btn-outline" onclick="withdrawSelectedQuote()">Withdraw</button>` : ''}
+            <div class="quote-action-group quote-action-primary">
+              ${v.status === 'draft' ? `<button class="btn btn-black" ${quoteEmailSending ? 'disabled' : ''} onclick="issueAndEmailSelectedQuote()">${quoteEmailSending ? 'Sending…' : 'Issue & email quote'}</button>` : ''}
+              ${quote.currentStatus === 'sent' ? `<button class="btn btn-black" onclick="acceptSelectedQuoteAsAdmin()">Accept quote</button><button class="btn btn-outline" ${quoteEmailSending ? 'disabled' : ''} onclick="resendQuoteEmail()">${quoteEmailSending ? 'Sending…' : 'Resend email'}</button>` : ''}
+              ${quote.currentStatus === 'accepted' ? `<button class="btn btn-black" ${invoiceSaving ? 'disabled' : ''} onclick="createNextMilestoneInvoice()">${invoiceSaving ? 'Creating…' : 'Create next invoice'}</button>${quote.jobId ? `<button class="btn btn-outline" onclick="openLinkedQuoteJob('${quote.jobId}')">View portal job ${escapeHtml(quote.jobId)}</button>` : `<button class="btn btn-outline" onclick="pushSelectedQuoteToPortal()">Push to portal</button>`}` : ''}
+            </div>
+            <div class="quote-action-group quote-action-secondary">
+              ${v.status !== 'draft' ? `<button class="btn btn-outline" onclick="downloadIssuedQuotePdf()">Download PDF</button>` : `<button class="btn btn-outline" onclick="editDraftQuote()">Edit draft</button><button class="btn btn-outline" ${quoteEmailSending ? 'disabled' : ''} onclick="issueSelectedQuote()">Create link only</button>`}
+              <button class="btn btn-outline" onclick="duplicateSelectedQuote()">Duplicate as new quote</button>
+              ${quote.currentStatus === 'sent' ? `<button class="btn btn-outline" onclick="reviseSelectedQuote()">Revise quote</button>` : ''}
+              ${quote.currentStatus === 'accepted' ? `<button class="btn btn-outline" onclick="openInvoiceBuilder()">Create custom invoice</button>` : ''}
+              <button class="btn btn-outline" onclick="setSelectedQuoteArchived(${quote.archived ? 'false' : 'true'})">${quote.archived ? 'Restore from archive' : 'Archive quote'}</button>
+            </div>
+            ${(quote.currentStatus === 'draft' || quote.currentStatus === 'sent') ? `<div class="quote-action-group quote-action-danger">${quote.currentStatus === 'draft' ? `<button class="btn btn-danger" onclick="cancelSelectedQuote()">Cancel draft quote</button>` : `<button class="btn btn-danger" onclick="withdrawSelectedQuote()">Withdraw quote</button>`}</div>` : ''}
           </div>
         </div>
         ${renderInvoiceBuilder()}
