@@ -87,6 +87,14 @@ test('quotes and invoices have explicit admin search controls', () => {
   assert.match(admin, /No invoices match your search/);
 });
 
+test('a quote preserves the entered customer name when an email already exists', () => {
+  assert.match(admin, /customerSnapshot: \{ name: d\.customerName, email: d\.customerEmail, phone: d\.customerPhone \}/);
+  assert.match(quoteApi, /const enteredCustomer = body\.customerSnapshot \|\| body\.newCustomer \|\| \{\}/);
+  assert.match(quoteApi, /customer_snapshot: customerSnapshot/);
+  assert.match(quoteApi, /customer_snapshot: body\.customerSnapshot \|\| version\.customer_snapshot/);
+  assert.match(quoteApi, /const snapshot = version && version\.customer_snapshot/);
+});
+
 test('quote resend confirms and allows editing the recipient email', () => {
   const resend = admin.slice(admin.indexOf('async function resendQuoteEmail()'), admin.indexOf('async function reviseSelectedQuote()'));
   assert.match(resend, /prompt\('Check the customer email before resending/);

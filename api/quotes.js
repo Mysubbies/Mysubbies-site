@@ -362,9 +362,13 @@ function serializeVersionAdmin(v) {
 }
 
 function serializeQuoteAdmin(q, version, customer) {
+  const snapshot = version && version.customer_snapshot;
+  const quoteCustomer = snapshot && (snapshot.name || snapshot.email || snapshot.phone)
+    ? { id: customer && customer.id || q.customer_id, name: snapshot.name || null, email: snapshot.email || null, phone: snapshot.phone || null }
+    : customer ? { id: customer.id, name: customer.name, email: customer.email, phone: customer.phone } : null;
   return {
     id: q.id, quoteNumber: q.quote_number, currentStatus: q.current_status,
-    customerId: q.customer_id, customer: customer ? { id: customer.id, name: customer.name, email: customer.email, phone: customer.phone } : null,
+    customerId: q.customer_id, customer: quoteCustomer,
     jobId: q.job_id, assignedStaffId: q.assigned_staff_id, createdBy: q.created_by,
     createdAt: q.created_at, updatedAt: q.updated_at,
     currentVersion: version ? serializeVersionAdmin(version) : null,
@@ -406,6 +410,12 @@ async function handleCreateDraft(req, res, supabase) {
     return;
   }
   const totals = computeQuoteTotals(body.lineItems);
+  const enteredCustomer = body.customerSnapshot || body.newCustomer || {};
+  const customerSnapshot = {
+    name: String(enteredCustomer.name || customer.name || '').trim() || null,
+    email: String(enteredCustomer.email || customer.email || '').trim().toLowerCase() || null,
+    phone: String(enteredCustomer.phone || customer.phone || '').trim() || null,
+  };
 
   const { data: quote, error: quoteErr } = await supabase.from('quotes').insert({
     customer_id: customer.id, job_id: body.jobId || null, assigned_staff_id: body.assignedStaffId || null,
@@ -414,7 +424,7 @@ async function handleCreateDraft(req, res, supabase) {
 
   const { data: version, error: versionErr } = await supabase.from('quote_versions').insert({
     quote_id: quote.id, version_number: 1, status: 'draft',
-    customer_snapshot: { name: customer.name, email: customer.email, phone: customer.phone },
+    customer_snapshot: customerSnapshot,
     ...quoteVersionContent(body, totals),
     terms_version: 'v1', validity_days: body.validityDays || 30,
   }).select().single();
@@ -440,6 +450,7 @@ async function handleUpdateDraft(req, res, supabase) {
   }
   const totals = computeQuoteTotals(body.lineItems);
   const { data: updated, error: updErr } = await supabase.from('quote_versions').update({
+    customer_snapshot: body.customerSnapshot || version.customer_snapshot,
     ...quoteVersionContent(body, totals, version),
     updated_at: new Date().toISOString(),
   }).eq('id', version.id).select().single();
