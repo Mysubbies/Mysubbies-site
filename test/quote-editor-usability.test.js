@@ -30,15 +30,29 @@ test('quote textareas stay stable while typing and mobile fields stack cleanly',
 });
 
 test('quote list and detail views use mobile card layouts instead of wide tables', () => {
-  assert.match(admin, /class="quote-detail-items"/);
-  assert.match(admin, /data-label="Unit price"/);
+  assert.match(admin, /class="quote-detail-items quote-detail-list"/);
+  assert.match(admin, /<span>Unit price<\/span>/);
   assert.match(admin, /class="quote-list-table"/);
   assert.match(admin, /data-label="Customer"/);
-  assert.match(admin, /\.quote-detail-actions \{ display:grid; grid-template-columns:1fr 1fr; \}/);
+  assert.match(admin, /\.quote-action-group \{ display:grid; grid-template-columns:1fr 1fr; \}/);
+});
+
+test('quote actions use professional grouped hierarchy without duplicate destructive actions', () => {
+  assert.match(admin, /quote-action-primary/);
+  assert.match(admin, /quote-action-secondary/);
+  assert.match(admin, /quote-action-danger/);
+  assert.match(admin, /Cancel draft quote/);
+  assert.match(admin, /Withdraw quote/);
+});
+
+test('detailed quote items use full-width readable cards', () => {
+  assert.match(admin, /quote-lineitem-description/);
+  assert.match(admin, /quote-lineitem-meta/);
+  assert.match(admin, /<span>Quantity<\/span>/);
 });
 
 test('admin can duplicate an existing quote into a separate editable draft', () => {
-  assert.match(admin, /onclick="duplicateSelectedQuote\(\)">⧉ Duplicate as new quote<\/button>/);
+  assert.match(admin, /onclick="duplicateSelectedQuote\(\)">Duplicate as new quote<\/button>/);
   const duplicate = admin.slice(admin.indexOf('function duplicateSelectedQuote()'), admin.indexOf('function renderQuoteDetailView()'));
   assert.match(duplicate, /quoteId: null/);
   assert.match(duplicate, /copiedFromQuoteNumber: quote\.quoteNumber/);
@@ -51,8 +65,8 @@ test('admin can duplicate an existing quote into a separate editable draft', () 
 });
 
 test('admin can safely cancel, archive and restore quotes', () => {
-  assert.match(admin, /onclick="cancelSelectedQuote\(\)">Cancel quote<\/button>/);
-  assert.match(admin, /\['draft', 'sent'\]\.includes\(quote\.currentStatus\)/);
+  assert.match(admin, /onclick="cancelSelectedQuote\(\)">Cancel draft quote<\/button>/);
+  assert.match(admin, /onclick="withdrawSelectedQuote\(\)">Withdraw quote<\/button>/);
   assert.match(admin, /onclick="setSelectedQuoteArchived\(/);
   assert.match(admin, /Archived Quotes/);
   assert.match(admin, /action: 'cancel_quote'/);
