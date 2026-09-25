@@ -101,6 +101,15 @@ function bankConfig() {
   return { accountName, bsb: bsb.replace(/^(\d{3})(\d{3})$/, '$1-$2'), accountNumber };
 }
 
+function invoiceDatabaseError(error) {
+  const code = String((error && error.code) || 'unknown');
+  if (code === '42P01' || code === 'PGRST205') return 'The invoice database tables are not available in this environment. Apply the invoice schema and reload the Supabase schema cache.';
+  if (code === '42703' || code === 'PGRST204') return 'The invoice database schema is out of date. Apply the latest invoice schema and reload the Supabase schema cache.';
+  if (code === '42501') return 'The database service account does not have permission to create invoice numbers.';
+  if (code === '23502' || code === '23514') return 'The invoice did not match the current database requirements. Please check that the latest invoice schema has been applied.';
+  return `Invoice creation failed (database code ${code}). Please refresh and try again.`;
+}
+
 function serializePayment(row) {
   return {
     id: row.id, amountCents: Number(row.amount_cents), receivedAt: row.received_at,
@@ -156,16 +165,20 @@ async function handleCreateInvoice(req, res, supabase) {
   if (!bank) { res.status(409).json({ error: 'Invoice bank details are not configured. Add INVOICE_BANK_ACCOUNT_NAME, INVOICE_BANK_BSB and INVOICE_BANK_ACCOUNT_NUMBER in Vercel.' }); return; }
   const dueAt = new Date(`${dueDate}T23:59:59.999Z`);
   if (Number.isNaN(dueAt.getTime())) { res.status(400).json({ error: 'A valid due date is required.' }); return; }
-  const { data: quote } = await supabase.from('quotes').select('*').eq('id', quoteId).maybeSingle();
+  const { data: quote, error: quoteError } = await supabase.from('quotes').select('*').eq('id', quoteId).maybeSingle();
+  if (quoteError) { res.status(500).json({ error: invoiceDatabaseError(quoteError) }); return; }
   if (!quote || quote.current_status !== 'accepted') { res.status(409).json({ error: 'Invoices can only be created from an accepted quote.' }); return; }
-  const { data: version } = await supabase.from('quote_versions').select('*').eq('id', quote.current_version_id).maybeSingle();
+  const { data: version, error: versionError } = await supabase.from('quote_versions').select('*').eq('id', quote.current_version_id).maybeSingle();
+  if (versionError) { res.status(500).json({ error: invoiceDatabaseError(versionError) }); return; }
   if (!version || version.status !== 'accepted') { res.status(409).json({ error: 'The accepted quote version could not be found.' }); return; }
-  const { data: existing } = await supabase.from('invoices').select('id,status,total_inc_gst_cents,milestone_key').eq('quote_id', quote.id).neq('status', 'void');
+  const { data: existing, error: existingError } = await supabase.from('invoices').select('id,status,total_inc_gst_cents,milestone_key').eq('quote_id', quote.id).neq('status', 'void');
+  if (existingError) { res.status(500).json({ error: invoiceDatabaseError(existingError) }); return; }
   if ((existing || []).some(row => row.milestone_key === milestoneKey)) { res.status(409).json({ error: 'An invoice already exists for this milestone.' }); return; }
   const previous = (existing || []).reduce((sum, row) => sum + Number(row.total_inc_gst_cents || 0), 0);
   const amountError = validateInvoiceAmount({ amountCents: Number(amountCents), quoteTotalCents: version.total_inc_gst_cents, previouslyInvoicedCents: previous });
   if (amountError) { res.status(400).json({ error: amountError }); return; }
-  const { data: entity } = await supabase.from('issuing_entities').select('*').eq('id', version.issuing_entity_id).maybeSingle();
+  const { data: entity, error: entityError } = await supabase.from('issuing_entities').select('*').eq('id', version.issuing_entity_id).maybeSingle();
+  if (entityError) { res.status(500).json({ error: invoiceDatabaseError(entityError) }); return; }
   if (!entity || entity.legal_name !== 'Mysubbies Holdings Pty Ltd') { res.status(409).json({ error: 'Mysubbies Holdings Pty Ltd is not configured as the issuing entity.' }); return; }
   const totals = gstBreakdown(Number(amountCents));
   const { data: invoice, error } = await supabase.from('invoices').insert({
@@ -178,7 +191,15 @@ async function handleCreateInvoice(req, res, supabase) {
     bank_account_name: bank.accountName, bank_bsb: bank.bsb, bank_account_number: bank.accountNumber,
     due_at: dueAt.toISOString(),
   }).select().single();
-  if (error) throw error;
+  if (error) {
+    if (error.code === '23505') {
+      const { data: duplicate } = await supabase.from('invoices').select('*')
+        .eq('quote_id', quote.id).eq('milestone_key', String(milestoneKey).slice(0, 80)).neq('status', 'void').maybeSingle();
+      if (duplicate) { res.status(200).json({ invoice: serializeInvoice(duplicate), alreadyExists: true }); return; }
+    }
+    console.error('invoice create error:', { code: error.code || 'unknown', message: error.message || 'unknown' });
+    res.status(500).json({ error: invoiceDatabaseError(error) }); return;
+  }
   await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'invoice_created', actorRole: 'admin', payload: { invoiceId: invoice.id, invoiceNumber: invoice.invoice_number } });
   res.status(200).json({ invoice: serializeInvoice(invoice) });
 }
@@ -349,7 +370,7 @@ function serializePublic(quote, version, issuingEntity) {
     versionStatus: version.status,
     issuingEntity: issuingEntity ? {
       legalName: issuingEntity.legal_name, abn: issuingEntity.abn, tradingName: issuingEntity.trading_name,
-      addressLine: issuingEntity.address_line, suburb: issuingEntity.suburb, state: issuingEntity.state,
+      addressLine: issuingEntity.address_line, suburb: issuingEntity.suburb, state: issuingEntity.state, postcode: issuingEntity.postcode,
       email: issuingEntity.email, phone: issuingEntity.phone,
     } : null,
     customer: version.customer_snapshot || {},
@@ -470,7 +491,7 @@ async function handleUpdateDraft(req, res, supabase) {
   if (!quote) { res.status(404).json({ error: 'Quote not found.' }); return; }
   const { data: version, error: vErr } = await supabase.from('quote_versions').select('*').eq('id', quote.current_version_id).maybeSingle();
   if (vErr) throw vErr;
-  if (version && version.status !== 'draft') {
+  if (!version || version.status !== 'draft') {
     res.status(409).json({ error: "Only a draft version can be edited -- use 'revise' to create a new version." });
     return;
   }
@@ -617,7 +638,7 @@ async function handleRemoveDraftQuote(req, res, supabase) {
     if (vErr) throw vErr;
     version = data;
   }
-  if (!version || version.status !== 'draft') {
+  if (version && version.status !== 'draft') {
     res.status(409).json({ error: 'Only an unissued draft quote can be removed.' }); return;
   }
   const { data: invoices, error: invoiceErr } = await supabase.from('invoices').select('id').eq('quote_id', quote.id).limit(1);
