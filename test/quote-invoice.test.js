@@ -62,6 +62,19 @@ test('admin has a dedicated invoice register with balances and quote drill-throu
   assert.match(api, /quoteNumber: quoteNumberById/);
 });
 
+test('admin can accept a sent quote and create the next milestone invoice in one click', () => {
+  const api = apiSource();
+  const admin = fs.readFileSync(path.join(__dirname, '..', 'mysubbies-admin-portal.html'), 'utf8');
+  assert.match(api, /async function handleAdminAcceptQuote/);
+  assert.match(api, /quote\.current_status !== 'sent'/);
+  assert.match(api, /acceptedOnCustomerBehalf: true/);
+  assert.match(api, /action === 'admin_accept_quote'/);
+  assert.match(admin, /onclick="acceptSelectedQuoteAsAdmin\(\)">✓ Accept quote/);
+  assert.match(admin, /onclick="createNextMilestoneInvoice\(\)"/);
+  assert.match(admin, /The invoice will be created for review and will not be emailed automatically/);
+  assert.match(admin, /const next = options\.find\(option => !used\.has\(option\.key\)\)/);
+});
+
 function apiSource() {
   return fs.readFileSync(path.join(__dirname, '..', 'api', 'quotes.js'), 'utf8');
 }
