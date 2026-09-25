@@ -3506,6 +3506,34 @@
       invoiceDraft = null; await openQuoteDetail(selectedQuoteId);
     } catch (e) { invoiceSaving = false; alert('Could not create invoice — check your connection.'); render(); }
   }
+  async function acceptSelectedQuoteAsAdmin() {
+    const quote = quoteDetailData && quoteDetailData.quote;
+    if (!quote || quote.currentStatus !== 'sent') return;
+    if (!confirm(`Accept Quote #${quote.quoteNumber} on the customer's behalf?\n\nOnly do this after the customer has clearly confirmed acceptance outside the portal. This action is recorded in the quote activity.`)) return;
+    try {
+      const res = await adminFetch('/api/quotes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'admin_accept_quote', quoteId:selectedQuoteId }) });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Could not accept this quote.'); return; }
+      await openQuoteDetail(selectedQuoteId);
+      alert('Quote accepted. You can now create the next milestone invoice.');
+    } catch (e) { alert('Could not accept this quote — check your connection.'); }
+  }
+  async function createNextMilestoneInvoice() {
+    const options = quoteDetailData && quoteDetailData.invoiceMilestoneOptions || [];
+    const used = new Set((quoteDetailData && quoteDetailData.invoices || []).filter(i => i.status !== 'void').map(i => i.milestoneKey));
+    const next = options.find(option => !used.has(option.key));
+    if (!next) { alert(options.length ? 'All payment milestones have already been invoiced.' : 'No percentage payment milestones were found. Use Create invoice to enter one manually.'); return; }
+    const dueDate = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+    if (!confirm(`Create the next invoice?\n\n${next.label} — ${fmtCents(next.amountCents)}\nDue in 7 days. The invoice will be created for review and will not be emailed automatically.`)) return;
+    invoiceSaving = true; render();
+    try {
+      const res = await adminFetch('/api/quotes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'create_invoice', quoteId:selectedQuoteId, milestoneKey:next.key, milestoneLabel:next.label, milestonePercentage:next.percentage, amountCents:next.amountCents, dueDate }) });
+      const data = await res.json(); invoiceSaving = false;
+      if (!res.ok) { alert(data.error || 'Could not create the next invoice.'); render(); return; }
+      await openQuoteDetail(selectedQuoteId);
+      alert(`Invoice INV-${data.invoice.invoiceNumber} created. Review it before emailing the customer.`);
+    } catch (e) { invoiceSaving = false; alert('Could not create the next invoice — check your connection.'); render(); }
+  }
   async function sendMilestoneInvoice(invoiceId) {
     if (!confirm('Email this tax invoice to the customer and BCC Accounts?')) return;
     try {
@@ -3847,7 +3875,8 @@
             ${['draft', 'sent'].includes(quote.currentStatus) ? `<button class="btn btn-danger" onclick="cancelSelectedQuote()">Cancel quote</button>` : ''}
             <button class="btn btn-outline" onclick="setSelectedQuoteArchived(${quote.archived ? 'false' : 'true'})">${quote.archived ? 'Restore from archive' : 'Archive quote'}</button>
             ${quote.currentStatus === 'accepted' ? (quote.jobId ? `<button class="btn btn-black" onclick="openLinkedQuoteJob('${quote.jobId}')">View portal job ${escapeHtml(quote.jobId)} →</button>` : `<button class="btn btn-black" onclick="pushSelectedQuoteToPortal()">Push to Portal →</button>`) : ''}
-            ${quote.currentStatus === 'accepted' ? `<button class="btn btn-black" onclick="openInvoiceBuilder()">＋ Create invoice</button>` : ''}
+            ${quote.currentStatus === 'sent' ? `<button class="btn btn-black" onclick="acceptSelectedQuoteAsAdmin()">✓ Accept quote</button>` : ''}
+            ${quote.currentStatus === 'accepted' ? `<button class="btn btn-black" ${invoiceSaving ? 'disabled' : ''} onclick="createNextMilestoneInvoice()">${invoiceSaving ? 'Creating…' : '⚡ Create next invoice'}</button><button class="btn btn-outline" onclick="openInvoiceBuilder()">＋ Create custom invoice</button>` : ''}
             ${v.status === 'draft' ? `
               <button class="btn btn-outline" onclick="editDraftQuote()">Edit draft</button>
               <button class="btn btn-black" ${quoteEmailSending ? 'disabled' : ''} onclick="issueAndEmailSelectedQuote()">${quoteEmailSending ? 'Sending…' : '📧 Issue & email to customer'}</button>
