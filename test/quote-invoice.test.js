@@ -69,7 +69,7 @@ test('admin can accept a sent quote and create the next milestone invoice in one
   assert.match(api, /quote\.current_status !== 'sent'/);
   assert.match(api, /acceptedOnCustomerBehalf: true/);
   assert.match(api, /action === 'admin_accept_quote'/);
-  assert.match(admin, /onclick="acceptSelectedQuoteAsAdmin\(\)">✓ Accept quote/);
+  assert.match(admin, /onclick="acceptSelectedQuoteAsAdmin\(\)">Accept quote/);
   assert.match(admin, /onclick="createNextMilestoneInvoice\(\)"/);
   assert.match(admin, /The invoice will be created for review and will not be emailed automatically/);
   assert.match(admin, /const next = options\.find\(option => !used\.has\(option\.key\)\)/);
