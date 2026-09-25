@@ -183,6 +183,32 @@ async function handleCreateInvoice(req, res, supabase) {
   res.status(200).json({ invoice: serializeInvoice(invoice) });
 }
 
+async function handleAdminAcceptQuote(req, res, supabase) {
+  const { quoteId } = req.body || {};
+  if (!quoteId) { res.status(400).json({ error: 'quoteId is required.' }); return; }
+  const { data: quote, error: quoteErr } = await supabase.from('quotes').select('*').eq('id', quoteId).maybeSingle();
+  if (quoteErr) throw quoteErr;
+  if (!quote) { res.status(404).json({ error: 'Quote not found.' }); return; }
+  if (quote.current_status !== 'sent') { res.status(409).json({ error: 'Only a sent quote can be accepted by an admin.' }); return; }
+  const { data: version, error: versionErr } = await supabase.from('quote_versions').select('*').eq('id', quote.current_version_id).maybeSingle();
+  if (versionErr) throw versionErr;
+  if (!version || version.status !== 'issued') { res.status(409).json({ error: 'The issued quote version could not be found.' }); return; }
+  const customer = version.customer_snapshot || {};
+  const nowIso = new Date().toISOString();
+  const { error: updateVersionErr } = await supabase.from('quote_versions').update({
+    status: 'accepted', accepted_at: nowIso,
+    accepted_by_name: customer.name || 'Customer — recorded by admin',
+    accepted_by_email: customer.email || null,
+    accepted_ip: getRequestIp(req), accepted_user_agent: req.headers['user-agent'] || null,
+    updated_at: nowIso,
+  }).eq('id', version.id);
+  if (updateVersionErr) throw updateVersionErr;
+  const { error: updateQuoteErr } = await supabase.from('quotes').update({ current_status: 'accepted', updated_at: nowIso }).eq('id', quote.id);
+  if (updateQuoteErr) throw updateQuoteErr;
+  await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'accepted', actorRole: 'admin', payload: { acceptedOnCustomerBehalf: true, name: customer.name || null, email: customer.email || null } });
+  res.status(200).json({ ok: true, status: 'accepted' });
+}
+
 async function handleSendInvoice(req, res, supabase) {
   const { invoiceId } = req.body || {};
   const { data: invoice } = await supabase.from('invoices').select('*').eq('id', invoiceId).maybeSingle();
@@ -973,6 +999,7 @@ module.exports = async (req, res) => {
       if (action === 'unarchive_quote') { await handleQuoteArchive(req, res, supabase, false); return; }
       if (action === 'remove_draft_quote') { await handleRemoveDraftQuote(req, res, supabase); return; }
       if (action === 'send_quote_email') { await handleSendQuoteEmail(req, res, supabase); return; }
+      if (action === 'admin_accept_quote') { await handleAdminAcceptQuote(req, res, supabase); return; }
       if (action === 'create_invoice') { await handleCreateInvoice(req, res, supabase); return; }
       if (action === 'send_invoice') { await handleSendInvoice(req, res, supabase); return; }
       if (action === 'record_invoice_payment') { await handleRecordInvoicePayment(req, res, supabase); return; }
