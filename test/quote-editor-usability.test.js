@@ -93,6 +93,9 @@ test('a quote preserves the entered customer name when an email already exists',
   assert.match(quoteApi, /customer_snapshot: customerSnapshot/);
   assert.match(quoteApi, /customer_snapshot: body\.customerSnapshot \|\| version\.customer_snapshot/);
   assert.match(quoteApi, /const snapshot = version && version\.customer_snapshot/);
+  assert.match(admin, /Name for this quote/);
+  assert.match(admin, /without changing the existing CRM customer/);
+  assert.doesNotMatch(admin, /value="\$\{escapeHtml\(d\.customerName\)\}" \$\{d\.customerId \? 'disabled'/);
 });
 
 test('quote resend confirms and allows editing the recipient email', () => {
