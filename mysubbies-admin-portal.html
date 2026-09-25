@@ -3361,11 +3361,11 @@
         <div class="quote-card-title"><h2>Customer details</h2><span style="font-size:11.5px;color:var(--stone);">${d.customerId ? 'Existing customer' : 'New CRM contact'}</span></div>
         <div style="margin-bottom:12px;"><label class="fieldlabel">Select customer</label><select class="fieldinput" onchange="selectQuoteCustomer(this.value)"><option value="">＋ Create a new customer</option>${(customersTabData && customersTabData.rows || []).map(c => `<option value="${c.id}" ${d.customerId === c.id ? 'selected' : ''}>${escapeHtml(c.name || c.email)} · ${escapeHtml(c.email)}</option>`).join('')}</select></div>
         <div class="quote-customer-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <div><label class="fieldlabel">Name</label><input class="fieldinput" value="${escapeHtml(d.customerName)}" ${d.customerId ? 'disabled' : ''} oninput="quoteBuilderDraft.customerName=this.value" /></div>
-          <div><label class="fieldlabel">Email</label><input class="fieldinput" value="${escapeHtml(d.customerEmail)}" ${d.customerId ? 'disabled' : ''} oninput="quoteBuilderDraft.customerEmail=this.value" /></div>
+          <div><label class="fieldlabel">Name for this quote</label><input class="fieldinput" value="${escapeHtml(d.customerName)}" oninput="quoteBuilderDraft.customerName=this.value" /></div>
+          <div><label class="fieldlabel">Email for this quote</label><input class="fieldinput" value="${escapeHtml(d.customerEmail)}" oninput="quoteBuilderDraft.customerEmail=this.value" /></div>
         </div>
-        <div style="margin-top:10px;"><label class="fieldlabel">Phone</label><input class="fieldinput" value="${escapeHtml(d.customerPhone)}" ${d.customerId ? 'disabled' : ''} oninput="quoteBuilderDraft.customerPhone=this.value" /></div>
-        <div style="font-size:11.5px;color:var(--stone);margin-top:6px;">${d.customerId ? 'Existing customer.' : 'A new contact will be created for quoting -- no login/password is created.'}</div>
+        <div style="margin-top:10px;"><label class="fieldlabel">Phone for this quote</label><input class="fieldinput" value="${escapeHtml(d.customerPhone)}" oninput="quoteBuilderDraft.customerPhone=this.value" /></div>
+        <div style="font-size:11.5px;color:var(--stone);margin-top:6px;">${d.customerId ? 'You can change these details for this quote without changing the existing CRM customer.' : 'A new contact will be created for quoting -- no login/password is created.'}</div>
         <div style="margin-top:10px;"><label class="fieldlabel">Assigned staff</label>
           <select class="fieldinput" onchange="quoteBuilderDraft.assignedStaffId=this.value">
             <option value="">— Unassigned —</option>
