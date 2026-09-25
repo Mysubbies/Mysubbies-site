@@ -72,7 +72,22 @@ test('admin can accept a sent quote and create the next milestone invoice in one
   assert.match(admin, /onclick="acceptSelectedQuoteAsAdmin\(\)">Accept quote/);
   assert.match(admin, /onclick="createNextMilestoneInvoice\(\)"/);
   assert.match(admin, /The invoice will be created for review and will not be emailed automatically/);
+  assert.match(admin, /data\.alreadyExists \? `Invoice INV-/);
+  assert.match(api, /function invoiceDatabaseError\(error\)/);
+  assert.match(api, /error\.code === '23505'/);
+  assert.match(api, /alreadyExists: true/);
   assert.match(admin, /const next = options\.find\(option => !used\.has\(option\.key\)\)/);
+});
+
+test('quotes, invoices and receipts show the company postal address', () => {
+  const admin = fs.readFileSync(path.join(__dirname, '..', 'mysubbies-admin-portal.html'), 'utf8');
+  const quote = fs.readFileSync(path.join(__dirname, '..', 'mysubbies-quote.html'), 'utf8');
+  const invoice = fs.readFileSync(path.join(__dirname, '..', 'mysubbies-invoice.html'), 'utf8');
+  const quoteEmail = fs.readFileSync(path.join(__dirname, '..', 'api', '_lib', 'quoteEmail.js'), 'utf8');
+  const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'schema_v32_company_postal_address.sql'), 'utf8');
+  for (const source of [admin, quote, invoice, quoteEmail, migration]) assert.match(source, /PO Box 1126/);
+  assert.match(migration, /Craigieburn/);
+  assert.match(apiSource(), /postcode: issuingEntity\.postcode/);
 });
 
 function apiSource() {
