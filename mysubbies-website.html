@@ -1785,7 +1785,7 @@
   function renderFullCategoryGrid() {
     const grid = document.getElementById('catGrid');
     if (!grid) return;
-    const visible = CATEGORIES.filter(c => (c.tasks || []).some(t => !t.disabled));
+    const visible = CATEGORIES.filter(c => !c.disabled && !c.deleted && (c.tasks || []).some(t => !t.disabled && !t.unavailable));
     const cards = visible.map(c => {
       const slug = categorySlug(c.label);
       const enabledTasks = (c.tasks || []).filter(t => !t.disabled);
@@ -1827,7 +1827,7 @@
   function renderPopularCategories() {
     const grid = document.getElementById('catGridPopular');
     if (!grid) return;
-    const popular = CATEGORIES.filter(c => c.popular && (c.tasks || []).some(t => !t.disabled));
+    const popular = CATEGORIES.filter(c => c.popular && !c.disabled && !c.deleted && (c.tasks || []).some(t => !t.disabled && !t.unavailable));
     grid.innerHTML = popular.map(c => {
       const slug = categorySlug(c.label);
       const copy = POPULAR_CATEGORY_COPY[c.label];
@@ -2087,7 +2087,7 @@
   }
 
   function goToEstimatorWithCategory(label, prefillQuery) {
-    const cat = CATEGORIES.find(c => c.label === label);
+    const cat = CATEGORIES.find(c => c.label === label && !c.disabled && !c.deleted);
     document.getElementById('estimate').scrollIntoView({ behavior: 'smooth', block: 'start' });
     if (cat) setTimeout(() => {
       selectCat(cat);
@@ -2119,7 +2119,7 @@
     </button>`;
   }
   function openSubCategoryGallery(label) {
-    const cat = CATEGORIES.find(c => c.label === label);
+    const cat = CATEGORIES.find(c => c.label === label && !c.disabled && !c.deleted);
     if (!cat) return;
     const tasks = (cat.tasks || []).filter(t => !t.disabled && !t.unavailable);
     // Nothing to actually browse (e.g. a brand-new category with one task,
@@ -2143,7 +2143,7 @@
   // resetting stale selections) so it stays in sync with the normal flow,
   // then selects this one task and jumps straight to Step 2 for size/photos.
   function selectSubCategoryAndGoToStep2(catLabel, taskName) {
-    const cat = CATEGORIES.find(c => c.label === catLabel);
+    const cat = CATEGORIES.find(c => c.label === catLabel && !c.disabled && !c.deleted);
     if (!cat) return;
     const task = cat.tasks.find(t => t.name === taskName);
     if (!task) return;
@@ -2173,7 +2173,7 @@
   // offers photo upload itself. Fix Something is still reachable via the
   // "Other" category card and the mobile tab bar's FAB.
   function chooseQuickService(categoryLabel, taskQuery) {
-    const cat = CATEGORIES.find(c => c.label === categoryLabel && (c.tasks || []).some(t => !t.disabled && !t.unavailable));
+    const cat = CATEGORIES.find(c => c.label === categoryLabel && !c.disabled && !c.deleted && (c.tasks || []).some(t => !t.disabled && !t.unavailable));
     if (!cat) { heroBrowseServices(); return; }
     if (taskQuery) {
       const query = taskQuery.toLowerCase();
@@ -2744,6 +2744,7 @@
     if (likelyService) {
       const needle = likelyService.toLowerCase();
       for (const cat of CATEGORIES) {
+        if (cat.disabled || cat.deleted) continue;
         // Match against ALL tasks, including ones still "pending founder
         // review" (unavailable) — the category itself is still the right
         // place to land even if that specific line item isn't priced yet.
@@ -2760,7 +2761,7 @@
     // normal step-1 category landing when the AI couldn't pin down a
     // specific priced task, since then the customer genuinely still needs
     // to pick one.
-    const targetCat = CATEGORIES.find(c => c.label === targetCategory);
+    const targetCat = CATEGORIES.find(c => c.label === targetCategory && !c.disabled && !c.deleted);
     if (matchedTaskName && matchedTaskAvailable && targetCat) {
       document.getElementById('estimate').scrollIntoView({ behavior: 'smooth', block: 'start' });
       setTimeout(() => {
@@ -3310,6 +3311,7 @@
   }
 
   function selectCat(c) {
+    if (!c || c.disabled || c.deleted) return;
     selectedCat = c;
     selectedTier = null;
     selectedTierSet.clear();
@@ -4211,7 +4213,7 @@
     const rebuiltCart = [];
     let matchedCat = null;
     req.items.forEach(reqItem => {
-      const cat = CATEGORIES.find(c => c.label === reqItem.catLabel);
+      const cat = CATEGORIES.find(c => c.label === reqItem.catLabel && !c.disabled && !c.deleted);
       if (!cat) return;
       const task = cat.tasks.find(t => t.name === reqItem.taskName && !t.unavailable && !t.disabled);
       if (!task) return;
