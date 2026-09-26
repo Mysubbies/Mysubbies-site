@@ -846,8 +846,8 @@
     </div>
     <div class="app-hero-grid">
       <div class="app-hero-copy">
-        <h1>Need help with your outdoor space? Get an instant price.</h1>
-        <p class="lede">Book trusted local professionals for landscaping, gardening, fencing, decking and outdoor projects across Melbourne.</p>
+        <h1>Need a tradie? Get an instant price.</h1>
+        <p class="lede">Book trusted local professionals for home repairs, maintenance, gardening and outdoor jobs across Melbourne.</p>
 
         <!-- Estimator (Sep 2026) -- moved here from its own section further
              down the page (was <section id="get-quote">) so the actual
@@ -869,17 +869,17 @@
 
               <label class="est-field-label">What do you need done?</label>
               <div class="estimator-search-wrap">
-                <input type="text" id="estCategoryInput" placeholder="e.g. lawn mowing, fencing, decking, turf…" autocomplete="off" oninput="onCatSearch()" />
+                <input type="text" id="estCategoryInput" placeholder="e.g. decking, electrical, tiling…" autocomplete="off" oninput="onCatSearch()" />
                 <div class="estimator-search-results" id="estCatResults"></div>
               </div>
               <div class="quick-services" aria-label="Quick service choices">
+                <button type="button" onclick="chooseQuickService('Handyman')">Handyman</button>
+                <button type="button" onclick="chooseQuickService('Cleaning')">Cleaning</button>
                 <button type="button" onclick="chooseQuickService('Gardening &amp; Lawn Mowing')">Gardening</button>
                 <button type="button" onclick="chooseQuickService('Fencing')">Fencing</button>
                 <button type="button" onclick="chooseQuickService('Decking')">Decking</button>
-                <button type="button" onclick="chooseQuickService('Grass Installation')">Turf &amp; Grass</button>
-                <button type="button" onclick="chooseQuickService('Retaining Wall')">Retaining Walls</button>
-                <button type="button" onclick="chooseQuickService('Concreting')">Concreting</button>
-                <button type="button" onclick="chooseQuickService('Pergola')">Pergolas</button>
+                <button type="button" onclick="chooseQuickService('Handyman', 'flat-pack assembly')">Furniture Assembly</button>
+                <button type="button" onclick="chooseQuickService('Courier Services')">Same-Day Courier</button>
                 <button type="button" onclick="heroBrowseServices()">More</button>
               </div>
 
