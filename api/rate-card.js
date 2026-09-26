@@ -136,6 +136,28 @@ module.exports = async (req, res) => {
       return;
     }
 
+    if (action === 'set-category-disabled') {
+      try {
+        const { catLabel, disabled } = req.body || {};
+        if (!catLabel) { res.status(400).json({ error: 'catLabel is required.' }); return; }
+        const { data, error } = await supabase.from('platform_rate_card').select('categories').eq('id', true).maybeSingle();
+        if (error) throw error;
+        const categories = (data && data.categories) || [];
+        const category = categories.find(cat => cat.label === catLabel && !cat.deleted);
+        if (!category) { res.status(404).json({ error: 'Category not found.' }); return; }
+        category.disabled = !!disabled;
+        const { error: saveError } = await supabase.from('platform_rate_card').upsert({
+          id: true, categories, updated_by: 'admin', updated_at: new Date().toISOString(),
+        });
+        if (saveError) throw saveError;
+        res.status(200).json({ saved: true, catLabel, disabled: category.disabled });
+      } catch (err) {
+        console.error('rate-card set-category-disabled error:', err);
+        res.status(500).json({ error: 'Could not update category availability.' });
+      }
+      return;
+    }
+
     if (action === 'migrate-photos') {
       try {
         const { data, error } = await supabase.from('platform_rate_card').select('categories').eq('id', true).maybeSingle();

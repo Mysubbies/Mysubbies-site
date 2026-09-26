@@ -4905,15 +4905,38 @@
     if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
   }
 
-  function toggleCategoryDisabled(catLabel, event) {
+  async function toggleCategoryDisabled(catLabel, event) {
     if (event) event.stopPropagation();
     const categories = getRateCard();
     const cat = categories.find(c => c.label === catLabel);
     if (!cat) return;
-    cat.disabled = !cat.disabled;
-    saveRateCard(categories);
+    const previous = !!cat.disabled;
+    const next = !previous;
+
+    // Update the admin UI immediately, but persist this one category directly
+    // on the server instead of re-posting the entire photo-heavy rate card.
+    // A full-card save can exceed Vercel's request-body limit while legacy
+    // embedded photos still exist, which made Hold look successful locally
+    // even though customers never received the change.
+    cat.disabled = next;
+    try { localStorage.setItem('mysubbies_ratecard', JSON.stringify(categories)); } catch (e) { /* server remains authoritative */ }
     const list = document.getElementById('rcManageList');
     if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
+
+    try {
+      const res = await adminFetch('/api/rate-card', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set-category-disabled', catLabel, disabled: next }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not update category availability.');
+      showToast(next ? `${catLabel} is now on hold.` : `${catLabel} is now available.`);
+    } catch (e) {
+      cat.disabled = previous;
+      try { localStorage.setItem('mysubbies_ratecard', JSON.stringify(categories)); } catch (ignore) {}
+      if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
+      alert(e.message || 'Could not update category availability.');
+    }
   }
 
   function toggleServiceDisabled(catLabel, taskIdx) {
