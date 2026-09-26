@@ -291,6 +291,12 @@
   .rc-cat-popular-btn:hover { background:var(--paper); }
   .rc-cat-popular-on { border-color:#F5D488; background:#FDF6E3; color:#8A6D1D; }
   .rc-cat-popular-on:hover { background:#FBEDC4; }
+  .rc-cat-hold-btn { flex-shrink:0; font-size:11.5px; font-weight:600; padding:6px 12px; border-radius:999px; border:1px solid var(--line); background:#fff; color:var(--stone); cursor:pointer; white-space:nowrap; }
+  .rc-cat-hold-btn:hover { border-color:var(--stone-light); color:var(--ink); }
+  .rc-cat-hold-on { border-color:#F2C9C6; background:#FDEDEA; color:var(--warn); }
+  .rc-cat-hold-on:hover { background:#F8DEDB; border-color:var(--warn); }
+  .rc-cat-held > .rc-cat-head { background:#FFF9F8; }
+  .rc-cat-held .rc-cat-name { color:var(--warn); }
   .rc-cat-body { background:var(--paper); padding:12px 16px 16px; }
   .rc-task { padding:10px 0; border-top:1px solid var(--line); }
   .rc-cat-body .rc-task:first-child { border-top:none; padding-top:2px; }
@@ -4671,7 +4677,7 @@
       const isOpen = q ? true : (rcExpandedCategories.has(c.label) || c.label === rcAddingTaskCat);
       const disabledCount = c.tasksWithIdx.filter(({ t }) => t.disabled).length;
       return `
-      <div class="rc-cat ${isOpen ? 'rc-cat-open' : ''}">
+      <div class="rc-cat ${isOpen ? 'rc-cat-open' : ''} ${c.disabled ? 'rc-cat-held' : ''}">
         <div class="rc-cat-head">
           <div class="rc-cat-toggle" onclick="toggleRcCategory('${safeLabel}')" role="button" tabindex="0">
             <span class="rc-cat-chevron">›</span>
@@ -4680,6 +4686,7 @@
           </div>
           <div class="rc-cat-actions">
             <button type="button" class="rc-cat-popular-btn ${c.popular ? 'rc-cat-popular-on' : ''}" onclick="toggleCategoryPopular('${safeLabel}', event)" title="${c.popular ? 'Showing in Popular categories on the homepage' : 'Not shown in Popular categories on the homepage'}">${c.popular ? '★ Popular' : '☆ Popular'}</button>
+            <button type="button" class="rc-cat-hold-btn ${c.disabled ? 'rc-cat-hold-on' : ''}" onclick="toggleCategoryDisabled('${safeLabel}', event)" title="${c.disabled ? 'Release this category so customers can book it again' : 'Temporarily hold this whole category from customers'}">${c.disabled ? 'Release' : 'Hold'}</button>
             <button type="button" class="rc-cat-delete-btn" onclick="deleteCategory('${safeLabel}', event)" title="Permanently delete this whole category">Delete</button>
           </div>
         </div>
@@ -4893,6 +4900,17 @@
     const cat = categories.find(c => c.label === catLabel);
     if (!cat) return;
     cat.popular = !cat.popular;
+    saveRateCard(categories);
+    const list = document.getElementById('rcManageList');
+    if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
+  }
+
+  function toggleCategoryDisabled(catLabel, event) {
+    if (event) event.stopPropagation();
+    const categories = getRateCard();
+    const cat = categories.find(c => c.label === catLabel);
+    if (!cat) return;
+    cat.disabled = !cat.disabled;
     saveRateCard(categories);
     const list = document.getElementById('rcManageList');
     if (list) list.innerHTML = rateCardManageHtml(categories, rcManageSearchQuery);
