@@ -11,6 +11,15 @@ function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
 }
 
+function getPropertySupabase() {
+  const url = process.env.PROPERTY_SUPABASE_URL || process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.PROPERTY_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceRoleKey) {
+    throw new Error('PROPERTY_SUPABASE_URL / PROPERTY_SUPABASE_SERVICE_ROLE_KEY are not set.');
+  }
+  return createClient(url, serviceRoleKey);
+}
+
 function getSupabase() {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are not set in Vercel environment variables.');
@@ -21,4 +30,4 @@ function getSupabase() {
   return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
-module.exports = { getStripe, getSupabase };
+module.exports = { getStripe, getSupabase, getPropertySupabase };
