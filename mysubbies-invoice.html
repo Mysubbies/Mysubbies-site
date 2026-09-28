@@ -115,11 +115,14 @@ function downloadPdf(){
   const wrapped=(text,maxWidth=width,fontSize=9,lineHeight=4.5)=>{
     const lines=doc.splitTextToSize(String(text||''),maxWidth);for(const lineText of lines){ensure(lineHeight+1);doc.setFont('helvetica','normal');doc.setFontSize(fontSize);doc.setTextColor(35);doc.text(lineText,left,y);y+=lineHeight;}return lines.length;
   };
-  const firstLine=(text)=>{
-    const clean=String(text||'').replace(/\s+/g,' ').trim();
-    if(!clean)return 'Quoted service';
-    const sentence=clean.split(/[\n\r]/)[0];
-    return sentence.length>95?sentence.slice(0,92)+'…':sentence;
+  const serviceTitle=(text)=>{
+    const raw=String(text||'').trim();
+    if(!raw)return 'Quoted service';
+    let title=(raw.split(/\r?\n/)[0]||'').replace(/\s+/g,' ').trim();
+    const cuts=[/\s+Supply and install\b/i,/\s+Supply & Install\b/i,/\s+Carefully break\b/i,/\s+Scope Includes\b/i,/\s+Areas?:\b/i,/\s+Price is based\b/i];
+    for(const re of cuts){const m=title.match(re);if(m&&m.index>8){title=title.slice(0,m.index).trim();break;}}
+    if(title.length>72)title=title.slice(0,69).trimEnd()+'…';
+    return title;
   };
 
   addHeader();
@@ -140,13 +143,16 @@ function downloadPdf(){
   doc.setTextColor(...stone);doc.setFont('helvetica','bold');doc.setFontSize(7.5);
   doc.text('SERVICE',left+3,y+3);doc.text('QTY',151,y+3,{align:'right'});doc.text('AMOUNT',193,y+3,{align:'right'});y+=11;
   const items=q.lineItems||[];
-  items.forEach(item=>{
-    const desc=firstLine(item.description);
-    const descLines=doc.splitTextToSize(desc,125);
-    const rowH=Math.max(8,descLines.length*4.3+3);ensure(rowH+2);
-    doc.setTextColor(30);doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.text(descLines,left+3,y,{maxWidth:125});
-    doc.setFont('helvetica','normal');doc.setTextColor(...stone);doc.setFontSize(8);doc.text(String(item.qty==null?'':item.qty)+' '+String(item.unit||''),151,y,{align:'right'});
-    doc.setTextColor(20);doc.setFont('helvetica','bold');doc.text(money(item.lineTotalCents),193,y,{align:'right'});
+  items.forEach((item,index)=>{
+    const title=serviceTitle(item.description);
+    const titleLines=doc.splitTextToSize(title,112);
+    const rowH=Math.max(10,titleLines.length*4.4+5);ensure(rowH+2);
+    if(index%2===1){doc.setFillColor(252,252,251);doc.rect(left,y-4,width,rowH,'F');}
+    doc.setTextColor(30);doc.setFont('helvetica','bold');doc.setFontSize(8.3);doc.text(titleLines,left+3,y,{maxWidth:112});
+    doc.setFont('helvetica','normal');doc.setTextColor(...stone);doc.setFontSize(7.8);
+    const qtyText=[item.qty==null?'':item.qty,item.unit||''].filter(Boolean).join(' ');
+    doc.text(String(qtyText),154,y,{align:'right'});
+    doc.setTextColor(20);doc.setFont('helvetica','bold');doc.setFontSize(8.3);doc.text(money(item.lineTotalCents),193,y,{align:'right'});
     y+=rowH;doc.setDrawColor(...line);doc.line(left+3,y-2,right-3,y-2);
   });
   ensure(12);doc.setFont('helvetica','bold');doc.setTextColor(...navy);doc.setFontSize(9);
