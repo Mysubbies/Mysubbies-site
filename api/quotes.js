@@ -89,8 +89,9 @@ function generateToken() {
   return crypto.randomBytes(TOKEN_BYTES).toString('base64url');
 }
 function invoiceBaseUrl() {
-  const base = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://app.mysubbies.com.au';
-  return `${base}/mysubbies-invoice.html`;
+  if (process.env.VERCEL_ENV === 'production') return 'https://app.mysubbies.com.au/mysubbies-invoice.html';
+  const base = process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL;
+  return base ? `https://${String(base).replace(/^https?:\/\//, '')}/mysubbies-invoice.html` : 'https://app.mysubbies.com.au/mysubbies-invoice.html';
 }
 
 function bankConfig() {
@@ -271,6 +272,29 @@ async function handleAdminAcceptQuote(req, res, supabase) {
   if (updateQuoteErr) throw updateQuoteErr;
   await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'accepted', actorRole: 'admin', payload: { acceptedOnCustomerBehalf: true, name: customer.name || null, email: customer.email || null } });
   res.status(200).json({ ok: true, status: 'accepted' });
+}
+
+async function handleGenerateInvoicePreviewLink(req, res, supabase) {
+  const { invoiceId } = req.body || {};
+  if (!invoiceId) { res.status(400).json({ error: 'invoiceId is required.' }); return; }
+  const { data: invoice } = await supabase.from('invoices').select('id,status').eq('id', invoiceId).maybeSingle();
+  if (!invoice || invoice.status === 'void') { res.status(404).json({ error: 'Invoice not found.' }); return; }
+
+  const rawToken = generateToken();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const { error: tokenError } = await supabase.from('document_access_tokens').insert({
+    document_type: 'invoice',
+    document_id: invoice.id,
+    token_hash: hashToken(rawToken),
+    expires_at: expiresAt,
+    created_by: 'admin-preview',
+  });
+  if (tokenError) throw tokenError;
+
+  res.status(200).json({
+    url: `${invoiceBaseUrl()}?token=${encodeURIComponent(rawToken)}`,
+    expiresAt,
+  });
 }
 
 async function handleSendInvoice(req, res, supabase) {
@@ -1079,6 +1103,7 @@ module.exports = async (req, res) => {
       if (action === 'send_quote_email') { await handleSendQuoteEmail(req, res, supabase); return; }
       if (action === 'admin_accept_quote') { await handleAdminAcceptQuote(req, res, supabase); return; }
       if (action === 'create_invoice') { await handleCreateInvoice(req, res, supabase); return; }
+      if (action === 'generate_invoice_preview_link') { await handleGenerateInvoicePreviewLink(req, res, supabase); return; }
       if (action === 'send_invoice') { await handleSendInvoice(req, res, supabase); return; }
       if (action === 'record_invoice_payment') { await handleRecordInvoicePayment(req, res, supabase); return; }
       if (action === 'push_to_portal') {
