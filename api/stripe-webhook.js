@@ -78,6 +78,37 @@ module.exports = async (req, res) => {
   try {
     if (event.type === 'payment_intent.succeeded' || event.type === 'payment_intent.payment_failed') {
       const intent = event.data.object;
+      const invoiceId = intent.metadata && intent.metadata.invoiceId;
+      if (invoiceId) {
+        if (event.type === 'payment_intent.succeeded') {
+          const { data: existingInvoicePayment } = await supabase.from('invoice_payments')
+            .select('id').eq('invoice_id', invoiceId).eq('payment_reference', intent.id).maybeSingle();
+          if (!existingInvoicePayment) {
+            const { data: invoiceRow } = await supabase.from('invoices').select('total_inc_gst_cents,status').eq('id', invoiceId).maybeSingle();
+            if (invoiceRow && invoiceRow.status !== 'void') {
+              const { data: priorPayments } = await supabase.from('invoice_payments').select('amount_cents').eq('invoice_id', invoiceId);
+              const paidBefore = (priorPayments || []).reduce((sum, p) => sum + Number(p.amount_cents || 0), 0);
+              const remaining = Math.max(0, Number(invoiceRow.total_inc_gst_cents || 0) - paidBefore);
+              const amountToRecord = Math.min(Number(intent.amount_received || intent.amount || 0), remaining);
+              if (amountToRecord > 0) {
+                const { error: invoicePaymentError } = await supabase.rpc('record_invoice_payment', {
+                  p_invoice_id: invoiceId,
+                  p_amount_cents: amountToRecord,
+                  p_received_at: new Date().toISOString(),
+                  p_payment_method: 'card',
+                  p_payment_reference: intent.id,
+                  p_notes: 'Paid securely by card via Stripe',
+                  p_recorded_by: 'stripe',
+                });
+                if (invoicePaymentError) throw invoicePaymentError;
+              }
+            }
+          }
+        }
+        res.status(200).json({ received: true, invoicePayment: true });
+        return;
+      }
+
       const jobId = intent.metadata && intent.metadata.jobId;
       if (!jobId) { res.status(200).json({ received: true, note: 'no jobId in metadata, ignored' }); return; }
 
