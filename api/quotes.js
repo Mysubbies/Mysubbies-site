@@ -31,7 +31,7 @@
 // obsolete terms even if it still resolves).
 const crypto = require('crypto');
 const Anthropic = require('@anthropic-ai/sdk');
-const { getSupabase } = require('./_lib/clients');
+const { getSupabase, getStripe } = require('./_lib/clients');
 const { requireAdmin } = require('./_lib/adminAuth');
 const { computeQuoteTotals } = require('./_lib/quoteMath');
 const { notifyAdmin } = require('./_lib/adminNotify');
@@ -141,7 +141,7 @@ function serializeInvoice(row, { publicView = false, payments = [] } = {}) {
 }
 
 async function resolveInvoiceToken(req, res, supabase) {
-  const raw = String((req.query || {}).invoiceToken || '');
+  const raw = String((req.query || {}).invoiceToken || (req.body || {}).invoiceToken || (req.body || {}).token || '');
   if (!raw) { res.status(400).json({ error: 'A valid invoice link is required.' }); return null; }
   const tokenHash = hashToken(raw);
   const { data: tokenRow } = await supabase.from('document_access_tokens').select('*')
@@ -153,9 +153,10 @@ async function resolveInvoiceToken(req, res, supabase) {
   if (!invoice || invoice.status === 'void') { res.status(404).json({ error: 'This invoice is not available.' }); return null; }
   const { data: entity } = await supabase.from('issuing_entities').select('*').eq('id', invoice.issuing_entity_id).maybeSingle();
   const { data: quote } = await supabase.from('quotes').select('quote_number').eq('id', invoice.quote_id).maybeSingle();
+  const { data: version } = await supabase.from('quote_versions').select('*').eq('id', invoice.quote_version_id).maybeSingle();
   await supabase.from('document_access_tokens').update({ last_accessed_at: new Date().toISOString() }).eq('id', tokenRow.id);
   const { data: payments } = await supabase.from('invoice_payments').select('*').eq('invoice_id', invoice.id).order('received_at');
-  return { invoice, entity, quote, payments: payments || [] };
+  return { invoice, entity, quote, version, payments: payments || [] };
 }
 
 async function handleCreateInvoice(req, res, supabase) {
@@ -202,6 +203,48 @@ async function handleCreateInvoice(req, res, supabase) {
   }
   await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'invoice_created', actorRole: 'admin', payload: { invoiceId: invoice.id, invoiceNumber: invoice.invoice_number } });
   res.status(200).json({ invoice: serializeInvoice(invoice) });
+}
+
+async function handleCreateInvoiceCardCheckout(req, res, supabase) {
+  const resolved = await resolveInvoiceToken(req, res, supabase);
+  if (!resolved) return;
+  const { invoice, quote, payments } = resolved;
+  if (invoice.status === 'paid') { res.status(409).json({ error: 'This invoice is already paid.' }); return; }
+
+  const paidCents = (payments || []).reduce((sum, row) => sum + Number(row.amount_cents || 0), 0);
+  const balanceCents = Math.max(0, Number(invoice.total_inc_gst_cents || 0) - paidCents);
+  if (balanceCents <= 0) { res.status(409).json({ error: 'This invoice has no outstanding balance.' }); return; }
+
+  const rawToken = String((req.body || {}).invoiceToken || (req.body || {}).token || '');
+  const stripe = getStripe();
+  const returnUrl = `${invoiceBaseUrl()}?token=${encodeURIComponent(rawToken)}`;
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    customer_email: invoice.customer_snapshot && invoice.customer_snapshot.email ? invoice.customer_snapshot.email : undefined,
+    line_items: [{
+      price_data: {
+        currency: 'aud',
+        product_data: {
+          name: `MySubbies tax invoice INV-${invoice.invoice_number}`,
+          description: `Quote #${quote && quote.quote_number ? quote.quote_number : invoice.quote_id} — ${invoice.milestone_label}`,
+        },
+        unit_amount: balanceCents,
+      },
+      quantity: 1,
+    }],
+    payment_intent_data: {
+      metadata: {
+        invoiceId: invoice.id,
+        quoteId: invoice.quote_id,
+        stage: 'invoice',
+      },
+    },
+    metadata: { invoiceId: invoice.id },
+    success_url: `${returnUrl}&payment=success`,
+    cancel_url: `${returnUrl}&payment=cancelled`,
+  });
+
+  res.status(200).json({ url: session.url });
 }
 
 async function handleAdminAcceptQuote(req, res, supabase) {
@@ -798,9 +841,21 @@ module.exports = async (req, res) => {
         res.setHeader('Cache-Control', 'private, no-store');
         const resolvedInvoice = await resolveInvoiceToken(req, res, supabase);
         if (!resolvedInvoice) return;
-        const { invoice, entity, quote, payments } = resolvedInvoice;
+        const { invoice, entity, quote, version, payments } = resolvedInvoice;
         res.status(200).json({
           invoice: serializeInvoice(invoice, { publicView: true, payments }), quoteNumber: quote && quote.quote_number,
+          quoteDetails: version ? {
+            lineItems: Array.isArray(version.line_items) ? version.line_items : [],
+            subtotalExGstCents: Number(version.subtotal_ex_gst_cents || 0),
+            gstCents: Number(version.gst_cents || 0),
+            totalIncGstCents: Number(version.total_inc_gst_cents || 0),
+            scopeText: version.scope_text || '',
+            inclusionsText: version.inclusions_text || '',
+            exclusionsText: version.exclusions_text || '',
+            paymentTermsText: paymentTermsFromVersion(version),
+            termsText: getTermsText(version.terms_version),
+            termsUrl: TERMS_URL,
+          } : null,
           issuingEntity: entity ? { legalName: entity.legal_name, abn: entity.abn, tradingName: entity.trading_name, addressLine: entity.address_line, suburb: entity.suburb, state: entity.state, postcode: entity.postcode, email: entity.email, phone: entity.phone } : null,
         });
         return;
@@ -1006,6 +1061,8 @@ module.exports = async (req, res) => {
         res.status(200).json({ ok: true, status: action === 'accept' ? 'accepted' : 'declined' });
         return;
       }
+
+      if (action === 'create_invoice_card_checkout') { await handleCreateInvoiceCardCheckout(req, res, supabase); return; }
 
       // Everything else is admin-only.
       if (!requireAdmin(req, res)) return;
