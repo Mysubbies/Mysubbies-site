@@ -1134,6 +1134,20 @@
   </div>
 </header>
 
+<script>
+  // Defensive header cleanup: ensure desktop navigation never renders duplicate
+  // labels if stale markup, cached fragments or future header changes reintroduce one.
+  (function dedupeMainNavigation(){
+    const nav = document.querySelector('nav.mainnav');
+    if (!nav) return;
+    const seen = new Set();
+    nav.querySelectorAll('a.navlink').forEach(link => {
+      const label = link.textContent.replace(/\s+/g,' ').trim().toLowerCase();
+      if (seen.has(label)) link.remove();
+      else seen.add(label);
+    });
+  })();
+</script>
 
 <main class="marketing-home" id="top">
   <section class="mh-hero">
