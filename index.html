@@ -926,6 +926,95 @@
     .marketing-home .mh-proof-title{font-size:18px!important;}
     .marketing-home .mh-proof-sub{font-size:13px!important;}
   }
+
+  /* Refined desktop navigation */
+  header{box-shadow:0 1px 0 rgba(20,33,61,.06);}
+  header .navwrap{
+    max-width:1560px!important;
+    height:74px!important;
+    padding:0 34px!important;
+    gap:28px!important;
+  }
+  header .logo-word{
+    font-size:27px!important;
+    letter-spacing:-.035em;
+  }
+  header .mainnav{
+    gap:27px!important;
+    margin-left:auto;
+    justify-content:center;
+    white-space:nowrap;
+  }
+  header .mainnav a.navlink{
+    position:relative;
+    font-size:13.5px!important;
+    font-weight:700!important;
+    color:#10213C!important;
+    padding:27px 0 25px;
+    transition:color .18s ease;
+  }
+  header .mainnav a.navlink::after{
+    content:"";
+    position:absolute;
+    left:50%;
+    bottom:17px;
+    width:0;
+    height:2px;
+    border-radius:999px;
+    background:var(--ms-orange);
+    transform:translateX(-50%);
+    transition:width .18s ease;
+  }
+  header .mainnav a.navlink:hover{color:var(--ms-orange-dark)!important;}
+  header .mainnav a.navlink:hover::after{width:22px;}
+  header .navctas{gap:12px!important;flex-shrink:0;}
+  header .nav-login{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:44px;
+    padding:0 20px;
+    border:1px solid #E3E7EC;
+    border-radius:14px;
+    font-size:13.5px;
+    font-weight:700;
+    color:var(--ms-navy);
+    background:#fff;
+    transition:border-color .18s,box-shadow .18s,transform .18s;
+  }
+  header .nav-login:hover{
+    border-color:#C9D1DB;
+    box-shadow:0 5px 16px rgba(20,33,61,.08);
+    transform:translateY(-1px);
+  }
+  header .nav-primary{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    min-height:44px;
+    padding:0 22px;
+    border-radius:14px;
+    background:var(--ms-orange);
+    color:var(--ms-navy);
+    font-size:13.5px;
+    font-weight:800;
+    box-shadow:0 7px 18px rgba(255,106,26,.18);
+    transition:transform .18s,box-shadow .18s,background .18s;
+  }
+  header .nav-primary:hover{
+    background:var(--ms-orange-dark);
+    color:#fff;
+    transform:translateY(-1px);
+    box-shadow:0 9px 22px rgba(255,106,26,.24);
+  }
+  @media(max-width:1320px){
+    header .navwrap{padding:0 22px!important;gap:20px!important;}
+    header .mainnav{gap:18px!important;}
+    header .mainnav a.navlink{font-size:12px!important;}
+    header .logo-word{font-size:23px!important;}
+    header .nav-login,header .nav-primary{font-size:12.5px;padding-left:16px;padding-right:16px;}
+  }
 </style>
 
 </head>
@@ -1013,35 +1102,36 @@
 </div>
 <header>
   <div class="navwrap">
-    <a class="logo" href="#top">
+    <a class="logo" href="#top" aria-label="MySubbies home">
       <div class="logo-word">My<span class="gold">Subbies</span></div>
     </a>
-    <nav class="mainnav">
-      <a class="navlink" href="#top">Home</a>
+    <nav class="mainnav" aria-label="Main navigation">
       <a class="navlink" href="#marketing-services">Services</a>
-      <a class="navlink" href="#homeowners">For Homeowners</a>
-      <a class="navlink" href="mysubbies-facilities-maintenance.html">Facility Maintenance</a>
+      <a class="navlink" href="#how">How it works</a>
+      <a class="navlink" href="#protection">Customer protection</a>
+      <a class="navlink" href="https://app.mysubbies.com.au/mysubbies-property-managers.html">Property &amp; Strata</a>
       <a class="navlink" href="https://granny.mysubbies.com.au/" target="_blank" rel="noopener">Granny Flats</a>
-      <a class="navlink" href="#contractors">Contractors</a>
+      <a class="navlink" href="#contractors">Become a Contractor</a>
+      <a class="navlink" href="mysubbies-customer-portal.html">My Bookings</a>
     </nav>
     <div class="navctas">
-      <a class="navlink" href="mysubbies-customer-portal.html">Log in</a>
-      <a class="btn btn-white" href="#book-service">Book a Service</a>
+      <a class="nav-login" href="mysubbies-customer-portal.html">Log in</a>
+      <a class="nav-primary" href="#book-service">Get an instant price <span aria-hidden="true">→</span></a>
     </div>
     <button class="mobiletoggle" id="mobileToggleBtn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
     <a class="app-bell" href="mysubbies-customer-portal.html" aria-label="Notifications"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg></a>
   </div>
   <div class="mobilemenu" id="mobileMenu">
-    <a class="navlink" href="#top" onclick="closeMobileMenu()">Home</a>
     <a class="navlink" href="#marketing-services" onclick="closeMobileMenu()">Services</a>
-    <a class="navlink" href="#homeowners" onclick="closeMobileMenu()">For Homeowners</a>
-    <a class="navlink" href="mysubbies-facilities-maintenance.html">Facility Maintenance</a>
+    <a class="navlink" href="#how" onclick="closeMobileMenu()">How it works</a>
+    <a class="navlink" href="#protection" onclick="closeMobileMenu()">Customer protection</a>
+    <a class="navlink" href="https://app.mysubbies.com.au/mysubbies-property-managers.html">Property &amp; Strata</a>
     <a class="navlink" href="https://granny.mysubbies.com.au/" target="_blank" rel="noopener">Granny Flats</a>
-    <a class="navlink" href="#contractors" onclick="closeMobileMenu()">Contractors</a>
+    <a class="navlink" href="#contractors" onclick="closeMobileMenu()">Become a Contractor</a>
     <a class="navlink" href="mysubbies-customer-portal.html">My Bookings</a>
     <div class="mobilemenu-ctas">
       <a class="btn btn-ghost-onblack" href="mysubbies-customer-portal.html">Log in</a>
-      <a class="btn btn-white" href="#book-service" onclick="closeMobileMenu()">Book a Service</a>
+      <a class="btn btn-white" href="#book-service" onclick="closeMobileMenu()">Get an instant price</a>
     </div>
   </div>
 </header>
