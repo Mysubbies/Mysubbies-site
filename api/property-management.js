@@ -753,12 +753,19 @@ module.exports = async (req, res) => {
     const action = text((req.query && req.query.action) || (req.body && req.body.action), 80);
 
     if (req.method === 'GET' && action === 'public-config') {
-      const supabaseUrl = String(process.env.PROPERTY_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
-      const publishableKey = String(process.env.PROPERTY_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || '').trim();
-      if (!supabaseUrl || !publishableKey) {
-        res.status(500).json({ error: 'Preview Supabase public configuration is not set.' });
-        return;
-      }
+      // Browser-safe public Supabase config. Prefer environment overrides, but
+      // fall back to the same publishable project config already used by the
+      // live Customer and Contractor portals so Vercel previews can be tested.
+      const supabaseUrl = String(
+        process.env.PROPERTY_SUPABASE_URL ||
+        process.env.SUPABASE_URL ||
+        'https://yloiecuvrejaxxqvjglw.supabase.co'
+      ).trim();
+      const publishableKey = String(
+        process.env.PROPERTY_SUPABASE_PUBLISHABLE_KEY ||
+        process.env.SUPABASE_PUBLISHABLE_KEY ||
+        'sb_publishable_dxp8_eCHY9nP1xF-LmxfuQ_h427tK3Y'
+      ).trim();
       res.setHeader('Cache-Control', 'no-store, max-age=0');
       res.status(200).json({ supabaseUrl, publishableKey });
       return;
