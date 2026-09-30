@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /mysubbies-admin-portal.html
+Disallow: /mysubbies-customer-portal.html
+Disallow: /mysubbies-contractor-portal.html
+Disallow: /mysubbies-property-portal.html
+Disallow: /mysubbies-property-admin.html
+Disallow: /mysubbies-quote.html
+Disallow: /mysubbies-invoice.html
+
+Sitemap: https://www.mysubbies.com.au/sitemap.xml
