@@ -1,31 +1,79 @@
 {
   "crons": [
-    { "path": "/api/contractor-compliance-reminders", "schedule": "0 2 * * *" }
+    {
+      "path": "/api/contractor-compliance-reminders",
+      "schedule": "0 2 * * *"
+    }
   ],
   "rewrites": [
-    { "source": "/", "destination": "/mysubbies-website.html" },
-    { "source": "/contractor", "destination": "/mysubbies-contractor-portal.html" },
-    { "source": "/login", "destination": "/mysubbies-customer-portal.html" },
-    { "source": "/foundingcontractorssignup", "destination": "/mysubbies-founding-contractors.html" }
+    {
+      "source": "/contractor",
+      "destination": "/mysubbies-contractor-portal.html"
+    },
+    {
+      "source": "/login",
+      "destination": "/mysubbies-customer-portal.html"
+    }
   ],
   "headers": [
     {
       "source": "/mysubbies-admin-portal.html",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
-        { "key": "Content-Security-Policy", "value": "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
+        }
       ]
     },
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
       ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/mysubbies-website.html",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/foundingcontractorssignup",
+      "destination": "/mysubbies-contractor-landing.html",
+      "permanent": true
+    },
+    {
+      "source": "/mysubbies-founding-contractors.html",
+      "destination": "/mysubbies-contractor-landing.html",
+      "permanent": true
     }
   ]
 }
