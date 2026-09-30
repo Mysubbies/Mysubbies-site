@@ -13,6 +13,14 @@
     {
       "source": "/login",
       "destination": "/mysubbies-customer-portal.html"
+    },
+    {
+      "source": "/property",
+      "destination": "/mysubbies-property-portal.html"
+    },
+    {
+      "source": "/property-admin",
+      "destination": "/mysubbies-property-admin.html"
     }
   ],
   "headers": [
