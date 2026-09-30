@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Join the MySubbies Founding 100 | Melbourne Contractors</title>
-<meta name="description" content="Apply free in 3 minutes to join the MySubbies Founding 100 — pre-priced jobs sent to you, no lead fees, no bidding wars, no monthly cost." />
+<title>Join the MySubbies Contractor Network | Melbourne Contractors</title>
+<meta name="description" content="Apply free in 3 minutes to join the MySubbies contractor network — pre-priced jobs sent to you, no lead fees, no bidding wars, no monthly cost." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    /* Navy/gold reskin (Aug 2026), Stage 3 -- see mysubbies-website.html's :root. */
+    /* Navy/gold reskin (Aug 2026), Stage 3 -- see /'s :root. */
     --ink: #151A26; --black: #14213D; --white: #FFFFFF; --paper: #F7F7F5;
     --stone: #6B7280; --stone-light: #9CA3AF; --line: #E7E7E4; --good: #2F7A50; --warn: #B0592E;
     --accent: #F5A623; --accent-dark: #D98E14; --accent-pale: #FDF0D9;
@@ -38,7 +38,7 @@
   .pitch-benefitline { font-size:12.5px; font-weight:600; color:rgba(255,255,255,0.75); margin-bottom:22px; }
   .pitch .btn-black { background:#FF6A1A; color:var(--black); font-weight:700; width:auto; padding:14px 26px; }
 
-  /* Founding 100 card */
+  /* Contractor network card */
   .founding-card { background:#fff; border:2px solid var(--accent); border-radius:16px; padding:26px 24px; margin-bottom:32px; }
   .founding-card h2 { font-size:19px; margin-bottom:14px; }
   .founding-card h2 span { color:var(--accent-dark); }
@@ -140,11 +140,11 @@
 
 <header>
   <div class="navwrap">
-    <a class="logo" href="mysubbies-website.html">
+    <a class="logo" href="/">
 
       <div class="logo-word">My<span class="gold">Subbies</span></div>
     </a>
-    <div class="navlinks"><a href="mysubbies-contractor-portal.html">Already applied? Log in</a></div>
+    <div class="navlinks"><a href="https://app.mysubbies.com.au/mysubbies-contractor-portal.html">Already applied? Log in</a></div>
   </div>
 </header>
 
@@ -205,7 +205,7 @@
   const REGIONS = ['Northern Melbourne', 'Western Melbourne', 'Inner/CBD Melbourne', 'Southern Melbourne', 'Eastern Melbourne'];
   const AVAILABILITY_OPTIONS = ['Weekdays', 'Weekends'];
 
-  // Founding 100 commission incentive (Sept 2026) -- founder flips this one
+  // Optional contractor commission incentive (Sept 2026) -- admin-controlled
   // constant when the 0%-commission-on-first-3-jobs offer should stop
   // applying to new applicants. No general "platform settings" mechanism
   // exists in this codebase yet; this is the deliberately simplest possible
@@ -307,7 +307,7 @@
 
     app.innerHTML = `
       <div class="pitch">
-        <div class="pitch-eyebrow">MYSubbies Founding Contractor Program</div>
+        <div class="pitch-eyebrow">MySubbies Contractor Network</div>
         <h1>Get local jobs without chasing leads.</h1>
         <p class="pitch-sub">MySubbies sends approved contractors properly described, pre-priced jobs in the Melbourne areas they choose. See the work, location and payout before deciding whether to accept it.</p>
         <p class="pitch-benefitline">No monthly fees • No shared leads • No quoting competition</p>
@@ -315,17 +315,17 @@
       </div>
 
       <div class="founding-card">
-        <h2>Join the MySubbies <span>Founding 100</span></h2>
+        <h2>Join the MySubbies <span>Contractor Network</span></h2>
         <ul class="founding-list">
           ${FOUNDING_COMMISSION_ENABLED ? '<li>0% platform commission on your first 3 completed jobs</li>' : ''}
           <li>Priority access to suitable local jobs</li>
-          <li>Permanent Founding Contractor badge</li>
+          <li>Approved MySubbies contractor profile</li>
           <li>Choose your trades, service areas and availability</li>
           <li>Accept or decline every job</li>
           <li>No minimum job commitment</li>
           <li>Free registration</li>
         </ul>
-        <div class="founding-disclaimer">Founding offer is limited to the first 100 contractors who complete verification and receive approval.</div>
+        <div class="founding-disclaimer">Applications are reviewed against trade, service-area, compliance and availability requirements.</div>
       </div>
 
       <div class="how-it-works">
@@ -343,7 +343,7 @@
         You never pay to receive or view job opportunities. Any applicable MySubbies platform fee is shown before you accept a job.
       </div>
 
-      <h1 class="pagetitle">Apply for the Founding 100</h1>
+      <h1 class="pagetitle">Apply to Join MySubbies</h1>
       <p class="pagesub">Applications take approximately 3 minutes. Suitable applicants are normally contacted within 1 business day.</p>
 
       <div id="errorBox"></div>
@@ -422,9 +422,9 @@
 
       <label class="terms" style="margin-top:24px;"><input type="checkbox" id="fTerms" /> I confirm that I am authorised to bind the contractor business identified above. I have read, understood and agree to the MySubbies <a href="mysubbies-contractor-agreement.html" target="_blank" style="text-decoration:underline;">Contractor Portal Terms &amp; Conditions</a> and <a href="mysubbies-privacy-policy.html" target="_blank" style="text-decoration:underline;">Privacy Policy</a>, and each Job Offer I accept.</label>
 
-      <button class="btn btn-black" onclick="submitApplication()">Join the Founding 100 →</button>
+      <button class="btn btn-black" onclick="submitApplication()">Submit Contractor Application →</button>
       <div class="below-btn-note">Free application • No obligation to accept jobs</div>
-      <div class="toggle-mode">Already applied? <a href="mysubbies-contractor-portal.html">Log in</a></div>
+      <div class="toggle-mode">Already applied? <a href="https://app.mysubbies.com.au/mysubbies-contractor-portal.html">Log in</a></div>
 
       <div class="faq">
         <h2>Frequently asked questions</h2>
@@ -756,7 +756,7 @@
         <h1>Application received</h1>
         <p>Thanks, ${escapeHtml(submittedApplication.contact)} — we've received your application for <strong>${escapeHtml(submittedApplication.business)}</strong>.</p>
         <p>We review every application before granting portal access. You'll set your password and be able to log in once approved.</p>
-        <a class="btn btn-black" href="mysubbies-website.html" style="max-width:280px;margin:20px auto 0;">Back to site</a>
+        <a class="btn btn-black" href="/" style="max-width:280px;margin:20px auto 0;">Back to site</a>
       </div>`;
   }
 

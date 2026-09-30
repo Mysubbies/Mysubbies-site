@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root {
-    /* Navy/gold reskin (Aug 2026), Stage 3 -- see mysubbies-website.html's :root. */
+    /* Navy/gold reskin (Aug 2026), Stage 3 -- see https://www.mysubbies.com.au/'s :root. */
     --ink: #151A26; --black: #14213D; --white: #FFFFFF; --paper: #F7F7F5;
     --stone: #6B7280; --stone-light: #9CA3AF; --line: #E7E7E4; --good: #2F7A50; --warn: #B0592E;
     --accent: #F5A623; --accent-dark: #D98E14; --accent-pale: #FDF0D9;
@@ -75,7 +75,7 @@
   .notif-item-time { font-size:10.5px; color:var(--stone-light); margin-top:4px; }
   .notif-empty { padding:26px 14px; text-align:center; font-size:12.5px; color:var(--stone-light); }
   /* Mobile bottom tab bar (Sep 2026) -- same markup/behavior as
-     mysubbies-website.html's .mobile-tabbar (own copy per this project's
+     https://www.mysubbies.com.au/'s .mobile-tabbar (own copy per this project's
      self-contained-page convention). Founder feedback: the homepage's bar
      was disappearing the moment a customer tapped into My Jobs, since this
      page never had its own copy -- it now does, so the bar stays put
@@ -188,7 +188,7 @@
   .notify-banner { font-size:12px; color:var(--stone); background:var(--paper); border-radius:10px; padding:10px 14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; }
   .notify-banner button { font-size:12px; font-weight:600; background:none; border:none; text-decoration:underline; cursor:pointer; }
 
-  /* Full footer (Aug 2026) -- matches mysubbies-website.html's footer
+  /* Full footer (Aug 2026) -- matches https://www.mysubbies.com.au/'s footer
      exactly (same classes/values, own copy per the self-contained
      convention) so the portal doesn't dead-end into a bare page edge. */
   footer.sitefoot { background:var(--black); color:rgba(255,255,255,0.55); padding:56px 0 32px; font-size:13px; border-top:1px solid rgba(255,255,255,0.08); margin-top:40px; }
@@ -203,7 +203,7 @@
 
   /* Property Profile Phase 2 (added Aug 2026) -- visual language matches the
      approved mockup: navy hero, floating health card, dark Fix Something CTA,
-     pastel-circle category grid (own copy of mysubbies-website.html's
+     pastel-circle category grid (own copy of https://www.mysubbies.com.au/'s
      .cc-icon pattern -- self-contained convention, no shared CSS file). */
   .prop-hero { position:relative; border-radius:0; overflow:hidden; min-height:330px; background:linear-gradient(135deg, var(--black), var(--primary-light)) center/cover; padding:28px; display:flex; flex-direction:column; justify-content:flex-end; color:#fff; }
   .prop-hero::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(20,33,61,0.1), rgba(20,33,61,0.8)); pointer-events:none; }
@@ -336,7 +336,7 @@
 
 <header>
   <div class="navwrap">
-    <a class="logo" href="mysubbies-website.html">
+    <a class="logo" href="https://www.mysubbies.com.au/">
 
       <div class="logo-word">My<span class="gold">Subbies</span></div>
     </a>
@@ -350,7 +350,7 @@
     <div class="navlinks">
       <a class="navlink-bell" onclick="toggleNotifPanel()" title="Notifications"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notifBadge" class="notif-badge" style="display:none;"></span></a>
       <a class="navlink-refresh" id="refreshLink" onclick="manualRefresh()" title="Refresh"><svg id="refreshIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></a>
-      <a href="mysubbies-website.html">Explore services</a>
+      <a href="https://www.mysubbies.com.au/">Explore services</a>
       <div class="acctmenu-wrap" id="acctMenuWrap">
         <button class="acctmenu-trigger" id="acctMenuTrigger" onclick="toggleAccountMenu()" aria-haspopup="true" aria-expanded="false">
           <span class="acctmenu-avatar" id="acctAvatarInitial">•</span>
@@ -373,7 +373,7 @@
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
     Bookings
   </button>
-  <a class="tab-item tab-fab" href="mysubbies-website.html#estimate" aria-label="Book">
+  <a class="tab-item tab-fab" href="https://www.mysubbies.com.au/#estimate" aria-label="Book">
     <span class="fab-circle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>
     Book
   </a>
@@ -399,16 +399,16 @@
     <div>
       <h4>Categories</h4>
       <ul>
-        <li><a href="mysubbies-website.html#categories">Decking &amp; Pergolas</a></li>
-        <li><a href="mysubbies-website.html#categories">Fencing &amp; Retaining Walls</a></li>
-        <li><a href="mysubbies-website.html#categories">Electrical &amp; Plumbing</a></li>
-        <li><a href="mysubbies-website.html#categories">All 31 categories</a></li>
+        <li><a href="https://www.mysubbies.com.au/#categories">Decking &amp; Pergolas</a></li>
+        <li><a href="https://www.mysubbies.com.au/#categories">Fencing &amp; Retaining Walls</a></li>
+        <li><a href="https://www.mysubbies.com.au/#categories">Electrical &amp; Plumbing</a></li>
+        <li><a href="https://www.mysubbies.com.au/#categories">All 31 categories</a></li>
       </ul>
     </div>
     <div>
       <h4>Company</h4>
       <ul>
-        <li><a href="mysubbies-website.html#how">How it works</a></li>
+        <li><a href="https://www.mysubbies.com.au/#how">How it works</a></li>
         <li><a href="mysubbies-contractor-landing.html">For contractors</a></li>
         <li><a href="mysubbies-contractor-portal.html">Contractor login</a></li>
         <li><a href="mysubbies-blog.html">Blog</a></li>
@@ -1348,7 +1348,7 @@
   }
 
   // Reads the real rate card straight from the same localStorage key
-  // mysubbies-website.html seeds -- shared across pages, same pattern every
+  // https://www.mysubbies.com.au/ seeds -- shared across pages, same pattern every
   // page in this app already relies on for jobs/customers. Never hardcodes a
   // price: if the rate card isn't in localStorage yet (e.g. a customer who's
   // never opened the estimator in this browser), pricing is simply omitted
@@ -1427,17 +1427,17 @@
   function triggerFixSomething() {
     stashPropertyForNewJob();
     localStorage.setItem('mysubbies_open_fix_something', '1');
-    window.location.href = 'mysubbies-website.html#categories';
+    window.location.href = 'https://www.mysubbies.com.au/#categories';
   }
 
   // Reuses bookAgain()'s exact existing cross-page handoff mechanism (below)
-  // instead of inventing new plumbing -- mysubbies-website.html's
+  // instead of inventing new plumbing -- https://www.mysubbies.com.au/'s
   // initRebookIfRequested() already rebuilds a fully-priced cart from the
   // live rate card and jumps straight to step 2.
   function bookMaintenanceTask(catLabel, taskName, suburb) {
     stashPropertyForNewJob();
     localStorage.setItem('mysubbies_rebook_request', JSON.stringify({ items: [{ catLabel, taskName, qty: 1 }], suburb: suburb || '' }));
-    window.location.href = 'mysubbies-website.html#estimate';
+    window.location.href = 'https://www.mysubbies.com.au/#estimate';
   }
 
   function uploadPropertyPhoto(propertyId, inputEl) {
@@ -1639,7 +1639,7 @@
         </div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:14px;margin:-10px 26px 16px;font-size:12px;position:relative;z-index:4;">
-        <a onclick="stashPropertyForNewJob(); window.location.href='mysubbies-website.html#estimate';" style="text-decoration:underline;color:var(--stone);cursor:pointer;">+ Book another job here</a>
+        <a onclick="stashPropertyForNewJob(); window.location.href='https://www.mysubbies.com.au/#estimate';" style="text-decoration:underline;color:var(--stone);cursor:pointer;">+ Book another job here</a>
         <a onclick="hideProperty('${p.propertyId}', '${p.address.replace(/'/g, "\\'")}')" style="text-decoration:underline;color:var(--stone);cursor:pointer;">Remove this property</a>
       </div>
       <button class="prop-fix-cta" onclick="triggerFixSomething()">
@@ -1675,7 +1675,7 @@
     lastPropertyProfiles = properties;
 
     if (properties.length === 0) {
-      wrap.innerHTML = `<h1 class="pagetitle" style="margin-bottom:10px;">Home Maintenance</h1><div class="empty">Your Home Maintenance record will build automatically as soon as you book your first job. <a href="mysubbies-website.html#estimate" style="text-decoration:underline;">Get an estimated price instantly</a> to get started.</div>`;
+      wrap.innerHTML = `<h1 class="pagetitle" style="margin-bottom:10px;">Home Maintenance</h1><div class="empty">Your Home Maintenance record will build automatically as soon as you book your first job. <a href="https://www.mysubbies.com.au/#estimate" style="text-decoration:underline;">Get an estimated price instantly</a> to get started.</div>`;
       return;
     }
 
@@ -1847,7 +1847,7 @@
       items: j.items.map(i => ({ catLabel: i.catLabel, taskName: i.taskName, qty: i.qty })),
       suburb: j.suburb || '',
     }));
-    window.location.href = 'mysubbies-website.html#estimate';
+    window.location.href = 'https://www.mysubbies.com.au/#estimate';
   }
 
   // Mobile bottom tab bar (Sep 2026) -- lives outside #app, so it's never
@@ -1935,7 +1935,7 @@
     // parameter with initOpenCategoryIfRequested() and calls its established
     // goToEstimatorWithCategory()/selectCat() path, so pricing and selection
     // behavior remain owned by the production estimator.
-    window.location.href = `mysubbies-website.html?service=${encodeURIComponent(catLabel)}#estimate`;
+    window.location.href = `https://www.mysubbies.com.au/?service=${encodeURIComponent(catLabel)}#estimate`;
   }
   function categoryCardsHtml() {
     return `<div class="cat-card-grid">
@@ -1946,7 +1946,7 @@
         </button>
       `).join('')}
     </div>
-    <a class="explore-all-link" href="mysubbies-website.html#categories">Explore all services →</a>`;
+    <a class="explore-all-link" href="https://www.mysubbies.com.au/#categories">Explore all services →</a>`;
   }
   function projectPanelHtml() {
     return `
@@ -2071,7 +2071,7 @@
           <h2>Welcome to MySubbies</h2>
           <p>You haven't booked anything yet.</p>
           <div class="hero-panel-actions">
-            <a class="btn btn-black" style="width:auto;" href="mysubbies-website.html#estimate">Book your first service</a>
+            <a class="btn btn-black" style="width:auto;" href="https://www.mysubbies.com.au/#estimate">Book your first service</a>
             <button class="btn btn-outline" style="width:auto;" onclick="openProjectEnquiryForm()">Request a project quote</button>
           </div>
         </div>
@@ -2096,7 +2096,7 @@
         <h2>What needs sorting?</h2>
         <p>Book trusted help for the next job around your home, or tell us about a larger project.</p>
         <div class="hero-panel-actions">
-          <a class="btn btn-black" style="width:auto;" href="mysubbies-website.html#estimate">Book a service</a>
+          <a class="btn btn-black" style="width:auto;" href="https://www.mysubbies.com.au/#estimate">Book a service</a>
           <button class="btn btn-outline" style="width:auto;" onclick="openProjectEnquiryForm()">Plan a larger project</button>
         </div>
       </div>`;
@@ -2162,7 +2162,7 @@
     if (countLine) countLine.textContent = `${allJobs.length} booking${allJobs.length === 1 ? '' : 's'}`;
 
     if (allJobs.length === 0) {
-      wrap.innerHTML = `<div class="empty">No bookings yet. <a href="mysubbies-website.html#estimate" style="text-decoration:underline;">Get an estimated price instantly</a> to submit one.</div>`;
+      wrap.innerHTML = `<div class="empty">No bookings yet. <a href="https://www.mysubbies.com.au/#estimate" style="text-decoration:underline;">Get an estimated price instantly</a> to submit one.</div>`;
       return;
     }
     let html = jobStatusFilterChipsHtml(allJobs) + jobSearchBoxHtml();
@@ -2522,7 +2522,7 @@
   // rather than a hardcoded domain since mysubbies.com.au currently points
   // at the old Wix site, not this app -- see CLAUDE.md/known gaps.
   function shareAppWithFriend() {
-    const url = location.origin + '/mysubbies-website.html';
+    const url = location.origin + '/https://www.mysubbies.com.au/';
     const shareData = { title: 'MySubbies', text: 'Book trusted Melbourne tradies with upfront estimated pricing — no lead fees, no bidding wars.', url };
     if (navigator.share) {
       navigator.share(shareData).catch(() => {});

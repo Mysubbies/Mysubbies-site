@@ -14,7 +14,7 @@
 <style>
   :root {
     /* Navy/gold reskin (Aug 2026), Stage 2 -- see CLAUDE.md and
-       mysubbies-website.html's :root for the source of this palette. Every
+       index.html's :root for the source of this palette. Every
        existing var(--black)/var(--ink) usage cascades automatically. */
     --ink: #151A26; --black: #14213D; --white: #FFFFFF; --paper: #F7F7F5;
     --stone: #6B7280; --stone-light: #9CA3AF; --line: #E7E7E4; --good: #2F7A50; --warn: #B0592E;
@@ -359,7 +359,7 @@
   .reassign { display:flex; gap:8px; margin-top:16px; }
   .reassign input { flex:1; font-family:'Plus Jakarta Sans',sans-serif; font-size:13px; border:1.5px solid var(--line); border-radius:8px; padding:9px 12px; }
   /* Mobile bottom tab bar (Sep 2026) -- same pattern as
-     mysubbies-website.html's .mobile-tabbar (own copy per this project's
+     index.html's .mobile-tabbar (own copy per this project's
      self-contained-page convention). Admin has 9 top tabs, too many for a
      5-item bottom bar -- these are the 5 most time-sensitive for a quick
      mobile check (jobs, pending applications, unread messages, open
@@ -2257,7 +2257,7 @@
   // Sept 2026: normalises unit casing that's drifted through past edits in
   // this exact tab ("Gate" next to "gate", "Hour" next to "hour", "LM"
   // next to "lm" -- confirmed live). Mirrors the equivalent fix in
-  // mysubbies-website.html's mergeRateCardUpdates() so the customer-facing
+  // index.html's mergeRateCardUpdates() so the customer-facing
   // hint/grouping logic and this admin view never disagree about which
   // casing is canonical. Run here (not just on the customer side) because
   // this is the one place a save can actually reach the real server copy
@@ -2273,10 +2273,10 @@
 
   // Sept 2026: "Popular categories" on the homepage is now admin-controlled
   // (a c.popular boolean per category, toggled below) instead of a fixed 6
-  // baked into mysubbies-website.html's HTML. The 6 categories that were
+  // baked into index.html's HTML. The 6 categories that were
   // already hardcoded there are seeded true here so this tab's checkboxes
   // reflect what customers already see, the first time this loads after the
-  // change ships -- mirrors mysubbies-website.html's DEFAULT_CATEGORIES
+  // change ships -- mirrors index.html's DEFAULT_CATEGORIES
   // additive merge doing the same seeding on the customer side. Only fills
   // in categories that have never had this field set (typeof undefined) --
   // never overwrites an admin's own later on/off choice.
@@ -4915,7 +4915,7 @@
 
   // Admin control for "this week's Popular categories" on the homepage
   // (Sept 2026) -- toggles c.popular, which renderPopularCategories() in
-  // mysubbies-website.html filters on directly. Same
+  // index.html filters on directly. Same
   // getRateCard()->mutate->saveRateCard() pattern as every other rate-card
   // mutator in this file, so it pushes to the real server copy immediately.
   function toggleCategoryPopular(catLabel, event) {
@@ -4981,7 +4981,7 @@
   // piling up) -- distinct from Hold, which just hides a task from customers
   // while keeping it re-enablable. This is a soft delete: the task/category
   // stays in the array with deleted:true rather than being spliced out,
-  // because mysubbies-website.html's mergeRateCardUpdates() only skips
+  // because index.html's mergeRateCardUpdates() only skips
   // re-adding a DEFAULT_CATEGORIES entry when it can already find a
   // same-named one in the stored data -- splicing it out would make that
   // lookup fail and silently resurrect it on every visitor's next load.

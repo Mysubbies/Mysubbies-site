@@ -18,7 +18,7 @@
 <style>
   :root {
     /* Navy/gold reskin (Aug 2026), Stage 2 -- see CLAUDE.md and
-       mysubbies-website.html's :root for the source of this palette. Every
+       index.html's :root for the source of this palette. Every
        existing var(--black)/var(--ink) usage cascades automatically. */
     --ink: #151A26; --black: #14213D; --white: #FFFFFF; --paper: #F7F7F5;
     --stone: #6B7280; --stone-light: #9CA3AF; --line: #E7E7E4; --good: #2F7A50; --warn: #B0592E;
@@ -111,7 +111,7 @@
   .notif-panel-header a { font-size:11.5px; font-weight:600; color:var(--stone); cursor:pointer; text-decoration:underline; }
   .notif-item { display:block; width:100%; text-align:left; padding:11px 14px; border:none; border-bottom:1px solid var(--paper); background:none; cursor:pointer; font-family:inherit; }
   /* Mobile bottom tab bar (Sep 2026) -- same pattern as
-     mysubbies-website.html's .mobile-tabbar (own copy per this project's
+     index.html's .mobile-tabbar (own copy per this project's
      self-contained-page convention), mapped onto this portal's real 5 top
      tabs instead of inventing new destinations. Gated at the same 860px
      breakpoint used everywhere else in this codebase for mobile-only UI. */
@@ -2758,7 +2758,7 @@
   const CONTRACTOR_BLOCKED_STATUSES = new Set(['pending', 'manual_review', 'watchlist', 'rejected', 'suspended', 'expired_documents']);
   function isLoginEligibleStatus(status) { return !!status && !CONTRACTOR_BLOCKED_STATUSES.has(status); }
 
-  // "Founding 100" signup redesign (Sep 2026) removed the password field
+  // Contractor signup redesign (Sep 2026) removed the password field
   // from mysubbies-contractor-signup.html -- password creation is deferred
   // to first login. This entry point lets an approved contractor find their
   // way to that "create your password" step directly, instead of only
