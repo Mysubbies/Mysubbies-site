@@ -700,6 +700,12 @@
   .est-review-row .r { font-weight:600; color:var(--ink); text-align:right; }
   .est-field-error { font-size:12px; color:#B4232C; margin-top:6px; display:none; }
   .est-field-error.show { display:block; }
+
+  /* Force-hide any second Property & Strata link in desktop nav */
+  header nav.mainnav a[href*="mysubbies-property-managers.html"] ~ a[href*="mysubbies-property-managers.html"]{
+    display:none!important;
+  }
+
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
@@ -801,7 +807,7 @@
       <a class="navlink" href="#categories">Services</a>
       <a class="navlink" href="#how">How it works</a>
       <a class="navlink" href="#protection">Customer protection</a>
-      <a class="navlink" href="#contractors">Become a Contractor</a>
+      <a class="navlink" href="mysubbies-facilities-maintenance.html">Facility Maintenance</a>
       <a class="navlink" href="mysubbies-customer-portal.html">My Bookings</a>
     </nav>
     <div class="navctas">
@@ -4413,5 +4419,25 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 </script>
+
+<script>
+  (function enforceSinglePropertyStrataLink(){
+    function clean(){
+      const nav=document.querySelector('header nav.mainnav');
+      if(!nav) return;
+      const links=[...nav.querySelectorAll('a')].filter(a =>
+        a.textContent.replace(/\s+/g,' ').trim().toLowerCase()==='property & strata'
+      );
+      links.slice(1).forEach(a=>a.remove());
+    }
+    clean();
+    document.addEventListener('DOMContentLoaded', clean);
+    window.addEventListener('load', clean);
+    const observer=new MutationObserver(clean);
+    observer.observe(document.documentElement,{childList:true,subtree:true});
+    setTimeout(()=>{ clean(); observer.disconnect(); },5000);
+  })();
+</script>
+
 </body>
 </html>

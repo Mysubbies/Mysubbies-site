@@ -700,6 +700,12 @@
   .est-review-row .r { font-weight:600; color:var(--ink); text-align:right; }
   .est-field-error { font-size:12px; color:#B4232C; margin-top:6px; display:none; }
   .est-field-error.show { display:block; }
+
+  /* Force-hide any second Property & Strata link in desktop nav */
+  header nav.mainnav a[href*="mysubbies-property-managers.html"] ~ a[href*="mysubbies-property-managers.html"]{
+    display:none!important;
+  }
+
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
@@ -708,6 +714,349 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MySubbies">
+
+<style id="marketing-home-redesign">
+  :root{
+    --ms-navy:#14213D;
+    --ms-orange:#FF6A1A;
+    --ms-orange-dark:#E85A0A;
+    --ms-soft:#F6F8FB;
+    --ms-line:#E5EAF0;
+  }
+  .marketing-home{background:#fff;color:var(--ms-navy);}
+  .marketing-home .mh-wrap{max-width:1180px;margin:0 auto;padding:0 24px;}
+  .marketing-home .mh-hero{
+    position:relative;min-height:440px;display:flex;align-items:center;
+    background:
+      linear-gradient(90deg,rgba(9,26,52,.94) 0%,rgba(9,26,52,.88) 36%,rgba(9,26,52,.38) 64%,rgba(9,26,52,.08) 100%),
+      url('images/images-mysubbies-hero-modern-home.png.png') center right/cover no-repeat;
+    overflow:hidden;
+  }
+  .marketing-home .mh-hero-inner{width:100%;padding:54px 0 28px;}
+  .marketing-home .mh-hero-copy{max-width:650px;color:#fff;}
+  .marketing-home .mh-hero h1{font-size:clamp(40px,5.4vw,68px);line-height:1.02;color:#fff;margin:0;letter-spacing:-.035em;}
+  .marketing-home .mh-hero h1 .accent{color:var(--ms-orange);}
+  .marketing-home .mh-hero p{font-size:17px;line-height:1.58;color:rgba(255,255,255,.9);max-width:610px;margin:18px 0 0;}
+  .marketing-home .mh-paths{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:28px;}
+  .marketing-home .mh-path{
+    min-height:92px;border-radius:13px;padding:18px 18px;display:flex;align-items:center;gap:14px;
+    border:1px solid rgba(255,255,255,.24);box-shadow:0 10px 30px rgba(0,0,0,.12);
+    transition:transform .18s,box-shadow .18s,background .18s;
+  }
+  .marketing-home .mh-path:hover{transform:translateY(-2px);box-shadow:0 14px 36px rgba(0,0,0,.2);}
+  .marketing-home .mh-path.white{background:#fff;color:var(--ms-navy);}
+  .marketing-home .mh-path.navy{background:#0E3B66;color:#fff;}
+  .marketing-home .mh-path.orange{background:var(--ms-orange);color:var(--ms-navy);border-color:var(--ms-orange);}
+  .marketing-home .mh-path-icon{
+    width:42px;height:42px;border-radius:12px;display:grid;place-items:center;flex:0 0 auto;
+    background:rgba(255,255,255,.16);font-size:22px;
+  }
+  .marketing-home .mh-path.white .mh-path-icon{background:#EEF3F8;}
+  .marketing-home .mh-path-title{font-weight:800;font-size:16px;line-height:1.2;}
+  .marketing-home .mh-path-sub{font-size:12.5px;opacity:.84;margin-top:4px;line-height:1.35;}
+  .marketing-home .mh-path-arrow{margin-left:auto;font-size:28px;line-height:1;font-weight:400;}
+  .marketing-home .mh-trust{background:#fff;border-bottom:1px solid var(--ms-line);}
+  .marketing-home .mh-trust-grid{display:grid;grid-template-columns:repeat(5,1fr);min-height:80px;align-items:center;}
+  .marketing-home .mh-trust-item{display:flex;align-items:center;gap:11px;padding:15px 18px;border-right:1px solid var(--ms-line);font-size:12.5px;font-weight:700;}
+  .marketing-home .mh-trust-item:first-child{padding-left:0;}
+  .marketing-home .mh-trust-item:last-child{border-right:0;padding-right:0;}
+  .marketing-home .mh-trust-icon{font-size:24px;color:var(--ms-orange);}
+  .marketing-home .mh-section{padding:42px 0;}
+  .marketing-home .mh-section.soft{background:linear-gradient(180deg,#F8FBFE 0%,#F2F7FB 100%);}
+  .marketing-home .mh-section-head{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:18px;}
+  .marketing-home .mh-section h2{font-size:clamp(28px,3vw,38px);margin:0;color:var(--ms-navy);}
+  .marketing-home .mh-section .mh-kicker{font-size:14px;color:#667085;margin-top:4px;}
+  .marketing-home .mh-more{font-size:13px;font-weight:800;color:var(--ms-navy);}
+  .marketing-home .mh-more:hover{color:var(--ms-orange-dark);}
+  .marketing-home .mh-service-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:10px;}
+  .marketing-home .mh-service{display:block;}
+  .marketing-home .mh-service img{width:100%;aspect-ratio:1.12/1;object-fit:cover;border-radius:8px;}
+  .marketing-home .mh-service strong{display:block;font-size:12px;line-height:1.25;margin-top:7px;}
+  .marketing-home .mh-service span{display:block;font-size:11px;color:#667085;margin-top:2px;}
+  .marketing-home .mh-audience-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  .marketing-home .mh-audience{
+    background:#fff;border:1px solid #DFE8F1;border-radius:14px;overflow:hidden;box-shadow:0 8px 24px rgba(20,33,61,.06);
+  }
+  .marketing-home .mh-audience img{width:100%;height:180px;object-fit:cover;}
+  .marketing-home .mh-audience-body{padding:20px;}
+  .marketing-home .mh-audience h3{font-size:20px;margin:0 0 8px;color:var(--ms-navy);}
+  .marketing-home .mh-audience p{font-size:13px;line-height:1.55;color:#667085;min-height:61px;}
+  .marketing-home .mh-card-btn{
+    display:inline-flex;align-items:center;justify-content:center;margin-top:16px;padding:11px 17px;border-radius:8px;
+    background:var(--ms-orange);color:var(--ms-navy);font-size:12.5px;font-weight:800;
+  }
+  .marketing-home .mh-card-btn.navy{background:var(--ms-navy);color:#fff;}
+  .marketing-home .mh-card-btn:hover{opacity:.88;}
+  .marketing-home .mh-proof{background:var(--ms-navy);color:#fff;}
+  .marketing-home .mh-proof-grid{display:grid;grid-template-columns:repeat(4,1fr);min-height:94px;align-items:center;}
+  .marketing-home .mh-proof-item{padding:18px 24px;border-right:1px solid rgba(255,255,255,.22);display:flex;gap:12px;align-items:center;}
+  .marketing-home .mh-proof-item:first-child{padding-left:0;}
+  .marketing-home .mh-proof-item:last-child{border-right:0;}
+  .marketing-home .mh-proof-icon{font-size:28px;color:var(--ms-orange);}
+  .marketing-home .mh-proof-title{font-size:17px;font-weight:800;line-height:1.1;}
+  .marketing-home .mh-proof-sub{font-size:11px;color:rgba(255,255,255,.74);margin-top:3px;}
+  .marketing-home .mh-project-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;}
+  .marketing-home .mh-project img{width:100%;aspect-ratio:1.55/1;object-fit:cover;border-radius:8px;}
+  .marketing-home .mh-project strong{display:block;font-size:12px;margin-top:6px;}
+  .marketing-home .mh-project span{display:block;font-size:10.5px;color:#667085;margin-top:2px;}
+  .marketing-home .mh-bottom-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:18px;align-items:stretch;}
+  .marketing-home .mh-review,.marketing-home .mh-cta{border-radius:14px;padding:26px;border:1px solid var(--ms-line);}
+  .marketing-home .mh-review{background:#fff;}
+  .marketing-home .mh-review h3,.marketing-home .mh-cta h3{font-size:24px;margin:0 0 10px;}
+  .marketing-home .mh-review p{font-size:14px;color:#667085;line-height:1.6;}
+  .marketing-home .mh-cta{
+    background:
+      linear-gradient(90deg,rgba(20,33,61,.94),rgba(20,33,61,.62)),
+      url('images/welcome-hero.jpg') center/cover no-repeat;color:#fff;
+  }
+  .marketing-home .mh-cta h3{color:#fff;}
+  .marketing-home .mh-cta p{font-size:13px;color:rgba(255,255,255,.82);margin-bottom:14px;}
+  .marketing-home .mh-cta .mh-card-btn{margin-top:0;}
+  .legacy-booking-section{padding-top:56px!important;border-top:1px solid var(--ms-line);}
+  .legacy-booking-section .app-hero-copy>h1{font-size:clamp(34px,4vw,50px);}
+  .legacy-booking-section .app-hero-copy>p.lede{max-width:650px;}
+  header .navwrap{max-width:1220px;}
+  header .mainnav{gap:20px!important;}
+  header .mainnav a.navlink{font-size:12.5px!important;}
+  header .logo-word .gold{color:var(--ms-orange)!important;}
+  header .navctas .btn-white{background:var(--ms-orange)!important;color:var(--ms-navy)!important;}
+  @media(max-width:1000px){
+    .marketing-home .mh-paths{grid-template-columns:1fr;}
+    .marketing-home .mh-service-grid{grid-template-columns:repeat(4,1fr);}
+    .marketing-home .mh-trust-grid{grid-template-columns:repeat(2,1fr);}
+    .marketing-home .mh-trust-item{border-right:0;border-bottom:1px solid var(--ms-line);padding-left:0;}
+    .marketing-home .mh-audience-grid{grid-template-columns:1fr;}
+    .marketing-home .mh-audience img{height:220px;}
+    .marketing-home .mh-proof-grid{grid-template-columns:repeat(2,1fr);}
+    .marketing-home .mh-proof-item:nth-child(2){border-right:0;}
+    .marketing-home .mh-project-grid{grid-template-columns:repeat(2,1fr);}
+  }
+  @media(max-width:700px){
+    .marketing-home .mh-wrap{padding:0 18px;}
+    .marketing-home .mh-hero{min-height:0;}
+    .marketing-home .mh-hero-inner{padding:36px 0 24px;}
+    .marketing-home .mh-hero h1{font-size:40px;}
+    .marketing-home .mh-service-grid{grid-template-columns:repeat(2,1fr);}
+    .marketing-home .mh-trust-grid{grid-template-columns:1fr;}
+    .marketing-home .mh-proof-grid{grid-template-columns:1fr;}
+    .marketing-home .mh-proof-item{border-right:0;border-bottom:1px solid rgba(255,255,255,.18);padding-left:0;}
+    .marketing-home .mh-proof-item:last-child{border-bottom:0;}
+    .marketing-home .mh-project-grid{grid-template-columns:1fr 1fr;}
+    .marketing-home .mh-bottom-grid{grid-template-columns:1fr;}
+    .marketing-home .mh-section-head{align-items:start;flex-direction:column;gap:7px;}
+  }
+
+  /* Hero alignment refinements */
+  .marketing-home .mh-hero-inner{display:flex;flex-direction:column;justify-content:center;}
+  .marketing-home .mh-path-title,.marketing-home .mh-path-sub{display:block;}
+  @media(min-width:1001px){
+    .marketing-home .mh-hero{min-height:500px;}
+    .marketing-home .mh-hero-inner{padding:58px 24px 34px;}
+    .marketing-home .mh-hero-copy{max-width:680px;}
+    .marketing-home .mh-paths{width:100%;align-items:stretch;}
+    .marketing-home .mh-path{min-width:0;}
+  }
+  @media(max-width:700px){
+    .marketing-home .mh-hero{
+      min-height:auto;
+      align-items:flex-start;
+      background-position:70% center;
+    }
+    .marketing-home .mh-hero-inner{
+      padding:30px 18px 22px;
+      justify-content:flex-start;
+    }
+    .marketing-home .mh-hero-copy{max-width:100%;}
+    .marketing-home .mh-hero h1{
+      display:block!important;
+      font-size:36px!important;
+      line-height:1.04!important;
+      letter-spacing:-.03em!important;
+      margin:0!important;
+      padding:0!important;
+    }
+    .marketing-home .mh-hero p{
+      display:block!important;
+      font-size:15px!important;
+      line-height:1.45!important;
+      margin:14px 0 0!important;
+      padding:0!important;
+    }
+    .marketing-home .mh-paths{margin-top:20px;gap:10px;}
+    .marketing-home .mh-path{
+      min-height:0!important;
+      padding:16px!important;
+      gap:12px!important;
+      border-radius:12px!important;
+      align-items:center!important;
+    }
+    .marketing-home .mh-path>span:nth-child(2){
+      display:block!important;
+      min-width:0;
+      flex:1 1 auto;
+    }
+    .marketing-home .mh-path-title{
+      display:block!important;
+      font-size:16px!important;
+      line-height:1.2!important;
+      margin:0!important;
+    }
+    .marketing-home .mh-path-sub{
+      display:block!important;
+      font-size:13px!important;
+      line-height:1.35!important;
+      margin:4px 0 0!important;
+    }
+    .marketing-home .mh-path-arrow{flex:0 0 auto;margin-left:6px;}
+  }
+
+  /* Trust and proof strip refinements */
+  .marketing-home .mh-trust-grid{min-height:108px;}
+  .marketing-home .mh-trust-item{font-size:14px;line-height:1.35;font-weight:800;padding:22px 24px;}
+  .marketing-home .mh-trust-icon{font-size:30px;min-width:34px;text-align:center;}
+  .marketing-home .mh-proof-grid{min-height:122px;}
+  .marketing-home .mh-proof-item{padding:26px 28px;align-items:flex-start;}
+  .marketing-home .mh-proof-icon{font-size:32px;min-width:38px;text-align:center;line-height:1;}
+  .marketing-home .mh-proof-item>span:last-child{display:block;min-width:0;}
+  .marketing-home .mh-proof-title{display:block!important;font-size:18px!important;line-height:1.2!important;margin:0!important;}
+  .marketing-home .mh-proof-sub{display:block!important;font-size:12.5px!important;line-height:1.4!important;margin:5px 0 0!important;}
+  @media(max-width:1000px){
+    .marketing-home .mh-trust-grid{grid-template-columns:repeat(2,1fr);}
+    .marketing-home .mh-trust-item{min-height:76px;}
+  }
+  @media(max-width:700px){
+    .marketing-home .mh-trust-grid{grid-template-columns:1fr;}
+    .marketing-home .mh-trust-item{font-size:15px;min-height:68px;padding:16px 0;}
+    .marketing-home .mh-proof-grid{grid-template-columns:1fr;}
+    .marketing-home .mh-proof-item{padding:20px 0;align-items:center;}
+    .marketing-home .mh-proof-title{font-size:18px!important;}
+    .marketing-home .mh-proof-sub{font-size:13px!important;}
+  }
+
+  /* Refined desktop navigation */
+  header{box-shadow:0 1px 0 rgba(20,33,61,.06);}
+  header .navwrap{
+    max-width:1560px!important;
+    height:74px!important;
+    padding:0 34px!important;
+    gap:28px!important;
+  }
+  header .logo-word{
+    font-size:27px!important;
+    letter-spacing:-.035em;
+  }
+  header .mainnav{
+    gap:27px!important;
+    margin-left:auto;
+    justify-content:center;
+    white-space:nowrap;
+  }
+  header .mainnav a.navlink{
+    position:relative;
+    font-size:13.5px!important;
+    font-weight:700!important;
+    color:#10213C!important;
+    padding:27px 0 25px;
+    transition:color .18s ease;
+  }
+  header .mainnav a.navlink::after{
+    content:"";
+    position:absolute;
+    left:50%;
+    bottom:17px;
+    width:0;
+    height:2px;
+    border-radius:999px;
+    background:var(--ms-orange);
+    transform:translateX(-50%);
+    transition:width .18s ease;
+  }
+  header .mainnav a.navlink:hover{color:var(--ms-orange-dark)!important;}
+  header .mainnav a.navlink:hover::after{width:22px;}
+  header .navctas{gap:12px!important;flex-shrink:0;}
+  header .nav-login{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:44px;
+    padding:0 20px;
+    border:1px solid #E3E7EC;
+    border-radius:14px;
+    font-size:13.5px;
+    font-weight:700;
+    color:var(--ms-navy);
+    background:#fff;
+    transition:border-color .18s,box-shadow .18s,transform .18s;
+  }
+  header .nav-login:hover{
+    border-color:#C9D1DB;
+    box-shadow:0 5px 16px rgba(20,33,61,.08);
+    transform:translateY(-1px);
+  }
+  header .nav-primary{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    min-height:44px;
+    padding:0 22px;
+    border-radius:14px;
+    background:var(--ms-orange);
+    color:var(--ms-navy);
+    font-size:13.5px;
+    font-weight:800;
+    box-shadow:0 7px 18px rgba(255,106,26,.18);
+    transition:transform .18s,box-shadow .18s,background .18s;
+  }
+  header .nav-primary:hover{
+    background:var(--ms-orange-dark);
+    color:#fff;
+    transform:translateY(-1px);
+    box-shadow:0 9px 22px rgba(255,106,26,.24);
+  }
+  @media(max-width:1320px){
+    header .navwrap{padding:0 22px!important;gap:20px!important;}
+    header .mainnav{gap:18px!important;}
+    header .mainnav a.navlink{font-size:12px!important;}
+    header .logo-word{font-size:23px!important;}
+    header .nav-login,header .nav-primary{font-size:12.5px;padding-left:16px;padding-right:16px;}
+  }
+
+  /* Duplicate-proof Property & Strata rule */
+  header nav.mainnav a[href="https://app.mysubbies.com.au/mysubbies-property-managers.html"]:not(#primaryPropertyStrataLink){
+    display:none!important;
+  }
+
+  /* Photo-led hero pathway cards */
+  .marketing-home .mh-path-photo{
+    width:58px;
+    height:58px;
+    flex:0 0 58px;
+    object-fit:cover;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.3);
+    box-shadow:0 5px 14px rgba(20,33,61,.14);
+  }
+  .marketing-home .mh-path.white .mh-path-photo{border-color:#DFE6EE;}
+  .marketing-home .mh-path.orange .mh-path-photo{border-color:rgba(20,33,61,.14);}
+  .marketing-home .mh-audience img{
+    height:205px;
+    object-fit:cover;
+    object-position:center;
+  }
+  .marketing-home .mh-audience:nth-child(1) img{object-position:center 55%;}
+  .marketing-home .mh-audience:nth-child(2) img{object-position:center 42%;}
+  .marketing-home .mh-audience:nth-child(3) img{object-position:center 55%;}
+  @media(max-width:700px){
+    .marketing-home .mh-path-photo{
+      width:54px;
+      height:54px;
+      flex-basis:54px;
+      border-radius:11px;
+    }
+  }
+</style>
+
 </head>
 <body>
 
@@ -793,40 +1142,172 @@
 </div>
 <header>
   <div class="navwrap">
-    <a class="logo" href="#top">
-      
+    <a class="logo" href="#top" aria-label="MySubbies home">
       <div class="logo-word">My<span class="gold">Subbies</span></div>
     </a>
-    <nav class="mainnav">
-      <a class="navlink" href="#categories">Services</a>
+    <nav class="mainnav" aria-label="Main navigation">
+      <a class="navlink" href="#marketing-services">Services</a>
       <a class="navlink" href="#how">How it works</a>
       <a class="navlink" href="#protection">Customer protection</a>
-      <a class="navlink" href="#contractors">Become a Contractor</a>
+      <a class="navlink" href="https://granny.mysubbies.com.au/" target="_blank" rel="noopener">Granny Flats</a>
+      <a class="navlink" href="mysubbies-facilities-maintenance.html">Facility Maintenance</a>
       <a class="navlink" href="mysubbies-customer-portal.html">My Bookings</a>
     </nav>
     <div class="navctas">
-      <a class="navlink" href="mysubbies-customer-portal.html" style="margin-right:2px;">Log in</a>
-      <a class="navlink" href="mysubbies-customer-portal.html?signup=1" style="margin-right:2px;">Sign up</a>
-      <a class="btn btn-white" href="#estimate">Get an instant price</a>
+      <a class="nav-login" href="mysubbies-customer-portal.html">Log in</a>
+      <a class="nav-primary" href="#book-service">Get an instant price <span aria-hidden="true">→</span></a>
     </div>
     <button class="mobiletoggle" id="mobileToggleBtn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
     <a class="app-bell" href="mysubbies-customer-portal.html" aria-label="Notifications"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg></a>
   </div>
   <div class="mobilemenu" id="mobileMenu">
-    <a class="navlink" href="#categories" onclick="closeMobileMenu()">Services</a>
+    <a class="navlink" href="#marketing-services" onclick="closeMobileMenu()">Services</a>
     <a class="navlink" href="#how" onclick="closeMobileMenu()">How it works</a>
     <a class="navlink" href="#protection" onclick="closeMobileMenu()">Customer protection</a>
-    <a class="navlink" href="#contractors" onclick="closeMobileMenu()">Become a Contractor</a>
+    <a class="navlink" href="mysubbies-facilities-maintenance.html">Facility Maintenance</a>
+    <a class="navlink" href="https://granny.mysubbies.com.au/" target="_blank" rel="noopener">Granny Flats</a>
     <a class="navlink" href="mysubbies-customer-portal.html">My Bookings</a>
     <div class="mobilemenu-ctas">
       <a class="btn btn-ghost-onblack" href="mysubbies-customer-portal.html">Log in</a>
-      <a class="btn btn-ghost-onblack" href="mysubbies-customer-portal.html?signup=1">Create account</a>
-      <a class="btn btn-white" href="#estimate" onclick="closeMobileMenu()">Get an instant price</a>
+      <a class="btn btn-white" href="#book-service" onclick="closeMobileMenu()">Get an instant price</a>
     </div>
   </div>
 </header>
 
-<section class="app-hero" id="top">
+<script>
+  // Defensive header cleanup: ensure desktop navigation never renders duplicate
+  // labels if stale markup, cached fragments or future header changes reintroduce one.
+  (function dedupeMainNavigation(){
+    const nav = document.querySelector('nav.mainnav');
+    if (!nav) return;
+    const seen = new Set();
+    nav.querySelectorAll('a.navlink').forEach(link => {
+      const label = link.textContent.replace(/\s+/g,' ').trim().toLowerCase();
+      if (seen.has(label)) link.remove();
+      else seen.add(label);
+    });
+  })();
+</script>
+
+<main class="marketing-home" id="top">
+  <section class="mh-hero">
+    <div class="mh-wrap mh-hero-inner">
+      <div class="mh-hero-copy">
+        <h1>One Team for Your<br><span>Property, Outdoor &amp;</span><br><span class="accent">Maintenance Needs.</span></h1>
+        <p>From everyday maintenance to complete outdoor transformations, MySubbies makes it simple. We coordinate the right trades, keep the work moving and give you one point of contact.</p>
+      </div>
+      <div class="mh-paths">
+        <a class="mh-path white" id="homeowners" href="#book-service">
+          <img class="mh-path-photo" src="images/images-mysubbies-hero-modern-home.png.png" alt="">
+          <span><span class="mh-path-title">For Homeowners</span><span class="mh-path-sub">Get an instant price or request a quote</span></span>
+          <span class="mh-path-arrow">›</span>
+        </a>
+        <a class="mh-path navy" href="https://app.mysubbies.com.au/mysubbies-property-managers.html">
+          <img class="mh-path-photo" src="images/property-strata-hero%20V2.jpg" alt="">
+          <span><span class="mh-path-title">For Businesses &amp; Facilities</span><span class="mh-path-sub">Property maintenance, health checks and recurring support</span></span>
+          <span class="mh-path-arrow">›</span>
+        </a>
+        <a class="mh-path orange" href="#marketing-services">
+          <img class="mh-path-photo" src="images/categories/outdoor-living-homepage.png" alt="Modern outdoor living and landscaped backyard">
+          <span><span class="mh-path-title">Outdoor Living &amp; Landscaping</span><span class="mh-path-sub">Transform your outdoor space</span></span>
+          <span class="mh-path-arrow">›</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="mh-trust">
+    <div class="mh-wrap mh-trust-grid">
+      <div class="mh-trust-item"><span class="mh-trust-icon">✓</span><span>Trusted contractor network</span></div>
+      <div class="mh-trust-item"><span class="mh-trust-icon">◎</span><span>Quality work &amp; reliable service</span></div>
+      <div class="mh-trust-item"><span class="mh-trust-icon">▣</span><span>Simple booking &amp; clear quotes</span></div>
+      <div class="mh-trust-item"><span class="mh-trust-icon">♙</span><span>Residential &amp; commercial support</span></div>
+      <div class="mh-trust-item"><span class="mh-trust-icon">$</span><span>Flexible payment options</span></div>
+    </div>
+  </section>
+
+  <section class="mh-section" id="marketing-services">
+    <div class="mh-wrap">
+      <div class="mh-section-head">
+        <div><h2>Our Services</h2><div class="mh-kicker">Property, outdoor and maintenance services under one roof.</div></div>
+        <a class="mh-more" href="#categories">View all services →</a>
+      </div>
+      <div class="mh-service-grid">
+        <a class="mh-service" href="#book-service"><img src="images/categories/pergola.jpg" alt="Pergolas and outdoor living"><strong>Pergolas &amp; Outdoor Living</strong><span>Design, build &amp; upgrades</span></a>
+        <a class="mh-service" href="#book-service"><img src="images/categories/decking.jpg" alt="Decking"><strong>Decking</strong><span>WPC &amp; timber</span></a>
+        <a class="mh-service" href="#book-service"><img src="images/categories/retaining-wall.jpg" alt="Retaining walls"><strong>Retaining Walls &amp; Fencing</strong><span>Outdoor structures</span></a>
+        <a class="mh-service" href="#book-service"><img src="images/categories/grass-installation.jpg" alt="Turf and landscaping"><strong>Turf &amp; Landscaping</strong><span>Lawns &amp; makeovers</span></a>
+        <a class="mh-service" href="#book-service"><img src="images/categories/concreting.jpg" alt="Concrete and paving"><strong>Concrete &amp; Paving</strong><span>Paths, slabs &amp; surrounds</span></a>
+        <a class="mh-service" href="#book-service"><img src="images/categories/gardening-lawn-mowing.jpg" alt="Garden maintenance"><strong>Garden &amp; Grounds</strong><span>Residential &amp; commercial</span></a>
+        <a class="mh-service" href="mysubbies-facilities-maintenance.html"><img src="images/categories/property-maintenance.jpg" alt="Property maintenance"><strong>Facility Maintenance</strong><span>Business &amp; property care</span></a>
+        <a class="mh-service" href="https://granny.mysubbies.com.au/" target="_blank" rel="noopener"><img src="images/categories/small-outdoor-construction-repairs.jpg" alt="Granny flats"><strong>Granny Flats</strong><span>Explore the dedicated range</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="mh-section soft">
+    <div class="mh-wrap">
+      <div class="mh-section-head">
+        <div><h2>Who We Work With</h2><div class="mh-kicker">Tailored solutions for every property.</div></div>
+      </div>
+      <div class="mh-audience-grid">
+        <article class="mh-audience">
+          <img src="images/images-mysubbies-hero-modern-home.png.png" alt="Modern residential property">
+          <div class="mh-audience-body"><h3>Homeowners</h3><p>Book a service, get an instant price or request a quote for outdoor, maintenance and improvement work around your home.</p><a class="mh-card-btn" href="#book-service">Get an Instant Price →</a></div>
+        </article>
+        <article class="mh-audience">
+          <img src="images/property-strata-hero%20V2.jpg" alt="Businesses and facilities">
+          <div class="mh-audience-body"><h3>Businesses &amp; Facilities</h3><p>Maintenance coordination, property health checks and ongoing support for childcare, medical, commercial and managed properties.</p><a class="mh-card-btn navy" href="https://app.mysubbies.com.au/mysubbies-property-managers.html">Explore Property Maintenance →</a></div>
+        </article>
+        <article class="mh-audience">
+          <img src="images/categories/outdoor-living-homepage.png" alt="Modern outdoor living and landscaped backyard">
+          <div class="mh-audience-body"><h3>Outdoor Living</h3><p>Pergolas, decking, landscaping, retaining walls, fencing, turf, concrete and complete outdoor transformations.</p><a class="mh-card-btn" href="#marketing-services">Explore Outdoor Services →</a></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="mh-proof">
+    <div class="mh-wrap mh-proof-grid">
+      <div class="mh-proof-item"><span class="mh-proof-icon">✓</span><span><span class="mh-proof-title">One point of contact</span><span class="mh-proof-sub">We coordinate the right trade</span></span></div>
+      <div class="mh-proof-item"><span class="mh-proof-icon">⌖</span><span><span class="mh-proof-title">Melbourne</span><span class="mh-proof-sub">&amp; surrounding areas</span></span></div>
+      <div class="mh-proof-item"><span class="mh-proof-icon">▣</span><span><span class="mh-proof-title">Clear job tracking</span><span class="mh-proof-sub">Quotes, updates &amp; invoices</span></span></div>
+      <div class="mh-proof-item"><span class="mh-proof-icon">⚒</span><span><span class="mh-proof-title">Multi-trade support</span><span class="mh-proof-sub">Home, outdoor &amp; facilities</span></span></div>
+    </div>
+  </section>
+
+  <section class="mh-section">
+    <div class="mh-wrap">
+      <div class="mh-section-head">
+        <div><h2>Popular Property Projects</h2><div class="mh-kicker">From everyday maintenance to full outdoor transformations.</div></div>
+        <a class="mh-more" href="#book-service">Start a project →</a>
+      </div>
+      <div class="mh-project-grid">
+        <a class="mh-project" href="#book-service"><img src="images/categories/pergola.jpg" alt=""><strong>Pergola &amp; Decking</strong><span>Outdoor living</span></a>
+        <a class="mh-project" href="#book-service"><img src="images/categories/fencing.jpg" alt=""><strong>Retaining &amp; Fencing</strong><span>Boundary &amp; landscape works</span></a>
+        <a class="mh-project" href="#book-service"><img src="images/categories/grass-installation.jpg" alt=""><strong>Turf &amp; Landscaping</strong><span>Garden transformations</span></a>
+        <a class="mh-project" href="#book-service"><img src="images/categories/concreting.jpg" alt=""><strong>Concrete &amp; Paving</strong><span>Paths &amp; outdoor areas</span></a>
+        <a class="mh-project" href="mysubbies-facilities-maintenance.html"><img src="images/categories/property-maintenance.jpg" alt=""><strong>Facility Maintenance</strong><span>Recurring property care</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="mh-section soft">
+    <div class="mh-wrap mh-bottom-grid">
+      <div class="mh-review">
+        <h3>One partner for the work around your property.</h3>
+        <p>Use MySubbies for one-off residential jobs, complete outdoor projects or ongoing business and facility maintenance. Our role is to make the process easier and keep the right people accountable.</p>
+      </div>
+      <div class="mh-cta">
+        <h3>Let’s Get Your Next Project Done.</h3>
+        <p>Reliable trades. Clear quotes. Less hassle.</p>
+        <a class="mh-card-btn" href="#book-service">Book a Service Today →</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<section class="app-hero legacy-booking-section" id="book-service">
   <div class="app-hero-shell">
    <div class="app-hero-inner">
     <div class="app-location-wrap" id="appLocationWrap">
@@ -846,8 +1327,8 @@
     </div>
     <div class="app-hero-grid">
       <div class="app-hero-copy">
-        <h1>Need a tradie? Get an instant price.</h1>
-        <p class="lede">Book trusted local professionals for home repairs, maintenance, gardening and outdoor jobs across Melbourne.</p>
+        <h1>Book a service or get an instant price.</h1>
+        <p class="lede">Tell us what you need done and we’ll match the job to the right service pathway.</p>
 
         <!-- Estimator (Sep 2026) -- moved here from its own section further
              down the page (was <section id="get-quote">) so the actual
@@ -4411,5 +4892,25 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 </script>
+
+<script>
+  (function enforceSinglePropertyStrataLink(){
+    function clean(){
+      const nav=document.querySelector('header nav.mainnav');
+      if(!nav) return;
+      const links=[...nav.querySelectorAll('a')].filter(a =>
+        a.textContent.replace(/\s+/g,' ').trim().toLowerCase()==='property & strata'
+      );
+      links.slice(1).forEach(a=>a.remove());
+    }
+    clean();
+    document.addEventListener('DOMContentLoaded', clean);
+    window.addEventListener('load', clean);
+    const observer=new MutationObserver(clean);
+    observer.observe(document.documentElement,{childList:true,subtree:true});
+    setTimeout(()=>{ clean(); observer.disconnect(); },5000);
+  })();
+</script>
+
 </body>
 </html>
