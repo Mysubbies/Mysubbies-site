@@ -1026,6 +1026,35 @@
   header nav.mainnav a[href="https://app.mysubbies.com.au/mysubbies-property-managers.html"]:not(#primaryPropertyStrataLink){
     display:none!important;
   }
+
+  /* Photo-led hero pathway cards */
+  .marketing-home .mh-path-photo{
+    width:58px;
+    height:58px;
+    flex:0 0 58px;
+    object-fit:cover;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.3);
+    box-shadow:0 5px 14px rgba(20,33,61,.14);
+  }
+  .marketing-home .mh-path.white .mh-path-photo{border-color:#DFE6EE;}
+  .marketing-home .mh-path.orange .mh-path-photo{border-color:rgba(20,33,61,.14);}
+  .marketing-home .mh-audience img{
+    height:205px;
+    object-fit:cover;
+    object-position:center;
+  }
+  .marketing-home .mh-audience:nth-child(1) img{object-position:center 55%;}
+  .marketing-home .mh-audience:nth-child(2) img{object-position:center 42%;}
+  .marketing-home .mh-audience:nth-child(3) img{object-position:center 55%;}
+  @media(max-width:700px){
+    .marketing-home .mh-path-photo{
+      width:54px;
+      height:54px;
+      flex-basis:54px;
+      border-radius:11px;
+    }
+  }
 </style>
 
 </head>
@@ -1169,17 +1198,17 @@
       </div>
       <div class="mh-paths">
         <a class="mh-path white" id="homeowners" href="#book-service">
-          <span class="mh-path-icon">⌂</span>
+          <img class="mh-path-photo" src="images/images-mysubbies-hero-modern-home.png.png" alt="">
           <span><span class="mh-path-title">For Homeowners</span><span class="mh-path-sub">Get an instant price or request a quote</span></span>
           <span class="mh-path-arrow">›</span>
         </a>
         <a class="mh-path navy" href="https://app.mysubbies.com.au/mysubbies-property-managers.html">
-          <span class="mh-path-icon">▦</span>
+          <img class="mh-path-photo" src="images/property-strata-approved-hero.jpg" alt="">
           <span><span class="mh-path-title">For Businesses &amp; Facilities</span><span class="mh-path-sub">Property maintenance, health checks and recurring support</span></span>
           <span class="mh-path-arrow">›</span>
         </a>
         <a class="mh-path orange" href="#marketing-services">
-          <span class="mh-path-icon">⌁</span>
+          <img class="mh-path-photo" src="images/categories/pergola.jpg" alt="">
           <span><span class="mh-path-title">Outdoor Living &amp; Landscaping</span><span class="mh-path-sub">Transform your outdoor space</span></span>
           <span class="mh-path-arrow">›</span>
         </a>
@@ -1223,15 +1252,15 @@
       </div>
       <div class="mh-audience-grid">
         <article class="mh-audience">
-          <img src="images/welcome-hero.jpg" alt="Homeowners">
+          <img src="images/images-mysubbies-hero-modern-home.png.png" alt="Modern residential property">
           <div class="mh-audience-body"><h3>Homeowners</h3><p>Book a service, get an instant price or request a quote for outdoor, maintenance and improvement work around your home.</p><a class="mh-card-btn" href="#book-service">Get an Instant Price →</a></div>
         </article>
         <article class="mh-audience">
-          <img src="images/property-strata-hero.jpg" alt="Businesses and facilities">
+          <img src="images/property-strata-approved-hero.jpg" alt="Businesses and facilities">
           <div class="mh-audience-body"><h3>Businesses &amp; Facilities</h3><p>Maintenance coordination, property health checks and ongoing support for childcare, medical, commercial and managed properties.</p><a class="mh-card-btn navy" href="https://app.mysubbies.com.au/mysubbies-property-managers.html">Explore Property Maintenance →</a></div>
         </article>
         <article class="mh-audience">
-          <img src="images/hero-booking.jpg" alt="Outdoor living">
+          <img src="images/categories/pergola.jpg" alt="Outdoor living and landscaping">
           <div class="mh-audience-body"><h3>Outdoor Living</h3><p>Pergolas, decking, landscaping, retaining walls, fencing, turf, concrete and complete outdoor transformations.</p><a class="mh-card-btn" href="#marketing-services">Explore Outdoor Services →</a></div>
         </article>
       </div>
