@@ -96,7 +96,7 @@ function downloadPdf(){
 
   const addHeader=()=>{
     doc.setFillColor(...navy);doc.rect(0,0,210,34,'F');
-    doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(18);doc.text('My',14,16);doc.setTextColor(...orange);doc.text('Subbies',31,16);
+    doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(18);doc.text('My',14,16);const myWidth=doc.getTextWidth('My');doc.setTextColor(...orange);doc.text('Subbies',14+myWidth+0.6,16);
     doc.setTextColor(255);doc.setFontSize(9);doc.text('TAX INVOICE',196,12,{align:'right'});doc.setFont('helvetica','normal');doc.text('INV-'+i.invoiceNumber+'  |  Quote #'+payload.quoteNumber,196,19,{align:'right'});
     doc.text('Issued '+date(i.issuedAt)+'  |  Due '+date(i.dueAt),196,26,{align:'right'});
     y=45;
@@ -144,11 +144,11 @@ function downloadPdf(){
   doc.text('SERVICE',left+3,y+3);doc.text('QTY',151,y+3,{align:'right'});doc.text('AMOUNT',193,y+3,{align:'right'});y+=11;
   const items=q.lineItems||[];
   items.forEach((item,index)=>{
-    const title=serviceTitle(item.description);
-    const titleLines=doc.splitTextToSize(title,112);
-    const rowH=Math.max(10,titleLines.length*4.4+5);ensure(rowH+2);
+    const description=String(item.description||'Quoted service').trim();
+    const detailLines=doc.splitTextToSize(description,112);
+    const rowH=Math.max(10,detailLines.length*4.2+5);ensure(rowH+2);
     if(index%2===1){doc.setFillColor(252,252,251);doc.rect(left,y-4,width,rowH,'F');}
-    doc.setTextColor(30);doc.setFont('helvetica','bold');doc.setFontSize(8.3);doc.text(titleLines,left+3,y,{maxWidth:112});
+    doc.setTextColor(30);doc.setFontSize(8.3);detailLines.forEach((lineText,lineIndex)=>{doc.setFont('helvetica',lineIndex===0?'bold':'normal');doc.setTextColor(...(lineIndex===0?[30,30,30]:stone));doc.text(lineText,left+3,y+(lineIndex*4.2),{maxWidth:112});});
     doc.setFont('helvetica','normal');doc.setTextColor(...stone);doc.setFontSize(7.8);
     const qtyText=[item.qty==null?'':item.qty,item.unit||''].filter(Boolean).join(' ');
     doc.text(String(qtyText),154,y,{align:'right'});
