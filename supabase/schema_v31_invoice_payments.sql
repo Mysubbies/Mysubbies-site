@@ -64,3 +64,27 @@ $$;
 
 revoke all on function record_invoice_payment(uuid,bigint,timestamptz,text,text,text,text) from public, anon, authenticated;
 grant execute on function record_invoice_payment(uuid,bigint,timestamptz,text,text,text,text) to service_role;
+
+
+-- Admin invoice controls: standalone invoices, editable draft/issued invoices and credit notes.
+alter table invoices alter column quote_id drop not null;
+alter table invoices alter column quote_version_id drop not null;
+alter table invoices alter column milestone_key drop not null;
+alter table invoices drop constraint if exists invoices_quote_id_milestone_key_key;
+
+alter table invoices add column if not exists line_items jsonb not null default '[]'::jsonb;
+alter table invoices add column if not exists admin_notes text;
+
+create sequence if not exists credit_notes_credit_number_seq start 1001;
+create table if not exists invoice_credits (
+  id uuid primary key default gen_random_uuid(),
+  credit_number bigint not null unique default nextval('credit_notes_credit_number_seq'),
+  invoice_id uuid not null references invoices(id),
+  amount_cents bigint not null check (amount_cents > 0),
+  reason text not null,
+  line_items jsonb not null default '[]'::jsonb,
+  created_by text not null default 'admin',
+  created_at timestamptz not null default now()
+);
+create index if not exists invoice_credits_invoice_idx on invoice_credits(invoice_id, created_at);
+alter table invoice_credits enable row level security;
