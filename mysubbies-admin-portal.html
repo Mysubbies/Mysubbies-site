@@ -3082,6 +3082,18 @@
   function addStandaloneInvoiceItem(){standaloneInvoiceDraft.lineItems.push({description:'',amountCents:0});render();}
   async function createStandaloneInvoice(){const d=standaloneInvoiceDraft;if(!d.customerEmail||!d.dueDate||!d.lineItems.some(x=>x.description&&x.amountCents>0)){alert('Enter customer email, due date and at least one item.');return;}const res=await adminFetch('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create_standalone_invoice',...d})});const data=await res.json();if(!res.ok){alert(data.error||'Could not create invoice.');return;}standaloneInvoiceDraft=null;invoicesTabData=null;await loadInvoicesTab();alert('Invoice INV-'+data.invoice.invoiceNumber+' created.');}
   function renderStandaloneInvoiceBuilder(){const d=standaloneInvoiceDraft;if(!d)return '';return `<div class="quote-card" style="margin-bottom:18px"><div class="quote-card-title"><h2>Create invoice without quote</h2><button class="btn btn-outline" onclick="closeStandaloneInvoiceBuilder()">Cancel</button></div><div class="invoice-payment-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label><span class="fieldlabel">Customer name</span><input class="fieldinput" value="${escapeHtml(d.customerName)}" oninput="standaloneInvoiceDraft.customerName=this.value"></label><label><span class="fieldlabel">Customer email</span><input class="fieldinput" type="email" value="${escapeHtml(d.customerEmail)}" oninput="standaloneInvoiceDraft.customerEmail=this.value"></label><label><span class="fieldlabel">Billing address</span><input class="fieldinput" value="${escapeHtml(d.billingAddress)}" oninput="standaloneInvoiceDraft.billingAddress=this.value"></label><label><span class="fieldlabel">Due date</span><input class="fieldinput" type="date" value="${d.dueDate}" oninput="standaloneInvoiceDraft.dueDate=this.value"></label></div><h3>Invoice items</h3>${d.lineItems.map((x,i)=>`<div style="display:grid;grid-template-columns:1fr 160px;gap:8px;margin-bottom:8px"><textarea class="fieldinput" rows="2" placeholder="Full item description" oninput="standaloneInvoiceDraft.lineItems[${i}].description=this.value">${escapeHtml(x.description)}</textarea><input class="fieldinput" type="number" step="0.01" placeholder="Amount inc GST" value="${x.amountCents?(x.amountCents/100).toFixed(2):''}" oninput="standaloneInvoiceDraft.lineItems[${i}].amountCents=Math.round(Number(this.value)*100)"></div>`).join('')}<button class="btn btn-outline" onclick="addStandaloneInvoiceItem()">+ Add item</button><label style="display:block;margin-top:10px"><span class="fieldlabel">Admin notes</span><textarea class="fieldinput" rows="2" oninput="standaloneInvoiceDraft.adminNotes=this.value">${escapeHtml(d.adminNotes)}</textarea></label><button class="btn btn-black" style="margin-top:12px" onclick="createStandaloneInvoice()">Create invoice</button></div>`;}
+  async function changeInvoiceDueDate(invoiceId, currentDueAt) {
+    const current = currentDueAt ? new Date(currentDueAt).toISOString().slice(0,10) : new Date().toISOString().slice(0,10);
+    const dueDate = prompt('Enter invoice due date (YYYY-MM-DD). Use today for payment due immediately.', current);
+    if (!dueDate) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) { alert('Please enter the date as YYYY-MM-DD.'); return; }
+    const res = await adminFetch('/api/quotes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'update_invoice', invoiceId, dueDate }) });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'Could not update invoice due date.'); return; }
+    invoicesTabData = null;
+    await loadInvoicesTab();
+    alert('Invoice due date updated.');
+  }
   async function openInvoiceQuote(quoteId) {
     tab = 'quotes';
     await openQuoteDetail(quoteId);
@@ -3120,7 +3132,7 @@
           <td data-label="Customer">${escapeHtml((i.customer && (i.customer.name || i.customer.email)) || '—')}</td>
           <td data-label="Status"><span class="badge ${invoiceStatusBadgeClass(i.status)}">${escapeHtml(String(i.status || '').replace('_',' '))}</span></td>
           <td data-label="Total">${fmtCents(i.totalIncGstCents)}</td><td data-label="Paid">${fmtCents(i.paidCents)}</td><td data-label="Balance"><strong>${fmtCents(i.balanceCents)}</strong></td>
-          <td data-label="Due">${i.dueAt ? new Date(i.dueAt).toLocaleDateString('en-AU') : '—'}</td>
+          <td data-label="Due"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span>${i.dueAt ? new Date(i.dueAt).toLocaleDateString('en-AU') : '—'}</span>${!['paid','void'].includes(i.status) ? `<button class="btn btn-outline" style="width:auto;padding:5px 9px;min-height:30px;font-size:11px;" onclick="event.stopPropagation();changeInvoiceDueDate('${i.id}','${i.dueAt || ''}')">Change</button>` : ''}</div></td>
         </tr>`).join('')}</tbody>
       </table>`}`;
   }
