@@ -206,6 +206,50 @@ async function handleCreateInvoice(req, res, supabase) {
   res.status(200).json({ invoice: serializeInvoice(invoice) });
 }
 
+async function handleCreateStandaloneInvoice(req, res, supabase) {
+  const { customerName, customerEmail, customerPhone, billingAddress, propertyAddress, lineItems, dueDate, description, adminNotes } = req.body || {};
+  const items = Array.isArray(lineItems) ? lineItems.filter(x => String(x.description || '').trim() && Number(x.amountCents) > 0) : [];
+  if (!customerEmail || !items.length || !dueDate) { res.status(400).json({ error: 'Customer email, at least one invoice item and due date are required.' }); return; }
+  const bank = bankConfig(); if (!bank) { res.status(409).json({ error: 'Invoice bank details are not configured.' }); return; }
+  const total = items.reduce((s,x)=>s+Math.round(Number(x.amountCents)),0), totals=gstBreakdown(total);
+  const { data: entity } = await supabase.from('issuing_entities').select('*').eq('legal_name','Mysubbies Holdings Pty Ltd').maybeSingle();
+  if (!entity) { res.status(409).json({ error: 'Mysubbies Holdings Pty Ltd is not configured as the issuing entity.' }); return; }
+  const { data: invoice, error } = await supabase.from('invoices').insert({
+    quote_id:null, quote_version_id:null, issuing_entity_id:entity.id, status:'issued', milestone_key:null,
+    milestone_label:String(description||'Tax invoice').trim().slice(0,120),
+    customer_snapshot:{name:String(customerName||'').trim(),email:String(customerEmail).trim(),phone:String(customerPhone||'').trim(),billingAddress:String(billingAddress||'').trim()},
+    property_snapshot:propertyAddress?{address:String(propertyAddress).trim()}:null,
+    description:String(description||'Tax invoice').trim(), line_items:items, admin_notes:String(adminNotes||'').trim()||null,
+    subtotal_ex_gst_cents:totals.subtotalExGstCents,gst_cents:totals.gstCents,total_inc_gst_cents:totals.totalIncGstCents,
+    bank_account_name:bank.accountName,bank_bsb:bank.bsb,bank_account_number:bank.accountNumber,
+    due_at:new Date(dueDate+'T23:59:59.999Z').toISOString()
+  }).select().single();
+  if(error){res.status(500).json({error:invoiceDatabaseError(error)});return;} res.status(200).json({invoice:serializeInvoice(invoice)});
+}
+
+async function handleUpdateInvoice(req,res,supabase){
+  const {invoiceId,customerName,customerEmail,billingAddress,dueDate,description,lineItems,adminNotes}=req.body||{};
+  const {data:invoice}=await supabase.from('invoices').select('*').eq('id',invoiceId).maybeSingle();
+  if(!invoice||invoice.status==='void'){res.status(404).json({error:'Invoice not found.'});return;}
+  const {data:payments}=await supabase.from('invoice_payments').select('amount_cents').eq('invoice_id',invoiceId);
+  const items=Array.isArray(lineItems)?lineItems.filter(x=>String(x.description||'').trim()&&Number(x.amountCents)>0):null;
+  const update={updated_at:new Date().toISOString()};
+  if(customerName!=null||customerEmail!=null||billingAddress!=null) update.customer_snapshot={...(invoice.customer_snapshot||{}),...(customerName!=null?{name:String(customerName).trim()}:{}),...(customerEmail!=null?{email:String(customerEmail).trim()}:{}),...(billingAddress!=null?{billingAddress:String(billingAddress).trim()}: {})};
+  if(dueDate)update.due_at=new Date(dueDate+'T23:59:59.999Z').toISOString(); if(description!=null)update.description=String(description).trim(); if(adminNotes!=null)update.admin_notes=String(adminNotes).trim()||null;
+  if(items){if((payments||[]).length){res.status(409).json({error:'Financial amounts cannot be edited after a payment has been recorded. Create a credit note instead.'});return;} const total=items.reduce((s,x)=>s+Math.round(Number(x.amountCents)),0),t=gstBreakdown(total);update.line_items=items;update.subtotal_ex_gst_cents=t.subtotalExGstCents;update.gst_cents=t.gstCents;update.total_inc_gst_cents=t.totalIncGstCents;}
+  const {data:updated,error}=await supabase.from('invoices').update(update).eq('id',invoiceId).select().single();if(error){res.status(400).json({error:'Could not update invoice.'});return;}res.status(200).json({invoice:serializeInvoice(updated,{payments:payments||[]})});
+}
+
+async function handleCreateInvoiceCredit(req,res,supabase){
+  const {invoiceId,amountCents,reason,lineItems}=req.body||{};const amount=Math.round(Number(amountCents));
+  if(!invoiceId||!(amount>0)||!String(reason||'').trim()){res.status(400).json({error:'Invoice, credit amount and reason are required.'});return;}
+  const {data:invoice}=await supabase.from('invoices').select('*').eq('id',invoiceId).maybeSingle();if(!invoice||invoice.status==='void'){res.status(404).json({error:'Invoice not found.'});return;}
+  const {data:existing}=await supabase.from('invoice_credits').select('amount_cents').eq('invoice_id',invoiceId);const credited=(existing||[]).reduce((s,x)=>s+Number(x.amount_cents||0),0);
+  if(credited+amount>Number(invoice.total_inc_gst_cents)){res.status(409).json({error:'Credit exceeds the invoice total.'});return;}
+  const {data:credit,error}=await supabase.from('invoice_credits').insert({invoice_id:invoiceId,amount_cents:amount,reason:String(reason).trim(),line_items:Array.isArray(lineItems)?lineItems:[]}).select().single();
+  if(error){res.status(400).json({error:'Could not create credit note.'});return;}res.status(200).json({credit});
+}
+
 async function handleCreateInvoiceCardCheckout(req, res, supabase) {
   const resolved = await resolveInvoiceToken(req, res, supabase);
   if (!resolved) return;
@@ -1104,6 +1148,9 @@ module.exports = async (req, res) => {
       if (action === 'send_quote_email') { await handleSendQuoteEmail(req, res, supabase); return; }
       if (action === 'admin_accept_quote') { await handleAdminAcceptQuote(req, res, supabase); return; }
       if (action === 'create_invoice') { await handleCreateInvoice(req, res, supabase); return; }
+      if (action === 'create_standalone_invoice') { await handleCreateStandaloneInvoice(req, res, supabase); return; }
+      if (action === 'update_invoice') { await handleUpdateInvoice(req, res, supabase); return; }
+      if (action === 'create_invoice_credit') { await handleCreateInvoiceCredit(req, res, supabase); return; }
       if (action === 'generate_invoice_preview_link') { await handleGenerateInvoicePreviewLink(req, res, supabase); return; }
       if (action === 'send_invoice') { await handleSendInvoice(req, res, supabase); return; }
       if (action === 'record_invoice_payment') { await handleRecordInvoicePayment(req, res, supabase); return; }

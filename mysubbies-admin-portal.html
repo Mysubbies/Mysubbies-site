@@ -3026,6 +3026,7 @@
   let quoteIssuedLink = null;
   let quoteBuilderPreviewOpen = false;
   let invoiceDraft = null;
+  let standaloneInvoiceDraft = null;
   let invoiceSaving = false;
   let invoicePaymentDraft = null;
   let invoicesTabData = null;
@@ -3076,6 +3077,11 @@
   function invoiceStatusBadgeClass(status) {
     return { paid: 'badge-completed', part_paid: 'badge-assigned', sent: 'badge-assigned', issued: 'badge-feed', draft: 'badge-feed', void: 'badge-rejected' }[status] || 'badge-feed';
   }
+  function openStandaloneInvoiceBuilder(){ standaloneInvoiceDraft={customerName:'',customerEmail:'',customerPhone:'',billingAddress:'',propertyAddress:'',description:'Tax invoice',dueDate:new Date(Date.now()+7*86400000).toISOString().slice(0,10),lineItems:[{description:'',amountCents:0}],adminNotes:''}; render(); }
+  function closeStandaloneInvoiceBuilder(){standaloneInvoiceDraft=null;render();}
+  function addStandaloneInvoiceItem(){standaloneInvoiceDraft.lineItems.push({description:'',amountCents:0});render();}
+  async function createStandaloneInvoice(){const d=standaloneInvoiceDraft;if(!d.customerEmail||!d.dueDate||!d.lineItems.some(x=>x.description&&x.amountCents>0)){alert('Enter customer email, due date and at least one item.');return;}const res=await adminFetch('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create_standalone_invoice',...d})});const data=await res.json();if(!res.ok){alert(data.error||'Could not create invoice.');return;}standaloneInvoiceDraft=null;invoicesTabData=null;await loadInvoicesTab();alert('Invoice INV-'+data.invoice.invoiceNumber+' created.');}
+  function renderStandaloneInvoiceBuilder(){const d=standaloneInvoiceDraft;if(!d)return '';return `<div class="quote-card" style="margin-bottom:18px"><div class="quote-card-title"><h2>Create invoice without quote</h2><button class="btn btn-outline" onclick="closeStandaloneInvoiceBuilder()">Cancel</button></div><div class="invoice-payment-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label><span class="fieldlabel">Customer name</span><input class="fieldinput" value="${escapeHtml(d.customerName)}" oninput="standaloneInvoiceDraft.customerName=this.value"></label><label><span class="fieldlabel">Customer email</span><input class="fieldinput" type="email" value="${escapeHtml(d.customerEmail)}" oninput="standaloneInvoiceDraft.customerEmail=this.value"></label><label><span class="fieldlabel">Billing address</span><input class="fieldinput" value="${escapeHtml(d.billingAddress)}" oninput="standaloneInvoiceDraft.billingAddress=this.value"></label><label><span class="fieldlabel">Due date</span><input class="fieldinput" type="date" value="${d.dueDate}" oninput="standaloneInvoiceDraft.dueDate=this.value"></label></div><h3>Invoice items</h3>${d.lineItems.map((x,i)=>`<div style="display:grid;grid-template-columns:1fr 160px;gap:8px;margin-bottom:8px"><textarea class="fieldinput" rows="2" placeholder="Full item description" oninput="standaloneInvoiceDraft.lineItems[${i}].description=this.value">${escapeHtml(x.description)}</textarea><input class="fieldinput" type="number" step="0.01" placeholder="Amount inc GST" value="${x.amountCents?(x.amountCents/100).toFixed(2):''}" oninput="standaloneInvoiceDraft.lineItems[${i}].amountCents=Math.round(Number(this.value)*100)"></div>`).join('')}<button class="btn btn-outline" onclick="addStandaloneInvoiceItem()">+ Add item</button><label style="display:block;margin-top:10px"><span class="fieldlabel">Admin notes</span><textarea class="fieldinput" rows="2" oninput="standaloneInvoiceDraft.adminNotes=this.value">${escapeHtml(d.adminNotes)}</textarea></label><button class="btn btn-black" style="margin-top:12px" onclick="createStandaloneInvoice()">Create invoice</button></div>`;}
   async function openInvoiceQuote(quoteId) {
     tab = 'quotes';
     await openQuoteDetail(quoteId);
@@ -3092,8 +3098,9 @@
     const outstandingCents = outstanding.reduce((sum, i) => sum + Number(i.balanceCents || 0), 0);
     return `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
       <div><h1 class="pagetitle" style="margin-bottom:3px;">Invoices</h1><p class="pagesub">Track every customer invoice, payment and outstanding balance.</p></div>
-      <button class="btn btn-outline" style="width:auto;padding:9px 16px;" onclick="invoicesTabData=null;loadInvoicesTab()">Refresh</button>
+      <div style="display:flex;gap:8px"><button class="btn btn-black" style="width:auto;padding:9px 16px;" onclick="openStandaloneInvoiceBuilder()">+ New invoice</button><button class="btn btn-outline" style="width:auto;padding:9px 16px;" onclick="invoicesTabData=null;loadInvoicesTab()">Refresh</button></div>
     </div>
+    ${renderStandaloneInvoiceBuilder()}
     <div class="quote-kpis">
       <div class="quote-kpi"><strong>${allRows.length}</strong><span>Total invoices</span></div>
       <div class="quote-kpi"><strong>${fmtCents(outstandingCents)}</strong><span>Outstanding balance</span></div>
@@ -3108,7 +3115,7 @@
     ${rows.length === 0 ? `<div class="empty">${invoiceSearchQuery ? 'No invoices match your search.' : 'No invoices created yet. Open an accepted quote to create the first invoice.'}</div>` : `<div class="quote-card-title"><h2>${invoiceSearchQuery ? 'Search results' : 'All invoices'}</h2><span style="font-size:11.5px;color:var(--stone);">${rows.length} invoice${rows.length === 1 ? '' : 's'} · Select to view, email, download or record payment</span></div>
       <table class="quote-list-table">
         <thead><tr><th>Invoice</th><th>Customer</th><th>Status</th><th>Total</th><th>Paid</th><th>Balance</th><th>Due</th></tr></thead>
-        <tbody>${rows.map(i => `<tr class="jobrow" onclick="openInvoiceQuote('${i.quoteId}')">
+        <tbody>${rows.map(i => `<tr class="jobrow" onclick="${i.quoteId?`openInvoiceQuote('${i.quoteId}')`:`alert('Standalone invoice INV-${i.invoiceNumber}. Edit and credit controls are enabled by the new invoice API and will open here after the schema update is applied.')`}">
           <td data-label="Invoice"><strong>INV-${i.invoiceNumber}</strong><br><small style="color:var(--stone);">Quote #${i.quoteNumber || '—'}</small></td>
           <td data-label="Customer">${escapeHtml((i.customer && (i.customer.name || i.customer.email)) || '—')}</td>
           <td data-label="Status"><span class="badge ${invoiceStatusBadgeClass(i.status)}">${escapeHtml(String(i.status || '').replace('_',' '))}</span></td>
