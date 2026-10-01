@@ -137,8 +137,8 @@
   .quote-lineitem-stat span { display:block; color:var(--stone); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px; }
   .quote-lineitem-stat strong { font-size:13px; font-weight:750; }
   .quote-detail-actions { display:flex; flex-direction:column; gap:10px; margin-top:18px; padding-top:16px; border-top:1px solid var(--line); }
-  .quote-action-group { display:flex; gap:9px; flex-wrap:wrap; }
-  .quote-action-group .btn { min-height:42px; padding:9px 16px; border-radius:10px; }
+  .quote-action-group { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:9px; width:100%; }
+  .quote-action-group .btn { min-height:42px; width:100%; padding:9px 16px; border-radius:10px; justify-content:center; } .quote-action-danger { grid-template-columns:minmax(170px,220px); padding-top:10px; border-top:1px dashed var(--line); } .invoice-action-bar { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; width:min(100%,620px); margin-left:auto; } .invoice-action-bar .btn { width:100%; min-height:38px; justify-content:center; }
   .quote-action-primary .btn { font-weight:750; }
   .quote-action-secondary .btn { background:#fff; }
   .quote-action-danger { padding-top:10px; margin-top:2px; border-top:1px dashed #E5D8D6; }
@@ -3370,6 +3370,18 @@
     doc.save('mysubbies-quote-draft-preview.pdf');
   }
 
+  async function generateAiQuoteDescription(lineId) {
+    const li=(quoteBuilderDraft.lineItems||[]).find(x=>x.id===lineId); if(!li)return;
+    const seed=String(li.description||'').trim(); if(!seed){alert('Type a short description first — for example, Aluminium sliding window.');return;}
+    const btn=document.getElementById('aiScope_'+lineId); if(btn){btn.disabled=true;btn.textContent='Generating…';}
+    try{
+      const res=await adminFetch('/api/generate-quote-scope',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({description:seed})});
+      const data=await res.json(); if(!res.ok||!data.description){alert(data.error||'Could not generate details.');return;}
+      onQuoteLineItemField(lineId,'description',data.description); render();
+    }catch(e){alert('Could not generate AI details — check your connection.');}
+    finally{const b=document.getElementById('aiScope_'+lineId);if(b){b.disabled=false;b.textContent='✦ AI details';}}
+  }
+
   function renderQuoteBuilder() {
     const d = quoteBuilderDraft;
     const totals = quoteBuilderTotalsPreview();
@@ -3423,7 +3435,7 @@
               ${rateCard.map(cat => `<optgroup label="${escapeHtml(cat.label)}">${(cat.tasks || []).filter(t => !t.disabled && !t.unavailable).map(t => `<option value="${escapeHtml(cat.label)}|||${escapeHtml(t.name)}" ${li.rateCardItemId === t.name ? 'selected' : ''}>${escapeHtml(t.name)} (${fmtCents(Math.round((t.rate || 0) * 100))}/${escapeHtml(t.unit || '')})</option>`).join('')}</optgroup>`).join('')}
             </select>
             <div class="quote-item-grid" style="display:grid;grid-template-columns:2fr 0.7fr 0.7fr 0.9fr auto;gap:8px;align-items:end;">
-              <div class="quote-item-description"><label class="fieldlabel">Description / Materials &amp; Inclusions</label><textarea class="fieldinput quote-description-input" rows="6" oninput="onQuoteLineItemField('${li.id}','description',this.value)">${escapeHtml(li.description)}</textarea></div>
+              <div class="quote-item-description"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;"><label class="fieldlabel" style="margin:0;">Description / Materials &amp; Inclusions</label><button type="button" id="aiScope_${li.id}" class="btn btn-outline" style="width:auto;padding:5px 9px;font-size:11.5px;" onclick="generateAiQuoteDescription('${li.id}')">✦ AI details</button></div><textarea class="fieldinput quote-description-input" rows="6" placeholder="Type a short line, then click AI details…" oninput="onQuoteLineItemField('${li.id}','description',this.value)">${escapeHtml(li.description)}</textarea></div>
               <div><label class="fieldlabel">Qty</label><input class="fieldinput" id="quoteQty_${li.id}" type="number" min="0" step="0.01" value="${li.calculatedAreaM2 || (isLinearMetreUnit(li.unit) && li.lengthM) ? Number(li.qty).toFixed(2) : li.qty}" ${li.calculatedAreaM2 || (isLinearMetreUnit(li.unit) && li.lengthM) ? 'readonly' : ''} oninput="onQuoteLineItemField('${li.id}','qty',this.value); updateQuoteBuilderTotals();" /></div>
               <div><label class="fieldlabel">Unit</label><select class="fieldinput" onchange="onQuoteUnitField('${li.id}',this.value)">${quoteUnitOptions(li.unit)}</select></div>
               <div><label class="fieldlabel">Unit price ($)</label><input class="fieldinput" type="number" min="0" step="0.01" value="${(li.unitPriceCents / 100).toFixed(2)}" oninput="onQuoteLineItemField('${li.id}','unitPriceDollars',this.value); updateQuoteBuilderTotals();" /></div>
@@ -3950,7 +3962,7 @@
         ${renderInvoiceBuilder()}
         <div class="detailcard" style="margin-bottom:16px;"><h2 style="font-size:14px;margin-bottom:10px;">Milestone invoices</h2>
           ${(quoteDetailData.invoices||[]).length ? (quoteDetailData.invoices||[]).map(i=>`<div style="padding:14px 0;border-top:1px solid var(--line);">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;"><span><strong>INV-${i.invoiceNumber}</strong> · ${escapeHtml(i.milestoneLabel)} · ${fmtCents(i.totalIncGstCents)}<br><small style="color:var(--stone);">${escapeHtml(i.status.replace('_',' '))} · paid ${fmtCents(i.paidCents)} · balance ${fmtCents(i.balanceCents)} · due ${new Date(i.dueAt).toLocaleDateString('en-AU')}</small></span><span style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-outline" style="padding:7px 10px" onclick="viewMilestoneInvoice('${i.id}')">View invoice</button><button class="btn btn-outline" style="padding:7px 10px" onclick="downloadAdminInvoicePdf('${i.id}')">Invoice PDF</button><button class="btn btn-outline" style="padding:7px 10px" onclick="sendMilestoneInvoice('${i.id}')">${i.sentAt?'Resend':'Email customer'}</button>${i.balanceCents>0?`<button class="btn btn-black" style="padding:7px 10px" onclick="openInvoicePayment('${i.id}')">＋ Record payment</button>`:''}</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;"><span><strong>INV-${i.invoiceNumber}</strong> · ${escapeHtml(i.milestoneLabel)} · ${fmtCents(i.totalIncGstCents)}<br><small style="color:var(--stone);">${escapeHtml(i.status.replace('_',' '))} · paid ${fmtCents(i.paidCents)} · balance ${fmtCents(i.balanceCents)} · due ${new Date(i.dueAt).toLocaleDateString('en-AU')}</small></span><span class="invoice-action-bar"><button class="btn btn-outline" style="padding:7px 10px" onclick="viewMilestoneInvoice('${i.id}')">View invoice</button><button class="btn btn-outline" style="padding:7px 10px" onclick="downloadAdminInvoicePdf('${i.id}')">Invoice PDF</button><button class="btn btn-outline" style="padding:7px 10px" onclick="sendMilestoneInvoice('${i.id}')">${i.sentAt?'Resend':'Email customer'}</button>${i.balanceCents>0?`<button class="btn btn-black" style="padding:7px 10px" onclick="openInvoicePayment('${i.id}')">＋ Record payment</button>`:''}</span></div>
             ${(i.payments||[]).length?`<div style="margin-top:10px;padding:10px 12px;background:#F7F7F5;border-radius:10px;"><div class="fieldlabel">Payment history</div>${i.payments.map(p=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:12px;"><span><strong>${fmtCents(p.amountCents)}</strong> · ${escapeHtml(paymentMethodLabel(p.method))} · ${new Date(p.receivedAt).toLocaleDateString('en-AU')}${p.reference?` · ${escapeHtml(p.reference)}`:''}</span><button class="btn btn-outline" style="padding:5px 8px;font-size:11px" onclick="downloadInvoicePaymentReceipt('${i.id}','${p.id}')">Receipt</button></div>`).join('')}</div>`:''}
             ${renderInvoicePaymentForm(i)}
           </div>`).join('') : '<div class="empty">No invoices created for this accepted quote yet.</div>'}
