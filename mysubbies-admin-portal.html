@@ -1,6 +1,15 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script>
+(function(){
+  const publicHosts = new Set(['www.mysubbies.com.au','mysubbies.com.au']);
+  if (publicHosts.has(window.location.hostname)) {
+    window.location.replace('https://app.mysubbies.com.au' + window.location.pathname + window.location.search + window.location.hash);
+  }
+})();
+</script>
+
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MySubbies — Admin Portal</title>
