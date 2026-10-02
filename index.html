@@ -3678,30 +3678,31 @@
   let courierAutocompleteAttached = false;
   async function initCourierPlacesAutocomplete() {
     if (courierAutocompleteAttached) return;
-    const loaded = await loadGoogleMapsPlaces();
-    if (!loaded) return; // no key configured, or the script failed to load -- plain-text fallback still works
-    courierAutocompleteAttached = true;
-    const opts = { componentRestrictions: { country: 'au' }, fields: ['formatted_address', 'geometry'] };
     const pickupInput = document.getElementById('courierPickup');
     const deliveryInput = document.getElementById('courierDelivery');
-    const pickupAc = new google.maps.places.Autocomplete(pickupInput, opts);
-    pickupAc.addListener('place_changed', () => {
-      const place = pickupAc.getPlace();
-      if (place && place.geometry) {
-        courierPickupCoords = { lat: place.geometry.location.lat(), lon: place.geometry.location.lng() };
-        if (place.formatted_address) pickupInput.value = place.formatted_address;
-      }
-      onCourierBoxesFieldChange();
-    });
-    const deliveryAc = new google.maps.places.Autocomplete(deliveryInput, opts);
-    deliveryAc.addListener('place_changed', () => {
-      const place = deliveryAc.getPlace();
-      if (place && place.geometry) {
-        courierDeliveryCoords = { lat: place.geometry.location.lat(), lon: place.geometry.location.lng() };
-        if (place.formatted_address) deliveryInput.value = place.formatted_address;
-      }
-      onCourierBoxesFieldChange();
-    });
+    if (!pickupInput || !deliveryInput) return;
+
+    // Use the shared MySubbies address component instead of the legacy
+    // google.maps.places.Autocomplete widget. The shared component keeps the
+    // text inputs fully editable, renders our own suggestion list and still
+    // provides verified lat/lng when an address is selected.
+    if (!window.MySubbiesAddress || typeof window.MySubbiesAddress.attach !== 'function') return;
+    courierAutocompleteAttached = true;
+
+    await Promise.all([
+      window.MySubbiesAddress.attach(pickupInput, {
+        onSelect(selection) {
+          courierPickupCoords = selection ? { lat: selection.latitude, lon: selection.longitude } : null;
+          onCourierBoxesFieldChange();
+        }
+      }),
+      window.MySubbiesAddress.attach(deliveryInput, {
+        onSelect(selection) {
+          courierDeliveryCoords = selection ? { lat: selection.latitude, lon: selection.longitude } : null;
+          onCourierBoxesFieldChange();
+        }
+      })
+    ]);
   }
 
   let courierBoxesResult = null;
