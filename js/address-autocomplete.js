@@ -135,13 +135,20 @@
     list.setAttribute('role', 'listbox');
     list.setAttribute('aria-label', 'Address suggestions');
     Object.assign(list.style, {
-      display: 'none', position: 'absolute', zIndex: '10000', left: '0', right: '0', top: '100%',
-      marginTop: '4px', background: '#fff', color: '#14213D', border: '1px solid #E5E2DC',
+      display: 'none', position: 'fixed', zIndex: '10000',
+      background: '#fff', color: '#14213D', border: '1px solid #E5E2DC',
       borderRadius: '10px', boxShadow: '0 10px 28px rgba(20,33,61,.14)', overflow: 'hidden',
+      maxHeight: '280px', overflowY: 'auto',
     });
-    const container = input.parentElement;
-    if (container && global.getComputedStyle(container).position === 'static') container.style.position = 'relative';
-    if (container) container.appendChild(list);
+    document.body.appendChild(list);
+
+    function positionList() {
+      if (list.style.display !== 'block') return;
+      const rect = input.getBoundingClientRect();
+      list.style.left = Math.round(rect.left) + 'px';
+      list.style.top = Math.round(rect.bottom + 4) + 'px';
+      list.style.width = Math.round(rect.width) + 'px';
+    }
 
     const state = {
       autocomplete: { list }, selection: null, suggestions: [], activeIndex: -1,
@@ -208,7 +215,10 @@
         }));
         list.appendChild(option);
       });
-      if (list.childElementCount) list.style.display = 'block';
+      if (list.childElementCount) {
+        list.style.display = 'block';
+        positionList();
+      }
     }
 
     input.setAttribute('role', 'combobox');
@@ -248,6 +258,8 @@
       }
     });
     input.addEventListener('blur', () => setTimeout(closeList, 150));
+    global.addEventListener('resize', positionList);
+    global.addEventListener('scroll', positionList, true);
     return state;
   }
 
