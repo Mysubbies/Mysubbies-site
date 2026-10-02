@@ -89,8 +89,47 @@
     }
     if (!document.body.contains(input)) return null;
 
-    const { AutocompleteSuggestion, AutocompleteSessionToken } = await global.google.maps.importLibrary('places');
-    if (!AutocompleteSuggestion || !AutocompleteSessionToken) return null;
+    const placesLibrary = await global.google.maps.importLibrary('places');
+    const { AutocompleteSuggestion, AutocompleteSessionToken, Autocomplete } = placesLibrary || {};
+
+    // Compatibility fallback: some Google Cloud projects/keys have the
+    // Maps JavaScript Places library enabled but not the newer
+    // AutocompleteSuggestion surface. In that case keep address suggestions
+    // working with the established Autocomplete widget instead of silently
+    // degrading to a plain text box.
+    if ((!AutocompleteSuggestion || !AutocompleteSessionToken) && Autocomplete) {
+      const legacy = new Autocomplete(input, {
+        componentRestrictions: { country: 'au' },
+        fields: ['formatted_address', 'geometry', 'address_components', 'place_id'],
+        types: ['address'],
+      });
+      const state = { autocomplete: legacy, selection: null };
+      attached.set(input, state);
+      legacy.addListener('place_changed', () => {
+        const selection = parsePlace(legacy.getPlace());
+        if (!selection || String(selection.country || '').toUpperCase() !== 'AU') {
+          state.selection = null;
+          input.dataset.addressVerified = 'false';
+          setStatus(statusElement, false);
+          return;
+        }
+        state.selection = selection;
+        input.value = selection.formattedAddress || input.value;
+        input.dataset.addressVerified = 'true';
+        setStatus(statusElement, true);
+        input.dispatchEvent(new CustomEvent('mysubbies:address-selected', { bubbles: true, detail: selection }));
+        if (typeof settings.onSelect === 'function') settings.onSelect(selection);
+      });
+      return state;
+    }
+
+    if (!AutocompleteSuggestion || !AutocompleteSessionToken) {
+      if (statusElement) {
+        statusElement.textContent = 'Address suggestions are temporarily unavailable. Enter the complete street address, suburb, state and postcode.';
+        statusElement.style.color = '#6B7280';
+      }
+      return null;
+    }
 
     const list = document.createElement('div');
     list.setAttribute('role', 'listbox');
