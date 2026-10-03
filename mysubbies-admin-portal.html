@@ -442,6 +442,7 @@
       <button data-tab="support" onclick="setAdminTab('support')">◌ &nbsp; Support</button>
       <button data-tab="marketing" onclick="setAdminTab('marketing')">◆ &nbsp; Marketing Centre</button>
       <button data-tab="tenders" onclick="setAdminTab('tenders')">▤ &nbsp; Tenders & Contracts</button>
+      <button data-tab="blog-seo" onclick="setAdminTab('blog-seo')">✎ &nbsp; Blog & SEO</button>
       <button data-tab="reports" onclick="setAdminTab('reports')">↗ &nbsp; Reports</button>
       <button data-tab="ratecard" onclick="setAdminTab('ratecard')">⚙ &nbsp; Settings</button>
     </nav>
@@ -1849,6 +1850,16 @@
     alert('Manual prospect entry will be connected with the CRM data layer in the next step.');
   }
 
+  let blogData=null,blogLoading=false;
+  async function loadBlogSeo(){if(blogLoading)return;blogLoading=true;try{const r=await adminFetch('/api/blog-seo?action=list');const d=await r.json();blogData=r.ok?(d.posts||[]):[];}catch(e){blogData=[];}blogLoading=false;if(tab==='blog-seo')render();}
+  async function blogAction(id,action){const label=action==='publish'?'Publish this approved article to the website?':'Approve this article for publishing?';if(!confirm(label))return;const r=await adminFetch('/api/blog-seo?action='+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});const d=await r.json();if(!r.ok){alert(d.error||'Article action failed.');return;}blogData=null;loadBlogSeo();}
+  function renderBlogSeo(){
+   const rows=blogData||[];
+   return `<div class="detailcard" style="max-width:none;background:#14213D;color:#fff;border:0;padding:24px;margin-bottom:16px;"><div style="display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;"><div><div style="font-size:11px;color:#F5A623;font-weight:800;letter-spacing:.08em;">ORGANIC GROWTH</div><h2 style="font-size:24px;margin:5px 0;">Blog & SEO</h2><p style="color:#CBD5E1;max-width:700px;">Prepare search-focused articles, review SEO metadata and publish only after approval.</p></div><button class="btn btn-black" onclick="alert('AI article creator and topic suggestions are the next layer being connected.')">✦ Create with AI</button></div></div>
+   <div class="statgrid"><div class="stat"><b>${rows.length}</b><span>Articles</span></div><div class="stat"><b>${rows.filter(x=>x.status==='draft').length}</b><span>Drafts</span></div><div class="stat"><b>${rows.filter(x=>x.status==='ready_for_review').length}</b><span>Needs review</span></div><div class="stat"><b>${rows.filter(x=>x.status==='published').length}</b><span>Published</span></div></div>
+   <div class="detailcard" style="max-width:none;margin-top:16px;"><h2 style="font-size:16px;margin-bottom:12px;">Content library</h2>${blogLoading&&!blogData?'<div class="empty">Loading articles…</div>':rows.length?rows.map(x=>'<div style="display:grid;grid-template-columns:minmax(220px,1.7fr) minmax(160px,1fr) 110px 170px;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);"><div><b>'+escapeHtml(x.title)+'</b><div class="jobmeta">/'+escapeHtml(x.slug)+'</div></div><div class="jobmeta">'+escapeHtml(x.target_keywords||x.meta_description||'SEO details pending')+'</div><span class="statusbadge">'+escapeHtml(x.status)+'</span><div>'+(x.status==='ready_for_review'?'<button class="btn btn-black" style="padding:7px 10px;font-size:11px" onclick="blogAction(\\''+x.id+'\\',\\'approve\\')">Approve</button>':x.status==='approved'?'<button class="btn btn-black" style="padding:7px 10px;font-size:11px" onclick="blogAction(\\''+x.id+'\\',\\'publish\\')">Publish</button>':'')+'</div></div>').join(''):'<div class="empty">No articles yet.</div>'}</div>`;
+  }
+
   let tenderData=null,tenderLoading=false;
   async function loadTenders(){if(tenderLoading)return;tenderLoading=true;try{const r=await adminFetch('/api/tenders?action=list');const d=await r.json();tenderData=r.ok?(d.tenders||[]):[];}catch(e){tenderData=[];}tenderLoading=false;if(tab==='tenders')render();}
   function renderTenders(){
@@ -1909,6 +1920,7 @@
     if (unreadContractorMessageCount === null && !unreadContractorMessageLoading) loadUnreadContractorMessageCount();
     if ((tab === 'customers' || tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !customersTabData && !customersTabLoading) loadCustomersTab();
     if (tab === 'leads' && !leadsTabData && !leadsTabLoading) loadLeadsTab();
+    if (tab === 'blog-seo' && !blogData && !blogLoading) loadBlogSeo();
     if (tab === 'tenders' && !tenderData && !tenderLoading) loadTenders();
     if (tab === 'marketing' && !marketingData && !marketingLoading) loadMarketing();
     if (tab === 'property-crm' && !propertyCrmData && !propertyCrmLoading) loadPropertyCrm();
@@ -2014,7 +2026,7 @@
               : jobsTableHtml(filtered);
           })()}
         `}
-      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractor-crm' ? renderBusinessDevelopmentCrm('contractor') : tab === 'property-crm' ? renderBusinessDevelopmentCrm('property') : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'invoices' ? renderInvoicesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'marketing' ? renderMarketingCentre() : tab === 'tenders' ? renderTenders() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
+      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractor-crm' ? renderBusinessDevelopmentCrm('contractor') : tab === 'property-crm' ? renderBusinessDevelopmentCrm('property') : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'invoices' ? renderInvoicesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'marketing' ? renderMarketingCentre() : tab === 'tenders' ? renderTenders() : tab === 'blog-seo' ? renderBlogSeo() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
     } catch (e) {
       console.error('Tab render error on tab=' + tab, e);
       tabContentHtml = `
