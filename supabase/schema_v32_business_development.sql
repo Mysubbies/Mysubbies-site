@@ -27,3 +27,16 @@ create index if not exists bd_prospects_status_idx
   on public.business_development_prospects(prospect_type, status, updated_at desc);
 alter table public.business_development_prospects enable row level security;
 revoke all privileges on table public.business_development_prospects from anon, authenticated;
+
+create table if not exists public.business_development_activity (
+  id uuid primary key default gen_random_uuid(),
+  prospect_id uuid references public.business_development_prospects(id) on delete cascade,
+  prospect_type text not null check (prospect_type in ('contractor','property_manager')),
+  event_type text not null,
+  outcome text not null default 'success',
+  detail text,
+  created_at timestamptz not null default now()
+);
+create index if not exists bd_activity_prospect_idx on public.business_development_activity(prospect_id, created_at desc);
+alter table public.business_development_activity enable row level security;
+revoke all privileges on table public.business_development_activity from anon, authenticated;
