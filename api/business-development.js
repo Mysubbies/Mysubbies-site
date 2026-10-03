@@ -14,7 +14,14 @@ function registrationUrl(t){
 async function list(supabase,req,res){
   const t=type(req.query.type);
   const {data,error}=await supabase.from('business_development_prospects').select('*').eq('prospect_type',t).order('updated_at',{ascending:false}).limit(1000);
-  if(error) throw error; res.status(200).json({prospects:data||[]});
+  if(error) throw error;
+  const prospects=data||[], ids=prospects.map(p=>p.id);
+  let activity=[];
+  if(ids.length){
+    const {data:events,error:eventError}=await supabase.from('business_development_activity').select('id,prospect_id,event_type,outcome,detail,created_at').in('prospect_id',ids).order('created_at',{ascending:false}).limit(500);
+    if(eventError) throw eventError; activity=events||[];
+  }
+  res.status(200).json({prospects,activity});
 }
 async function save(supabase,body,res){
   const t=type(body.prospectType), e=email(body.email);
