@@ -96,6 +96,20 @@ function renderAuth(message){
     ${register?'':'<button class="btn btn-outline" style="width:100%;margin-top:9px" onclick="forgotPassword()">Forgot password?</button>'}
   </div></div>`;
 }
+function renderPasswordRecovery(message,success){
+  document.getElementById('logoutBtn').style.display='none';document.getElementById('navOrg').textContent='';
+  app.innerHTML=`<div class="loginwrap"><div class="loginbox"><h1>Choose a new password</h1><p>Set a new password for your Property & Facilities Portal account.</p>${message?'<div class="'+(success?'success':'error')+'">'+esc(message)+'</div>':''}<div class="field"><label>New password</label><input id="resetPassword" type="password" autocomplete="new-password"></div><div class="field"><label>Confirm password</label><input id="resetPasswordConfirm" type="password" autocomplete="new-password"></div><button class="btn btn-primary" style="width:100%" onclick="completePasswordRecovery()">Update password</button></div></div>`;
+}
+async function completePasswordRecovery(){
+  const password=document.getElementById('resetPassword').value,confirmPassword=document.getElementById('resetPasswordConfirm').value;
+  if(password.length<8){renderPasswordRecovery('Use a password of at least 8 characters.');return;}
+  if(password!==confirmPassword){renderPasswordRecovery('The two passwords do not match.');return;}
+  const {error}=await sb.auth.updateUser({password});
+  if(error){renderPasswordRecovery(error.message);return;}
+  history.replaceState({},'',location.pathname);
+  renderPasswordRecovery('Password updated successfully. You can now return to the portal.',true);
+  setTimeout(()=>boot(),900);
+}
 async function login(){
   const email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value;
   const {error}=await sb.auth.signInWithPassword({email,password});
@@ -322,7 +336,11 @@ async function saveProperty(){try{await api('/api/property-management',{method:'
 async function start(){
   try{
     await initSupabase();
-    sb.auth.onAuthStateChange((event)=>{if(event==='SIGNED_OUT')renderAuth();});
+    sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){renderPasswordRecovery();return;}if(event==='SIGNED_OUT')renderAuth();});
+    if(new URLSearchParams(location.search).get('reset')==='1'){
+      const {data}=await sb.auth.getSession();
+      if(data&&data.session){renderPasswordRecovery();return;}
+    }
     await boot();
   }catch(e){
     app.innerHTML='<div class="loginwrap"><div class="loginbox"><h1>Property & Facilities Portal</h1><div class="error">'+esc(e.message)+'</div><p>Preview configuration is incomplete. Ask the MySubbies administrator to configure the staging Supabase environment for this preview branch.</p></div></div>';
