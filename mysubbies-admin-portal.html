@@ -441,6 +441,7 @@
       <button data-tab="payments" onclick="setAdminTab('payments')">＄ &nbsp; Finance</button>
       <button data-tab="support" onclick="setAdminTab('support')">◌ &nbsp; Support</button>
       <button data-tab="marketing" onclick="setAdminTab('marketing')">◆ &nbsp; Marketing Centre</button>
+      <button data-tab="tenders" onclick="setAdminTab('tenders')">▤ &nbsp; Tenders & Contracts</button>
       <button data-tab="reports" onclick="setAdminTab('reports')">↗ &nbsp; Reports</button>
       <button data-tab="ratecard" onclick="setAdminTab('ratecard')">⚙ &nbsp; Settings</button>
     </nav>
@@ -1848,6 +1849,15 @@
     alert('Manual prospect entry will be connected with the CRM data layer in the next step.');
   }
 
+  let tenderData=null,tenderLoading=false;
+  async function loadTenders(){if(tenderLoading)return;tenderLoading=true;try{const r=await adminFetch('/api/tenders?action=list');const d=await r.json();tenderData=r.ok?(d.tenders||[]):[];}catch(e){tenderData=[];}tenderLoading=false;if(tab==='tenders')render();}
+  function renderTenders(){
+    const rows=tenderData||[];const open=rows.filter(x=>!['submitted','won','lost','archived','no_go'].includes(x.status)).length;
+    return `<div class="detailcard" style="max-width:none;background:#14213D;color:#fff;border:0;padding:24px;margin-bottom:16px;"><div style="display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;"><div><div style="font-size:11px;color:#F5A623;font-weight:800;letter-spacing:.08em;">COMMERCIAL GROWTH</div><h2 style="font-size:24px;margin:5px 0;">Tenders & Contracts</h2><p style="color:#CBD5E1;max-width:700px;">Review opportunities, build compliance evidence, price the work and approve the final response before submission.</p></div><button class="btn btn-black" onclick="alert('Tender upload and AI brief are the next layer being connected.')">+ Add Tender</button></div></div>
+    <div class="statgrid"><div class="stat"><b>${rows.length}</b><span>Total tenders</span></div><div class="stat"><b>${open}</b><span>In progress</span></div><div class="stat"><b>${rows.filter(x=>x.status==='compliance_review').length}</b><span>Compliance review</span></div><div class="stat"><b>${rows.filter(x=>x.status==='approved').length}</b><span>Approved</span></div></div>
+    <div class="detailcard" style="max-width:none;margin-top:16px;"><h2 style="font-size:16px;margin-bottom:12px;">Tender register</h2>${tenderLoading&&!tenderData?'<div class="empty">Loading tenders…</div>':rows.length?rows.map(x=>'<div style="display:grid;grid-template-columns:minmax(200px,1.6fr) minmax(130px,1fr) 120px 120px;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);"><div><b>'+escapeHtml(x.title)+'</b><div class="jobmeta">'+escapeHtml(x.issuer||x.reference_number||'Issuer not recorded')+'</div></div><div style="font-size:12px;">'+escapeHtml(x.location||'—')+'</div><span class="statusbadge">'+escapeHtml(x.status)+'</span><div style="font-size:11px;color:var(--stone);">'+(x.closes_at?'Closes '+new Date(x.closes_at).toLocaleDateString('en-AU'):'No deadline')+'</div></div>').join(''):'<div class="empty">No tenders recorded yet.</div>'}</div>`;
+  }
+
   let marketingData=null,marketingLoading=false;
   async function loadMarketing(){
     if(marketingLoading)return;marketingLoading=true;
@@ -1899,6 +1909,7 @@
     if (unreadContractorMessageCount === null && !unreadContractorMessageLoading) loadUnreadContractorMessageCount();
     if ((tab === 'customers' || tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !customersTabData && !customersTabLoading) loadCustomersTab();
     if (tab === 'leads' && !leadsTabData && !leadsTabLoading) loadLeadsTab();
+    if (tab === 'tenders' && !tenderData && !tenderLoading) loadTenders();
     if (tab === 'marketing' && !marketingData && !marketingLoading) loadMarketing();
     if (tab === 'property-crm' && !propertyCrmData && !propertyCrmLoading) loadPropertyCrm();
     if (tab === 'property-crm' && !bdCrm.property.prospects && !bdCrm.property.loading) loadBdProspects('property');
@@ -2003,7 +2014,7 @@
               : jobsTableHtml(filtered);
           })()}
         `}
-      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractor-crm' ? renderBusinessDevelopmentCrm('contractor') : tab === 'property-crm' ? renderBusinessDevelopmentCrm('property') : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'invoices' ? renderInvoicesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'marketing' ? renderMarketingCentre() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
+      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractor-crm' ? renderBusinessDevelopmentCrm('contractor') : tab === 'property-crm' ? renderBusinessDevelopmentCrm('property') : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'invoices' ? renderInvoicesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'marketing' ? renderMarketingCentre() : tab === 'tenders' ? renderTenders() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
     } catch (e) {
       console.error('Tab render error on tab=' + tab, e);
       tabContentHtml = `
