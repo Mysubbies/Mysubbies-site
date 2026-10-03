@@ -67,7 +67,16 @@ module.exports = async (req, res) => {
 
       const assigned = (ownJobs || []).filter(r => r.full_record)
         .map(r => ({ ...r.full_record, jobNumber: r.job_number }));
-      const offers = (feedJobs || []).filter(r => r.full_record && r.full_record.status === 'feed')
+      const propertyJobs = (feedJobs || []).filter(r => r.full_record && r.full_record.source === 'property_management');
+      let propertyOffers = new Set();
+      if (propertyJobs.length) {
+        const { data: allocated, error: allocationError } = await supabase.from('job_offers').select('job_id')
+          .eq('contractor_id', auth.account.id).eq('status', 'pending').in('job_id', propertyJobs.map(r => r.full_record.id));
+        if (allocationError) throw allocationError;
+        propertyOffers = new Set((allocated || []).map(o => o.job_id));
+      }
+      const offers = (feedJobs || []).filter(r => r.full_record && r.full_record.status === 'feed'
+        && (r.full_record.source !== 'property_management' || propertyOffers.has(r.full_record.id)))
         .map(r => toSafeUnassignedOffer(r.full_record, r.job_number));
       res.status(200).json({ jobs: [...assigned, ...offers] });
       return;

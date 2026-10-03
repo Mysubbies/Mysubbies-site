@@ -17,6 +17,12 @@ function toSafeUnassignedOffer(record, jobNumber) {
     })) : [],
     status: 'feed',
     createdAt: record.createdAt || null,
+    // Allocated property offers need their workflow identifier so the
+    // contractor can submit evidence after accepting without reloading.
+    ...(record.source === 'property_management' ? {
+      source: 'property_management',
+      propertyManagement: { workOrderId: (record.propertyManagement || {}).workOrderId || null },
+    } : {}),
   };
 }
 

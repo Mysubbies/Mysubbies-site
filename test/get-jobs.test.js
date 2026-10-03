@@ -49,9 +49,9 @@ function loadHandler(supabase) {
   return require('../api/get-jobs');
 }
 
-function invoke(handler, queryParams, token) {
+function invoke(handler, queryParams, token, adminCookie = false) {
   return new Promise(resolve => {
-    const req = { method: 'GET', query: queryParams, headers: token ? { authorization: `Bearer ${token}` } : {} };
+    const req = { method: 'GET', query: queryParams, headers: token ? (adminCookie ? { cookie: `__Host-mysubbies_admin_session=${token}` } : { authorization: `Bearer ${token}` }) : {} };
     const res = { code: 200, status(code) { this.code = code; return this; }, json(body) { resolve({ status: this.code, body }); } };
     handler(req, res);
   });
@@ -106,7 +106,7 @@ test('valid admin read retains existing requireAdmin protection', async () => {
   const db = supabaseFor({ adminJobs: [{ full_record: { id: 'admin-visible' }, job_number: 4 }] });
   const handler = loadHandler(db);
   assert.equal((await invoke(handler, { all: '1' })).status, 401);
-  const response = await invoke(handler, { all: '1' }, signAdminToken());
+  const response = await invoke(handler, { all: '1' }, signAdminToken(), true);
   assert.equal(response.status, 200);
   assert.deepEqual(response.body.jobs, [{ id: 'admin-visible', jobNumber: 4 }]);
   delete process.env.ADMIN_SESSION_SECRET;
