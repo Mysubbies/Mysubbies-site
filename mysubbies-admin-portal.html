@@ -432,6 +432,8 @@
       <button data-tab="operations" onclick="setAdminTab('operations')">⚡ &nbsp; Operations</button>
       <button data-tab="overview" onclick="setAdminTab('overview')">□ &nbsp; Jobs</button>
       <button data-tab="projects" onclick="setAdminTab('projects')">◇ &nbsp; Projects</button>
+      <button data-tab="contractor-crm" onclick="setAdminTab('contractor-crm')">✦ &nbsp; Contractor CRM</button>
+      <button data-tab="property-crm" onclick="setAdminTab('property-crm')">▣ &nbsp; Property Managers</button>
       <button data-tab="contractors" onclick="setAdminTab('contractors')">◉ &nbsp; Contractors</button>
       <button data-tab="coverage" onclick="setAdminTab('coverage')">⌖ &nbsp; Coverage map</button>
       <button data-tab="customers" onclick="setAdminTab('customers')">◎ &nbsp; Customers</button>
@@ -1758,6 +1760,39 @@
       <div class="detailcard" style="max-width:none;"><h2 style="font-size:16px;margin-bottom:8px;">Support workspace</h2><p style="font-size:13px;color:var(--stone);margin-bottom:14px;">Choose the queue that needs attention. Existing inquiry, dispute and contractor-message workflows are unchanged.</p><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-black" onclick="tab='inquiries';render();">Open inquiries</button><button class="btn btn-outline" onclick="tab='disputes';render();">Open disputes</button><button class="btn btn-outline" onclick="tab='messages';render();">Contractor messages</button></div></div>`;
   }
 
+  function renderBusinessDevelopmentCrm(kind) {
+    const property = kind === 'property';
+    const title = property ? 'Property Manager CRM' : 'Contractor CRM';
+    const subtitle = property
+      ? 'Find property-management partners, personalise outreach and turn prospects into active MySubbies clients.'
+      : 'Build contractor coverage by area and trade, invite the right businesses and track onboarding from prospect to active.';
+    const stages = property
+      ? [['Prospect','0'],['Invited','0'],['Opened','0'],['Interested','0'],['Registered','0'],['Active client','0']]
+      : [['Prospect','0'],['Invited','0'],['Opened','0'],['Registration started','0'],['Under review','0'],['Active','0']];
+    return `
+      <div class="welcome-head" style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+        <div><div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#E85A0A;margin-bottom:7px;">Business Development</div><h1>${title}</h1><p>${subtitle}</p></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-black" onclick="openProspectFinder('${kind}')">✦ Find with AI</button><button class="btn btn-outline" onclick="openManualProspect('${kind}')">+ Add manually</button></div>
+      </div>
+      <div class="statgrid">${stages.slice(0,4).map(s=>`<div class="statcard"><div class="num">${s[1]}</div><div class="lab">${s[0]}</div></div>`).join('')}</div>
+      <div class="detailcard" style="max-width:none;margin-bottom:16px;background:linear-gradient(135deg,#111827,#1F2937);color:#fff;border:0;">
+        <div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(260px,1fr);gap:24px;align-items:center;">
+          <div><div style="font-size:11px;color:#FDBA74;font-weight:800;text-transform:uppercase;letter-spacing:.08em;">AI Prospect Finder</div><h2 style="font-size:22px;margin:7px 0 8px;">Find the right ${property?'property managers':'contractors'} in any target area.</h2><p style="font-size:13px;line-height:1.6;color:#D1D5DB;">Search public business information, review contact details and sources, select suitable prospects, then approve personalised MySubbies outreach before anything is sent.</p></div>
+          <div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:16px;"><div style="font-size:11px;color:#9CA3AF;margin-bottom:6px;">Example search</div><div style="font-weight:750;font-size:14px;">${property?'Property managers · Bendigo VIC':'Drainage contractors · Bendigo VIC'}</div><button class="btn btn-black" style="margin-top:14px;width:100%;" onclick="openProspectFinder('${kind}')">Start prospect search →</button></div>
+        </div>
+      </div>
+      <div class="detailcard" style="max-width:none;">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:15px;"><div><h2 style="font-size:16px;">Pipeline</h2><p style="font-size:12px;color:var(--stone);margin-top:3px;">Prospects and outreach will appear here as the CRM backend is connected.</p></div><span style="font-size:11px;font-weight:800;background:#FFF0E8;color:#B94708;border-radius:999px;padding:6px 10px;">Approval required before send</span></div>
+        <div style="display:grid;grid-template-columns:repeat(6,minmax(125px,1fr));gap:9px;overflow-x:auto;padding-bottom:4px;">${stages.map(s=>`<div style="min-width:125px;background:#F7F7F5;border:1px solid var(--line);border-radius:12px;padding:13px;"><div style="font-size:11px;font-weight:800;color:var(--stone);text-transform:uppercase;">${s[0]}</div><div style="font-size:24px;font-weight:800;margin-top:8px;">${s[1]}</div></div>`).join('')}</div>
+      </div>`;
+  }
+  function openProspectFinder(kind) {
+    alert('Prospect Finder UI is ready. Public business discovery and selected-email invitation will be connected to the secure server endpoint next.');
+  }
+  function openManualProspect(kind) {
+    alert('Manual prospect entry will be connected with the CRM data layer in the next step.');
+  }
+
   function renderInner() {
     if (selectedJobId) { renderDetail(); return; }
     if (selectedCustomerId || selectedCustomerEmail) {
@@ -1891,7 +1926,7 @@
               : jobsTableHtml(filtered);
           })()}
         `}
-      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'invoices' ? renderInvoicesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
+      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractor-crm' ? renderBusinessDevelopmentCrm('contractor') : tab === 'property-crm' ? renderBusinessDevelopmentCrm('property') : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'invoices' ? renderInvoicesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
     } catch (e) {
       console.error('Tab render error on tab=' + tab, e);
       tabContentHtml = `
