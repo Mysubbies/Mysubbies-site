@@ -440,6 +440,7 @@
       <button data-tab="leads" onclick="setAdminTab('leads')">◈ &nbsp; Leads</button>
       <button data-tab="payments" onclick="setAdminTab('payments')">＄ &nbsp; Finance</button>
       <button data-tab="support" onclick="setAdminTab('support')">◌ &nbsp; Support</button>
+      <button data-tab="marketing" onclick="setAdminTab('marketing')">◆ &nbsp; Marketing Centre</button>
       <button data-tab="reports" onclick="setAdminTab('reports')">↗ &nbsp; Reports</button>
       <button data-tab="ratecard" onclick="setAdminTab('ratecard')">⚙ &nbsp; Settings</button>
     </nav>
@@ -1847,6 +1848,24 @@
     alert('Manual prospect entry will be connected with the CRM data layer in the next step.');
   }
 
+  let marketingData=null,marketingLoading=false;
+  async function loadMarketing(){
+    if(marketingLoading)return;marketingLoading=true;
+    try{const r=await adminFetch('/api/marketing-centre?action=list');const d=await r.json();marketingData=r.ok?(d.campaigns||[]):[];}catch(e){marketingData=[];}
+    marketingLoading=false;if(tab==='marketing')render();
+  }
+  async function approveMarketingCampaign(id){
+    if(!confirm('Approve this campaign? Approval does not publish it automatically.'))return;
+    const r=await adminFetch('/api/marketing-centre?action=approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});const d=await r.json();
+    if(!r.ok){alert(d.error||'Campaign could not be approved.');return;}marketingData=null;loadMarketing();
+  }
+  function renderMarketingCentre(){
+    const rows=marketingData||[],count=s=>rows.filter(x=>x.status===s).length;
+    return `<div class="detailcard" style="max-width:none;background:#14213D;color:white;border:0;padding:24px;margin-bottom:16px;"><div style="display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;"><div><div style="font-size:11px;color:#F5A623;font-weight:800;letter-spacing:.08em;">MYSUBBIES GROWTH</div><h2 style="font-size:24px;margin:5px 0;">Marketing Centre</h2><p style="color:#CBD5E1;max-width:650px;">Create campaigns, prepare channel-specific content, review it and approve it before anything is published.</p></div><button class="btn btn-black" onclick="alert('AI campaign creator is the next layer being connected to this workflow.')">✦ Create Campaign</button></div></div>
+    <div class="statgrid"><div class="stat"><b>${rows.length}</b><span>Campaigns</span></div><div class="stat"><b>${count('draft')}</b><span>Draft</span></div><div class="stat"><b>${count('ready_for_review')}</b><span>Needs review</span></div><div class="stat"><b>${count('approved')}</b><span>Approved</span></div></div>
+    <div class="detailcard" style="max-width:none;margin-top:16px;"><h2 style="font-size:16px;margin-bottom:12px;">Campaign workspace</h2>${marketingLoading&&!marketingData?'<div class="empty">Loading campaigns…</div>':rows.length?rows.map(x=>'<div style="display:grid;grid-template-columns:minmax(180px,1.5fr) 120px 140px 120px;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);"><div><b>'+escapeHtml(x.name)+'</b><div class="jobmeta">'+escapeHtml(x.headline||x.offer||'Draft campaign')+'</div></div><span class="statusbadge">'+escapeHtml(x.status)+'</span><span style="font-size:11px;color:var(--stone);">'+escapeHtml(x.tracking_code||'—')+'</span><div>'+(x.status==='ready_for_review'?'<button class="btn btn-black" style="padding:7px 11px;font-size:11px;" onclick="approveMarketingCampaign(\\''+x.id+'\\')">Approve</button>':'')+'</div></div>').join(''):'<div class="empty">No campaigns yet. Create your first campaign when the AI creator is connected.</div>'}</div>`;
+  }
+
   function renderInner() {
     if (selectedJobId) { renderDetail(); return; }
     if (selectedCustomerId || selectedCustomerEmail) {
@@ -1880,6 +1899,7 @@
     if (unreadContractorMessageCount === null && !unreadContractorMessageLoading) loadUnreadContractorMessageCount();
     if ((tab === 'customers' || tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !customersTabData && !customersTabLoading) loadCustomersTab();
     if (tab === 'leads' && !leadsTabData && !leadsTabLoading) loadLeadsTab();
+    if (tab === 'marketing' && !marketingData && !marketingLoading) loadMarketing();
     if (tab === 'property-crm' && !propertyCrmData && !propertyCrmLoading) loadPropertyCrm();
     if (tab === 'property-crm' && !bdCrm.property.prospects && !bdCrm.property.loading) loadBdProspects('property');
     if (tab === 'contractor-crm' && !bdCrm.contractor.prospects && !bdCrm.contractor.loading) loadBdProspects('contractor');
@@ -1983,7 +2003,7 @@
               : jobsTableHtml(filtered);
           })()}
         `}
-      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractor-crm' ? renderBusinessDevelopmentCrm('contractor') : tab === 'property-crm' ? renderBusinessDevelopmentCrm('property') : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'invoices' ? renderInvoicesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
+      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractor-crm' ? renderBusinessDevelopmentCrm('contractor') : tab === 'property-crm' ? renderBusinessDevelopmentCrm('property') : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'invoices' ? renderInvoicesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'marketing' ? renderMarketingCentre() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
     } catch (e) {
       console.error('Tab render error on tab=' + tab, e);
       tabContentHtml = `
