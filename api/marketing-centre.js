@@ -8,7 +8,7 @@ module.exports=async function handler(req,res){
   const action=clean((req.query&&req.query.action)||(req.body&&req.body.action),50);
   if(req.method==='GET'&&action==='list'){const {data,error}=await s.from('marketing_campaigns').select('*').order('updated_at',{ascending:false}).limit(500);if(error)throw error;res.status(200).json({campaigns:data||[]});return;}
   if(req.method==='POST'&&action==='save'){
-   const b=req.body||{}, id=clean(b.id,50), allowed=['draft','ready_for_review','approved','scheduled','published','archived'];
+   const b=req.body||{}, id=clean(b.id,50), allowed=['draft','ready_for_review','archived'];
    const row={name:clean(b.name,180),campaign_type:clean(b.campaignType,80)||'seasonal',offer:clean(b.offer,1000)||null,audience:clean(b.audience,500)||null,service_category:clean(b.serviceCategory,120)||null,headline:clean(b.headline,240)||null,body_copy:clean(b.bodyCopy,8000)||null,facebook_copy:clean(b.facebookCopy,5000)||null,instagram_copy:clean(b.instagramCopy,5000)||null,whatsapp_copy:clean(b.whatsappCopy,3000)||null,call_to_action:clean(b.callToAction,300)||null,hashtags:clean(b.hashtags,1000)||null,booking_url:clean(b.bookingUrl,1000)||null,image_url:clean(b.imageUrl,1500)||null,status:allowed.includes(b.status)?b.status:'draft',updated_at:new Date().toISOString()};
    if(!row.name){res.status(400).json({error:'Campaign name is required.'});return;}
    let q=id?s.from('marketing_campaigns').update(row).eq('id',id):s.from('marketing_campaigns').insert({...row,tracking_code:'mkt_'+Date.now().toString(36)});
