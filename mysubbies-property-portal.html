@@ -93,12 +93,23 @@ function renderAuth(message){
     <div class="field"><label>Password</label><input id="authPassword" type="password" autocomplete="${register?'new-password':'current-password'}"></div>
     ${register?'<div class="hint" style="margin:-5px 0 14px">Use the same email address your MySubbies invitation was sent to.</div>':''}
     <button class="btn btn-primary" style="width:100%" onclick="${register?'registerInvite()':'login()'}">${register?'Create account':'Log in'}</button>
+    ${register?'':'<button class="btn btn-outline" style="width:100%;margin-top:9px" onclick="forgotPassword()">Forgot password?</button>'}
   </div></div>`;
 }
 async function login(){
   const email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value;
   const {error}=await sb.auth.signInWithPassword({email,password});
   if(error){renderAuth(error.message);return;}await boot();
+}
+async function forgotPassword(){
+  const email=(document.getElementById('authEmail')||{}).value?.trim();
+  if(!email){renderAuth('Enter your email address first, then choose Forgot password.');return;}
+  const redirectTo=location.origin+'/mysubbies-property-portal.html?reset=1';
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
+  if(error){renderAuth(error.message);return;}
+  renderAuth();
+  const box=document.getElementById('authMsg');
+  if(box)box.innerHTML='<div class="success">Password reset email sent. Open the link in that email to choose a new password.</div>';
 }
 async function registerInvite(){
   const email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value;
