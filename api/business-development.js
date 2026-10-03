@@ -5,6 +5,7 @@ const { sendEmailWithResult, wrapEmail, escapeHtml, emailButton } = require('./_
 function clean(v,n){ return String(v||'').trim().slice(0,n||500); }
 function email(v){ const x=clean(v,254).toLowerCase(); return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)?x:''; }
 function type(v){ return v==='property_manager'?'property_manager':'contractor'; }
+async function logActivity(supabase,p,eventType,outcome,detail){try{await supabase.from('business_development_activity').insert({prospect_id:p.id,prospect_type:p.prospect_type,event_type:eventType,outcome:outcome||'success',detail:clean(detail,500)||null});}catch(e){console.error('CRM audit log failed',e);}}
 function registrationUrl(t){
   return t==='property_manager'
     ? 'https://app.mysubbies.com.au/mysubbies-property-portal.html'
@@ -19,8 +20,8 @@ async function save(supabase,body,res){
   const t=type(body.prospectType), e=email(body.email);
   const row={prospect_type:t,business_name:clean(body.businessName,180),contact_name:clean(body.contactName,120)||null,email:e||null,phone:clean(body.phone,60)||null,website:clean(body.website,500)||null,suburb:clean(body.suburb,120)||null,state:clean(body.state,20)||'VIC',trade_or_segment:clean(body.tradeOrSegment,160)||null,source_provider:clean(body.sourceProvider,80),source_url:clean(body.sourceUrl,1000),source_reference:clean(body.sourceReference,500)||null};
   if(!row.business_name||!row.source_provider||!row.source_url){res.status(400).json({error:'Business name and source evidence are required.'});return;}
-  if(e){const {data:existing,error:xerr}=await supabase.from('business_development_prospects').select('*').eq('prospect_type',t).ilike('email',e).maybeSingle();if(xerr)throw xerr;if(existing){res.status(200).json({prospect:existing,duplicatePrevented:true});return;}}
-  const {data,error}=await supabase.from('business_development_prospects').insert(row).select('*').single();if(error)throw error;res.status(201).json({prospect:data});
+  if(e){const {data:existing,error:xerr}=await supabase.from('business_development_prospects').select('*').eq('prospect_type',t).ilike('email',e).maybeSingle();if(xerr)throw xerr;if(existing){await logActivity(supabase,existing,'duplicate_prevented','success','Existing prospect returned instead of creating a duplicate.');res.status(200).json({prospect:existing,duplicatePrevented:true});return;}}
+  const {data,error}=await supabase.from('business_development_prospects').insert(row).select('*').single();if(error)throw error;await logActivity(supabase,data,'prospect_created','success','Source-backed prospect added to CRM.');res.status(201).json({prospect:data});
 }
 async function invite(supabase,body,res){
   const ids=Array.isArray(body.prospectIds)?body.prospectIds.slice(0,100):[];
@@ -36,6 +37,7 @@ async function invite(supabase,body,res){
       : 'MySubbies Group is expanding its contractor network and is looking for reliable businesses for upcoming work.';
     const result=await sendEmailWithResult({to:p.email,subject,html:wrapEmail('<h2 style="margin-top:0;">'+escapeHtml(p.business_name)+'</h2><p>'+escapeHtml(intro)+'</p><p>We would like to invite your business to connect with MySubbies.</p>'+emailButton(property?'Explore Property Portal →':'Join the contractor network →',registrationUrl(p.prospect_type))+'<p style="font-size:12px;color:#6B7280;margin-top:18px;">This invitation was approved by the MySubbies team before sending.</p>')});
     if(result.ok){await supabase.from('business_development_prospects').update({status:'invited',invitation_count:(p.invitation_count||0)+1,last_invited_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',p.id);}
+    await logActivity(supabase,p,'invitation_attempt',result.ok?'success':'failed',result.ok?'Invitation sent.':(result.error||'Invitation failed.'));
     results.push({id:p.id,ok:!!result.ok,error:result.ok?null:result.error});
   }
   res.status(200).json({results});
