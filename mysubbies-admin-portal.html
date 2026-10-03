@@ -1760,14 +1760,42 @@
       <div class="detailcard" style="max-width:none;"><h2 style="font-size:16px;margin-bottom:8px;">Support workspace</h2><p style="font-size:13px;color:var(--stone);margin-bottom:14px;">Choose the queue that needs attention. Existing inquiry, dispute and contractor-message workflows are unchanged.</p><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-black" onclick="tab='inquiries';render();">Open inquiries</button><button class="btn btn-outline" onclick="tab='disputes';render();">Open disputes</button><button class="btn btn-outline" onclick="tab='messages';render();">Contractor messages</button></div></div>`;
   }
 
+  let propertyCrmData = null;
+  let propertyCrmLoading = false;
+  async function loadPropertyCrm() {
+    if (propertyCrmLoading) return;
+    propertyCrmLoading = true;
+    try {
+      const res = await adminFetch('/api/property-management?action=admin-summary');
+      const data = await res.json();
+      propertyCrmData = res.ok ? data : { error: data.error || 'Property Manager CRM could not be loaded.' };
+    } catch (e) { propertyCrmData = { error: e.message || 'Property Manager CRM could not be loaded.' }; }
+    propertyCrmLoading = false;
+    if (tab === 'property-crm') render();
+  }
+  async function resendPropertyManagerInvite(memberId) {
+    if (!confirm('Resend the MySubbies Property Portal invitation to this contact?')) return;
+    const res = await adminFetch('/api/property-management?action=admin-resend-invite', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ memberId })
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'Invitation could not be sent.'); return; }
+    alert('Invitation sent.');
+    propertyCrmData = null; loadPropertyCrm();
+  }
   function renderBusinessDevelopmentCrm(kind) {
     const property = kind === 'property';
     const title = property ? 'Property Manager CRM' : 'Contractor CRM';
     const subtitle = property
       ? 'Find property-management partners, personalise outreach and turn prospects into active MySubbies clients.'
       : 'Build contractor coverage by area and trade, invite the right businesses and track onboarding from prospect to active.';
+    const orgs = property && propertyCrmData && !propertyCrmData.error ? (propertyCrmData.organisations || []) : [];
+    const members = property && propertyCrmData && !propertyCrmData.error ? (propertyCrmData.members || []) : [];
+    const properties = property && propertyCrmData && !propertyCrmData.error ? (propertyCrmData.properties || []) : [];
+    const workOrders = property && propertyCrmData && !propertyCrmData.error ? (propertyCrmData.workOrders || []) : [];
+    const invited = members.filter(m=>m.status==='invited').length, active = members.filter(m=>m.status==='active').length;
     const stages = property
-      ? [['Prospect','0'],['Invited','0'],['Opened','0'],['Interested','0'],['Registered','0'],['Active client','0']]
+      ? [['Organisations',String(orgs.length)],['Invited',String(invited)],['Active contacts',String(active)],['Properties',String(properties.length)],['Work orders',String(workOrders.length)],['Prospects','0']]
       : [['Prospect','0'],['Invited','0'],['Opened','0'],['Registration started','0'],['Under review','0'],['Active','0']];
     return `
       <div class="welcome-head" style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
@@ -1781,8 +1809,11 @@
           <div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:16px;"><div style="font-size:11px;color:#9CA3AF;margin-bottom:6px;">Example search</div><div style="font-weight:750;font-size:14px;">${property?'Property managers · Bendigo VIC':'Drainage contractors · Bendigo VIC'}</div><button class="btn btn-black" style="margin-top:14px;width:100%;" onclick="openProspectFinder('${kind}')">Start prospect search →</button></div>
         </div>
       </div>
+      ${property && propertyCrmData && propertyCrmData.error ? '<div class="detailcard" style="border-color:#F2C9C6;color:#B4232C;">'+escapeHtml(propertyCrmData.error)+'</div>' : ''}
+      ${property && propertyCrmLoading && !propertyCrmData ? '<div class="detailcard">Loading Property Manager organisations…</div>' : ''}
+      ${property && propertyCrmData && !propertyCrmData.error ? `<div class="detailcard" style="max-width:none;margin-bottom:16px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><div><h2 style="font-size:16px;">Active organisations</h2><p style="font-size:12px;color:var(--stone);">Real Property Portal accounts and invitation status.</p></div></div>${orgs.length ? orgs.map(o=>{const ms=members.filter(m=>m.organisation_id===o.id);const ps=properties.filter(p=>p.organisation_id===o.id);return '<div style="display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(150px,1fr) 100px 120px;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);"><div><b style="font-size:13px;">'+escapeHtml(o.name)+'</b><div class="jobmeta">'+escapeHtml((o.organisation_type||'property_manager').replace(/_/g,' '))+'</div></div><div>'+ms.map(m=>'<div style="font-size:12px;">'+escapeHtml(m.name||m.email)+' <span style="color:var(--stone);">· '+escapeHtml(m.status)+'</span></div>').join('')+'</div><div style="font-size:12px;"><b>'+ps.length+'</b> properties</div><div>'+ms.filter(m=>m.status==='invited').map(m=>'<button class="btn btn-outline" style="padding:6px 10px;font-size:11px;" onclick="resendPropertyManagerInvite(\\''+m.id+'\\')">Resend invite</button>').join('')+'</div></div>'}).join('') : '<div class="empty">No Property Manager organisations yet.</div>'}</div>` : ''}
       <div class="detailcard" style="max-width:none;">
-        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:15px;"><div><h2 style="font-size:16px;">Pipeline</h2><p style="font-size:12px;color:var(--stone);margin-top:3px;">Prospects and outreach will appear here as the CRM backend is connected.</p></div><span style="font-size:11px;font-weight:800;background:#FFF0E8;color:#B94708;border-radius:999px;padding:6px 10px;">Approval required before send</span></div>
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:15px;"><div><h2 style="font-size:16px;">Pipeline</h2><p style="font-size:12px;color:var(--stone);margin-top:3px;">${property?'Live client accounts above; new prospect outreach will be tracked separately here.':'Prospects and outreach will appear here as the CRM backend is connected.'}</p></div><span style="font-size:11px;font-weight:800;background:#FFF0E8;color:#B94708;border-radius:999px;padding:6px 10px;">Approval required before send</span></div>
         <div style="display:grid;grid-template-columns:repeat(6,minmax(125px,1fr));gap:9px;overflow-x:auto;padding-bottom:4px;">${stages.map(s=>`<div style="min-width:125px;background:#F7F7F5;border:1px solid var(--line);border-radius:12px;padding:13px;"><div style="font-size:11px;font-weight:800;color:var(--stone);text-transform:uppercase;">${s[0]}</div><div style="font-size:24px;font-weight:800;margin-top:8px;">${s[1]}</div></div>`).join('')}</div>
       </div>`;
   }
@@ -1826,6 +1857,7 @@
     if (unreadContractorMessageCount === null && !unreadContractorMessageLoading) loadUnreadContractorMessageCount();
     if ((tab === 'customers' || tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !customersTabData && !customersTabLoading) loadCustomersTab();
     if (tab === 'leads' && !leadsTabData && !leadsTabLoading) loadLeadsTab();
+    if (tab === 'property-crm' && !propertyCrmData && !propertyCrmLoading) loadPropertyCrm();
     if ((tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !quotesTabData && !quotesTabLoading) loadQuotesTab();
     if (tab === 'invoices' && !invoicesTabData && !invoicesTabLoading) loadInvoicesTab();
     if (tab === 'quotes' && !staffListData && !staffListLoading) loadStaffList();
