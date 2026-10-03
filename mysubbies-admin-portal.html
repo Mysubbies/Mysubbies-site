@@ -1920,6 +1920,13 @@
     if (unreadContractorMessageCount === null && !unreadContractorMessageLoading) loadUnreadContractorMessageCount();
     if ((tab === 'customers' || tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !customersTabData && !customersTabLoading) loadCustomersTab();
     if (tab === 'leads' && !leadsTabData && !leadsTabLoading) loadLeadsTab();
+    if (tab === 'ceo') {
+      if(!marketingData&&!marketingLoading)loadMarketing();
+      if(!tenderData&&!tenderLoading)loadTenders();
+      if(!blogData&&!blogLoading)loadBlogSeo();
+      if(!bdCrm.contractor.prospects&&!bdCrm.contractor.loading)loadBdProspects('contractor');
+      if(!bdCrm.property.prospects&&!bdCrm.property.loading)loadBdProspects('property');
+    }
     if (tab === 'blog-seo' && !blogData && !blogLoading) loadBlogSeo();
     if (tab === 'tenders' && !tenderData && !tenderLoading) loadTenders();
     if (tab === 'marketing' && !marketingData && !marketingLoading) loadMarketing();
@@ -2242,6 +2249,17 @@
         <div class="statcard" style="cursor:pointer;" onclick="tab='contractors';render();"><div class="num">${contractorCount}</div><div class="lab">Approved contractors</div></div>
         <div class="statcard" style="cursor:pointer;" onclick="tab='quotes';render();"><div class="num">${openQuotes === null ? '…' : openQuotes.length}</div><div class="lab">Open quotes${openQuotes === null ? ' · loading' : ''}</div></div>
         <div class="statcard" style="cursor:pointer;" onclick="tab='quotes';render();"><div class="num">${quotePipelineCents === null ? '—' : fmtCents(quotePipelineCents)}</div><div class="lab">Quote pipeline${quotePipelineCents === null ? ' · unavailable' : ''}</div></div>
+      </div>
+
+      <div class="detailcard" style="max-width:none;background:#14213D;color:#fff;border:0;margin-bottom:20px;padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;"><div><div style="font-size:11px;color:#F5A623;font-weight:800;letter-spacing:.08em;">AI MISSION CONTROL</div><h2 style="font-size:20px;margin:4px 0;">What needs your attention</h2><p style="font-size:12px;color:#CBD5E1;margin:0;">Only real records that are waiting for a decision or next action.</p></div></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:16px;">
+          <button onclick="setAdminTab('contractor-crm')" style="text-align:left;border:1px solid #334155;background:#1E293B;color:#fff;border-radius:12px;padding:14px;cursor:pointer;"><b style="font-size:22px;">${bdCrm.contractor.prospects?bdCrm.contractor.prospects.filter(x=>x.status==='prospect').length:'…'}</b><div style="font-size:11px;color:#CBD5E1;margin-top:3px;">Contractor prospects to review</div></button>
+          <button onclick="setAdminTab('property-crm')" style="text-align:left;border:1px solid #334155;background:#1E293B;color:#fff;border-radius:12px;padding:14px;cursor:pointer;"><b style="font-size:22px;">${bdCrm.property.prospects?bdCrm.property.prospects.filter(x=>x.status==='prospect').length:'…'}</b><div style="font-size:11px;color:#CBD5E1;margin-top:3px;">PM prospects to review</div></button>
+          <button onclick="setAdminTab('marketing')" style="text-align:left;border:1px solid #334155;background:#1E293B;color:#fff;border-radius:12px;padding:14px;cursor:pointer;"><b style="font-size:22px;">${marketingData?marketingData.filter(x=>x.status==='ready_for_review').length:'…'}</b><div style="font-size:11px;color:#CBD5E1;margin-top:3px;">Campaigns awaiting approval</div></button>
+          <button onclick="setAdminTab('tenders')" style="text-align:left;border:1px solid #334155;background:#1E293B;color:#fff;border-radius:12px;padding:14px;cursor:pointer;"><b style="font-size:22px;">${tenderData?tenderData.filter(x=>x.status==='compliance_review').length:'…'}</b><div style="font-size:11px;color:#CBD5E1;margin-top:3px;">Tenders in compliance review</div></button>
+          <button onclick="setAdminTab('blog-seo')" style="text-align:left;border:1px solid #334155;background:#1E293B;color:#fff;border-radius:12px;padding:14px;cursor:pointer;"><b style="font-size:22px;">${blogData?blogData.filter(x=>x.status==='ready_for_review'||x.status==='approved').length:'…'}</b><div style="font-size:11px;color:#CBD5E1;margin-top:3px;">Articles awaiting decision</div></button>
+        </div>
       </div>
 
       <div class="ceo-grid">
