@@ -73,6 +73,8 @@
   .crm-nav button:disabled { cursor:not-allowed; opacity:.5; }
   .crm-nav button.active { box-shadow:inset 3px 0 #FF6A1A; }
   .crm-sidebar-foot { position:absolute; left:26px; bottom:22px; color:#8F9AB0; font-size:10.5px; }
+  .mobile-admin-menu { display:none; border:0; background:var(--black); color:#fff; width:40px; height:40px; border-radius:10px; align-items:center; justify-content:center; font-size:20px; cursor:pointer; }
+  .mobile-nav-overlay { display:none; }
   .coverage-map { width:100%; min-height:520px; border:1px solid var(--line); border-radius:14px; background:#EEF1F5; }
   body.logged-out .crm-sidebar { display:none; }
   body.logged-out .navlinks { display:none; }
@@ -156,7 +158,12 @@
   @media (max-width:1000px) { .quote-builder-grid { grid-template-columns:1fr; } .quote-side { position:static; } }
   @media (max-width:860px) {
     .admin-shell { display:block; }
-    .crm-sidebar { display:none; }
+    .mobile-admin-menu { display:inline-flex; }
+    .crm-sidebar { display:block; position:fixed; z-index:130; top:64px; left:0; width:min(82vw,300px); height:calc(100vh - 64px); transform:translateX(-105%); transition:transform .22s ease; box-shadow:18px 0 40px rgba(10,18,35,.2); overflow-y:auto; }
+    body.mobile-nav-open .crm-sidebar { transform:translateX(0); }
+    .mobile-nav-overlay { position:fixed; z-index:120; inset:64px 0 0; background:rgba(10,18,35,.46); }
+    body.mobile-nav-open .mobile-nav-overlay { display:block; }
+    body.logged-out .mobile-admin-menu { display:none; }
     .wrap { padding:24px 16px 90px; }
     .quote-kpis { grid-template-columns:1fr 1fr; }
     .quote-line-head { display:none; }
@@ -406,6 +413,7 @@
       
       <div class="logo-word">My<span class="gold">Subbies</span></div>
     </div>
+    <button class="mobile-admin-menu" id="mobileAdminMenu" aria-label="Open admin menu" aria-expanded="false" onclick="toggleMobileAdminNav()">☰</button>
     <div class="navlinks">
       <a class="navlink-bell" onclick="toggleNotifPanel()" title="Notifications"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="notifBadge" class="notif-badge" style="display:none;"></span></a>
       <a class="navlink-refresh" id="refreshLink" onclick="manualRefresh()" title="Refresh"><svg id="refreshIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></a>
@@ -437,6 +445,7 @@
   </aside>
   <main class="wrap" id="app"></main>
 </div>
+<div class="mobile-nav-overlay" onclick="closeMobileAdminNav()" aria-hidden="true"></div>
 
 <nav class="mobile-tabbar" aria-label="Primary">
   <button class="tab-item" id="mtOverview" onclick="tab='operations'; render();">
@@ -603,7 +612,18 @@
   let selectedCustomerEmail = null;
   let selectedCustomerId = null;
   const app = document.getElementById('app');
-  function setAdminTab(nextTab) { tab = nextTab; selectedJobId = null; selectedCustomerId = null; selectedCustomerEmail = null; render(); }
+  function toggleMobileAdminNav() {
+    const open = !document.body.classList.contains('mobile-nav-open');
+    document.body.classList.toggle('mobile-nav-open', open);
+    const button = document.getElementById('mobileAdminMenu');
+    if (button) button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  function closeMobileAdminNav() {
+    document.body.classList.remove('mobile-nav-open');
+    const button = document.getElementById('mobileAdminMenu');
+    if (button) button.setAttribute('aria-expanded', 'false');
+  }
+  function setAdminTab(nextTab) { tab = nextTab; selectedJobId = null; selectedCustomerId = null; selectedCustomerEmail = null; closeMobileAdminNav(); render(); }
   function updateCrmNav() {
     document.querySelectorAll('#crmNav button').forEach(button => button.classList.toggle('active', button.dataset.tab === tab));
   }
