@@ -1962,6 +1962,40 @@
     loadPropertyCrm();
   }
 
+  function editBdProspect(kind,id){
+    const p=(bdCrm[kind].prospects||[]).find(x=>x.id===id); if(!p)return;
+    showCrmModal('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div><h2 style="margin:0;">Edit prospect</h2><div class="jobmeta">Update details, status and internal notes.</div></div><button class="btn btn-outline" onclick="closeCrmModal()">Close</button></div>'+
+      '<div class="bd-prospect-formgrid">'+
+      '<label>Business name<input id="editBdBusinessName" value="'+escapeHtml(p.business_name||'')+'"></label>'+
+      '<label>Contact name<input id="editBdContactName" value="'+escapeHtml(p.contact_name||'')+'"></label>'+
+      '<label>Email<input id="editBdEmail" type="email" value="'+escapeHtml(p.email||'')+'"></label>'+
+      '<label>Phone<input id="editBdPhone" value="'+escapeHtml(p.phone||'')+'"></label>'+
+      '<label>Website<input id="editBdWebsite" value="'+escapeHtml(p.website||'')+'"></label>'+
+      '<label>Suburb / area<input id="editBdSuburb" value="'+escapeHtml(p.suburb||'')+'"></label>'+
+      '<label>Trade / segment<input id="editBdSegment" value="'+escapeHtml(p.trade_or_segment||'')+'"></label>'+
+      '<label>Status<select id="editBdStatus"><option value="prospect">Prospect</option><option value="invited">Invited</option><option value="opened">Opened</option><option value="interested">Interested</option><option value="registration_started">Registration started</option><option value="registered">Registered</option><option value="under_review">Under review</option><option value="approved">Approved</option><option value="active">Active</option><option value="declined">Declined</option><option value="archived">Archived</option></select></label>'+
+      '<label class="full">Admin notes<textarea id="editBdNotes" rows="4" placeholder="Call notes, follow-up date, decision maker, objections, next action...">'+escapeHtml(p.notes||'')+'</textarea></label>'+
+      '</div><div id="editBdError" style="color:#B4232C;font-size:13px;margin-top:10px;"></div>'+
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;"><button class="btn btn-outline" onclick="closeCrmModal()">Cancel</button><button class="btn btn-black" onclick="saveBdProspectEdit(''+kind+'',''+id+'')">Save changes</button></div>');
+    const s=document.getElementById('editBdStatus'); if(s)s.value=p.status||'prospect';
+  }
+  async function saveBdProspectEdit(kind,id){
+    const v=id=>{const e=document.getElementById(id);return e?e.value.trim():'';};
+    const body={id,businessName:v('editBdBusinessName'),contactName:v('editBdContactName'),email:v('editBdEmail'),phone:v('editBdPhone'),website:v('editBdWebsite'),suburb:v('editBdSuburb'),tradeOrSegment:v('editBdSegment'),status:v('editBdStatus'),notes:v('editBdNotes')};
+    const err=document.getElementById('editBdError');
+    try{
+      const res=await adminFetch('/api/business-development?action=update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const data=await res.json(); if(!res.ok){if(err)err.textContent=data.error||'Could not update prospect.';return;}
+      closeCrmModal();bdCrm[kind].prospects=null;await loadBdProspects(kind);
+    }catch(e){if(err)err.textContent='Could not update prospect.';}
+  }
+  async function archiveBdProspect(kind,id){
+    const p=(bdCrm[kind].prospects||[]).find(x=>x.id===id);if(!p)return;
+    if(!confirm('Archive '+(p.business_name||'this prospect')+'? It will not be deleted and can be retained for history.'))return;
+    const res=await adminFetch('/api/business-development?action=remove',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+    const data=await res.json();if(!res.ok){alert(data.error||'Could not archive prospect.');return;}
+    bdCrm[kind].prospects=null;await loadBdProspects(kind);
+  }
   function renderBusinessDevelopmentCrm(kind) {
     const property = kind === 'property';
     const bucket = bdCrm[kind];
@@ -1977,18 +2011,19 @@
       const source = p.source_url
         ? '<a href="' + escapeHtml(p.source_url) + '" target="_blank" rel="noopener" style="font-size:11px;">View source</a>'
         : '<span class="jobmeta">No source</span>';
-      return '<div style="display:grid;grid-template-columns:28px minmax(180px,1.5fr) minmax(130px,1fr) 110px 100px;gap:10px;align-items:center;padding:11px 0;border-top:1px solid var(--line);">' +
+      const status = p.status || 'prospect';
+      return '<div style="display:grid;grid-template-columns:28px minmax(180px,1.5fr) minmax(130px,1fr) 110px 190px;gap:10px;align-items:center;padding:11px 0;border-top:1px solid var(--line);">' +
         '<input type="checkbox"' + checked + ' onchange="toggleBdProspect(\'' + kind + '\',\'' + p.id + '\',this.checked)">' +
-        '<div><b style="font-size:13px;">' + escapeHtml(p.business_name || 'Unnamed prospect') + '</b><div class="jobmeta">' + escapeHtml(contact) + '</div></div>' +
+        '<div><b style="font-size:13px;">' + escapeHtml(p.business_name || 'Unnamed prospect') + '</b><div class="jobmeta">' + escapeHtml(contact) + '</div>' +
+        (p.notes ? '<div style="font-size:11px;color:#667085;margin-top:4px;"><strong>Note:</strong> '+escapeHtml(p.notes)+'</div>' : '') + '</div>' +
         '<div style="font-size:12px;">' + escapeHtml(segment) + '</div>' +
-        '<div><span class="statusbadge">' + escapeHtml(p.status || 'prospect') + '</span></div>' + source + '</div>';
+        '<div><span class="statusbadge">' + escapeHtml(status) + '</span></div>' +
+        '<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;"><button class="btn btn-outline" style="padding:7px 10px;font-size:12px;" onclick="editBdProspect(\''+kind+'\',\''+p.id+'\')">Edit</button><button class="btn btn-outline" style="padding:7px 10px;font-size:12px;" onclick="archiveBdProspect(\''+kind+'\',\''+p.id+'\')">Archive</button>'+source+'</div></div>';
     }).join('');
-
     const orgs = property && propertyCrmData && !propertyCrmData.error ? (propertyCrmData.organisations || []) : [];
     const activeSummary = property
       ? '<div class="statcard"><div class="num">' + orgs.length + '</div><div class="lab">Active organisations</div></div>'
       : '<div class="statcard"><div class="num">' + prospects.filter(function(p){return p.status === 'active';}).length + '</div><div class="lab">Active contractors</div></div>';
-
     return '<div class="welcome-head"><div><div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#E85A0A;margin-bottom:7px;">Business Development</div>' +
       '<h1>' + title + '</h1><p>' + subtitle + '</p></div></div>' +
       '<div class="statgrid"><div class="statcard"><div class="num">' + prospects.length + '</div><div class="lab">Prospects</div></div>' +
