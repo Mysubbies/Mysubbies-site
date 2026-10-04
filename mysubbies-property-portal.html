@@ -49,7 +49,7 @@ async function initSupabase(){
   if(!r.ok||!cfg.supabaseUrl||!cfg.publishableKey)throw new Error(cfg.error||'Preview Supabase configuration is unavailable.');
   sb=window.supabase.createClient(cfg.supabaseUrl,cfg.publishableKey);
 }
-let state={data:null,catalog:null,view:'orders',selected:null,authMode:'login',attachments:[],estimate:null,notice:'',workOrderDraftId:null,submitting:false,search:'',statusFilter:'all'};
+let state={data:null,catalog:null,view:'orders',selected:null,propertyEditId:null,authMode:'login',attachments:[],estimate:null,notice:'',workOrderDraftId:null,submitting:false,search:'',statusFilter:'all'};
 
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function money(c){return c==null?'To be quoted':new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(Number(c)/100);}
@@ -232,6 +232,7 @@ function render(){
   if(!state.data)return renderAuth();
   if(state.view==='new')return renderNewOrder();
   if(state.view==='property')return renderNewProperty();
+  if(state.view==='property-edit')return renderPropertyEdit();
   if(state.view==='detail')return renderDetail();
   const c=counts(),member=state.data.member;
   app.innerHTML=`
@@ -268,7 +269,30 @@ function render(){
 }
 function propertiesHtml(){
   const rows=state.data.properties||[];if(!rows.length)return '<div class="empty">No properties have been added yet.</div>';
-  return rows.map(p=>`<div class="card property-card"><div class="property-icon">🏢</div><div><div class="wo-title">${esc(p.name||p.address)}</div><div class="wo-meta">${esc(p.address)}${p.suburb?' · '+esc(p.suburb):''}</div>${p.accessNotes?'<div class="wo-meta" style="margin-top:6px"><b>Access:</b> '+esc(p.accessNotes)+'</div>':''}</div><span class="wo-chevron">›</span></div>`).join('');
+  const canEdit=['org_admin','approver'].includes(state.data.member.role);
+  return rows.map(p=>'<div class="card property-card"><div class="property-icon">🏢</div><div style="min-width:0;flex:1"><div class="wo-title">'+esc(p.name||p.address)+'</div><div class="wo-meta">'+esc(p.address)+(p.suburb?' · '+esc(p.suburb):'')+'</div>'+(p.ownerName||p.ownerEmail?'<div class="wo-meta" style="margin-top:6px"><b>Owner:</b> '+esc(p.ownerName||'Property owner')+(p.ownerEmail?' · '+esc(p.ownerEmail):'')+'</div>':'')+(p.accessNotes?'<div class="wo-meta" style="margin-top:6px"><b>Access:</b> '+esc(p.accessNotes)+'</div>':'')+'</div>'+(canEdit?'<button class="btn btn-outline" style="width:auto;flex-shrink:0" onclick="event.stopPropagation();openPropertyEdit(\''+p.id+'\')">Edit</button>':'<span class="wo-chevron">›</span>')+'</div>').join('');
+}
+function openPropertyEdit(id){state.propertyEditId=id;state.view='property-edit';render();}
+function renderPropertyEdit(){
+  const p=(state.data.properties||[]).find(x=>x.id===state.propertyEditId);
+  if(!p){state.view='properties';state.propertyEditId=null;render();return;}
+  app.innerHTML='<button class="btn btn-outline" onclick="state.view=\'properties\';state.propertyEditId=null;render()" style="margin-bottom:14px">← Properties</button>'+
+  '<div class="panel"><h2>Edit property</h2><p class="sub">Keep the property record, access instructions and owner contact details up to date.</p>'+
+  '<div class="field"><label>Property name</label><input id="epName" value="'+esc(p.name||'')+'" placeholder="e.g. Smith Street Apartments"></div>'+
+  '<div class="field"><label>Street address</label><input id="epAddress" value="'+esc(p.address||'')+'" autocomplete="street-address"></div>'+
+  '<div class="grid2"><div class="field"><label>Suburb</label><input id="epSuburb" value="'+esc(p.suburb||'')+'" autocomplete="address-level2"></div><div class="field"><label>Postcode</label><input id="epPostcode" value="'+esc(p.postcode||'')+'" autocomplete="postal-code"></div></div>'+
+  '<div style="border-top:1px solid #E7E7E4;margin:20px 0;padding-top:18px"><h3 style="font-size:15px;margin-bottom:6px">Property owner</h3><p class="sub" style="margin-bottom:12px">These details are used when you send a quote directly to the owner.</p>'+
+  '<div class="grid2"><div class="field"><label>Owner name</label><input id="epOwnerName" value="'+esc(p.ownerName||'')+'" placeholder="Owner name"></div><div class="field"><label>Owner phone</label><input id="epOwnerPhone" value="'+esc(p.ownerPhone||'')+'" placeholder="Optional"></div></div>'+
+  '<div class="field"><label>Owner email</label><input id="epOwnerEmail" type="email" value="'+esc(p.ownerEmail||'')+'" placeholder="owner@email.com"></div></div>'+
+  '<div class="field"><label>Access notes</label><textarea id="epAccess" placeholder="Keys, concierge, tenant contact rules, access instructions…">'+esc(p.accessNotes||'')+'</textarea></div>'+
+  '<div id="epError"></div><button id="savePropertyBtn" class="btn btn-primary" onclick="savePropertyEdit()">Save property details</button></div>';
+}
+async function savePropertyEdit(){
+  const btn=document.getElementById('savePropertyBtn'),err=document.getElementById('epError');if(btn){btn.disabled=true;btn.textContent='Saving…';}if(err)err.innerHTML='';
+  try{
+    await api('/api/property-management',{method:'POST',body:JSON.stringify({action:'update-property',propertyId:state.propertyEditId,name:document.getElementById('epName').value.trim(),address:document.getElementById('epAddress').value.trim(),suburb:document.getElementById('epSuburb').value.trim(),postcode:document.getElementById('epPostcode').value.trim(),ownerName:document.getElementById('epOwnerName').value.trim(),ownerEmail:document.getElementById('epOwnerEmail').value.trim(),ownerPhone:document.getElementById('epOwnerPhone').value.trim(),accessNotes:document.getElementById('epAccess').value})});
+    state.data=await api('/api/property-management?action=bootstrap');state.notice='Property details updated.';state.view='properties';state.propertyEditId=null;render();
+  }catch(e){if(btn){btn.disabled=false;btn.textContent='Save property details';}if(err)err.innerHTML='<div class="error">'+esc(e.message)+'</div>';}
 }
 function ordersHtml(){
   let rows=state.data.workOrders||[];
@@ -303,13 +327,20 @@ function renderDetail(){
   ${(o.beforePhotos||[]).length?'<div style="margin-top:16px"><b style="font-size:12px">Before photos</b><div class="filegrid">'+jobPhotosHtml(o.beforePhotos)+'</div></div>':''}
   ${(o.completionPhotos||[]).length?'<div style="margin-top:16px"><b style="font-size:12px">After photos</b><div class="filegrid">'+jobPhotosHtml(o.completionPhotos)+'</div></div>':''}
   ${o.completionNotes?'<div style="margin-top:15px"><b style="font-size:12px">Completion notes</b><p style="font-size:13px;margin-top:6px">'+esc(o.completionNotes)+'</p></div>':''}
-  ${(canApprove||canCancel)?'<div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">'+(canApprove?'<button class="btn btn-primary" onclick="approve(\'approved\')">Approve work</button><button class="btn btn-danger" onclick="approve(\'rejected\')">Reject</button>':'')+(canCancel?'<button class="btn btn-outline" onclick="cancelOrder()">Cancel work order</button>':'')+'</div>':''}
+  ${(canApprove||canCancel)?'<div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">'+(canApprove?'<button class="btn btn-primary" onclick="approve(\'approved\')">Approve work</button><button class="btn btn-danger" onclick="approve(\'rejected\')">Reject</button>':'')+(canCancel?'<button class="btn btn-outline" onclick="cancelOrder()">Cancel work order</button>':'')+(o.quotedPriceCents?'<button class="btn btn-outline" onclick="emailQuoteToOwner()">Email quote to property owner</button>':'')+'</div>':''}
   </div><aside><div class="card"><div class="wo-title">Invoice</div><div class="wo-meta" style="margin-top:7px">Status: <b>${statusLabel(o.invoiceStatus)}</b></div>${o.invoiceReference?'<div class="wo-meta">Reference: <b>'+esc(o.invoiceReference)+'</b></div>':''}${o.invoiceAmountCents!=null?'<div class="wo-meta">Amount: <b>'+money(o.invoiceAmountCents)+'</b></div>':''}${invoiceFiles.length?'<div class="filegrid">'+filesHtml(invoiceFiles)+'</div>':''}</div>
   <div class="card"><div class="wo-title">Activity</div><div class="timeline">${eventsHtml(o.events)}</div></div></aside></div>`;
 }
 function filesHtml(files){return files.map(f=>f.signedUrl?'<a class="file" target="_blank" rel="noopener" href="'+esc(f.signedUrl)+'">📎 '+esc(f.name)+'</a>':'<span class="file">'+esc(f.name)+' unavailable</span>').join('');}
 function jobPhotosHtml(photos){return (photos||[]).map((src,i)=>'<a class="file" target="_blank" rel="noopener" href="'+esc(src)+'">📷 Photo '+(i+1)+'</a>').join('');}
 function eventsHtml(events){if(!events||!events.length)return '<div class="wo-meta">No activity yet.</div>';return events.slice(0,20).map(e=>'<div class="event"><b>'+esc(statusLabel(e.eventType))+'</b><span>'+esc(dateFmt(e.createdAt))+' · '+esc(statusLabel(e.actorType))+'</span></div>').join('');}
+async function emailQuoteToOwner(){
+  const ownerEmail=state.selected&&state.selected.property&&state.selected.property.ownerEmail;
+  if(!ownerEmail){alert('Add the property owner email first.');state.propertyEditId=state.selected.propertyId;state.view='property-edit';render();return;}
+  if(!confirm('Email this quote directly to '+ownerEmail+'?'))return;
+  try{const result=await api('/api/property-management',{method:'POST',body:JSON.stringify({action:'email-quote-to-owner',workOrderId:state.selected.id})});state.notice='Quote emailed to '+result.ownerEmail+'.';await refresh();}
+  catch(e){alert(e.message);}
+}
 async function cancelOrder(){
   const reason=prompt('Optional: tell us why you are cancelling this work order.','');
   if(reason===null)return;
