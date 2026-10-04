@@ -118,7 +118,7 @@ async function login(){
 async function forgotPassword(){
   const email=(document.getElementById('authEmail')||{}).value?.trim();
   if(!email){renderAuth('Enter your email address first, then choose Forgot password.');return;}
-  const redirectTo=location.origin+'/mysubbies-property-portal.html?reset=1';
+  const redirectTo='https://app.mysubbies.com.au/mysubbies-property-portal.html?reset=1';
   const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
   if(error){renderAuth(error.message);return;}
   renderAuth();
