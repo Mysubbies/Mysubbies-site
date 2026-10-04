@@ -485,12 +485,7 @@
 </nav>
 
 <script>
-  // Bootstrap the secure admin login before the large CRM script is parsed.
-  // This keeps a later client-side syntax/runtime failure from leaving a blank
-  // page. The existing server-side /api/admin-account flow remains the source
-
-<script>
-  // Real server-side auth (Aug 2026) -- the password used to be a hardcoded
+  // Secure server-side admin authentication.  // Real server-side auth (Aug 2026) -- the password used to be a hardcoded
   // client-side JS constant compared in the browser, and none of the admin
   // API endpoints checked anything at all, so anyone who found those URLs
   // could call them directly with no credential. Login now goes through
