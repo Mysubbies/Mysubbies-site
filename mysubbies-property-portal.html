@@ -89,7 +89,6 @@ function renderAuth(message){
     <div class="auth-tabs">
       <button class="${state.authMode==='login'?'active':''}" onclick="state.authMode='login';renderAuth()">Log in</button>
       <button class="${state.authMode==='register'?'active':''}" onclick="state.authMode='register';renderAuth()">Register</button>
-      <button class="${state.authMode==='invite'?'active':''}" onclick="state.authMode='invite';renderAuth()">Activate invite</button>
     </div>
     ${message?'<div class="error">'+esc(message)+'</div>':''}
     <div id="authMsg"></div>
@@ -104,8 +103,7 @@ function renderAuth(message){
     ` : `
       <div class="field"><label>Email</label><input id="authEmail" type="email" autocomplete="email"></div>
       <div class="field"><label>Password</label><input id="authPassword" type="password" autocomplete="current-password"></div>
-      ${state.authMode==='invite'?'<div class="hint" style="margin:-5px 0 14px">Use the same email address your MySubbies invitation was sent to.</div>':''}
-      <button class="btn btn-primary" style="width:100%" onclick="${state.authMode==='invite'?'registerInvite()':'login()'}">${state.authMode==='invite'?'Create account':'Log in'}</button>
+      <button class="btn btn-primary" style="width:100%" onclick="login()">Log in</button>
       ${state.authMode==='login'?'<button class="btn btn-outline" style="width:100%;margin-top:9px" onclick="forgotPassword()">Forgot password?</button>':''}
     `}
   </div></div>`;
