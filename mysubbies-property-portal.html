@@ -462,7 +462,7 @@ async function initialisePropertyAddressAutocomplete(){
   }
 }
 function renderNewProperty(){
-  app.innerHTML=`<button class="btn btn-outline" onclick="back()" style="margin-bottom:14px">← Cancel</button><div class="panel"><h2>Add property</h2><p class="sub">Add another managed property under ${esc(state.data.organisation.name)}.</p><div class="field"><label>Property name (optional)</label><input id="pName" placeholder="e.g. Smith Street Apartments"></div><div class="field"><label>Street address</label><input id="pAddress" placeholder="Start typing the property address" autocomplete="street-address"><div id="pAddressHint" class="hint" style="margin-top:6px;">Start typing and select an address from the suggestions.</div></div><div class="grid2"><div class="field"><label>Suburb</label><input id="pSuburb" autocomplete="address-level2"></div><div class="field"><label>Postcode</label><input id="pPostcode" autocomplete="postal-code"></div></div><div class="field"><label>Access notes (optional)</label><textarea id="pAccess" placeholder="Keys, loading access, concierge, tenant contact rules…"></textarea></div><div id="pError"></div><button id="addPropertyBtn" class="btn btn-primary" onclick="saveProperty()">Add property</button></div>`;
+  app.innerHTML=`<button class="btn btn-outline" onclick="back()" style="margin-bottom:14px">← Cancel</button><div class="panel"><h2>Add property</h2><p class="sub">Add another managed property under ${esc(state.data.organisation.name)}.</p><div class="field"><label>Property name (optional)</label><input id="pName" placeholder="e.g. Smith Street Apartments"></div><div class="field"><label>Street address</label><input id="pAddress" placeholder="Start typing the property address" autocomplete="street-address"><div id="pAddressHint" class="hint" style="margin-top:6px;">Start typing and select an address from the suggestions.</div></div><div class="grid2"><div class="field"><label>Suburb</label><input id="pSuburb" autocomplete="address-level2"></div><div class="field"><label>Postcode</label><input id="pPostcode" autocomplete="postal-code"></div></div><div style="border-top:1px solid #E7E7E4;margin:20px 0;padding-top:18px"><h3 style="font-size:15px;margin-bottom:6px">Property owner</h3><div class="grid2"><div class="field"><label>Owner name</label><input id="pOwnerName" placeholder="Owner name"></div><div class="field"><label>Owner phone</label><input id="pOwnerPhone" placeholder="Optional"></div></div><div class="field"><label>Owner email</label><input id="pOwnerEmail" type="email" placeholder="owner@email.com"></div></div><div class="field"><label>Access notes (optional)</label><textarea id="pAccess" placeholder="Keys, loading access, concierge, tenant contact rules…"></textarea></div><div id="pError"></div><button id="addPropertyBtn" class="btn btn-primary" onclick="saveProperty()">Add property</button></div>`;
   initialisePropertyAddressAutocomplete();
 }
 async function saveProperty(){
@@ -474,9 +474,12 @@ async function saveProperty(){
     const name=(document.getElementById('pName')||{}).value?.trim()||'';
     const suburb=(document.getElementById('pSuburb')||{}).value?.trim()||'';
     const postcode=(document.getElementById('pPostcode')||{}).value?.trim()||'';
+    const ownerName=(document.getElementById('pOwnerName')||{}).value?.trim()||'';
+    const ownerEmail=(document.getElementById('pOwnerEmail')||{}).value?.trim()||'';
+    const ownerPhone=(document.getElementById('pOwnerPhone')||{}).value?.trim()||'';
     const accessNotes=(document.getElementById('pAccess')||{}).value||'';
     if(!address) throw new Error('Property address is required.');
-    const body={action:'create-property',name,address,suburb,postcode,state:'VIC',accessNotes};
+    const body={action:'create-property',name,address,suburb,postcode,state:'VIC',accessNotes,ownerName,ownerEmail,ownerPhone};
     if(selectedPropertyPlace&&selectedPropertyPlace.geometry&&selectedPropertyPlace.geometry.location){
       body.placeId=selectedPropertyPlace.place_id||null;
       body.latitude=selectedPropertyPlace.geometry.location.lat();
