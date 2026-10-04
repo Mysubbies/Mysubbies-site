@@ -1849,127 +1849,225 @@
   }
 
   let propertyCrmData = null;
-  const bdCrm = { contractor:{prospects:null,activity:[],loading:false,selected:new Set()}, property:{prospects:null,activity:[],loading:false,selected:new Set()} };
-  async function loadBdProspects(kind) {
-    const key=kind==='property'?'property':'contractor', bucket=bdCrm[key];
-    if(bucket.loading)return; bucket.loading=true;
-    try{const type=key==='property'?'property_manager':'contractor';const res=await adminFetch('/api/business-development?action=list&type='+encodeURIComponent(type));const data=await res.json();bucket.prospects=res.ok?(data.prospects||[]):[];bucket.activity=res.ok?(data.activity||[]):[];}catch(e){bucket.prospects=[];}
-    bucket.loading=false;if(tab===(key==='property'?'property-crm':'contractor-crm'))render();
-  }
-  function toggleBdProspect(kind,id,checked){const b=bdCrm[kind];checked?b.selected.add(id):b.selected.delete(id);render();}
-  async function inviteSelectedBd(kind){
-    const b=bdCrm[kind],ids=[...b.selected];if(!ids.length){alert('Select at least one prospect first.');return;}
-    if(!confirm('Send MySubbies invitations to '+ids.length+' selected prospect'+(ids.length===1?'':'s')+'?'))return;
-    const res=await adminFetch('/api/business-development?action=invite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prospectIds:ids})});
-    const data=await res.json();if(!res.ok){alert(data.error||'Invitations could not be sent.');return;}
-    const ok=(data.results||[]).filter(x=>x.ok).length,failed=(data.results||[]).length-ok;alert(ok+' invitation'+(ok===1?'':'s')+' sent'+(failed?' · '+failed+' failed':'')+'.');
-    b.selected.clear();b.prospects=null;loadBdProspects(kind);
-  }
   let propertyCrmLoading = false;
+  const bdCrm = {
+    contractor: { prospects:null, activity:[], loading:false, selected:new Set() },
+    property: { prospects:null, activity:[], loading:false, selected:new Set() }
+  };
+
+  async function loadBdProspects(kind) {
+    const key = kind === 'property' ? 'property' : 'contractor';
+    const bucket = bdCrm[key];
+    if (bucket.loading) return;
+    bucket.loading = true;
+    try {
+      const type = key === 'property' ? 'property_manager' : 'contractor';
+      const res = await adminFetch('/api/business-development?action=list&type=' + encodeURIComponent(type));
+      const data = await res.json();
+      bucket.prospects = res.ok ? (data.prospects || []) : [];
+      bucket.activity = res.ok ? (data.activity || []) : [];
+    } catch (e) {
+      bucket.prospects = [];
+      bucket.activity = [];
+    }
+    bucket.loading = false;
+    if (tab === (key === 'property' ? 'property-crm' : 'contractor-crm')) render();
+  }
+
+  function toggleBdProspect(kind, id, checked) {
+    const bucket = bdCrm[kind];
+    if (checked) bucket.selected.add(id); else bucket.selected.delete(id);
+    render();
+  }
+
+  async function inviteSelectedBd(kind) {
+    const bucket = bdCrm[kind];
+    const ids = Array.from(bucket.selected);
+    if (!ids.length) { alert('Select at least one prospect first.'); return; }
+    if (!confirm('Send MySubbies invitations to ' + ids.length + ' selected prospect' + (ids.length === 1 ? '' : 's') + '?')) return;
+    const res = await adminFetch('/api/business-development?action=invite', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({prospectIds:ids})
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'Invitations could not be sent.'); return; }
+    bucket.selected.clear();
+    bucket.prospects = null;
+    loadBdProspects(kind);
+  }
+
   async function loadPropertyCrm() {
     if (propertyCrmLoading) return;
     propertyCrmLoading = true;
     try {
       const res = await adminFetch('/api/property-management?action=admin-summary');
       const data = await res.json();
-      propertyCrmData = res.ok ? data : { error: data.error || 'Property Manager CRM could not be loaded.' };
-    } catch (e) { propertyCrmData = { error: e.message || 'Property Manager CRM could not be loaded.' }; }
+      propertyCrmData = res.ok ? data : { error:data.error || 'Property Manager CRM could not be loaded.' };
+    } catch (e) {
+      propertyCrmData = { error:e.message || 'Property Manager CRM could not be loaded.' };
+    }
     propertyCrmLoading = false;
     if (tab === 'property-crm') render();
   }
+
   async function resendPropertyManagerInvite(memberId) {
     if (!confirm('Resend the MySubbies Property Portal invitation to this contact?')) return;
     const res = await adminFetch('/api/property-management?action=admin-resend-invite', {
-      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ memberId })
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({memberId:memberId})
     });
     const data = await res.json();
     if (!res.ok) { alert(data.error || 'Invitation could not be sent.'); return; }
     alert('Invitation sent.');
-    propertyCrmData = null; loadPropertyCrm();
+    propertyCrmData = null;
+    loadPropertyCrm();
   }
+
   function renderBusinessDevelopmentCrm(kind) {
     const property = kind === 'property';
+    const bucket = bdCrm[kind];
+    const prospects = bucket.prospects || [];
     const title = property ? 'Property Manager CRM' : 'Contractor CRM';
     const subtitle = property
-      ? 'Find property-management partners, personalise outreach and turn prospects into active MySubbies clients.'
-      : 'Build contractor coverage by area and trade, invite the right businesses and track onboarding from prospect to active.';
-    const bucket=bdCrm[kind], prospects=bucket.prospects||[];
-    const latestActivity=id=>(bucket.activity||[]).find(a=>a.prospect_id===id);
+      ? 'Find and manage property-management partners, invitations and active accounts.'
+      : 'Build contractor coverage by area and trade, then track onboarding.';
+    const rows = prospects.map(function(p) {
+      const checked = bucket.selected.has(p.id) ? ' checked' : '';
+      const contact = p.email || p.phone || 'No contact recorded';
+      const segment = p.trade_or_segment || p.suburb || '—';
+      const source = p.source_url
+        ? '<a href="' + escapeHtml(p.source_url) + '" target="_blank" rel="noopener" style="font-size:11px;">View source</a>'
+        : '<span class="jobmeta">No source</span>';
+      return '<div style="display:grid;grid-template-columns:28px minmax(180px,1.5fr) minmax(130px,1fr) 110px 100px;gap:10px;align-items:center;padding:11px 0;border-top:1px solid var(--line);">' +
+        '<input type="checkbox"' + checked + ' onchange="toggleBdProspect(\'' + kind + '\',\'' + p.id + '\',this.checked)">' +
+        '<div><b style="font-size:13px;">' + escapeHtml(p.business_name || 'Unnamed prospect') + '</b><div class="jobmeta">' + escapeHtml(contact) + '</div></div>' +
+        '<div style="font-size:12px;">' + escapeHtml(segment) + '</div>' +
+        '<div><span class="statusbadge">' + escapeHtml(p.status || 'prospect') + '</span></div>' + source + '</div>';
+    }).join('');
+
     const orgs = property && propertyCrmData && !propertyCrmData.error ? (propertyCrmData.organisations || []) : [];
-    const members = property && propertyCrmData && !propertyCrmData.error ? (propertyCrmData.members || []) : [];
-    const properties = property && propertyCrmData && !propertyCrmData.error ? (propertyCrmData.properties || []) : [];
-    const workOrders = property && propertyCrmData && !propertyCrmData.error ? (propertyCrmData.workOrders || []) : [];
-    const invited = members.filter(m=>m.status==='invited').length, active = members.filter(m=>m.status==='active').length;
-    const countStatus=s=>prospects.filter(p=>p.status===s).length;
-    const stages = property
-      ? [['Prospects',String(countStatus('prospect'))],['Invited',String(countStatus('invited'))],['Active clients',String(orgs.length)],['Properties',String(properties.length)],['Work orders',String(workOrders.length)],['Contacts',String(active)]]
-      : [['Prospect',String(countStatus('prospect'))],['Invited',String(countStatus('invited'))],['Opened',String(countStatus('opened'))],['Registration started',String(countStatus('registration_started'))],['Under review',String(countStatus('under_review'))],['Active',String(countStatus('active'))]];
-    return `
-      <div class="welcome-head" style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
-        <div><div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#E85A0A;margin-bottom:7px;">Business Development</div><h1>${title}</h1><p>${subtitle}</p></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-black" onclick="openProspectFinder('${kind}')">✦ Find with AI</button><button class="btn btn-outline" onclick="openManualProspect('${kind}')">+ Add manually</button></div>
-      </div>
-      <div class="statgrid">${stages.slice(0,4).map(s=>`<div class="statcard"><div class="num">${s[1]}</div><div class="lab">${s[0]}</div></div>`).join('')}</div>
-      <div class="detailcard" style="max-width:none;margin-bottom:16px;background:linear-gradient(135deg,#111827,#1F2937);color:#fff;border:0;">
-        <div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(260px,1fr);gap:24px;align-items:center;">
-          <div><div style="font-size:11px;color:#FDBA74;font-weight:800;text-transform:uppercase;letter-spacing:.08em;">AI Prospect Finder</div><h2 style="font-size:22px;margin:7px 0 8px;">Find the right ${property?'property managers':'contractors'} in any target area.</h2><p style="font-size:13px;line-height:1.6;color:#D1D5DB;">Search public business information, review contact details and sources, select suitable prospects, then approve personalised MySubbies outreach before anything is sent.</p></div>
-          <div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:16px;"><div style="font-size:11px;color:#9CA3AF;margin-bottom:6px;">Example search</div><div style="font-weight:750;font-size:14px;">${property?'Property managers · Bendigo VIC':'Drainage contractors · Bendigo VIC'}</div><button class="btn btn-black" style="margin-top:14px;width:100%;" onclick="openProspectFinder('${kind}')">Start prospect search →</button></div>
-        </div>
-      </div>
-      ${property && propertyCrmData && propertyCrmData.error ? '<div class="detailcard" style="border-color:#F2C9C6;color:#B4232C;">'+escapeHtml(propertyCrmData.error)+'</div>' : ''}
-      ${property && propertyCrmLoading && !propertyCrmData ? '<div class="detailcard">Loading Property Manager organisations…</div>' : ''}
-      ${property && propertyCrmData && !propertyCrmData.error ? `<div class="detailcard" style="max-width:none;margin-bottom:16px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><div><h2 style="font-size:16px;">Active organisations</h2><p style="font-size:12px;color:var(--stone);">Real Property Portal accounts and invitation status.</p></div></div>${orgs.length ? orgs.map(o=>{const ms=members.filter(m=>m.organisation_id===o.id);const ps=properties.filter(p=>p.organisation_id===o.id);return '<div style="display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(150px,1fr) 100px 120px;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);"><div><b style="font-size:13px;">'+escapeHtml(o.name)+'</b><div class="jobmeta">'+escapeHtml((o.organisation_type||'property_manager').replace(/_/g,' '))+'</div></div><div>'+ms.map(m=>'<div style="font-size:12px;">'+escapeHtml(m.name||m.email)+' <span style="color:var(--stone);">· '+escapeHtml(m.status)+'</span></div>').join('')+'</div><div style="font-size:12px;"><b>'+ps.length+'</b> properties</div><div>'+ms.filter(m=>m.status==='invited').map(m=>'<button class="btn btn-outline" style="padding:6px 10px;font-size:11px;" onclick="resendPropertyManagerInvite(\\''+m.id+'\\')">Resend invite</button>').join('')+'</div></div>'}).join('') : '<div class="empty">No Property Manager organisations yet.</div>'}</div>` : ''}
-      <div class="detailcard" style="max-width:none;margin-bottom:16px;">
-        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;"><div><h2 style="font-size:16px;">Prospects</h2><p style="font-size:12px;color:var(--stone);margin-top:3px;">Source-backed businesses waiting in the outreach pipeline.</p></div><button class="btn btn-black" onclick="inviteSelectedBd('${kind}')">Invite Selected${bucket.selected.size?' ('+bucket.selected.size+')':''}</button></div>
-        ${bucket.loading && !bucket.prospects?'<div class="empty">Loading prospects…</div>':prospects.length?prospects.map(p=>'<label style="display:grid;grid-template-columns:28px minmax(180px,1.5fr) minmax(130px,1fr) 110px 100px;gap:10px;align-items:center;padding:11px 0;border-top:1px solid var(--line);cursor:pointer;"><input type="checkbox" '+(bucket.selected.has(p.id)?'checked':'')+' onchange="toggleBdProspect(\\''+kind+'\\',\\''+p.id+'\\',this.checked)"><div><b style="font-size:13px;">'+escapeHtml(p.business_name)+'</b><div class="jobmeta">'+escapeHtml(p.email||p.phone||'No contact recorded')+'</div><div class="jobmeta">'+(latestActivity(p.id)?escapeHtml(latestActivity(p.id).event_type.replace(/_/g,' '))+' · '+escapeHtml(latestActivity(p.id).outcome):'No activity yet')+'</div></div><div style="font-size:12px;">'+escapeHtml(p.trade_or_segment||p.suburb||'—')+'</div><div><span class="statusbadge">'+escapeHtml(p.status)+'</span></div><a href="'+escapeHtml(p.source_url)+'" target="_blank" rel="noopener" style="font-size:11px;" onclick="event.stopPropagation()">View source</a></label>').join(''):'<div class="empty">No prospects saved yet. Connect a search provider or add a source-backed prospect manually.</div>'}
-      </div>
-      <div class="detailcard" style="max-width:none;">
-        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:15px;"><div><h2 style="font-size:16px;">Pipeline</h2><p style="font-size:12px;color:var(--stone);margin-top:3px;">${property?'Live client accounts above; new prospect outreach will be tracked separately here.':'Prospects and outreach will appear here as the CRM backend is connected.'}</p></div><span style="font-size:11px;font-weight:800;background:#FFF0E8;color:#B94708;border-radius:999px;padding:6px 10px;">Approval required before send</span></div>
-        <div style="display:grid;grid-template-columns:repeat(6,minmax(125px,1fr));gap:9px;overflow-x:auto;padding-bottom:4px;">${stages.map(s=>`<div style="min-width:125px;background:#F7F7F5;border:1px solid var(--line);border-radius:12px;padding:13px;"><div style="font-size:11px;font-weight:800;color:var(--stone);text-transform:uppercase;">${s[0]}</div><div style="font-size:24px;font-weight:800;margin-top:8px;">${s[1]}</div></div>`).join('')}</div>
-      </div>`;
+    const activeSummary = property
+      ? '<div class="statcard"><div class="num">' + orgs.length + '</div><div class="lab">Active organisations</div></div>'
+      : '<div class="statcard"><div class="num">' + prospects.filter(function(p){return p.status === 'active';}).length + '</div><div class="lab">Active contractors</div></div>';
+
+    return '<div class="welcome-head"><div><div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#E85A0A;margin-bottom:7px;">Business Development</div>' +
+      '<h1>' + title + '</h1><p>' + subtitle + '</p></div></div>' +
+      '<div class="statgrid"><div class="statcard"><div class="num">' + prospects.length + '</div><div class="lab">Prospects</div></div>' +
+      '<div class="statcard"><div class="num">' + prospects.filter(function(p){return p.status === 'invited';}).length + '</div><div class="lab">Invited</div></div>' +
+      activeSummary + '<div class="statcard"><div class="num">' + bucket.selected.size + '</div><div class="lab">Selected</div></div></div>' +
+      '<div class="detailcard" style="max-width:none;margin-bottom:16px;background:#14213D;color:#fff;border:0;"><h2 style="font-size:20px;margin-bottom:7px;">AI Prospect Finder</h2>' +
+      '<p style="font-size:13px;color:#D1D5DB;margin-bottom:14px;">Review source-backed businesses and approve outreach before anything is sent.</p>' +
+      '<button class="btn btn-black" onclick="openProspectFinder(\'' + kind + '\')">Find with AI</button> <button class="btn btn-outline" onclick="openManualProspect(\'' + kind + '\')">Add manually</button></div>' +
+      (propertyCrmData && propertyCrmData.error ? '<div class="detailcard" style="color:#B4232C;">' + escapeHtml(propertyCrmData.error) + '</div>' : '') +
+      '<div class="detailcard" style="max-width:none;"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;"><h2 style="font-size:16px;">Prospects</h2>' +
+      '<button class="btn btn-black" onclick="inviteSelectedBd(\'' + kind + '\')">Invite selected</button></div>' +
+      (bucket.loading && !bucket.prospects ? '<div class="empty">Loading prospects…</div>' : (rows || '<div class="empty">No prospects saved yet.</div>')) + '</div>';
   }
+
   function openProspectFinder(kind) {
-    alert('Prospect Finder UI is ready. Public business discovery and selected-email invitation will be connected to the secure server endpoint next.');
+    alert('AI Prospect Finder is staged for ' + (kind === 'property' ? 'property managers' : 'contractors') + '. Provider-backed public search is the next connection.');
   }
   function openManualProspect(kind) {
-    alert('Manual prospect entry will be connected with the CRM data layer in the next step.');
+    alert('Manual prospect entry is staged for the ' + (kind === 'property' ? 'Property Manager' : 'Contractor') + ' CRM.');
   }
 
-  let blogData=null,blogLoading=false;
-  async function loadBlogSeo(){if(blogLoading)return;blogLoading=true;try{const r=await adminFetch('/api/blog-seo?action=list');const d=await r.json();blogData=r.ok?(d.posts||[]):[];}catch(e){blogData=[];}blogLoading=false;if(tab==='blog-seo')render();}
-  async function blogAction(id,action){const label=action==='publish'?'Publish this approved article to the website?':'Approve this article for publishing?';if(!confirm(label))return;const r=await adminFetch('/api/blog-seo?action='+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});const d=await r.json();if(!r.ok){alert(d.error||'Article action failed.');return;}blogData=null;loadBlogSeo();}
-  function renderBlogSeo(){
-   const rows=blogData||[];
-   return `<div class="detailcard" style="max-width:none;background:#14213D;color:#fff;border:0;padding:24px;margin-bottom:16px;"><div style="display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;"><div><div style="font-size:11px;color:#F5A623;font-weight:800;letter-spacing:.08em;">ORGANIC GROWTH</div><h2 style="font-size:24px;margin:5px 0;">Blog & SEO</h2><p style="color:#CBD5E1;max-width:700px;">Prepare search-focused articles, review SEO metadata and publish only after approval.</p></div><button class="btn btn-black" onclick="alert('AI article creator and topic suggestions are the next layer being connected.')">✦ Create with AI</button></div></div>
-   <div class="statgrid"><div class="stat"><b>${rows.length}</b><span>Articles</span></div><div class="stat"><b>${rows.filter(x=>x.status==='draft').length}</b><span>Drafts</span></div><div class="stat"><b>${rows.filter(x=>x.status==='ready_for_review').length}</b><span>Needs review</span></div><div class="stat"><b>${rows.filter(x=>x.status==='published').length}</b><span>Published</span></div></div>
-   <div class="detailcard" style="max-width:none;margin-top:16px;"><h2 style="font-size:16px;margin-bottom:12px;">Content library</h2>${blogLoading&&!blogData?'<div class="empty">Loading articles…</div>':rows.length?rows.map(x=>'<div style="display:grid;grid-template-columns:minmax(220px,1.7fr) minmax(160px,1fr) 110px 170px;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);"><div><b>'+escapeHtml(x.title)+'</b><div class="jobmeta">/'+escapeHtml(x.slug)+'</div></div><div class="jobmeta">'+escapeHtml(x.target_keywords||x.meta_description||'SEO details pending')+'</div><span class="statusbadge">'+escapeHtml(x.status)+'</span><div>'+(x.status==='ready_for_review'?'<button class="btn btn-black" style="padding:7px 10px;font-size:11px" onclick="blogAction(\\''+x.id+'\\',\\'approve\\')">Approve</button>':x.status==='approved'?'<button class="btn btn-black" style="padding:7px 10px;font-size:11px" onclick="blogAction(\\''+x.id+'\\',\\'publish\\')">Publish</button>':'')+'</div></div>').join(''):'<div class="empty">No articles yet.</div>'}</div>`;
+  let blogData = null, blogLoading = false;
+  async function loadBlogSeo() {
+    if (blogLoading) return;
+    blogLoading = true;
+    try {
+      const r = await adminFetch('/api/blog-seo?action=list');
+      const d = await r.json();
+      blogData = r.ok ? (d.posts || []) : [];
+    } catch (e) { blogData = []; }
+    blogLoading = false;
+    if (tab === 'blog-seo') render();
+  }
+  async function blogAction(id, action) {
+    const label = action === 'publish' ? 'Publish this approved article to the website?' : 'Approve this article for publishing?';
+    if (!confirm(label)) return;
+    const r = await adminFetch('/api/blog-seo?action=' + action, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:id})
+    });
+    const d = await r.json();
+    if (!r.ok) { alert(d.error || 'Article action failed.'); return; }
+    blogData = null; loadBlogSeo();
+  }
+  function renderBlogSeo() {
+    const rows = blogData || [];
+    const list = rows.map(function(x) {
+      let action = '';
+      if (x.status === 'ready_for_review') action = '<button class="btn btn-black" onclick="blogAction(\'' + x.id + '\',\'approve\')">Approve</button>';
+      if (x.status === 'approved') action = '<button class="btn btn-black" onclick="blogAction(\'' + x.id + '\',\'publish\')">Publish</button>';
+      return '<div style="display:grid;grid-template-columns:minmax(220px,1.7fr) 120px 140px;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);"><div><b>' +
+        escapeHtml(x.title || 'Untitled article') + '</b><div class="jobmeta">/' + escapeHtml(x.slug || '') + '</div></div><span class="statusbadge">' +
+        escapeHtml(x.status || 'draft') + '</span><div>' + action + '</div></div>';
+    }).join('');
+    return '<div class="detailcard" style="max-width:none;background:#14213D;color:#fff;border:0;padding:24px;margin-bottom:16px;"><h2 style="font-size:24px;">Blog & SEO</h2><p style="color:#CBD5E1;">Prepare search-focused articles and publish only after approval.</p></div>' +
+      '<div class="statgrid"><div class="statcard"><div class="num">' + rows.length + '</div><div class="lab">Articles</div></div><div class="statcard"><div class="num">' +
+      rows.filter(function(x){return x.status === 'ready_for_review';}).length + '</div><div class="lab">Needs review</div></div><div class="statcard"><div class="num">' +
+      rows.filter(function(x){return x.status === 'approved';}).length + '</div><div class="lab">Approved</div></div><div class="statcard"><div class="num">' +
+      rows.filter(function(x){return x.status === 'published';}).length + '</div><div class="lab">Published</div></div></div>' +
+      '<div class="detailcard" style="max-width:none;">' + (blogLoading && !blogData ? '<div class="empty">Loading articles…</div>' : (list || '<div class="empty">No articles yet.</div>')) + '</div>';
   }
 
-  let tenderData=null,tenderLoading=false;
-  async function loadTenders(){if(tenderLoading)return;tenderLoading=true;try{const r=await adminFetch('/api/tenders?action=list');const d=await r.json();tenderData=r.ok?(d.tenders||[]):[];}catch(e){tenderData=[];}tenderLoading=false;if(tab==='tenders')render();}
-  function renderTenders(){
-    const rows=tenderData||[];const open=rows.filter(x=>!['submitted','won','lost','archived','no_go'].includes(x.status)).length;
-    return `<div class="detailcard" style="max-width:none;background:#14213D;color:#fff;border:0;padding:24px;margin-bottom:16px;"><div style="display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;"><div><div style="font-size:11px;color:#F5A623;font-weight:800;letter-spacing:.08em;">COMMERCIAL GROWTH</div><h2 style="font-size:24px;margin:5px 0;">Tenders & Contracts</h2><p style="color:#CBD5E1;max-width:700px;">Review opportunities, build compliance evidence, price the work and approve the final response before submission.</p></div><button class="btn btn-black" onclick="alert('Tender upload and AI brief are the next layer being connected.')">+ Add Tender</button></div></div>
-    <div class="statgrid"><div class="stat"><b>${rows.length}</b><span>Total tenders</span></div><div class="stat"><b>${open}</b><span>In progress</span></div><div class="stat"><b>${rows.filter(x=>x.status==='compliance_review').length}</b><span>Compliance review</span></div><div class="stat"><b>${rows.filter(x=>x.status==='approved').length}</b><span>Approved</span></div></div>
-    <div class="detailcard" style="max-width:none;margin-top:16px;"><h2 style="font-size:16px;margin-bottom:12px;">Tender register</h2>${tenderLoading&&!tenderData?'<div class="empty">Loading tenders…</div>':rows.length?rows.map(x=>'<div style="display:grid;grid-template-columns:minmax(200px,1.6fr) minmax(130px,1fr) 120px 120px;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);"><div><b>'+escapeHtml(x.title)+'</b><div class="jobmeta">'+escapeHtml(x.issuer||x.reference_number||'Issuer not recorded')+'</div></div><div style="font-size:12px;">'+escapeHtml(x.location||'—')+'</div><span class="statusbadge">'+escapeHtml(x.status)+'</span><div style="font-size:11px;color:var(--stone);">'+(x.closes_at?'Closes '+new Date(x.closes_at).toLocaleDateString('en-AU'):'No deadline')+'</div></div>').join(''):'<div class="empty">No tenders recorded yet.</div>'}</div>`;
+  let tenderData = null, tenderLoading = false;
+  async function loadTenders() {
+    if (tenderLoading) return;
+    tenderLoading = true;
+    try {
+      const r = await adminFetch('/api/tenders?action=list');
+      const d = await r.json();
+      tenderData = r.ok ? (d.tenders || []) : [];
+    } catch (e) { tenderData = []; }
+    tenderLoading = false;
+    if (tab === 'tenders') render();
+  }
+  function renderTenders() {
+    const rows = tenderData || [];
+    const list = rows.map(function(x) {
+      return '<div style="display:grid;grid-template-columns:minmax(200px,1.6fr) 130px 120px;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);"><div><b>' +
+        escapeHtml(x.title || 'Untitled tender') + '</b><div class="jobmeta">' + escapeHtml(x.issuer || x.reference_number || 'Issuer not recorded') +
+        '</div></div><div style="font-size:12px;">' + escapeHtml(x.location || '—') + '</div><span class="statusbadge">' + escapeHtml(x.status || 'draft') + '</span></div>';
+    }).join('');
+    return '<div class="detailcard" style="max-width:none;background:#14213D;color:#fff;border:0;padding:24px;margin-bottom:16px;"><h2 style="font-size:24px;">Tenders & Contracts</h2><p style="color:#CBD5E1;">Review opportunities, compliance and pricing before submission.</p></div>' +
+      '<div class="detailcard" style="max-width:none;">' + (tenderLoading && !tenderData ? '<div class="empty">Loading tenders…</div>' : (list || '<div class="empty">No tenders recorded yet.</div>')) + '</div>';
   }
 
-  let marketingData=null,marketingLoading=false;
-  async function loadMarketing(){
-    if(marketingLoading)return;marketingLoading=true;
-    try{const r=await adminFetch('/api/marketing-centre?action=list');const d=await r.json();marketingData=r.ok?(d.campaigns||[]):[];}catch(e){marketingData=[];}
-    marketingLoading=false;if(tab==='marketing')render();
+  let marketingData = null, marketingLoading = false;
+  async function loadMarketing() {
+    if (marketingLoading) return;
+    marketingLoading = true;
+    try {
+      const r = await adminFetch('/api/marketing-centre?action=list');
+      const d = await r.json();
+      marketingData = r.ok ? (d.campaigns || []) : [];
+    } catch (e) { marketingData = []; }
+    marketingLoading = false;
+    if (tab === 'marketing') render();
   }
-  async function approveMarketingCampaign(id){
-    if(!confirm('Approve this campaign? Approval does not publish it automatically.'))return;
-    const r=await adminFetch('/api/marketing-centre?action=approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});const d=await r.json();
-    if(!r.ok){alert(d.error||'Campaign could not be approved.');return;}marketingData=null;loadMarketing();
+  async function approveMarketingCampaign(id) {
+    if (!confirm('Approve this campaign? Approval does not publish it automatically.')) return;
+    const r = await adminFetch('/api/marketing-centre?action=approve', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:id})
+    });
+    const d = await r.json();
+    if (!r.ok) { alert(d.error || 'Campaign could not be approved.'); return; }
+    marketingData = null; loadMarketing();
   }
-  function renderMarketingCentre(){
-    const rows=marketingData||[],count=s=>rows.filter(x=>x.status===s).length;
-    return `<div class="detailcard" style="max-width:none;background:#14213D;color:white;border:0;padding:24px;margin-bottom:16px;"><div style="display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;"><div><div style="font-size:11px;color:#F5A623;font-weight:800;letter-spacing:.08em;">MYSUBBIES GROWTH</div><h2 style="font-size:24px;margin:5px 0;">Marketing Centre</h2><p style="color:#CBD5E1;max-width:650px;">Create campaigns, prepare channel-specific content, review it and approve it before anything is published.</p></div><button class="btn btn-black" onclick="alert('AI campaign creator is the next layer being connected to this workflow.')">✦ Create Campaign</button></div></div>
-    <div class="statgrid"><div class="stat"><b>${rows.length}</b><span>Campaigns</span></div><div class="stat"><b>${count('draft')}</b><span>Draft</span></div><div class="stat"><b>${count('ready_for_review')}</b><span>Needs review</span></div><div class="stat"><b>${count('approved')}</b><span>Approved</span></div></div>
-    <div class="detailcard" style="max-width:none;margin-top:16px;"><h2 style="font-size:16px;margin-bottom:12px;">Campaign workspace</h2>${marketingLoading&&!marketingData?'<div class="empty">Loading campaigns…</div>':rows.length?rows.map(x=>'<div style="display:grid;grid-template-columns:minmax(180px,1.5fr) 120px 140px 120px;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);"><div><b>'+escapeHtml(x.name)+'</b><div class="jobmeta">'+escapeHtml(x.headline||x.offer||'Draft campaign')+'</div></div><span class="statusbadge">'+escapeHtml(x.status)+'</span><span style="font-size:11px;color:var(--stone);">'+escapeHtml(x.tracking_code||'—')+'</span><div>'+(x.status==='ready_for_review'?'<button class="btn btn-black" style="padding:7px 11px;font-size:11px;" onclick="approveMarketingCampaign(\\''+x.id+'\\')">Approve</button>':'')+'</div></div>').join(''):'<div class="empty">No campaigns yet. Create your first campaign when the AI creator is connected.</div>'}</div>`;
+  function renderMarketingCentre() {
+    const rows = marketingData || [];
+    const list = rows.map(function(x) {
+      const action = x.status === 'ready_for_review'
+        ? '<button class="btn btn-black" onclick="approveMarketingCampaign(\'' + x.id + '\')">Approve</button>' : '';
+      return '<div style="display:grid;grid-template-columns:minmax(180px,1.5fr) 120px 140px;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);"><div><b>' +
+        escapeHtml(x.name || 'Untitled campaign') + '</b><div class="jobmeta">' + escapeHtml(x.headline || x.offer || 'Draft campaign') +
+        '</div></div><span class="statusbadge">' + escapeHtml(x.status || 'draft') + '</span><div>' + action + '</div></div>';
+    }).join('');
+    return '<div class="detailcard" style="max-width:none;background:#14213D;color:#fff;border:0;padding:24px;margin-bottom:16px;"><h2 style="font-size:24px;">Marketing Centre</h2><p style="color:#CBD5E1;">Create, review and approve campaigns before publishing.</p></div>' +
+      '<div class="statgrid"><div class="statcard"><div class="num">' + rows.length + '</div><div class="lab">Campaigns</div></div><div class="statcard"><div class="num">' +
+      rows.filter(function(x){return x.status === 'ready_for_review';}).length + '</div><div class="lab">Needs review</div></div><div class="statcard"><div class="num">' +
+      rows.filter(function(x){return x.status === 'approved';}).length + '</div><div class="lab">Approved</div></div><div class="statcard"><div class="num">' +
+      rows.filter(function(x){return x.status === 'published';}).length + '</div><div class="lab">Published</div></div></div>' +
+      '<div class="detailcard" style="max-width:none;">' + (marketingLoading && !marketingData ? '<div class="empty">Loading campaigns…</div>' : (list || '<div class="empty">No campaigns yet.</div>')) + '</div>';
   }
 
   function renderInner() {
