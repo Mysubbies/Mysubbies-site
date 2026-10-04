@@ -124,8 +124,15 @@ async function completePasswordRecovery(){
 }
 async function login(){
   const email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value;
+  const btn=document.querySelector('.loginbox .btn.btn-primary');
+  if(btn){btn.disabled=true;btn.textContent='Logging in…';btn.setAttribute('aria-busy','true');}
   const {error}=await sb.auth.signInWithPassword({email,password});
-  if(error){renderAuth(error.message);return;}await boot();
+  if(error){
+    if(btn){btn.disabled=false;btn.textContent='Log in';btn.removeAttribute('aria-busy');}
+    renderAuth(error.message);return;
+  }
+  if(btn){btn.textContent='Loading portal…';}
+  await boot();
 }
 async function forgotPassword(){
   const email=(document.getElementById('authEmail')||{}).value?.trim();
