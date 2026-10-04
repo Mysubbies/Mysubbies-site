@@ -32,7 +32,7 @@ async function save(supabase,body,res){
 }
 async function searchPublic(body,res){
   const key=String(process.env.GOOGLE_PLACES_API_KEY||'').trim();
-  if(!key){res.status(503).json({error:'Public business search is not configured. Add GOOGLE_PLACES_API_KEY to the Vercel Preview environment.'});return;}
+  if(!key){res.status(503).json({error:'Google Places server key is missing from this Preview deployment.',code:'PLACES_KEY_MISSING'});return;}
   const t=type(body.prospectType);
   const query=clean(body.query,240);
   const location=clean(body.location,160)||'Melbourne VIC';
@@ -48,7 +48,7 @@ async function searchPublic(body,res){
     body:JSON.stringify({textQuery:searchText,pageSize:20,regionCode:'AU',languageCode:'en'})
   });
   const data=await response.json().catch(()=>({}));
-  if(!response.ok){console.error('Places prospect search failed',response.status,data&&data.error&&data.error.message);res.status(502).json({error:'Public business search failed. Check the Google Places API configuration.'});return;}
+  if(!response.ok){const reason=clean(data&&data.error&&data.error.message,500)||('Google Places returned HTTP '+response.status);console.error('Places prospect search failed',response.status,reason);res.status(502).json({error:'Google Places search failed: '+reason,code:'PLACES_API_ERROR'});return;}
   const results=(data.places||[]).map(function(p){
     const address=clean(p.formattedAddress,300);
     const parts=address.split(',').map(function(x){return x.trim();});
