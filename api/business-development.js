@@ -31,7 +31,7 @@ async function save(supabase,body,res){
   const {data,error}=await supabase.from('business_development_prospects').insert(row).select('*').single();if(error)throw error;await logActivity(supabase,data,'prospect_created','success','Source-backed prospect added to CRM.');res.status(201).json({prospect:data});
 }
 async function searchPublic(body,res){
-  const key=String(process.env.GOOGLE_PLACES_SERVER_API_KEY||process.env.GOOGLE_PLACES_API_KEY||process.env.GOOGLE_MAPS_API_KEY||process.env.GOOGLE_MAPS_JS_API_KEY||process.env.GOOGLE_API_KEY||'').trim();
+  const key=String(process.env.GOOGLE_PLACES_SERVER_API_KEY||process.env.GOOGLE_PLACES_API_KEY||process.env.GOOGLE_MAPS_API_KEY||process.env.GOOGLE_MAPS_JS_API_KEY||process.env.GOOGLE_MAPS_BROWSER_API_KEY||process.env.GOOGLE_API_KEY||'').trim();
   if(!key){res.status(503).json({error:'Google Places server key is missing from this Preview deployment.',code:'PLACES_KEY_MISSING'});return;}
   const t=type(body.prospectType);
   const query=clean(body.query,240);
