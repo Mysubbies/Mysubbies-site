@@ -618,15 +618,31 @@
     updateMobileTabbar();
   }
   async function adminLogin() {
-    const val = document.getElementById('adminPasswordInput').value;
+    const input = document.getElementById('adminPasswordInput');
+    const button = document.querySelector('#app button');
+    const errorEl = document.getElementById('adminLoginError');
+    const val = input ? input.value : '';
+    if (button) { button.disabled = true; button.textContent = 'Logging in…'; }
+    if (errorEl) errorEl.textContent = '';
     try {
-      const res = await fetch('/api/admin-account', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'login', password: val }) });
+      const res = await fetch('/api/admin-account', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login', password: val }),
+      });
       const data = await res.json();
-      if (!res.ok) { document.getElementById('adminLoginError').textContent = data.error || 'Incorrect password.'; return; }
+      if (!res.ok) {
+        if (button) { button.disabled = false; button.textContent = 'Log in →'; }
+        if (errorEl) errorEl.textContent = data.error || 'Incorrect password.';
+        return;
+      }
       if (data.mfaRequired && data.challenge) { showAdminMfa(data.challenge); return; }
-      document.getElementById('adminLoginError').textContent = 'Authenticator verification is required.';
+      if (errorEl) errorEl.textContent = 'Authenticator verification is required.';
+      if (button) { button.disabled = false; button.textContent = 'Log in →'; }
     } catch (e) {
-      document.getElementById('adminLoginError').textContent = 'Login failed — check your connection and try again.';
+      if (button) { button.disabled = false; button.textContent = 'Log in →'; }
+      if (errorEl) errorEl.textContent = 'Login failed — check your connection and try again.';
     }
   }
   function showAdminMfa(challenge) {
@@ -645,13 +661,43 @@
   async function adminVerifyMfa() {
     const code = document.getElementById('adminMfaInput').value.replace(/\D/g, '');
     const error = document.getElementById('adminMfaError');
+    const button = document.querySelector('#app button');
     if (code.length !== 6) { error.textContent = 'Enter the complete 6-digit code.'; return; }
+    if (button) { button.disabled = true; button.textContent = 'Verifying…'; }
+    error.textContent = '';
     try {
-      const res = await fetch('/api/admin-account', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verifyMfa', challenge: window.adminMfaChallenge, code }) });
+      const res = await fetch('/api/admin-account', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verifyMfa', challenge: window.adminMfaChallenge, code }),
+      });
       const data = await res.json();
-      if (!res.ok) { error.textContent = data.error || 'The authenticator code was not accepted.'; return; }
-      startAdminWorkspace();
-    } catch (e) { error.textContent = 'Login failed — check your connection and try again.'; }
+      if (!res.ok) {
+        if (button) { button.disabled = false; button.textContent = 'Verify and log in →'; }
+        error.textContent = data.error || 'The authenticator code was not accepted.';
+        return;
+      }
+      // Confirm the HttpOnly session cookie is actually usable before
+      // hydrating the dashboard. This prevents a race where the UI starts
+      // loading while the browser has not yet applied the new cookie.
+      const sessionCheck = await fetch('/api/admin-account', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'session' }),
+      });
+      if (!sessionCheck.ok) {
+        if (button) { button.disabled = false; button.textContent = 'Verify and log in →'; }
+        error.textContent = 'Your login was verified, but the admin session could not be established. Please try again.';
+        return;
+      }
+      if (button) button.textContent = 'Loading admin portal…';
+      await startAdminWorkspace();
+    } catch (e) {
+      if (button) { button.disabled = false; button.textContent = 'Verify and log in →'; }
+      error.textContent = 'Login failed — check your connection and try again.';
+    }
   }
   async function adminLogout() {
     try {
