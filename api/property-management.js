@@ -506,18 +506,11 @@ async function publicRegister(supabase, body, res) {
     throw memberError;
   }
 
-  const invite = await sendPropertyInvite(email, org.name, member.role).catch(error => ({
-    ok: false,
-    error: error && error.message ? error.message : 'Invitation email could not be sent.',
-  }));
-
   res.status(201).json({
     registered: true,
     pendingApproval: true,
-    invitationEmailSent: !!invite.ok,
-    message: invite.ok
-      ? 'Registration received. Check your email for the MySubbies activation link.'
-      : 'Registration received. MySubbies will review your request and send access details when ready.',
+    invitationEmailSent: false,
+    message: 'Registration received. Check your MySubbies confirmation email, then log in to add your first property and submit a maintenance request.',
   });
 }
 
