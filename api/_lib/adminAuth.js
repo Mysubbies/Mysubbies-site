@@ -71,7 +71,10 @@ function adminSessionCookie(token) {
 }
 
 function clearAdminSessionCookie() {
-  return `${ADMIN_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax\n${LEGACY_ADMIN_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+  return [
+    `${ADMIN_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`,
+    `${LEGACY_ADMIN_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`,
+  ];
 }
 
 function verifyPassword(submitted) {
