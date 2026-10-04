@@ -18,12 +18,13 @@ async function insertNotification(supabase, row) {
   }
 }
 
-async function notifyAdmin(supabase, { eventType, title, body, applicationRef, jobId, metadata }) {
-  const html = wrapEmail(`
-    <h2 style="margin-top:0;">${escapeHtml(title)}</h2>
-    <p>${escapeHtml(body)}</p>
-    <p style="font-size:12px;color:#6B7280;margin-top:18px;">This is an automated MySubbies contractor administration notification.</p>
-  `);
+async function notifyAdmin(supabase, { eventType, title, body, applicationRef, jobId, metadata, ctaText, ctaUrl, detailsHtml }) {
+  const html = wrapEmail(
+    (detailsHtml || ('<h2 style="margin-top:0;">' + escapeHtml(title) + '</h2>' +
+    '<p>' + escapeHtml(body) + '</p>')) +
+    (ctaText && ctaUrl ? emailButton(ctaText, ctaUrl) : '') +
+    '<p style="font-size:12px;color:#6B7280;margin-top:18px;">This is an automated MySubbies administration notification.</p>'
+  );
   const delivery = await sendEmailWithResult({
     to: ADMIN_NOTIFY_EMAIL,
     subject: `[MySubbies Admin] ${title}`,
