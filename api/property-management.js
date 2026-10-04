@@ -425,6 +425,74 @@ async function adminSummary(supabase, req, res) {
     })),
   });
 }
+async function publicRegister(supabase, body, res) {
+  const name = text(body.name, 120);
+  const organisationName = text(body.organisation, 180);
+  const email = validEmail(body.email);
+  if (!name || !organisationName || !email) {
+    res.status(400).json({ error: 'Name, organisation and a valid email are required.' });
+    return;
+  }
+
+  const { data: existingMember, error: existingMemberError } = await supabase
+    .from('pm_members')
+    .select('id, status')
+    .eq('email', email)
+    .maybeSingle();
+  if (existingMemberError) throw existingMemberError;
+  if (existingMember) {
+    res.status(409).json({ error: existingMember.status === 'active'
+      ? 'This email already has an active Property Manager account. Please log in.'
+      : 'A Property Manager registration or invitation already exists for this email.' });
+    return;
+  }
+
+  const { data: org, error: orgError } = await supabase
+    .from('pm_organisations')
+    .insert({
+      name: organisationName,
+      organisation_type: 'property_manager',
+      status: 'active',
+      billing_email: email,
+      approval_required: true,
+    })
+    .select('*')
+    .single();
+  if (orgError) throw orgError;
+
+  const { data: member, error: memberError } = await supabase
+    .from('pm_members')
+    .insert({
+      organisation_id: org.id,
+      email,
+      name,
+      role: 'org_admin',
+      can_approve: true,
+      status: 'invited',
+    })
+    .select('id, organisation_id, email, name, role, can_approve, status')
+    .single();
+
+  if (memberError) {
+    await supabase.from('pm_organisations').delete().eq('id', org.id);
+    throw memberError;
+  }
+
+  const invite = await sendPropertyInvite(email, org.name, member.role).catch(error => ({
+    ok: false,
+    error: error && error.message ? error.message : 'Invitation email could not be sent.',
+  }));
+
+  res.status(201).json({
+    registered: true,
+    pendingApproval: true,
+    invitationEmailSent: !!invite.ok,
+    message: invite.ok
+      ? 'Registration received. Check your email for the MySubbies activation link.'
+      : 'Registration received. MySubbies will review your request and send access details when ready.',
+  });
+}
+
 async function adminCreateOrganisation(supabase, body, res) {
   const name = text(body.name, 180);
   const email = validEmail(body.adminEmail);
@@ -801,6 +869,7 @@ module.exports = async (req, res) => {
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed.' }); return; }
 
     if (action === 'activate-invite') { await activateInvite(supabase, req, res); return; }
+    if (action === 'public-register') { await publicRegister(supabase, req.body || {}, res); return; }
     if (action === 'contractor-completion') { await contractorCompletion(supabase, req, req.body || {}, res); return; }
 
     if (action.startsWith('admin-')) {
