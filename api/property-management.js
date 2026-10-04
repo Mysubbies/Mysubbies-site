@@ -494,6 +494,31 @@ async function adminResendInvite(supabase, body, res) {
   res.status(200).json({ sent: true });
 }
 
+async function adminUpdateOrganisation(supabase, body, res) {
+  const id=text(body.organisationId,50);
+  if(!id){res.status(400).json({error:'organisationId is required.'});return;}
+  const patch={updated_at:new Date().toISOString()};
+  if(body.name!==undefined)patch.name=text(body.name,180);
+  if(body.billingEmail!==undefined)patch.billing_email=validEmail(body.billingEmail)||null;
+  if(body.status!==undefined&&['active','paused','closed'].includes(body.status))patch.status=body.status;
+  if(body.approvalRequired!==undefined)patch.approval_required=body.approvalRequired===true;
+  if(body.approvalLimitCents!==undefined)patch.approval_limit_cents=cents(body.approvalLimitCents);
+  const {data,error}=await supabase.from('pm_organisations').update(patch).eq('id',id).select('*').single();
+  if(error)throw error;res.status(200).json({organisation:data});
+}
+async function adminUpdateMember(supabase, body, res) {
+  const id=text(body.memberId,50);
+  if(!id){res.status(400).json({error:'memberId is required.'});return;}
+  const patch={};
+  if(body.name!==undefined)patch.name=text(body.name,120)||null;
+  if(body.phone!==undefined)patch.phone=text(body.phone,50)||null;
+  if(body.role!==undefined&&['org_admin','approver','requester','viewer'].includes(body.role))patch.role=body.role;
+  if(body.status!==undefined&&['invited','active','disabled'].includes(body.status))patch.status=body.status;
+  if(body.canApprove!==undefined)patch.can_approve=body.canApprove===true;
+  const {data,error}=await supabase.from('pm_members').update(patch).eq('id',id).select('id,organisation_id,email,name,phone,role,can_approve,status,created_at,activated_at').single();
+  if(error)throw error;res.status(200).json({member:data});
+}
+
 async function adminAddProperty(supabase, body, res) {
   const organisationId = text(body.organisationId, 50);
   const address = text(body.address, 300);
@@ -783,6 +808,8 @@ module.exports = async (req, res) => {
       if (action === 'admin-create-organisation') { await adminCreateOrganisation(supabase, req.body || {}, res); return; }
       if (action === 'admin-add-member') { await adminAddMember(supabase, req.body || {}, res); return; }
       if (action === 'admin-resend-invite') { await adminResendInvite(supabase, req.body || {}, res); return; }
+      if (action === 'admin-update-organisation') { await adminUpdateOrganisation(supabase, req.body || {}, res); return; }
+      if (action === 'admin-update-member') { await adminUpdateMember(supabase, req.body || {}, res); return; }
       if (action === 'admin-add-property') { await adminAddProperty(supabase, req.body || {}, res); return; }
       if (action === 'admin-set-preferred-contractor') { await adminSetPreferredContractor(supabase, req.body || {}, res); return; }
       if (action === 'admin-set-quote') { await adminSetQuote(supabase, req.body || {}, res); return; }
