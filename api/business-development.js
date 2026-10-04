@@ -8,8 +8,8 @@ function type(v){ return v==='property_manager'?'property_manager':'contractor';
 async function logActivity(supabase,p,eventType,outcome,detail){try{await supabase.from('business_development_activity').insert({prospect_id:p.id,prospect_type:p.prospect_type,event_type:eventType,outcome:outcome||'success',detail:clean(detail,500)||null});}catch(e){console.error('CRM audit log failed',e);}}
 function registrationUrl(t){
   return t==='property_manager'
-    ? 'https://app.mysubbies.com.au/mysubbies-property-portal.html'
-    : 'https://app.mysubbies.com.au/mysubbies-contractor-portal.html';
+    ? 'https://app.mysubbies.com.au/mysubbies-property-managers.html'
+    : 'https://www.mysubbies.com.au/mysubbies-contractor-landing.html';
 }
 async function list(supabase,req,res){
   const t=type(req.query.type);
