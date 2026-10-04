@@ -1954,7 +1954,7 @@
       '<label>Status<select id="editBdStatus"><option value="prospect">Prospect</option><option value="invited">Invited</option><option value="opened">Opened</option><option value="interested">Interested</option><option value="registration_started">Registration started</option><option value="registered">Registered</option><option value="under_review">Under review</option><option value="approved">Approved</option><option value="active">Active</option><option value="declined">Declined</option><option value="archived">Archived</option></select></label>'+
       '<label class="full">Admin notes<textarea id="editBdNotes" rows="4" placeholder="Call notes, follow-up date, decision maker, objections, next action...">'+escapeHtml(p.notes||'')+'</textarea></label>'+
       '</div><div id="editBdError" style="color:#B4232C;font-size:13px;margin-top:10px;"></div>'+
-      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;"><button class="btn btn-outline" onclick="closeCrmModal()">Cancel</button><button class="btn btn-black" onclick="saveBdProspectEdit(''+kind+'',''+id+'')">Save changes</button></div>');
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;"><button class="btn btn-outline" onclick="closeCrmModal()">Cancel</button><button class="btn btn-black" onclick="saveBdProspectEdit(\''+kind+'\',\''+id+'\')">Save changes</button></div>');
     const s=document.getElementById('editBdStatus'); if(s)s.value=p.status||'prospect';
   }
   async function saveBdProspectEdit(kind,id){
