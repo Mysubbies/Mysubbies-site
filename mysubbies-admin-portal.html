@@ -615,13 +615,29 @@
     }
   }
   async function adminLogout() {
+    const button = document.querySelector('[onclick="adminLogout()"]');
+    if (button) { button.disabled = true; button.textContent = 'Logging out…'; }
     try {
-      await fetch('/api/admin-account', {
-        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      const res = await fetch('/api/admin-account', {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'logout' }),
       });
-    } catch (e) { /* still return to the login screen */ }
+      if (!res.ok) throw new Error('Logout could not be completed.');
+    } catch (e) {
+      if (button) { button.disabled = false; button.textContent = 'Log out'; }
+      alert(e.message || 'Logout could not be completed.');
+      return;
+    }
     adminHydrationStarted = false;
+    window.adminMfaChallenge = null;
+    document.body.classList.add('logged-out');
+    // Render the login screen directly after the server clears the
+    // HttpOnly session cookie. Do not immediately call checkAdminAuth(),
+    // because a parallel/background request can race the Set-Cookie response
+    // and make a successful logout appear to have failed.
+    const app = document.getElementById('app');
+    if (app) app.innerHTML = '';
     checkAdminAuth();
   }
   // Every admin-only API call goes through this instead of a bare fetch()
