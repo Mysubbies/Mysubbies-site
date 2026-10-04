@@ -95,7 +95,7 @@ async function invite(supabase,body,res){
       '<p><strong>You know what the job is and what you will be paid before you accept it.</strong></p>'+
       emailButton('Join the MySubbies contractor network →',registrationUrl(p.prospect_type))+
       '<p style="font-size:12px;color:#6B7280;margin-top:18px;">There is no upfront cost to join. We are looking for reliable contractors who want straightforward work opportunities.</p>';
-    const result=await sendEmailWithResult({to:p.email,subject,html:wrapEmail((property?propertyBody:contractorBody)+'<p style="font-size:13px;line-height:20px;margin-top:24px;">Kind Regards,<br><strong>Mysubbies Holding Pty Ltd</strong><br>Melbourne, VIC<br>mysubbies.com.au</p>')});
+    const result=await sendEmailWithResult({to:p.email,subject,html:wrapEmail((property?propertyBody:contractorBody)+'<p style="font-size:13px;line-height:20px;margin-top:24px;">Kind Regards,<br><strong>Mysubbies Holding Pty Ltd</strong></p>')});
     if(result.ok){await supabase.from('business_development_prospects').update({status:'invited',invitation_count:(p.invitation_count||0)+1,last_invited_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',p.id);}
     await logActivity(supabase,p,'invitation_attempt',result.ok?'success':'failed',result.ok?'Invitation sent.':(result.error||'Invitation failed.'));
     results.push({id:p.id,ok:!!result.ok,error:result.ok?null:result.error});
