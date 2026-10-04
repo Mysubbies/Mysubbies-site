@@ -76,16 +76,22 @@ async function invite(supabase,body,res){
     if(!p.email){results.push({id:p.id,ok:false,error:'No public email recorded.'});continue;}
     const property=p.prospect_type==='property_manager';
     const subject=property?'Let us take care of your maintenance requests':'We bring you the work. You focus on doing the work.';
-    const propertyBody='<h2 style="margin-top:0;">You manage the property — we look after the maintenance.</h2>'+
+    const propertyBody='<h2 style="margin-top:0;">A simpler way to manage property maintenance</h2>'+
       '<img src="https://www.mysubbies.com.au/images/categories/property-maintenance.jpg" alt="Property maintenance by MySubbies" style="display:block;width:100%;height:auto;border-radius:10px;margin:0 0 22px;">'+
-      '<p>When a maintenance request comes in, simply send it through MySubbies. One of our vetted contractors will look after the job from there.</p>'+
-      '<p>Everything is done with your approval, so you remain in control of the property and the spend while we take care of the coordination and job management.</p>'+
+      '<p>Hi there,</p>'+
+      '<p>I’m reaching out from <strong>Mysubbies Holding Pty Ltd</strong>, the company behind <strong>MySubbies</strong> — a platform designed to make property maintenance and contractor management simpler for property managers.</p>'+
+      '<p>We understand that managing properties often means dealing with maintenance requests, organising trades, following up contractors and keeping owners informed.</p>'+
+      '<p><strong>MySubbies is designed to take some of that workload off your team.</strong></p>'+
+      '<p>When you have a maintenance request, you can submit it through MySubbies and our <strong>vetted contractor network</strong> can assist with the job. You remain in control throughout the process, with work and pricing proceeding <strong>only after your approval</strong>.</p>'+
       '<p style="font-size:16px;font-weight:700;margin:22px 0 10px;">What can we look after?</p>'+
-      '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13px;line-height:21px;margin:0 0 20px;"><tr><td width="50%" valign="top" style="padding:0 10px 4px 0;">• General maintenance<br>• Handyman &amp; minor repairs<br>• Plumbing<br>• Electrical<br>• Painting &amp; plastering<br>• Carpentry<br>• Lawn &amp; garden maintenance<br>• Tree &amp; garden work<br>• Turf</td><td width="50%" valign="top" style="padding:0 0 4px 10px;">• Fencing &amp; retaining walls<br>• Decking &amp; pergolas<br>• Cleaning &amp; carpet cleaning<br>• Pressure washing<br>• Rubbish &amp; green-waste removal<br>• Flooring &amp; tiling<br>• Kitchen &amp; bathroom repairs/upgrades<br>• Landscaping<br>• Concrete works &amp; more</td></tr></table>'+
-      '<p><strong>How it works:</strong><br>1. Send the maintenance request<br>2. Our vetted contractor looks after the job<br>3. You review and approve the price<br>4. We coordinate the work<br>5. You receive updates through MySubbies</p>'+
-      '<p><strong>You manage the property. We look after the maintenance.</strong></p>'+
-      emailButton('Try us with one maintenance job →',registrationUrl(p.prospect_type))+
-      '<p style="font-size:12px;color:#6B7280;margin-top:18px;">No obligation. Let us prove ourselves on the first job.</p>';
+      '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13px;line-height:21px;margin:0 0 20px;"><tr><td width="50%" valign="top" style="padding:0 10px 4px 0;">• General maintenance<br>• Handyman &amp; minor repairs<br>• Plumbing<br>• Electrical<br>• Painting &amp; plastering<br>• Carpentry<br>• Lawn &amp; garden maintenance<br>• Tree &amp; garden work<br>• Turf</td><td width="50%" valign="top" style="padding:0 0 4px 10px;">• Fencing &amp; gates<br>• Landscaping &amp; garden work<br>• Decking &amp; pergolas<br>• Cleaning &amp; carpet cleaning<br>• Pressure washing<br>• Rubbish &amp; green waste<br>• Flooring &amp; tiling<br>• Kitchen &amp; bathroom repairs/upgrades<br>• Concrete &amp; retaining walls</td></tr></table>'+
+      '<p>If you have a maintenance requirement that isn’t listed above, feel free to ask us — we’ll let you know how we can assist.</p>'+
+      '<p><strong>How MySubbies works:</strong><br>Maintenance request → Contractor coordination → Your approval → Work completed → Job updates</p>'+
+      '<p>The aim is simple: <strong>give your team a straightforward way to manage maintenance while keeping you in control of every job.</strong></p>'+
+      '<p style="font-size:16px;font-weight:700;">We’d love to introduce MySubbies to your team.</p>'+
+      '<p>We’re currently inviting selected property managers to <strong>try MySubbies with one maintenance job</strong>, so you can see how the process works before deciding whether it’s useful for your business.</p>'+
+      emailButton('Try MySubbies with one maintenance job →',registrationUrl(p.prospect_type))+
+      '<p style="font-size:12px;color:#6B7280;margin-top:18px;">There’s no obligation — we’d simply appreciate the opportunity to demonstrate what we can do.</p>';
     const contractorBody='<h2 style="margin-top:0;">We bring you the work. You focus on doing the work.</h2>'+
       '<img src="https://www.mysubbies.com.au/images/contractor-landing-hero.jpg" alt="MySubbies contractor network" style="display:block;width:100%;height:auto;border-radius:10px;margin:0 0 22px;">'+
       '<p>We are building the MySubbies contractor network across Melbourne and are looking for reliable businesses to join us.</p>'+
