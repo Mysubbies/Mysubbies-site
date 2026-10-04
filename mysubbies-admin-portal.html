@@ -716,7 +716,24 @@
   async function adminFetch(url, opts) {
     const headers = Object.assign({}, (opts && opts.headers) || {});
     const res = await fetch(url, Object.assign({}, opts, { headers, credentials: 'same-origin' }));
-    if (res.status === 401) checkAdminAuth();
+    if (res.status === 401) {
+      // A background admin request must not tear down an otherwise valid
+      // dashboard session. Only the explicit session check below may return
+      // the user to the login screen. Keep the failed endpoint visible for
+      // diagnosis instead of creating a misleading login loop.
+      console.warn('[MySubbies Admin] Protected request returned 401:', url);
+      const sessionCheck = await fetch('/api/admin-account', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'session' }),
+      }).catch(() => null);
+      if (sessionCheck && sessionCheck.ok) {
+        console.warn('[MySubbies Admin] Admin session is valid; background endpoint rejected the request:', url);
+      } else if (sessionCheck && sessionCheck.status === 401) {
+        console.warn('[MySubbies Admin] Admin session is no longer valid.');
+      }
+    }
     return res;
   }
 
