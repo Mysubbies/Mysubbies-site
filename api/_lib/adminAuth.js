@@ -12,7 +12,8 @@ const crypto = require('crypto');
 
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour emergency hardening
 const MFA_CHALLENGE_TTL_MS = 5 * 60 * 1000;
-const ADMIN_COOKIE = '__Host-mysubbies_admin_session';
+const ADMIN_COOKIE = 'mysubbies_admin_session';
+const LEGACY_ADMIN_COOKIE = '__Host-mysubbies_admin_session';
 
 function base64url(input) {
   return Buffer.from(input).toString('base64url');
@@ -66,11 +67,11 @@ function cookieValue(req, name) {
 }
 
 function adminSessionCookie(token) {
-  return `${ADMIN_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${Math.floor(TOKEN_TTL_MS / 1000)}; HttpOnly; Secure; SameSite=Strict`;
+  return `${ADMIN_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${Math.floor(TOKEN_TTL_MS / 1000)}; HttpOnly; Secure; SameSite=Lax`;
 }
 
 function clearAdminSessionCookie() {
-  return `${ADMIN_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict`;
+  return `${ADMIN_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax\n${LEGACY_ADMIN_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
 }
 
 function verifyPassword(submitted) {
