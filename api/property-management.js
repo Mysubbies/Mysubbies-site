@@ -34,14 +34,14 @@ async function sendPropertyInvite(email, organisationName, role) {
   });
 }
 
-async function sendWorkOrderEmail({ to, subject, heading, body, ctaText, ctaUrl }) {
+async function sendWorkOrderEmail({ to, subject, heading, body, ctaText, ctaUrl, detailsHtml }) {
   if (!to) return { ok: false, error: 'Recipient email is missing.' };
   return sendEmailWithResult({
     to,
     subject,
     html: wrapEmail(
-      '<h2 style="margin-top:0;">' + escapeHtml(heading) + '</h2>' +
-      '<p>' + escapeHtml(body) + '</p>' +
+      (detailsHtml || ('<h2 style="margin-top:0;">' + escapeHtml(heading) + '</h2>' +
+      '<p>' + escapeHtml(body) + '</p>')) +
       (ctaText && ctaUrl ? emailButton(ctaText, ctaUrl) : '')
     ),
   });
@@ -332,10 +332,21 @@ async function createWorkOrder(supabase, auth, body, res) {
   }).catch(() => {});
   await sendWorkOrderEmail({
     to: auth.member.email,
-    subject: 'Your MySubbies work order has been received',
-    heading: 'Work order received',
-    body: taskSummary + ' at ' + property.address + ' has been received. You can track approvals, quotes and job progress in the Property & Facilities Portal.',
-    ctaText: 'Open Property Portal →',
+    subject: 'MySubbies — Maintenance Request Received',
+    heading: 'Maintenance request received',
+    body: taskSummary + ' at ' + property.address + ' has been received.',
+    detailsHtml:
+      '<h2 style="margin-top:0;">Maintenance request received</h2>' +
+      '<p>Thank you for submitting this maintenance request through the MySubbies Property &amp; Facilities Portal.</p>' +
+      '<p>Your request has been recorded and will move through the appropriate review, pricing and approval process.</p>' +
+      '<table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:22px;margin:18px 0;">' +
+      '<tr><td style="color:#6B7280;padding:5px 0;width:38%;">Property</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(property.address) + '</td></tr>' +
+      '<tr><td style="color:#6B7280;padding:5px 0;">Maintenance request</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(taskSummary) + '</td></tr>' +
+      '<tr><td style="color:#6B7280;padding:5px 0;">Priority</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(row.priority) + '</td></tr>' +
+      '<tr><td style="color:#6B7280;padding:5px 0;">Service type</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(serviceMode === 'project_quote' ? 'Project quote' : 'Instant price') + '</td></tr>' +
+      '</table>' +
+      '<p><strong>No work will proceed without the required approval.</strong> You can follow the request, approvals, quotes and job progress from your Property &amp; Facilities Portal.</p>',
+    ctaText: 'Open Property & Facilities Portal →',
     ctaUrl: propertyPortalUrl(),
   }).catch(() => {});
   res.status(201).json({
@@ -766,14 +777,28 @@ async function adminRelease(supabase, body, res) {
   }, { onConflict: 'job_id,contractor_id' });
   if (offerError) throw offerError;
 
+  const contractorPortalUrl = 'https://app.mysubbies.com.au/mysubbies-contractor-portal.html';
+  const contractorEmailHtml =
+    '<h2 style="margin-top:0;">New property maintenance job</h2>' +
+    '<p>A property maintenance job has been allocated to your business through MySubbies.</p>' +
+    '<table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:22px;margin:18px 0;">' +
+    '<tr><td style="color:#6B7280;padding:5px 0;width:38%;">Job</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(order.task_summary) + '</td></tr>' +
+    '<tr><td style="color:#6B7280;padding:5px 0;">Property</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(property.address) + '</td></tr>' +
+    '<tr><td style="color:#6B7280;padding:5px 0;">Area</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(property.suburb || '—') + '</td></tr>' +
+    '<tr><td style="color:#6B7280;padding:5px 0;">Priority</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(order.priority) + '</td></tr>' +
+    '<tr><td style="color:#6B7280;padding:5px 0;">Your payout</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(payoutCents/100)) + '</td></tr>' +
+    '</table>' +
+    '<p><strong>The payout shown above is the amount available to your business for this allocated job.</strong></p>' +
+    '<p>Review the job details in your Contractor Portal and accept it if the work suits your business.</p>';
   await notifyContractor(supabase, {
     email: selectedContractor.email,
     eventType: 'new-property-job-allocated',
     title: 'Property maintenance job allocated to you',
-    body: order.task_summary + (property.suburb ? ' in ' + property.suburb : '') + '. This job has been allocated to you for this site. Review and accept it in the contractor portal.',
-    subject: 'MySubbies property job allocated to you' + (property.suburb ? ' — ' + property.suburb : ''),
+    body: order.task_summary + (property.suburb ? ' in ' + property.suburb : '') + '. This job has been allocated to you for this site.',
+    subject: 'MySubbies — New Property Maintenance Job' + (property.suburb ? ' — ' + property.suburb : ''),
+    html: wrapEmail(contractorEmailHtml + emailButton('Open Job in Contractor Portal →', contractorPortalUrl)),
     jobId,
-    metadata: { category: resolvedCategory, suburb: property.suburb || null, urgency: order.priority, source: 'property_management', siteAllocated: true },
+    metadata: { category: resolvedCategory, suburb: property.suburb || null, urgency: order.priority, source: 'property_management', siteAllocated: true, payoutCents },
   }).catch(() => ({ ok: false }));
 
   const { error: updateError } = await supabase.from('pm_work_orders').update({
