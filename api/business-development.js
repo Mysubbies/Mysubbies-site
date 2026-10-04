@@ -30,6 +30,43 @@ async function save(supabase,body,res){
   if(e){const {data:existing,error:xerr}=await supabase.from('business_development_prospects').select('*').eq('prospect_type',t).ilike('email',e).maybeSingle();if(xerr)throw xerr;if(existing){await logActivity(supabase,existing,'duplicate_prevented','success','Existing prospect returned instead of creating a duplicate.');res.status(200).json({prospect:existing,duplicatePrevented:true});return;}}
   const {data,error}=await supabase.from('business_development_prospects').insert(row).select('*').single();if(error)throw error;await logActivity(supabase,data,'prospect_created','success','Source-backed prospect added to CRM.');res.status(201).json({prospect:data});
 }
+async function searchPublic(body,res){
+  const key=String(process.env.GOOGLE_PLACES_API_KEY||'').trim();
+  if(!key){res.status(503).json({error:'Public business search is not configured. Add GOOGLE_PLACES_API_KEY to the Vercel Preview environment.'});return;}
+  const t=type(body.prospectType);
+  const query=clean(body.query,240);
+  const location=clean(body.location,160)||'Melbourne VIC';
+  if(!query){res.status(400).json({error:'Enter a business type, trade or segment to search.'});return;}
+  const searchText=query+' in '+location;
+  const response=await fetch('https://places.googleapis.com/v1/places:searchText',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'X-Goog-Api-Key':key,
+      'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.googleMapsUri'
+    },
+    body:JSON.stringify({textQuery:searchText,pageSize:20,regionCode:'AU',languageCode:'en'})
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok){console.error('Places prospect search failed',response.status,data&&data.error&&data.error.message);res.status(502).json({error:'Public business search failed. Check the Google Places API configuration.'});return;}
+  const results=(data.places||[]).map(function(p){
+    const address=clean(p.formattedAddress,300);
+    const parts=address.split(',').map(function(x){return x.trim();});
+    return {
+      prospectType:t,
+      businessName:clean(p.displayName&&p.displayName.text,180),
+      phone:clean(p.nationalPhoneNumber,60),
+      website:clean(p.websiteUri,500),
+      suburb:parts.length>1?parts[parts.length-2]:'',
+      state:'VIC',
+      tradeOrSegment:query,
+      sourceProvider:'Google Places',
+      sourceUrl:clean(p.googleMapsUri,1000)||('https://www.google.com/maps/search/?api=1&query_place_id='+encodeURIComponent(p.id||'')),
+      sourceReference:clean(p.id,500)
+    };
+  }).filter(function(x){return x.businessName&&x.sourceUrl;});
+  res.status(200).json({query:searchText,results:results,reviewRequired:true});
+}
 async function invite(supabase,body,res){
   const ids=Array.isArray(body.prospectIds)?body.prospectIds.slice(0,100):[];
   if(!ids.length){res.status(400).json({error:'Select at least one prospect.'});return;}
@@ -55,7 +92,7 @@ module.exports=async function handler(req,res){
   try{
     const action=clean((req.query&&req.query.action)||(req.body&&req.body.action),80);
     if(req.method==='GET'&&action==='list'){await list(supabase,req,res);return;}
-    if(req.method==='POST'&&action==='save'){await save(supabase,req.body||{},res);return;}
+    if(req.method==='POST'&&action==='save'){await save(supabase,req.body||{},res);return;}\n    if(req.method==='POST'&&action==='search-public'){await searchPublic(req.body||{},res);return;}
     if(req.method==='POST'&&action==='invite'){await invite(supabase,req.body||{},res);return;}
     res.status(400).json({error:'Unsupported CRM action.'});
   }catch(e){console.error('business development error',e);res.status(500).json({error:'Business Development CRM request failed.'});}
