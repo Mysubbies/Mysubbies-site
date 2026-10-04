@@ -85,7 +85,7 @@ function renderAuth(message){
   document.getElementById('logoutBtn').style.display='none';document.getElementById('navOrg').textContent='';
   const register=state.authMode==='register';
   app.innerHTML=`<div class="loginwrap"><div class="loginbox">
-    <h1>Property & Facilities Portal</h1><p>One maintenance partner. One portal. Complete job visibility.</p>
+    <h1>Property & Facilities Portal</h1><p>Manage your properties and maintenance in one place.</p>
     <div class="auth-tabs">
       <button class="${state.authMode==='login'?'active':''}" onclick="state.authMode='login';renderAuth()">Log in</button>
       <button class="${state.authMode==='register'?'active':''}" onclick="state.authMode='register';renderAuth()">Register</button>
@@ -99,7 +99,7 @@ function renderAuth(message){
       <div class="field"><label>Email</label><input id="authEmail" type="email" autocomplete="email"></div>
       <div class="field"><label>Password</label><input id="authPassword" type="password" autocomplete="new-password"></div>
       <div class="field"><label>Confirm password</label><input id="authPasswordConfirm" type="password" autocomplete="new-password"></div>
-      <div class="hint" style="margin:-5px 0 14px">Register your business to request access to the MySubbies Property & Facilities Portal. Your registration will be reviewed before access is activated.</div>
+      <div class="hint" style="margin:-5px 0 14px">Create your account in a few steps. After registration, you can add your first property and submit a maintenance request.</div>
       <button class="btn btn-primary" style="width:100%" onclick="registerOrganisation()">Register for portal access</button>
     ` : `
       <div class="field"><label>Email</label><input id="authEmail" type="email" autocomplete="email"></div>
@@ -158,15 +158,32 @@ async function registerOrganisation(){
   if(!name||!organisation||!email){renderAuth('Please complete your name, organisation and email.');return;}
   if(password.length<8){renderAuth('Use a password of at least 8 characters.');return;}
   if(password!==confirm){renderAuth('The two passwords do not match.');return;}
-  const r=await fetch('/api/property-management?action=public-register',{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({name,organisation,email,password})
+  const {data,error}=await sb.auth.signUp({
+    email,password,
+    options:{emailRedirectTo:'https://app.mysubbies.com.au/mysubbies-property-portal.html'}
   });
-  let data={};try{data=await r.json();}catch(e){}
-  if(!r.ok){renderAuth(data.error||'Registration could not be completed.');return;}
-  state.authMode='login'; renderAuth();
-  const box=document.getElementById('authMsg');
-  if(box)box.innerHTML='<div class="success">Registration received. Check your email to confirm your account. MySubbies will review your portal access and email you when it is activated.</div>';
+  if(error){renderAuth(error.message);return;}
+  try{
+    localStorage.setItem('mysubbies_pm_pending_registration',JSON.stringify({email,name,organisation}));
+    const r=await fetch('/api/property-management?action=public-register',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name,organisation,email,password})
+    });
+    let d={};try{d=await r.json();}catch(e){}
+    if(!r.ok){renderAuth(d.error||'Registration could not be completed.');return;}
+    if(data.session){
+      await fetch('/api/property-management?action=activate-invite',{
+        method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+data.session.access_token},
+        body:JSON.stringify({})
+      });
+      localStorage.removeItem('mysubbies_pm_pending_registration');
+      await boot();
+      return;
+    }
+    state.authMode='login';renderAuth();
+    const box=document.getElementById('authMsg');
+    if(box)box.innerHTML='<div class="success"><strong>Registration received.</strong><br>Check your email to confirm your MySubbies account. Once confirmed, you can log in, add your first property and submit your first maintenance request.</div>';
+  }catch(e){renderAuth(e.message||'Registration could not be completed.');}
 }
 function renderInviteError(msg){
   app.innerHTML=`<div class="loginwrap"><div class="loginbox"><h1>Account not linked yet</h1><p>${esc(msg)}</p><div class="error">Property portal access is invitation-only. Make sure you are signed in with the exact email your organisation supplied to MySubbies.</div><button class="btn btn-outline" style="width:100%" onclick="logout()">Use another account</button></div></div>`;
@@ -440,14 +457,30 @@ async function saveProperty(){
 async function start(){
   try{
     await initSupabase();
-    sb.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){renderPasswordRecovery();return;}if(event==='SIGNED_OUT')renderAuth();});
+    sb.auth.onAuthStateChange(async(event)=>{
+      if(event==='PASSWORD_RECOVERY'){renderPasswordRecovery();return;}
+      if(event==='SIGNED_OUT'){renderAuth();return;}
+    });
     if(new URLSearchParams(location.search).get('reset')==='1'){
       const {data}=await sb.auth.getSession();
       if(data&&data.session){renderPasswordRecovery();return;}
     }
+    const sessionResult=await sb.auth.getSession();
+    if(sessionResult.data&&sessionResult.data.session){
+      const pending=localStorage.getItem('mysubbies_pm_pending_registration');
+      if(pending){
+        try{
+          await fetch('/api/property-management?action=activate-invite',{
+            method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+sessionResult.data.session.access_token},
+            body:JSON.stringify({})
+          });
+          localStorage.removeItem('mysubbies_pm_pending_registration');
+        }catch(e){}
+      }
+    }
     await boot();
   }catch(e){
-    app.innerHTML='<div class="loginwrap"><div class="loginbox"><h1>Property & Facilities Portal</h1><div class="error">'+esc(e.message)+'</div><p>Preview configuration is incomplete. Ask the MySubbies administrator to configure the staging Supabase environment for this preview branch.</p></div></div>';
+    app.innerHTML='<div class="loginwrap"><div class="loginbox"><h1>Property & Facilities Portal</h1><div class="error">'+esc(e.message)+'</div><p>Portal configuration is incomplete. Ask the MySubbies administrator to check the production environment.</p></div></div>';
   }
 }
 start();
