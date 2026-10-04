@@ -1962,11 +1962,87 @@
       (bucket.loading && !bucket.prospects ? '<div class="empty">Loading prospects…</div>' : (rows || '<div class="empty">No prospects saved yet.</div>')) + '</div>';
   }
 
-  function openProspectFinder(kind) {
-    alert('AI Prospect Finder is staged for ' + (kind === 'property' ? 'property managers' : 'contractors') + '. Provider-backed public search is the next connection.');
+  let prospectSearchResults = [];
+  function prospectTypeFor(kind) { return kind === 'property' ? 'property_manager' : 'contractor'; }
+  function showCrmModal(html) {
+    const old = document.getElementById('crmActionModal');
+    if (old) old.remove();
+    const modal = document.createElement('div');
+    modal.id = 'crmActionModal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(15,23,42,.58);display:flex;align-items:center;justify-content:center;padding:18px;';
+    modal.innerHTML = '<div style="background:#fff;width:min(720px,100%);max-height:90vh;overflow:auto;border-radius:18px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.25);">' + html + '</div>';
+    modal.addEventListener('click', function(e){ if(e.target===modal) modal.remove(); });
+    document.body.appendChild(modal);
   }
-  function openManualProspect(kind) {
-    alert('Manual prospect entry is staged for the ' + (kind === 'property' ? 'Property Manager' : 'Contractor') + ' CRM.');
+  function closeCrmModal(){ const x=document.getElementById('crmActionModal'); if(x)x.remove(); }
+
+  function openManualProspect(kind, seed) {
+    seed = seed || {};
+    const label = kind === 'property' ? 'Property Manager' : 'Contractor';
+    showCrmModal('<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:18px;"><div><h2 style="margin:0;">Add ' + label + ' prospect</h2><div class="jobmeta">Saved to CRM for review. No invitation is sent automatically.</div></div><button class="btn btn-outline" onclick="closeCrmModal()">Close</button></div>' +
+      '<div class="formgrid">' +
+      '<label>Business name<input id="crmBusinessName" value="' + escapeHtml(seed.businessName||'') + '"></label>' +
+      '<label>Contact name<input id="crmContactName"></label>' +
+      '<label>Email<input id="crmEmail" type="email"></label>' +
+      '<label>Phone<input id="crmPhone" value="' + escapeHtml(seed.phone||'') + '"></label>' +
+      '<label>Website<input id="crmWebsite" value="' + escapeHtml(seed.website||'') + '"></label>' +
+      '<label>Suburb / area<input id="crmSuburb" value="' + escapeHtml(seed.suburb||'') + '"></label>' +
+      '<label>Trade / segment<input id="crmSegment" value="' + escapeHtml(seed.tradeOrSegment||'') + '"></label>' +
+      '<label>Source provider<input id="crmSourceProvider" value="' + escapeHtml(seed.sourceProvider||'Manual research') + '"></label>' +
+      '<label style="grid-column:1/-1;">Source evidence URL<input id="crmSourceUrl" value="' + escapeHtml(seed.sourceUrl||'') + '" placeholder="Public website, Google Maps or other evidence URL"></label>' +
+      '</div><div id="crmSaveError" style="color:#B4232C;font-size:13px;margin-top:10px;"></div>' +
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;"><button class="btn btn-outline" onclick="closeCrmModal()">Cancel</button><button class="btn btn-black" onclick="saveManualProspect(\'' + kind + '\')">Save prospect</button></div>');
+  }
+  async function saveManualProspect(kind) {
+    const val = function(id){ const el=document.getElementById(id); return el?el.value.trim():''; };
+    const body = { prospectType:prospectTypeFor(kind), businessName:val('crmBusinessName'), contactName:val('crmContactName'), email:val('crmEmail'), phone:val('crmPhone'), website:val('crmWebsite'), suburb:val('crmSuburb'), state:'VIC', tradeOrSegment:val('crmSegment'), sourceProvider:val('crmSourceProvider'), sourceUrl:val('crmSourceUrl') };
+    const err=document.getElementById('crmSaveError');
+    if(!body.businessName || !body.sourceProvider || !body.sourceUrl){ if(err)err.textContent='Business name and source evidence are required.'; return; }
+    try {
+      const res=await adminFetch('/api/business-development?action=save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const data=await res.json();
+      if(!res.ok){ if(err)err.textContent=data.error||'Prospect could not be saved.'; return; }
+      closeCrmModal();
+      bdCrm[kind].prospects=null;
+      await loadBdProspects(kind);
+      alert(data.duplicatePrevented?'This prospect was already in the CRM, so a duplicate was not created.':'Prospect saved. Review and select it before sending any invitation.');
+    } catch(e){ if(err)err.textContent='Prospect could not be saved.'; }
+  }
+
+  function openProspectFinder(kind) {
+    const label = kind === 'property' ? 'property managers' : 'contractors';
+    showCrmModal('<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:18px;"><div><h2 style="margin:0;">AI Prospect Finder</h2><div class="jobmeta">Search public business data for ' + label + '. Results must be reviewed and saved before outreach.</div></div><button class="btn btn-outline" onclick="closeCrmModal()">Close</button></div>' +
+      '<div class="formgrid"><label>What to find<input id="prospectSearchQuery" placeholder="' + (kind==='property'?'property managers, strata managers, facilities managers':'landscapers, concreters, fencing contractors') + '"></label><label>Area<input id="prospectSearchLocation" value="Melbourne VIC"></label></div>' +
+      '<div id="prospectSearchError" style="color:#B4232C;font-size:13px;margin-top:10px;"></div><div style="margin-top:16px;"><button class="btn btn-black" onclick="runProspectSearch(\'' + kind + '\')">Search public businesses</button></div><div id="prospectSearchResults" style="margin-top:18px;"></div>');
+  }
+  async function runProspectSearch(kind) {
+    const q=document.getElementById('prospectSearchQuery');
+    const l=document.getElementById('prospectSearchLocation');
+    const err=document.getElementById('prospectSearchError');
+    const box=document.getElementById('prospectSearchResults');
+    const query=q?q.value.trim():'', location=l?l.value.trim():'Melbourne VIC';
+    if(!query){ if(err)err.textContent='Enter what type of business you want to find.'; return; }
+    if(err)err.textContent='';
+    if(box)box.innerHTML='<div class="empty">Searching public business data…</div>';
+    try {
+      const res=await adminFetch('/api/business-development?action=search-public',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prospectType:prospectTypeFor(kind),query:query,location:location})});
+      const data=await res.json();
+      if(!res.ok){ if(box)box.innerHTML=''; if(err)err.textContent=data.error||'Search failed.'; return; }
+      prospectSearchResults=data.results||[];
+      if(!box)return;
+      box.innerHTML=prospectSearchResults.length?prospectSearchResults.map(function(p,i){
+        return '<div style="padding:12px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:14px;align-items:center;"><div><b>' + escapeHtml(p.businessName) + '</b><div class="jobmeta">' + escapeHtml(p.suburb||p.phone||'Public business result') + '</div>' + (p.website?'<a href="' + escapeHtml(p.website) + '" target="_blank" rel="noopener" style="font-size:11px;">Website</a> ':'') + '<a href="' + escapeHtml(p.sourceUrl) + '" target="_blank" rel="noopener" style="font-size:11px;">Source</a></div><button class="btn btn-outline" onclick="saveSearchProspect(\'' + kind + '\',' + i + ')">Save to CRM</button></div>';
+      }).join(''):'<div class="empty">No matching public businesses found.</div>';
+    } catch(e){ if(box)box.innerHTML=''; if(err)err.textContent='Search failed.'; }
+  }
+  async function saveSearchProspect(kind,index) {
+    const p=prospectSearchResults[index]; if(!p)return;
+    const res=await adminFetch('/api/business-development?action=save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
+    const data=await res.json();
+    if(!res.ok){alert(data.error||'Prospect could not be saved.');return;}
+    bdCrm[kind].prospects=null;
+    await loadBdProspects(kind);
+    alert(data.duplicatePrevented?'Already in CRM — duplicate prevented.':'Saved to CRM. Nothing has been sent.');
   }
 
   let blogData = null, blogLoading = false;
