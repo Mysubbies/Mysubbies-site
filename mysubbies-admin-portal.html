@@ -5956,7 +5956,16 @@
               <td>${j.jobNumber ? '#' + j.jobNumber : '—'}</td>
               <td><strong>${j.icon || ''} ${escapeHtml(j.category)}</strong><br><span style="color:var(--stone);font-size:12px;">${j.items && j.items.length > 1 ? j.items.length + ' items' : (j.qty || '') + ' ' + escapeHtml(j.unit || '')}</span></td>
               <td>${escapeHtml(j.suburb)}</td>
-              <td>${escapeHtml(j.contractor || '—')}</td>
+              <td>
+                ${j.contractor ? escapeHtml(j.contractor) : '<span style="color:var(--stone);">Unassigned</span>'}
+                ${j.status === 'feed' ? `<div style="margin-top:7px;" onclick="event.stopPropagation();">
+                  <select id="quickAssign-${j.id}" style="width:100%;min-width:150px;font-size:11.5px;padding:6px 8px;border:1.5px solid var(--line);border-radius:7px;background:#fff;">
+                    <option value="">Select contractor…</option>
+                    ${approvedContractorOptions(j)}
+                  </select>
+                  <button class="btn btn-black" style="width:100%;margin-top:5px;padding:6px 9px;font-size:11.5px;" onclick="quickAssignJob('${j.id}', event)">Assign contractor</button>
+                </div>` : ''}
+              </td>
               <td><span class="badge ${badgeClass[j.status] || 'badge-feed'}">${badgeLabel[j.status] || j.status}</span></td>
               <td>${submitted.date}<br><span style="color:var(--stone);font-size:11.5px;">${submitted.relative}</span></td>
               <td>$${(j.basePrice || 0).toLocaleString()}</td>
@@ -6277,6 +6286,26 @@
     return eligible.map(a => `<option value="${escapeHtml(a.email)}" data-name="${escapeHtml(a.business)}">${escapeHtml(a.business)}${toArr(a.trades).includes(j.category) ? ' ✓ ' + escapeHtml(j.category) : ''}</option>`).join('');
   }
 
+  function quickAssignJob(id, event) {
+    if (event) event.stopPropagation();
+    const select = document.getElementById('quickAssign-' + id);
+    const email = select && select.value;
+    if (!email) {
+      alert('Please select an approved contractor first.');
+      return;
+    }
+    const option = select.selectedOptions[0];
+    const name = option ? option.getAttribute('data-name') : '';
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === id);
+    if (!j) return;
+    j.contractor = name;
+    j.contractorEmail = email;
+    j.status = 'assigned';
+    saveJobs(jobs);
+    showToast('Job assigned to ' + name);
+    render();
+  }
   function reassign(id) {
     const select = document.getElementById('reassignSelect');
     const email = select.value;
