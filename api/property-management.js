@@ -119,7 +119,7 @@ function safeMemberOrder(order, property, job, files, events) {
   return {
     id: order.id,
     propertyId: order.property_id,
-    property: property ? { id: property.id, name: property.name, address: property.address, suburb: property.suburb, state: property.state, postcode: property.postcode } : null,
+    property: property ? { id: property.id, name: property.name, address: property.address, suburb: property.suburb, state: property.state, postcode: property.postcode, accessNotes: property.access_notes, ownerName: property.owner_name || null, ownerEmail: property.owner_email || null, ownerPhone: property.owner_phone || null } : null,
     serviceMode: order.service_mode,
     category: order.category,
     taskSummary: order.task_summary,
@@ -189,6 +189,7 @@ async function bootstrap(supabase, req, res) {
     },
     properties: (properties || []).map(p => ({
       id: p.id, name: p.name, address: p.address, suburb: p.suburb, state: p.state, postcode: p.postcode, accessNotes: p.access_notes,
+      ownerName: p.owner_name || null, ownerEmail: p.owner_email || null, ownerPhone: p.owner_phone || null,
       preferredContractorId: p.preferred_contractor_id || null,
     })),
     workOrders: orderRows.map(o => safeMemberOrder(o, propertyMap[o.property_id], o.job_id ? jobMap[o.job_id] : null, fileMap[o.id], eventMap[o.id])),
@@ -234,11 +235,40 @@ async function createProperty(supabase, auth, body, res) {
     latitude: Number.isFinite(Number(body.latitude)) ? Number(body.latitude) : null,
     longitude: Number.isFinite(Number(body.longitude)) ? Number(body.longitude) : null,
     access_notes: text(body.accessNotes, 1500) || null,
+    owner_name: text(body.ownerName, 160) || null,
+    owner_email: validEmail(body.ownerEmail) || null,
+    owner_phone: text(body.ownerPhone, 60) || null,
   };
   const { data, error } = await supabase.from('pm_properties').insert(row).select('*').single();
   if (error) throw error;
   res.status(201).json({ property: data });
 }
+async function updateProperty(supabase, auth, body, res) {
+  if (!['org_admin','approver'].includes(auth.member.role)) {
+    res.status(403).json({ error: 'Property manager admin access is required.' }); return;
+  }
+  const property = await propertyForOrg(supabase, auth.organisation.id, body.propertyId);
+  if (!property) { res.status(404).json({ error: 'Property not found.' }); return; }
+  const address = text(body.address, 300);
+  if (!address) { res.status(400).json({ error: 'Property address is required.' }); return; }
+  const ownerEmail = validEmail(body.ownerEmail);
+  if (body.ownerEmail && !ownerEmail) { res.status(400).json({ error: 'Please enter a valid property owner email.' }); return; }
+  const { data, error } = await supabase.from('pm_properties').update({
+    name: text(body.name, 120) || null,
+    address,
+    suburb: text(body.suburb, 100) || null,
+    state: text(body.state, 10) || 'VIC',
+    postcode: text(body.postcode, 10) || null,
+    access_notes: text(body.accessNotes, 1500) || null,
+    owner_name: text(body.ownerName, 160) || null,
+    owner_email: ownerEmail || null,
+    owner_phone: text(body.ownerPhone, 60) || null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', property.id).eq('organisation_id', auth.organisation.id).select('*').single();
+  if (error) throw error;
+  res.status(200).json({ property: data });
+}
+
 async function createWorkOrder(supabase, auth, body, res) {
   const property = await propertyForOrg(supabase, auth.organisation.id, body.propertyId);
   if (!property) { res.status(404).json({ error: 'Property not found.' }); return; }
@@ -354,6 +384,39 @@ async function createWorkOrder(supabase, auth, body, res) {
     pricing: pricedLine,
   });
 }
+async function emailQuoteToOwner(supabase, auth, body, res) {
+  const order = await memberWorkOrder(supabase, auth.organisation.id, body.workOrderId);
+  if (!order) { res.status(404).json({ error: 'Work order not found.' }); return; }
+  if (!order.quoted_price_cents || order.quoted_price_cents <= 0) {
+    res.status(409).json({ error: 'A quote must be available before it can be emailed.' }); return;
+  }
+  const property = await propertyForOrg(supabase, auth.organisation.id, order.property_id);
+  if (!property || !property.owner_email) {
+    res.status(409).json({ error: 'This property does not have an owner email. Edit the property details first.' }); return;
+  }
+  const amount = new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(order.quoted_price_cents / 100);
+  const detailRows =
+    '<table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:22px;margin:18px 0;">' +
+    '<tr><td style="color:#6B7280;padding:5px 0;width:38%;">Property</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(property.address) + '</td></tr>' +
+    (property.name ? '<tr><td style="color:#6B7280;padding:5px 0;">Property name</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(property.name) + '</td></tr>' : '') +
+    '<tr><td style="color:#6B7280;padding:5px 0;">Work requested</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(order.task_summary) + '</td></tr>' +
+    '<tr><td style="color:#6B7280;padding:5px 0;">Priority</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(order.priority) + '</td></tr>' +
+    '<tr><td style="color:#6B7280;padding:5px 0;">Quote</td><td style="font-weight:800;padding:5px 0;font-size:16px;">' + amount + '</td></tr>' +
+    (order.quote_reference ? '<tr><td style="color:#6B7280;padding:5px 0;">Quote reference</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(order.quote_reference) + '</td></tr>' : '') +
+    '</table>' +
+    (order.description ? '<div style="margin:16px 0;"><strong>Scope / notes</strong><p style="white-space:pre-wrap;margin-top:6px;">' + escapeHtml(order.description) + '</p></div>' : '');
+  const delivery = await sendWorkOrderEmail({
+    to: property.owner_email,
+    subject: 'MySubbies — Quote for ' + property.address,
+    heading: 'Property maintenance quote',
+    body: 'A quote has been prepared for the maintenance work requested at your property.',
+    detailsHtml: '<h2 style="margin-top:0;">Property maintenance quote</h2><p>Hi ' + escapeHtml(property.owner_name || 'Property Owner') + ',</p><p>Your property manager has requested a quote through MySubbies. Please see the quote details below.</p>' + detailRows + '<p style="font-size:12px;color:#6B7280;">This quote has been sent on behalf of your property manager through MySubbies.</p>',
+  });
+  if (!delivery.ok) { res.status(502).json({ error: 'The quote could not be emailed. Please check the email service configuration and try again.' }); return; }
+  await event(supabase, order.id, 'member', auth.member.id, 'quote_emailed_to_owner', { ownerEmail: property.owner_email });
+  res.status(200).json({ sent: true, ownerEmail: property.owner_email });
+}
+
 async function cancelWorkOrder(supabase, auth, body, res) {
   const order = await memberWorkOrder(supabase, auth.organisation.id, body.workOrderId);
   if (!order) { res.status(404).json({ error: 'Work order not found.' }); return; }
@@ -926,6 +989,8 @@ module.exports = async (req, res) => {
     const auth = await requirePropertyMember(supabase, req);
     if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
     if (action === 'create-property') { await createProperty(supabase, auth, req.body || {}, res); return; }
+    if (action === 'update-property') { await updateProperty(supabase, auth, req.body || {}, res); return; }
+    if (action === 'email-quote-to-owner') { await emailQuoteToOwner(supabase, auth, req.body || {}, res); return; }
     if (action === 'create-work-order') { await createWorkOrder(supabase, auth, req.body || {}, res); return; }
     if (action === 'approve-work-order') { await approveWorkOrder(supabase, auth, req.body || {}, res); return; }
     if (action === 'cancel-work-order') { await cancelWorkOrder(supabase, auth, req.body || {}, res); return; }
