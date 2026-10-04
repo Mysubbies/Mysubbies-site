@@ -92,7 +92,8 @@ module.exports=async function handler(req,res){
   try{
     const action=clean((req.query&&req.query.action)||(req.body&&req.body.action),80);
     if(req.method==='GET'&&action==='list'){await list(supabase,req,res);return;}
-    if(req.method==='POST'&&action==='save'){await save(supabase,req.body||{},res);return;}\n    if(req.method==='POST'&&action==='search-public'){await searchPublic(req.body||{},res);return;}
+    if(req.method==='POST'&&action==='save'){await save(supabase,req.body||{},res);return;}
+    if(req.method==='POST'&&action==='search-public'){await searchPublic(req.body||{},res);return;}
     if(req.method==='POST'&&action==='invite'){await invite(supabase,req.body||{},res);return;}
     res.status(400).json({error:'Unsupported CRM action.'});
   }catch(e){console.error('business development error',e);res.status(500).json({error:'Business Development CRM request failed.'});}
