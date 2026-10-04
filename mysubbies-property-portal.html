@@ -86,14 +86,28 @@ function renderAuth(message){
   const register=state.authMode==='register';
   app.innerHTML=`<div class="loginwrap"><div class="loginbox">
     <h1>Property & Facilities Portal</h1><p>One maintenance partner. One portal. Complete job visibility.</p>
-    <div class="auth-tabs"><button class="${register?'':'active'}" onclick="state.authMode='login';renderAuth()">Log in</button><button class="${register?'active':''}" onclick="state.authMode='register';renderAuth()">Activate invite</button></div>
+    <div class="auth-tabs">
+      <button class="${state.authMode==='login'?'active':''}" onclick="state.authMode='login';renderAuth()">Log in</button>
+      <button class="${state.authMode==='register'?'active':''}" onclick="state.authMode='register';renderAuth()">Register</button>
+      <button class="${state.authMode==='invite'?'active':''}" onclick="state.authMode='invite';renderAuth()">Activate invite</button>
+    </div>
     ${message?'<div class="error">'+esc(message)+'</div>':''}
     <div id="authMsg"></div>
-    <div class="field"><label>Email</label><input id="authEmail" type="email" autocomplete="email"></div>
-    <div class="field"><label>Password</label><input id="authPassword" type="password" autocomplete="${register?'new-password':'current-password'}"></div>
-    ${register?'<div class="hint" style="margin:-5px 0 14px">Use the same email address your MySubbies invitation was sent to.</div>':''}
-    <button class="btn btn-primary" style="width:100%" onclick="${register?'registerInvite()':'login()'}">${register?'Create account':'Log in'}</button>
-    ${register?'':'<button class="btn btn-outline" style="width:100%;margin-top:9px" onclick="forgotPassword()">Forgot password?</button>'}
+    ${state.authMode==='register' ? `
+      <div class="field"><label>Your name</label><input id="registerName" type="text" autocomplete="name" placeholder="Full name"></div>
+      <div class="field"><label>Organisation / business name</label><input id="registerOrganisation" type="text" autocomplete="organization" placeholder="Your company name"></div>
+      <div class="field"><label>Email</label><input id="authEmail" type="email" autocomplete="email"></div>
+      <div class="field"><label>Password</label><input id="authPassword" type="password" autocomplete="new-password"></div>
+      <div class="field"><label>Confirm password</label><input id="authPasswordConfirm" type="password" autocomplete="new-password"></div>
+      <div class="hint" style="margin:-5px 0 14px">Register your business to request access to the MySubbies Property & Facilities Portal. Your registration will be reviewed before access is activated.</div>
+      <button class="btn btn-primary" style="width:100%" onclick="registerOrganisation()">Register for portal access</button>
+    ` : `
+      <div class="field"><label>Email</label><input id="authEmail" type="email" autocomplete="email"></div>
+      <div class="field"><label>Password</label><input id="authPassword" type="password" autocomplete="current-password"></div>
+      ${state.authMode==='invite'?'<div class="hint" style="margin:-5px 0 14px">Use the same email address your MySubbies invitation was sent to.</div>':''}
+      <button class="btn btn-primary" style="width:100%" onclick="${state.authMode==='invite'?'registerInvite()':'login()'}">${state.authMode==='invite'?'Create account':'Log in'}</button>
+      ${state.authMode==='login'?'<button class="btn btn-outline" style="width:100%;margin-top:9px" onclick="forgotPassword()">Forgot password?</button>':''}
+    `}
   </div></div>`;
 }
 function renderPasswordRecovery(message,success){
@@ -126,13 +140,33 @@ async function forgotPassword(){
   if(box)box.innerHTML='<div class="success">Password reset email sent. Open the link in that email to choose a new password.</div>';
 }
 async function registerInvite(){
-  const email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value;
+  const email=document.getElementById('authEmail').value.trim().toLowerCase(),password=document.getElementById('authPassword').value;
+  if(!email){renderAuth('Enter your email address.');return;}
   if(password.length<8){renderAuth('Use a password of at least 8 characters.');return;}
-  const redirectTo=location.origin+'/property';
+  const redirectTo='https://app.mysubbies.com.au/mysubbies-property-portal.html';
   const {data,error}=await sb.auth.signUp({email,password,options:{emailRedirectTo:redirectTo}});
   if(error){renderAuth(error.message);return;}
   if(data.session){await boot();return;}
   const box=document.getElementById('authMsg');box.innerHTML='<div class="success">Account created. Check your email to confirm it, then return here and log in.</div>';
+}
+async function registerOrganisation(){
+  const name=document.getElementById('registerName').value.trim();
+  const organisation=document.getElementById('registerOrganisation').value.trim();
+  const email=document.getElementById('authEmail').value.trim().toLowerCase();
+  const password=document.getElementById('authPassword').value;
+  const confirm=document.getElementById('authPasswordConfirm').value;
+  if(!name||!organisation||!email){renderAuth('Please complete your name, organisation and email.');return;}
+  if(password.length<8){renderAuth('Use a password of at least 8 characters.');return;}
+  if(password!==confirm){renderAuth('The two passwords do not match.');return;}
+  const r=await fetch('/api/property-management?action=public-register',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name,organisation,email,password})
+  });
+  let data={};try{data=await r.json();}catch(e){}
+  if(!r.ok){renderAuth(data.error||'Registration could not be completed.');return;}
+  state.authMode='login'; renderAuth();
+  const box=document.getElementById('authMsg');
+  if(box)box.innerHTML='<div class="success">Registration received. Check your email to confirm your account. MySubbies will review your portal access and email you when it is activated.</div>';
 }
 function renderInviteError(msg){
   app.innerHTML=`<div class="loginwrap"><div class="loginbox"><h1>Account not linked yet</h1><p>${esc(msg)}</p><div class="error">Property portal access is invitation-only. Make sure you are signed in with the exact email your organisation supplied to MySubbies.</div><button class="btn btn-outline" style="width:100%" onclick="logout()">Use another account</button></div></div>`;
