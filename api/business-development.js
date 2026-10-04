@@ -75,11 +75,27 @@ async function invite(supabase,body,res){
   for(const p of rows||[]){
     if(!p.email){results.push({id:p.id,ok:false,error:'No public email recorded.'});continue;}
     const property=p.prospect_type==='property_manager';
-    const subject=property?'MySubbies property maintenance partnership':'MySubbies contractor network invitation';
-    const intro=property
-      ? 'MySubbies Group helps property managers coordinate maintenance, quotes, contractors and job visibility through one portal.'
-      : 'MySubbies Group is expanding its contractor network and is looking for reliable businesses for upcoming work.';
-    const result=await sendEmailWithResult({to:p.email,subject,html:wrapEmail('<h2 style="margin-top:0;">'+escapeHtml(p.business_name)+'</h2><p>'+escapeHtml(intro)+'</p><p>We would like to invite your business to connect with MySubbies.</p>'+emailButton(property?'Explore Property Portal →':'Join the contractor network →',registrationUrl(p.prospect_type))+'<p style="font-size:12px;color:#6B7280;margin-top:18px;">This invitation was approved by the MySubbies team before sending.</p>')});
+    const subject=property?'Let us take care of your maintenance requests':'We bring you the work. You focus on doing the work.';
+    const propertyBody='<h2 style="margin-top:0;">You manage the property — we look after the maintenance.</h2>'+
+      '<img src="https://www.mysubbies.com.au/images/categories/property-maintenance.jpg" alt="Property maintenance by MySubbies" style="display:block;width:100%;height:auto;border-radius:10px;margin:0 0 22px;">'+
+      '<p>When a maintenance request comes in, simply send it through MySubbies. One of our vetted contractors will look after the job from there.</p>'+
+      '<p>Everything is done with your approval, so you remain in control of the property and the spend while we take care of the coordination and job management.</p>'+
+      '<p style="font-size:16px;font-weight:700;margin:22px 0 10px;">What can we look after?</p>'+
+      '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13px;line-height:21px;margin:0 0 20px;"><tr><td width="50%" valign="top" style="padding:0 10px 4px 0;">• General maintenance<br>• Handyman &amp; minor repairs<br>• Plumbing<br>• Electrical<br>• Painting &amp; plastering<br>• Carpentry<br>• Lawn &amp; garden maintenance<br>• Tree &amp; garden work<br>• Turf</td><td width="50%" valign="top" style="padding:0 0 4px 10px;">• Fencing &amp; retaining walls<br>• Decking &amp; pergolas<br>• Cleaning &amp; carpet cleaning<br>• Pressure washing<br>• Rubbish &amp; green-waste removal<br>• Flooring &amp; tiling<br>• Kitchen &amp; bathroom repairs/upgrades<br>• Landscaping<br>• Concrete works &amp; more</td></tr></table>'+
+      '<p><strong>How it works:</strong><br>1. Send the maintenance request<br>2. Our vetted contractor looks after the job<br>3. You review and approve the price<br>4. We coordinate the work<br>5. You receive updates through MySubbies</p>'+
+      '<p><strong>You manage the property. We look after the maintenance.</strong></p>'+
+      emailButton('Try us with one maintenance job →',registrationUrl(p.prospect_type))+
+      '<p style="font-size:12px;color:#6B7280;margin-top:18px;">No obligation. Let us prove ourselves on the first job.</p>';
+    const contractorBody='<h2 style="margin-top:0;">We bring you the work. You focus on doing the work.</h2>'+
+      '<img src="https://www.mysubbies.com.au/images/contractor-landing-hero.jpg" alt="MySubbies contractor network" style="display:block;width:100%;height:auto;border-radius:10px;margin:0 0 22px;">'+
+      '<p>We are building the MySubbies contractor network across Melbourne and are looking for reliable businesses to join us.</p>'+
+      '<p>We aim to make getting work simpler — with clear job information and less quoting and administration.</p>'+
+      '<p style="font-size:16px;font-weight:700;margin:22px 0 10px;">What you can expect</p>'+
+      '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13px;line-height:21px;margin:0 0 20px;"><tr><td width="50%" valign="top" style="padding:0 10px 4px 0;">• Ongoing job opportunities<br>• Upfront payment amount before accepting<br>• No quoting for standard MySubbies jobs<br>• No upfront subscription or joining fee</td><td width="50%" valign="top" style="padding:0 0 4px 10px;">• Jobs matched to your trade &amp; area<br>• Customer &amp; job details in the portal<br>• Less time chasing customers<br>• Simple job management</td></tr></table>'+
+      '<p><strong>You know what the job is and what you will be paid before you accept it.</strong></p>'+
+      emailButton('Join the MySubbies contractor network →',registrationUrl(p.prospect_type))+
+      '<p style="font-size:12px;color:#6B7280;margin-top:18px;">There is no upfront cost to join. We are looking for reliable contractors who want straightforward work opportunities.</p>';
+    const result=await sendEmailWithResult({to:p.email,subject,html:wrapEmail((property?propertyBody:contractorBody)+'<p style="font-size:13px;line-height:20px;margin-top:24px;">Kind Regards,<br><strong>Mysubbies Holding Pty Ltd</strong><br>Melbourne, VIC<br>mysubbies.com.au</p>')});
     if(result.ok){await supabase.from('business_development_prospects').update({status:'invited',invitation_count:(p.invitation_count||0)+1,last_invited_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',p.id);}
     await logActivity(supabase,p,'invitation_attempt',result.ok?'success':'failed',result.ok?'Invitation sent.':(result.error||'Invitation failed.'));
     results.push({id:p.id,ok:!!result.ok,error:result.ok?null:result.error});
