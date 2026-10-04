@@ -365,8 +365,78 @@ async function submitOrder(){
   }
 }
 function showWoError(msg){document.getElementById('woError').innerHTML='<div class="error">'+esc(msg)+'</div>';}
-function renderNewProperty(){app.innerHTML=`<button class="btn btn-outline" onclick="back()" style="margin-bottom:14px">← Cancel</button><div class="panel"><h2>Add property</h2><p class="sub">Add another managed property under ${esc(state.data.organisation.name)}.</p><div class="field"><label>Property name (optional)</label><input id="pName" placeholder="e.g. Smith Street Apartments"></div><div class="field"><label>Street address</label><input id="pAddress" placeholder="Full property address"></div><div class="grid2"><div class="field"><label>Suburb</label><input id="pSuburb"></div><div class="field"><label>Postcode</label><input id="pPostcode"></div></div><div class="field"><label>Access notes (optional)</label><textarea id="pAccess" placeholder="Keys, loading access, concierge, tenant contact rules…"></textarea></div><div id="pError"></div><button class="btn btn-primary" onclick="saveProperty()">Add property</button></div>`;}
-async function saveProperty(){try{await api('/api/property-management',{method:'POST',body:JSON.stringify({action:'create-property',name:pName.value,address:pAddress.value,suburb:pSuburb.value,postcode:pPostcode.value,state:'VIC',accessNotes:pAccess.value})});state.data=await api('/api/property-management?action=bootstrap');state.view='properties';render();}catch(e){document.getElementById('pError').innerHTML='<div class="error">'+esc(e.message)+'</div>';}}
+let propertyAddressAutocompletePromise = null;
+let selectedPropertyPlace = null;
+function loadPropertyPlaces(){
+  if(propertyAddressAutocompletePromise) return propertyAddressAutocompletePromise;
+  propertyAddressAutocompletePromise=(async()=>{
+    const configRes=await fetch('/api/geocode-distance?config=places',{credentials:'same-origin',cache:'no-store'});
+    const config=await configRes.json();
+    if(!configRes.ok||!config.enabled||!config.browserKey) throw new Error('Google Maps address search is not configured.');
+    await new Promise((resolve,reject)=>{
+      if(window.google&&window.google.maps&&window.google.maps.places){resolve();return;}
+      const callback='__mysubbiesPropertyPlacesReady';
+      window[callback]=()=>{delete window[callback];resolve();};
+      const script=document.createElement('script');
+      script.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(config.browserKey)+'&libraries=places&v=weekly&callback='+callback;
+      script.async=true;script.defer=true;script.onerror=()=>reject(new Error('Google Maps could not load.'));
+      document.head.appendChild(script);
+    });
+  })().catch(error=>{propertyAddressAutocompletePromise=null;throw error;});
+  return propertyAddressAutocompletePromise;
+}
+async function initialisePropertyAddressAutocomplete(){
+  const input=document.getElementById('pAddress'); if(!input) return;
+  selectedPropertyPlace=null;
+  try{
+    await loadPropertyPlaces();
+    if(!document.getElementById('pAddress')) return;
+    const ac=new google.maps.places.Autocomplete(input,{componentRestrictions:{country:'au'},fields:['formatted_address','geometry','address_components','place_id'],types:['address']});
+    ac.addListener('place_changed',()=>{
+      const place=ac.getPlace(); selectedPropertyPlace=place;
+      const components=place.address_components||[];
+      const get=(type)=>{const x=components.find(v=>v.types&&v.types.includes(type));return x?x.long_name:'';};
+      const suburb=get('locality')||get('postal_town')||get('sublocality');
+      const postcode=get('postal_code');
+      const suburbInput=document.getElementById('pSuburb'),postcodeInput=document.getElementById('pPostcode');
+      if(suburbInput)suburbInput.value=suburb;
+      if(postcodeInput)postcodeInput.value=postcode;
+      if(place.formatted_address)input.value=place.formatted_address;
+    });
+  }catch(error){
+    const hint=document.getElementById('pAddressHint');
+    if(hint)hint.textContent='You can still type the full address manually.';
+  }
+}
+function renderNewProperty(){
+  app.innerHTML=`<button class="btn btn-outline" onclick="back()" style="margin-bottom:14px">← Cancel</button><div class="panel"><h2>Add property</h2><p class="sub">Add another managed property under ${esc(state.data.organisation.name)}.</p><div class="field"><label>Property name (optional)</label><input id="pName" placeholder="e.g. Smith Street Apartments"></div><div class="field"><label>Street address</label><input id="pAddress" placeholder="Start typing the property address" autocomplete="street-address"><div id="pAddressHint" class="hint" style="margin-top:6px;">Start typing and select an address from the suggestions.</div></div><div class="grid2"><div class="field"><label>Suburb</label><input id="pSuburb" autocomplete="address-level2"></div><div class="field"><label>Postcode</label><input id="pPostcode" autocomplete="postal-code"></div></div><div class="field"><label>Access notes (optional)</label><textarea id="pAccess" placeholder="Keys, loading access, concierge, tenant contact rules…"></textarea></div><div id="pError"></div><button id="addPropertyBtn" class="btn btn-primary" onclick="saveProperty()">Add property</button></div>`;
+  initialisePropertyAddressAutocomplete();
+}
+async function saveProperty(){
+  const btn=document.getElementById('addPropertyBtn'),errorBox=document.getElementById('pError');
+  if(btn){btn.disabled=true;btn.textContent='Processing…';btn.setAttribute('aria-busy','true');}
+  if(errorBox)errorBox.innerHTML='';
+  try{
+    const address=(document.getElementById('pAddress')||{}).value?.trim()||'';
+    const name=(document.getElementById('pName')||{}).value?.trim()||'';
+    const suburb=(document.getElementById('pSuburb')||{}).value?.trim()||'';
+    const postcode=(document.getElementById('pPostcode')||{}).value?.trim()||'';
+    const accessNotes=(document.getElementById('pAccess')||{}).value||'';
+    if(!address) throw new Error('Property address is required.');
+    const body={action:'create-property',name,address,suburb,postcode,state:'VIC',accessNotes};
+    if(selectedPropertyPlace&&selectedPropertyPlace.geometry&&selectedPropertyPlace.geometry.location){
+      body.placeId=selectedPropertyPlace.place_id||null;
+      body.latitude=selectedPropertyPlace.geometry.location.lat();
+      body.longitude=selectedPropertyPlace.geometry.location.lng();
+      body.address=selectedPropertyPlace.formatted_address||address;
+    }
+    await api('/api/property-management',{method:'POST',body:JSON.stringify(body)});
+    state.data=await api('/api/property-management?action=bootstrap');state.view='properties';render();
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Add property';btn.removeAttribute('aria-busy');}
+    if(errorBox)errorBox.innerHTML='<div class="error">'+esc(e.message)+'</div>';
+  }
+}
 async function start(){
   try{
     await initSupabase();
