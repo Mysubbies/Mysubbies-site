@@ -479,6 +479,91 @@
 </nav>
 
 <script>
+  // Bootstrap the secure admin login before the large CRM script is parsed.
+  // This keeps a later client-side syntax/runtime failure from leaving a blank
+  // page. The existing server-side /api/admin-account flow remains the source
+  // of truth for password, MFA and session verification.
+  (function paintAdminLoginBootstrap() {
+    const mount = document.getElementById('app');
+    if (!mount) return;
+    document.body.classList.add('logged-out');
+    mount.innerHTML = `
+      <div id="adminLoginBootstrap" style="max-width:360px;margin:80px auto 0;background:#fff;border:1px solid var(--line);border-radius:16px;padding:28px;">
+        <h1 style="font-size:22px;font-weight:800;margin-bottom:8px;">Admin login</h1>
+        <input type="password" id="adminPasswordInput" placeholder="Password" autocomplete="current-password" style="width:100%;font-size:15px;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:10px;">
+        <div id="adminLoginError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
+        <button id="adminBootstrapLoginButton" type="button" style="width:100%;background:var(--black);color:#fff;border:none;border-radius:999px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;">Log in →</button>
+      </div>`;
+
+    async function bootstrapLogin() {
+      const input = document.getElementById('adminPasswordInput');
+      const error = document.getElementById('adminLoginError');
+      const button = document.getElementById('adminBootstrapLoginButton');
+      const password = input ? input.value : '';
+      if (!password) { if (error) error.textContent = 'Enter your admin password.'; return; }
+      if (button) button.disabled = true;
+      if (error) error.textContent = '';
+      try {
+        const res = await fetch('/api/admin-account', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'login', password })
+        });
+        const data = await res.json();
+        if (!res.ok) { if (error) error.textContent = data.error || 'Incorrect password.'; return; }
+        if (data.mfaRequired && data.challenge) {
+          mount.innerHTML = `
+            <div style="max-width:360px;margin:80px auto 0;background:#fff;border:1px solid var(--line);border-radius:16px;padding:28px;">
+              <h1 style="font-size:22px;font-weight:800;margin-bottom:8px;">Authenticator code</h1>
+              <p style="font-size:13px;color:var(--stone);margin-bottom:14px;">Enter the 6-digit code from your authenticator app.</p>
+              <input inputmode="numeric" autocomplete="one-time-code" maxlength="6" id="adminBootstrapMfaInput" placeholder="000000" style="width:100%;font-size:20px;letter-spacing:8px;text-align:center;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:10px;">
+              <div id="adminBootstrapMfaError" style="color:var(--warn);font-size:13px;margin-bottom:12px;"></div>
+              <button id="adminBootstrapMfaButton" type="button" style="width:100%;background:var(--black);color:#fff;border:none;border-radius:999px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;">Verify and log in →</button>
+            </div>`;
+          const verify = async () => {
+            const codeEl = document.getElementById('adminBootstrapMfaInput');
+            const mfaError = document.getElementById('adminBootstrapMfaError');
+            const code = (codeEl ? codeEl.value : '').replace(/\D/g, '');
+            if (code.length !== 6) { if (mfaError) mfaError.textContent = 'Enter the complete 6-digit code.'; return; }
+            try {
+              const verifyRes = await fetch('/api/admin-account', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'verifyMfa', challenge: data.challenge, code })
+              });
+              const verifyData = await verifyRes.json();
+              if (!verifyRes.ok) { if (mfaError) mfaError.textContent = verifyData.error || 'Invalid authenticator code.'; return; }
+              window.location.reload();
+            } catch (e) {
+              if (mfaError) mfaError.textContent = 'Verification failed — check your connection and try again.';
+            }
+          };
+          const mfaButton = document.getElementById('adminBootstrapMfaButton');
+          const mfaInput = document.getElementById('adminBootstrapMfaInput');
+          if (mfaButton) mfaButton.addEventListener('click', verify);
+          if (mfaInput) {
+            mfaInput.addEventListener('keydown', e => { if (e.key === 'Enter') verify(); });
+            mfaInput.focus();
+          }
+          return;
+        }
+        if (error) error.textContent = 'Authenticator verification is required.';
+      } catch (e) {
+        if (error) error.textContent = 'Login failed — check your connection and try again.';
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
+    const button = document.getElementById('adminBootstrapLoginButton');
+    const input = document.getElementById('adminPasswordInput');
+    if (button) button.addEventListener('click', bootstrapLogin);
+    if (input) input.addEventListener('keydown', e => { if (e.key === 'Enter') bootstrapLogin(); });
+  })();
+</script>
+<script>
   // Real server-side auth (Aug 2026) -- the password used to be a hardcoded
   // client-side JS constant compared in the browser, and none of the admin
   // API endpoints checked anything at all, so anyone who found those URLs
