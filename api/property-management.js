@@ -3,6 +3,7 @@
 // All commercial data access is identity-bound server-side or protected by the
 // existing MFA-backed admin session cookie.
 const { getPropertySupabase, getSupabase } = require('./_lib/clients');
+const crypto = require('crypto');
 const { requireAdmin, verifyAdminAuth } = require('./_lib/adminAuth');
 const { authenticatedUser, requirePropertyMember } = require('./_lib/propertyManagementAuth');
 const { requireApprovedContractor } = require('./_lib/userAuth');
@@ -143,6 +144,7 @@ function safeMemberOrder(order, property, job, files, events) {
     invoiceReference: order.invoice_reference,
     invoiceStatus: order.invoice_status,
     invoiceAmountCents: order.invoice_amount_cents,
+    ownerApprovalStatus: order.owner_approval_status || 'not_requested',
     jobNumber: job ? job.job_number : null,
     createdAt: order.created_at,
     updatedAt: order.updated_at,
@@ -383,6 +385,61 @@ async function createWorkOrder(supabase, auth, body, res) {
     workOrder: safeMemberOrder(order, property, null, await signFiles(supabase, attachments), []),
     pricing: pricedLine,
   });
+}
+function ownerApprovalUrl(token) {
+  const base = String(process.env.APP_BASE_URL || process.env.PUBLIC_APP_BASE_URL || 'https://app.mysubbies.com.au').trim().replace(/\/+$/, '');
+  return base + '/mysubbies-property-owner-approval.html?token=' + encodeURIComponent(token);
+}
+async function requestOwnerApproval(supabase, auth, body, res) {
+  const order = await memberWorkOrder(supabase, auth.organisation.id, body.workOrderId);
+  if (!order) { res.status(404).json({ error: 'Work order not found.' }); return; }
+  if (!order.quoted_price_cents || order.quoted_price_cents <= 0) { res.status(409).json({ error: 'A quote must be available before requesting owner approval.' }); return; }
+  const property = await propertyForOrg(supabase, auth.organisation.id, order.property_id);
+  if (!property || !property.owner_email) { res.status(409).json({ error: 'Add the property owner email first.' }); return; }
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = new Date(Date.now() + 7*24*60*60*1000).toISOString();
+  const { error } = await supabase.from('pm_work_orders').update({ owner_approval_status:'pending', owner_approval_token_hash:tokenHash, owner_approval_expires_at:expiresAt, owner_approved_at:null, owner_approved_by_email:null, updated_at:new Date().toISOString() }).eq('id',order.id).eq('organisation_id',auth.organisation.id);
+  if(error) throw error;
+  const amount = new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(order.quoted_price_cents/100);
+  const delivery = await sendWorkOrderEmail({
+    to: property.owner_email,
+    subject: 'MySubbies — Quote approval required for '+property.address,
+    detailsHtml:'<h2 style="margin-top:0;">Quote approval required</h2><p>Hi '+escapeHtml(property.owner_name||'Property Owner')+',</p><p>Your property manager has requested your approval for the following maintenance work.</p><table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:22px;margin:18px 0;"><tr><td style="color:#6B7280;padding:5px 0;width:38%;">Property</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(property.address)+'</td></tr><tr><td style="color:#6B7280;padding:5px 0;">Work</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(order.task_summary)+'</td></tr><tr><td style="color:#6B7280;padding:5px 0;">Quote</td><td style="font-weight:800;padding:5px 0;font-size:16px;">'+amount+'</td></tr>'+(order.quote_reference?'<tr><td style="color:#6B7280;padding:5px 0;">Reference</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(order.quote_reference)+'</td></tr>':'')+'</table>'+(order.description?'<p><strong>Scope / notes</strong></p><p style="white-space:pre-wrap;">'+escapeHtml(order.description)+'</p>':'')+'<p>Please review the quote and choose approve or decline.</p>',
+    ctaText:'Review and approve quote →', ctaUrl:ownerApprovalUrl(rawToken),
+  });
+  if(!delivery.ok){res.status(502).json({error:'The approval email could not be sent. Please try again.'});return;}
+  await event(supabase,order.id,'member',auth.member.id,'owner_approval_requested',{ownerEmail:property.owner_email});
+  res.status(200).json({sent:true,ownerEmail:property.owner_email,expiresAt});
+}
+async function getOwnerQuote(supabase, req, res) {
+  const token=text((req.query||{}).token,100);
+  if(!token){res.status(400).json({error:'Approval link is missing.'});return;}
+  const hash=crypto.createHash('sha256').update(token).digest('hex');
+  const {data:order,error}=await supabase.from('pm_work_orders').select('id,organisation_id,property_id,task_summary,description,priority,quoted_price_cents,quote_reference,owner_approval_status,owner_approval_expires_at').eq('owner_approval_token_hash',hash).maybeSingle();
+  if(error) throw error;
+  if(!order){res.status(404).json({error:'This approval link is invalid or has expired.'});return;}
+  if(order.owner_approval_expires_at && new Date(order.owner_approval_expires_at)<new Date() && order.owner_approval_status==='pending'){res.status(410).json({error:'This approval link has expired. Please ask your property manager to send a new approval request.'});return;}
+  const {data:property}=await supabase.from('pm_properties').select('name,address,suburb,state,postcode,owner_name,owner_email').eq('id',order.property_id).maybeSingle();
+  const {data:org}=await supabase.from('pm_organisations').select('name').eq('id',order.organisation_id).maybeSingle();
+  res.status(200).json({quote:{id:order.id,taskSummary:order.task_summary,description:order.description,priority:order.priority,quotedPriceCents:order.quoted_price_cents,quoteReference:order.quote_reference,status:order.owner_approval_status,expiresAt:order.owner_approval_expires_at},property:property?{name:property.name,address:property.address,suburb:property.suburb,state:property.state,postcode:property.postcode}:null,organisationName:org?org.name:null});
+}
+async function decideOwnerQuote(supabase, req, body, res) {
+  const token=text(body.token,100),decision=body.decision==='declined'?'declined':'approved',email=validEmail(body.email);
+  if(!token){res.status(400).json({error:'Approval link is missing.'});return;}
+  const hash=crypto.createHash('sha256').update(token).digest('hex');
+  const {data:order,error}=await supabase.from('pm_work_orders').select('*').eq('owner_approval_token_hash',hash).maybeSingle();
+  if(error) throw error;
+  if(!order){res.status(404).json({error:'This approval link is invalid or has expired.'});return;}
+  if(order.owner_approval_expires_at && new Date(order.owner_approval_expires_at)<new Date()){res.status(410).json({error:'This approval link has expired. Please ask your property manager to send a new request.'});return;}
+  if(order.owner_approval_status!=='pending'){res.status(409).json({error:'This quote has already been decided.'});return;}
+  const now=new Date().toISOString();
+  const {error:updateError}=await supabase.from('pm_work_orders').update({owner_approval_status:decision,owner_approved_at:now,owner_approved_by_email:email||null,updated_at:now}).eq('id',order.id).eq('owner_approval_token_hash',hash);
+  if(updateError) throw updateError;
+  await event(supabase,order.id,'system','owner','owner_quote_'+decision,{ownerEmail:email||null});
+  const {data:members}=await supabase.from('pm_members').select('email').eq('organisation_id',order.organisation_id).eq('status','active');
+  for(const m of (members||[])){if(m.email) await sendWorkOrderEmail({to:m.email,subject:'MySubbies — Owner '+decision+' quote',detailsHtml:'<h2 style="margin-top:0;">Owner quote '+decision+'</h2><p>The property owner has '+decision+' the quote for <strong>'+escapeHtml(order.task_summary)+'</strong>.</p><p>Quote amount: <strong>'+new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(order.quoted_price_cents/100)+'</strong>.</p>'}).catch(()=>{});}
+  res.status(200).json({updated:true,status:decision});
 }
 async function emailQuoteToOwner(supabase, auth, body, res) {
   const order = await memberWorkOrder(supabase, auth.organisation.id, body.workOrderId);
@@ -961,11 +1018,13 @@ module.exports = async (req, res) => {
       res.status(200).json({ supabaseUrl, publishableKey });
       return;
     }
+    if (req.method === 'GET' && action === 'owner-quote') { await getOwnerQuote(supabase, req, res); return; }
     if (req.method === 'GET' && action === 'bootstrap') { await bootstrap(supabase, req, res); return; }
     if (req.method === 'GET' && action === 'admin-summary') { await adminSummary(supabase, req, res); return; }
 
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed.' }); return; }
 
+    if (action === 'owner-quote-decision') { await decideOwnerQuote(supabase, req, req.body || {}, res); return; }
     if (action === 'activate-invite') { await activateInvite(supabase, req, res); return; }
     if (action === 'public-register') { await publicRegister(supabase, req.body || {}, res); return; }
     if (action === 'contractor-completion') { await contractorCompletion(supabase, req, req.body || {}, res); return; }
@@ -991,6 +1050,7 @@ module.exports = async (req, res) => {
     if (action === 'create-property') { await createProperty(supabase, auth, req.body || {}, res); return; }
     if (action === 'update-property') { await updateProperty(supabase, auth, req.body || {}, res); return; }
     if (action === 'email-quote-to-owner') { await emailQuoteToOwner(supabase, auth, req.body || {}, res); return; }
+    if (action === 'request-owner-approval') { await requestOwnerApproval(supabase, auth, req.body || {}, res); return; }
     if (action === 'create-work-order') { await createWorkOrder(supabase, auth, req.body || {}, res); return; }
     if (action === 'approve-work-order') { await approveWorkOrder(supabase, auth, req.body || {}, res); return; }
     if (action === 'cancel-work-order') { await cancelWorkOrder(supabase, auth, req.body || {}, res); return; }
