@@ -30,6 +30,41 @@ async function save(supabase,body,res){
   if(e){const {data:existing,error:xerr}=await supabase.from('business_development_prospects').select('*').eq('prospect_type',t).ilike('email',e).maybeSingle();if(xerr)throw xerr;if(existing){await logActivity(supabase,existing,'duplicate_prevented','success','Existing prospect returned instead of creating a duplicate.');res.status(200).json({prospect:existing,duplicatePrevented:true});return;}}
   const {data,error}=await supabase.from('business_development_prospects').insert(row).select('*').single();if(error)throw error;await logActivity(supabase,data,'prospect_created','success','Source-backed prospect added to CRM.');res.status(201).json({prospect:data});
 }
+async function updateProspect(supabase,body,res){
+  const id=clean(body.id,80);
+  if(!id){res.status(400).json({error:'Prospect id is required.'});return;}
+  const patch={updated_at:new Date().toISOString()};
+  const fields={businessName:'business_name',contactName:'contact_name',email:'email',phone:'phone',website:'website',suburb:'suburb',state:'state',tradeOrSegment:'trade_or_segment',sourceProvider:'source_provider',sourceUrl:'source_url',sourceReference:'source_reference',notes:'notes'};
+  for(const key of Object.keys(fields)){
+    if(body[key]!==undefined){
+      if(key==='email') patch[fields[key]]=email(body[key])||null;
+      else patch[fields[key]]=clean(body[key],key==='sourceUrl'?1000:key==='notes'?2000:500)||null;
+    }
+  }
+  if(body.status!==undefined){
+    const allowed=['prospect','invited','opened','interested','registration_started','registered','under_review','approved','active','declined','archived'];
+    if(!allowed.includes(body.status)){res.status(400).json({error:'Invalid prospect status.'});return;}
+    patch.status=body.status;
+  }
+  if(!patch.business_name && body.businessName!==undefined){res.status(400).json({error:'Business name cannot be empty.'});return;}
+  if(patch.source_provider!==undefined&&!patch.source_provider){res.status(400).json({error:'Source provider is required.'});return;}
+  if(patch.source_url!==undefined&&!patch.source_url){res.status(400).json({error:'Source evidence URL is required.'});return;}
+  const {data,error}=await supabase.from('business_development_prospects').update(patch).eq('id',id).select('*').single();
+  if(error)throw error;
+  await logActivity(supabase,data,'prospect_updated','success','Prospect details updated by admin.');
+  res.status(200).json({prospect:data});
+}
+async function removeProspect(supabase,body,res){
+  const id=clean(body.id,80);
+  if(!id){res.status(400).json({error:'Prospect id is required.'});return;}
+  const {data,error}=await supabase.from('business_development_prospects').select('*').eq('id',id).maybeSingle();
+  if(error)throw error;
+  if(!data){res.status(404).json({error:'Prospect not found.'});return;}
+  await logActivity(supabase,data,'prospect_archived','success','Prospect archived by admin.');
+  const {error:updateError}=await supabase.from('business_development_prospects').update({status:'archived',updated_at:new Date().toISOString()}).eq('id',id);
+  if(updateError)throw updateError;
+  res.status(200).json({archived:true});
+}
 async function searchPublic(body,res){
   const key=String(process.env.GOOGLE_PLACES_SERVER_API_KEY||process.env.GOOGLE_PLACES_API_KEY||process.env.GOOGLE_MAPS_API_KEY||process.env.GOOGLE_MAPS_JS_API_KEY||process.env.GOOGLE_MAPS_BROWSER_API_KEY||process.env.GOOGLE_API_KEY||'').trim();
   if(!key){res.status(503).json({error:'Google Places server key is missing from this Preview deployment.',code:'PLACES_KEY_MISSING'});return;}
@@ -115,6 +150,8 @@ module.exports=async function handler(req,res){
     const action=clean((req.query&&req.query.action)||(req.body&&req.body.action),80);
     if(req.method==='GET'&&action==='list'){await list(supabase,req,res);return;}
     if(req.method==='POST'&&action==='save'){await save(supabase,req.body||{},res);return;}
+    if(req.method==='POST'&&action==='update'){await updateProspect(supabase,req.body||{},res);return;}
+    if(req.method==='POST'&&action==='remove'){await removeProspect(supabase,req.body||{},res);return;}
     if(req.method==='POST'&&action==='search-public'){await searchPublic(req.body||{},res);return;}
     if(req.method==='POST'&&action==='invite'){await invite(supabase,req.body||{},res);return;}
     res.status(400).json({error:'Unsupported CRM action.'});
