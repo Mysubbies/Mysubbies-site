@@ -307,10 +307,27 @@ async function createWorkOrder(supabase, auth, body, res) {
   await event(supabase, order.id, 'member', auth.member.id, 'work_order_created', {
     serviceMode, priority: row.priority, quotedPriceCents, recurring: recur, recurrenceRule,
   });
+  const adminUrl = 'https://app.mysubbies.com.au/mysubbies-admin-portal.html?propertyWorkOrder=' + encodeURIComponent(order.id);
+  const serviceLabel = serviceMode === 'project_quote' ? 'Project quote' : 'Instant price';
+  const priorityLabel = String(row.priority || 'normal').charAt(0).toUpperCase() + String(row.priority || 'normal').slice(1);
+  const detailRows =
+    '<table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:22px;margin:18px 0;">' +
+    '<tr><td style="color:#6B7280;padding:5px 0;width:38%;">Organisation</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(auth.organisation.name) + '</td></tr>' +
+    '<tr><td style="color:#6B7280;padding:5px 0;">Property</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(property.address) + '</td></tr>' +
+    '<tr><td style="color:#6B7280;padding:5px 0;">Request</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(taskSummary) + '</td></tr>' +
+    '<tr><td style="color:#6B7280;padding:5px 0;">Priority</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(priorityLabel) + '</td></tr>' +
+    '<tr><td style="color:#6B7280;padding:5px 0;">Service mode</td><td style="font-weight:700;padding:5px 0;">' + escapeHtml(serviceLabel) + '</td></tr>' +
+    '</table>';
   await notifyAdmin(supabase, {
     eventType: 'property-work-order-created',
     title: 'New property maintenance work order',
     body: auth.organisation.name + ' submitted ' + taskSummary + ' at ' + property.address + '.',
+    jobId: order.job_id || null,
+    ctaText: 'Open Work Order in Admin →',
+    ctaUrl: adminUrl,
+    detailsHtml: '<h2 style="margin-top:0;">New property maintenance work order</h2>' +
+      '<p>A new maintenance request has been submitted through the MySubbies Property & Facilities Portal.</p>' +
+      detailRows,
     metadata: { workOrderId: order.id, organisationId: auth.organisation.id, priority: row.priority, serviceMode },
   }).catch(() => {});
   await sendWorkOrderEmail({
