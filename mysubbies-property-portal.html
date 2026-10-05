@@ -321,6 +321,7 @@ function renderDetail(){
   }
   if(canApprove) actions+='<button class="btn btn-primary" onclick="approve(\'approved\')">Approve work</button><button class="btn btn-danger" onclick="approve(\'rejected\')">Reject</button>';
   if(canCancel) actions+='<button class="btn btn-outline" style="width:245px" onclick="cancelOrder()">Cancel work order</button>';
+  actions+='</div>';
   app.innerHTML=`<button class="btn btn-outline" onclick="back()" style="margin-bottom:14px">← Work orders</button>
   <div class="detail-grid"><div class="panel"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px"><div style="min-width:0;flex:1"><h2>${esc(o.taskSummary)}</h2><div class="sub">${esc(o.property?o.property.address:'')}</div></div><span class="badge detail-status-badge ${badgeClass(o.status)}">${statusLabel(o.status)}</span></div>
   <div class="detail-row"><span>Work order</span><b>${o.jobNumber?'Job #'+esc(o.jobNumber):esc(o.id.slice(0,8).toUpperCase())}</b></div>
