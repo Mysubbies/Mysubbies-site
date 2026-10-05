@@ -474,6 +474,74 @@ async function emailQuoteToOwner(supabase, auth, body, res) {
   res.status(200).json({ sent: true, ownerEmail: property.owner_email });
 }
 
+async function submitApprovedJobToMysubbies(supabase, auth, body, res) {
+  const order = await memberWorkOrder(supabase, auth.organisation.id, body.workOrderId);
+  if (!order) { res.status(404).json({ error: 'Work order not found.' }); return; }
+  if (order.owner_approval_status !== 'approved') { res.status(409).json({ error: 'Owner approval is required before submitting this job to MySubbies.' }); return; }
+  if (order.job_id) { res.status(409).json({ error: 'This work order has already been submitted to MySubbies.' }); return; }
+  if (!order.quoted_price_cents || order.quoted_price_cents <= 0) { res.status(409).json({ error: 'A valid quote is required before submission.' }); return; }
+  const property = await propertyForOrg(supabase, auth.organisation.id, order.property_id);
+  if (!property) { res.status(404).json({ error: 'Property not found.' }); return; }
+  const { data: org, error: orgError } = await supabase.from('pm_organisations').select('id,name').eq('id', order.organisation_id).single();
+  if (orgError) throw orgError;
+  const jobId = 'pm_' + order.id.replace(/-/g, '');
+  const now = new Date().toISOString();
+  const basePrice = order.quoted_price_cents / 100;
+  const fullRecord = {
+    id: jobId,
+    source: 'property_management',
+    category: order.category || 'Property Maintenance',
+    icon: '🏢',
+    suburb: property.suburb || null,
+    address: property.address,
+    access: property.access_notes || null,
+    urgency: order.priority,
+    basePrice,
+    items: [{ taskName: order.task_summary, qty: 1, unit: 'job', base: basePrice }],
+    customerName: org.name,
+    status: 'feed',
+    operationalStage: null,
+    requestedCompletionDate: order.requested_completion_date || null,
+    propertyManagement: { workOrderId: order.id, organisationName: org.name, propertyName: property.name || null },
+    createdAt: now,
+    messages: [],
+  };
+  const { data: job, error: jobError } = await supabase.from('jobs').insert({
+    id: jobId,
+    category: fullRecord.category,
+    suburb: property.suburb || null,
+    address: property.address,
+    base_price_cents: order.quoted_price_cents,
+    deposit_pct: 0,
+    deposit_amount_cents: 0,
+    status: 'pending_deposit',
+    stage: 'booked',
+    source: 'property_management',
+    full_record: fullRecord,
+    updated_at: now,
+  }).select('id,job_number').single();
+  if (jobError) throw jobError;
+  const { error: updateError } = await supabase.from('pm_work_orders').update({
+    job_id: jobId,
+    status: 'submitted_to_mysubbies',
+    updated_at: now,
+  }).eq('id', order.id).eq('organisation_id', auth.organisation.id);
+  if (updateError) throw updateError;
+  await event(supabase, order.id, 'member', auth.member.id, 'submitted_to_mysubbies', {
+    jobId, jobNumber: job.job_number,
+  });
+  await notifyAdmin(supabase, {
+    eventType: 'property-job-submitted-to-mysubbies',
+    title: 'Approved property job ready for allocation',
+    body: org.name + ' submitted ' + order.task_summary + ' at ' + property.address + ' to MySubbies for contractor allocation.',
+    jobId,
+    ctaText: 'Open job in MySubbies Admin →',
+    ctaUrl: 'https://app.mysubbies.com.au/mysubbies-admin-portal.html?jobId=' + encodeURIComponent(jobId),
+    metadata: { workOrderId: order.id, organisationId: org.id, jobNumber: job.job_number, source: 'property_management' },
+  }).catch(() => {});
+  res.status(200).json({ submitted: true, jobId, jobNumber: job.job_number });
+}
+
 async function cancelWorkOrder(supabase, auth, body, res) {
   const order = await memberWorkOrder(supabase, auth.organisation.id, body.workOrderId);
   if (!order) { res.status(404).json({ error: 'Work order not found.' }); return; }
@@ -1051,6 +1119,7 @@ module.exports = async (req, res) => {
     if (action === 'update-property') { await updateProperty(supabase, auth, req.body || {}, res); return; }
     if (action === 'email-quote-to-owner') { await emailQuoteToOwner(supabase, auth, req.body || {}, res); return; }
     if (action === 'request-owner-approval') { await requestOwnerApproval(supabase, auth, req.body || {}, res); return; }
+    if (action === 'submit-approved-job-to-mysubbies') { await submitApprovedJobToMysubbies(supabase, auth, req.body || {}, res); return; }
     if (action === 'create-work-order') { await createWorkOrder(supabase, auth, req.body || {}, res); return; }
     if (action === 'approve-work-order') { await approveWorkOrder(supabase, auth, req.body || {}, res); return; }
     if (action === 'cancel-work-order') { await cancelWorkOrder(supabase, auth, req.body || {}, res); return; }
