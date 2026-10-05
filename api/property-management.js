@@ -534,7 +534,7 @@ async function submitApprovedJobToMysubbies(supabase, auth, body, res) {
     deposit_pct: 0,
     deposit_amount_cents: 0,
     status: 'pending_deposit',
-    stage: 'booked',
+    stage: 'submitted',
     source: 'property_management',
     full_record: fullRecord,
     updated_at: now,
