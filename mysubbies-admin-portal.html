@@ -1969,7 +1969,7 @@
       '<div class="bd-prospect-formgrid">'+
       '<label>Business name<input id="editBdBusinessName" value="'+escapeHtml(p.business_name||'')+'"></label>'+
       '<label>Contact name<input id="editBdContactName" value="'+escapeHtml(p.contact_name||'')+'"></label>'+
-      '<label>Email<input id="editBdEmail" type="email" value="'+escapeHtml(p.email||'')+'"></label>'+
+      '<label>Email<input id="editBdEmail" type="email" value="'+escapeHtml(p.email||'')+'"></label>'+ (p.email?'':'<div style="grid-column:1/-1;margin-top:-8px;"><button type="button" class="btn btn-outline" onclick="enrichProspectEmail(\''+id+'\',this)">Find public email</button></div>')+
       '<label>Phone<input id="editBdPhone" value="'+escapeHtml(p.phone||'')+'"></label>'+
       '<label>Website<input id="editBdWebsite" value="'+escapeHtml(p.website||'')+'"></label>'+
       '<label>Suburb / area<input id="editBdSuburb" value="'+escapeHtml(p.suburb||'')+'"></label>'+
