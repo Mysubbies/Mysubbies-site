@@ -437,8 +437,27 @@ async function decideOwnerQuote(supabase, req, body, res) {
   const {error:updateError}=await supabase.from('pm_work_orders').update({owner_approval_status:decision,owner_approved_at:now,owner_approved_by_email:email||null,updated_at:now}).eq('id',order.id).eq('owner_approval_token_hash',hash);
   if(updateError) throw updateError;
   await event(supabase,order.id,'system','owner','owner_quote_'+decision,{ownerEmail:email||null});
-  const {data:members}=await supabase.from('pm_members').select('email').eq('organisation_id',order.organisation_id).eq('status','active');
-  for(const m of (members||[])){if(m.email) await sendWorkOrderEmail({to:m.email,subject:'MySubbies — Owner '+decision+' quote',detailsHtml:'<h2 style="margin-top:0;">Owner quote '+decision+'</h2><p>The property owner has '+decision+' the quote for <strong>'+escapeHtml(order.task_summary)+'</strong>.</p><p>Quote amount: <strong>'+new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(order.quoted_price_cents/100)+'</strong>.</p>'}).catch(()=>{});}
+  const {data:members}=await supabase.from('pm_members').select('email,name').eq('organisation_id',order.organisation_id).eq('status','active');
+  const property=await propertyForOrg(supabase,order.organisation_id,order.property_id);
+  const amount=new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(order.quoted_price_cents/100);
+  const detailRows='<table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:22px;margin:18px 0;">'+
+    '<tr><td style="color:#6B7280;padding:5px 0;width:38%;">Property</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(property.address)+'</td></tr>'+
+    (property.name?'<tr><td style="color:#6B7280;padding:5px 0;">Property name</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(property.name)+'</td></tr>':'')+
+    '<tr><td style="color:#6B7280;padding:5px 0;">Work requested</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(order.task_summary)+'</td></tr>'+
+    '<tr><td style="color:#6B7280;padding:5px 0;">Priority</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(order.priority)+'</td></tr>'+
+    '<tr><td style="color:#6B7280;padding:5px 0;">Quote amount</td><td style="font-weight:800;padding:5px 0;font-size:16px;">'+amount+'</td></tr>'+
+    (order.quote_reference?'<tr><td style="color:#6B7280;padding:5px 0;">Quote reference</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(order.quote_reference)+'</td></tr>':'')+
+    '<tr><td style="color:#6B7280;padding:5px 0;">Owner decision</td><td style="font-weight:700;padding:5px 0;">'+(decision==='approved'?'Approved':'Declined')+'</td></tr>'+
+    '</table>'+
+    (order.description?'<div style="margin:16px 0;"><strong>Scope / notes</strong><p style="white-space:pre-wrap;margin-top:6px;">'+escapeHtml(order.description)+'</p></div>':'');
+  for(const m of (members||[])){if(m.email){
+    const approved=decision==='approved';
+    const body='<h2 style="margin-top:0;">Owner quote '+(approved?'approved':'declined')+'</h2>'+
+      '<p>'+(approved?'Good news — the property owner has approved this maintenance quote.':'The property owner has declined this maintenance quote.')+'</p>'+
+      detailRows+
+      (approved?'<p><strong>Next step:</strong> submit this approved job to MySubbies so contractor allocation can begin.</p>'+emailButton('Submit job to MySubbies →',propertyPortalUrl()+'?orderId='+encodeURIComponent(order.id)):'<p>No further action is required unless the owner or property manager requests a change.</p>');
+    await sendWorkOrderEmail({to:m.email,subject:'MySubbies — Owner '+(approved?'approved':'declined')+' quote · '+property.address,detailsHtml:body}).catch(()=>{});
+  }}
   res.status(200).json({updated:true,status:decision});
 }
 async function emailQuoteToOwner(supabase, auth, body, res) {
