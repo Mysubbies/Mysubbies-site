@@ -2032,7 +2032,7 @@
         (p.notes ? '<div style="font-size:11px;color:#667085;margin-top:4px;"><strong>Note:</strong> '+escapeHtml(p.notes)+'</div>' : '') + '</div>' +
         '<div style="font-size:12px;">' + escapeHtml(segment) + '</div>' +
         '<div><span class="statusbadge">' + escapeHtml(status) + '</span></div>' +
-        '<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;"><button class="btn btn-outline" style="padding:7px 10px;font-size:12px;" onclick="editBdProspect(\''+kind+'\',\''+p.id+'\')">Edit</button><button class="btn btn-outline" style="padding:7px 10px;font-size:12px;" onclick="archiveBdProspect(\''+kind+'\',\''+p.id+'\')">Archive</button>'+source+'</div></div>';
+        '<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;"><button class="btn btn-outline" style="padding:7px 10px;font-size:12px;" onclick="editBdProspect(\''+kind+'\',\''+p.id+'\')">Edit</button><button class="btn btn-outline" style="padding:7px 10px;font-size:12px;" onclick="archiveBdProspect(\''+kind+'\',\''+p.id+'\')">Archive</button><button class="btn btn-danger" style="padding:7px 10px;font-size:12px;" onclick="deleteBdProspect(\''+kind+'\',\''+p.id+'\')">Delete</button>'+source+'</div></div>';
     }).join('');
     const orgs = property && propertyCrmData && !propertyCrmData.error ? (propertyCrmData.organisations || []) : [];
     const activeSummary = property
