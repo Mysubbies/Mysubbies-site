@@ -2134,7 +2134,7 @@ function openManualProspect(kind, seed) {
       prospectSearchResults=data.results||[];
       if(!box)return;
       box.innerHTML=prospectSearchResults.length?prospectSearchResults.map(function(p,i){
-        return '<div style="padding:12px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:14px;align-items:center;"><div><b>' + escapeHtml(p.businessName) + '</b><div class="jobmeta">' + escapeHtml(p.suburb||p.phone||'Public business result') + '</div>' + (p.website?'<a href="' + escapeHtml(p.website) + '" target="_blank" rel="noopener" style="font-size:11px;">Website</a> ':'') + '<a href="' + escapeHtml(p.sourceUrl) + '" target="_blank" rel="noopener" style="font-size:11px;">Source</a></div><button class="btn btn-outline" onclick="saveSearchProspect(\'' + kind + '\',' + i + ')">Save to CRM</button></div>';
+        return '<div style="padding:12px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:14px;align-items:center;"><div><b>' + escapeHtml(p.businessName) + '</b><div class="jobmeta">' + escapeHtml(p.email||p.suburb||p.phone||'Public business result') + '</div>' + (p.website?'<a href="' + escapeHtml(p.website) + '" target="_blank" rel="noopener" style="font-size:11px;">Website</a> ':'') + '<a href="' + escapeHtml(p.sourceUrl) + '" target="_blank" rel="noopener" style="font-size:11px;">Source</a></div><button class="btn btn-outline" onclick="saveSearchProspect(\'' + kind + '\',' + i + ')">Save to CRM</button></div>';
       }).join(''):'<div class="empty">No matching public businesses found.</div>';
     } catch(e){ if(box)box.innerHTML=''; if(err)err.textContent='Search failed: '+(e&&e.message?e.message:'network error'); }
   }
