@@ -548,7 +548,7 @@ async function initialiseGuestAddressAutocomplete(){
     });
   }).catch(()=>{});
 }
-function initialisePropertyAddressAutocomplete(){
+async function initialisePropertyAddressAutocomplete(){
   const input=document.getElementById('pAddress'); if(!input) return;
   selectedPropertyPlace=null;
   try{
