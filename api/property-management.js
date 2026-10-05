@@ -507,54 +507,59 @@ async function submitApprovedJobToMysubbies(supabase, auth, body, res) {
   const now = new Date().toISOString();
   const basePrice = order.quoted_price_cents / 100;
   const fullRecord = {
-    id: jobId,
-    source: 'property_management',
-    category: order.category || 'Property Maintenance',
-    icon: '🏢',
-    suburb: property.suburb || null,
-    address: property.address,
-    access: property.access_notes || null,
-    urgency: order.priority,
-    basePrice,
+    id: jobId, source: 'property_management', category: order.category || 'Property Maintenance', icon: '🏢',
+    suburb: property.suburb || null, address: property.address, access: property.access_notes || null,
+    urgency: order.priority, basePrice,
     items: [{ taskName: order.task_summary, qty: 1, unit: 'job', base: basePrice }],
-    customerName: org.name,
-    status: 'feed',
-    operationalStage: null,
+    customerName: org.name, status: 'feed', operationalStage: null,
     requestedCompletionDate: order.requested_completion_date || null,
     propertyManagement: { workOrderId: order.id, organisationName: org.name, propertyName: property.name || null },
-    createdAt: now,
-    messages: [],
+    createdAt: now, messages: [],
   };
-  const { data: job, error: jobError } = await supabase.from('jobs').insert({
-    id: jobId,
-    category: fullRecord.category,
-    suburb: property.suburb || null,
-    address: property.address,
-    base_price_cents: order.quoted_price_cents,
-    deposit_pct: 0,
-    deposit_amount_cents: 0,
-    status: 'pending_deposit',
-    stage: 'submitted',
-    source: 'property_management',
-    full_record: fullRecord,
-    updated_at: now,
-  }).select('id,job_number').single();
-  if (jobError) throw jobError;
-  const { error: updateError } = await supabase.from('pm_work_orders').update({
-    job_id: jobId,
-    status: 'submitted_to_mysubbies',
-    updated_at: now,
-  }).eq('id', order.id).eq('organisation_id', auth.organisation.id);
+  let job;
+  const { data: existingJob, error: existingError } = await supabase.from('jobs').select('id,job_number').eq('id', jobId).maybeSingle();
+  if (existingError) throw existingError;
+  if (existingJob) {
+    job = existingJob;
+  } else {
+    const { data: createdJob, error: jobError } = await supabase.from('jobs').insert({
+      id: jobId, category: fullRecord.category, suburb: property.suburb || null, address: property.address,
+      base_price_cents: order.quoted_price_cents, deposit_pct: 0, deposit_amount_cents: 0,
+      status: 'pending_deposit', stage: 'submitted', source: 'property_management',
+      full_record: fullRecord, updated_at: now,
+    }).select('id,job_number').single();
+    if (jobError) {
+      if (jobError.code === '23505') {
+        const { data: retryJob, error: retryError } = await supabase.from('jobs').select('id,job_number').eq('id', jobId).maybeSingle();
+        if (retryError) throw retryError;
+        if (!retryJob) throw jobError;
+        job = retryJob;
+      } else {
+        throw jobError;
+      }
+    } else {
+      job = createdJob;
+    }
+  }
+  const { data: linkedOrder, error: updateError } = await supabase.from('pm_work_orders').update({
+    job_id: jobId, status: 'submitted_to_mysubbies', updated_at: now,
+  }).eq('id', order.id).eq('organisation_id', auth.organisation.id).is('job_id', null).select('id').maybeSingle();
   if (updateError) throw updateError;
-  await event(supabase, order.id, 'member', auth.member.id, 'submitted_to_mysubbies', {
-    jobId, jobNumber: job.job_number,
-  });
+  if (!linkedOrder) {
+    const { data: refreshed } = await supabase.from('pm_work_orders').select('job_id').eq('id', order.id).eq('organisation_id', auth.organisation.id).maybeSingle();
+    if (refreshed && refreshed.job_id === jobId) {
+      res.status(200).json({ submitted: true, alreadySubmitted: true, jobId, jobNumber: job.job_number });
+      return;
+    }
+    res.status(409).json({ error: 'The job was created, but MySubbies could not link it back to this work order. Please contact MySubbies support before trying again.' });
+    return;
+  }
+  await event(supabase, order.id, 'member', auth.member.id, 'submitted_to_mysubbies', { jobId, jobNumber: job.job_number });
   await notifyAdmin(supabase, {
     eventType: 'property-job-submitted-to-mysubbies',
     title: 'Approved property job ready for allocation',
     body: org.name + ' submitted ' + order.task_summary + ' at ' + property.address + ' to MySubbies for contractor allocation.',
-    jobId,
-    ctaText: 'Open job in MySubbies Admin →',
+    jobId, ctaText: 'Open job in MySubbies Admin →',
     ctaUrl: 'https://app.mysubbies.com.au/mysubbies-admin-portal.html?jobId=' + encodeURIComponent(jobId),
     metadata: { workOrderId: order.id, organisationId: org.id, jobNumber: job.job_number, source: 'property_management' },
   }).catch(() => {});
