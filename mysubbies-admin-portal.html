@@ -2053,6 +2053,7 @@
   }
 
   let prospectSearchResults = [];
+  let prospectSearchSelected = new Set();
   function prospectTypeFor(kind) { return kind === 'property' ? 'property_manager' : 'contractor'; }
   function showCrmModal(html) {
     const old = document.getElementById('crmActionModal');
@@ -2113,40 +2114,69 @@ function openManualProspect(kind, seed) {
 
   function openProspectFinder(kind) {
     const label = kind === 'property' ? 'property managers' : 'contractors';
-    showCrmModal('<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:18px;"><div><h2 style="margin:0;">AI Prospect Finder</h2><div class="jobmeta">Search public business data for ' + label + '. Results must be reviewed and saved before outreach.</div></div><button class="btn btn-outline" onclick="closeCrmModal()">Close</button></div>' +
+    prospectSearchSelected = new Set();
+    showCrmModal('<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:18px;"><div><h2 style="margin:0;">AI Prospect Finder</h2><div class="jobmeta">Search public business data for ' + label + '. Results stay open until you close this window.</div></div><button class="btn btn-outline" onclick="closeCrmModal()">Close</button></div>' +
       '<div class="bd-prospect-formgrid"><label>What to find<input id="prospectSearchQuery" placeholder="' + (kind==='property'?'property managers, strata managers, facilities managers':'landscapers, concreters, fencing contractors') + '"></label><label>Area<input id="prospectSearchLocation" value="Melbourne VIC"></label></div>' +
-      '<div id="prospectSearchError" style="color:#B4232C;font-size:13px;margin-top:10px;"></div><div style="margin-top:16px;"><button class="btn btn-black" onclick="runProspectSearch(\'' + kind + '\')">Search public businesses</button></div><div id="prospectSearchResults" style="margin-top:18px;"></div>');
+      '<div id="prospectSearchError" style="color:#B4232C;font-size:13px;margin-top:10px;"></div><div style="margin-top:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn btn-black" onclick="runProspectSearch(\'' + kind + '\')">Search public businesses</button><button id="saveSelectedProspectsBtn" class="btn btn-outline" onclick="saveSelectedProspects(\'' + kind + '\')" disabled>Add selected to CRM (0)</button></div><div id="prospectSearchResults" style="margin-top:18px;"></div>');
+  }
+  function updateProspectSearchSelection(index, checked) {
+    if(checked) prospectSearchSelected.add(index); else prospectSearchSelected.delete(index);
+    const btn=document.getElementById('saveSelectedProspectsBtn');
+    if(btn){btn.disabled=prospectSearchSelected.size===0;btn.textContent='Add selected to CRM ('+prospectSearchSelected.size+')';}
+    const all=document.getElementById('prospectSelectAll');
+    if(all) all.checked=prospectSearchResults.length>0 && prospectSearchSelected.size===prospectSearchResults.length;
+  }
+  function toggleAllProspectSearch(checked) {
+    prospectSearchSelected=new Set();
+    if(checked) prospectSearchResults.forEach((_,i)=>prospectSearchSelected.add(i));
+    const box=document.getElementById('prospectSearchResults');
+    if(box) box.querySelectorAll('input[data-prospect-index]').forEach(function(el){el.checked=checked;});
+    const btn=document.getElementById('saveSelectedProspectsBtn');
+    if(btn){btn.disabled=prospectSearchSelected.size===0;btn.textContent='Add selected to CRM ('+prospectSearchSelected.size+')';}
   }
   async function runProspectSearch(kind) {
-    const q=document.getElementById('prospectSearchQuery');
-    const l=document.getElementById('prospectSearchLocation');
-    const err=document.getElementById('prospectSearchError');
-    const box=document.getElementById('prospectSearchResults');
+    const q=document.getElementById('prospectSearchQuery'), l=document.getElementById('prospectSearchLocation');
+    const err=document.getElementById('prospectSearchError'), box=document.getElementById('prospectSearchResults');
     const query=q?q.value.trim():'', location=l?l.value.trim():'Melbourne VIC';
-    if(!query){ if(err)err.textContent='Enter what type of business you want to find.'; return; }
-    if(err)err.textContent='';
-    if(box)box.innerHTML='<div class="empty">Searching public business data…</div>';
-    try {
-      const res=await adminFetch('/api/business-development?action=search-public',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prospectType:prospectTypeFor(kind),query:query,location:location})});
-      const raw=await res.text();
-      let data={}; try{data=raw?JSON.parse(raw):{};}catch(_){data={error:raw||('HTTP '+res.status)};}
-      if(!res.ok){ if(box)box.innerHTML=''; if(err)err.textContent=data.error||('Search failed (HTTP '+res.status+').'); return; }
-      prospectSearchResults=data.results||[];
+    if(!query){if(err)err.textContent='Enter what type of business you want to find.';return;}
+    if(err)err.textContent=''; if(box)box.innerHTML='<div class="empty">Searching public business data…</div>';
+    try{
+      const res=await adminFetch('/api/business-development?action=search-public',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prospectType:prospectTypeFor(kind),query,location})});
+      const raw=await res.text(); let data={}; try{data=raw?JSON.parse(raw):{}}catch(_){data={error:raw||('HTTP '+res.status)};}
+      if(!res.ok){if(box)box.innerHTML='';if(err)err.textContent=data.error||('Search failed (HTTP '+res.status+').');return;}
+      prospectSearchResults=data.results||[]; prospectSearchSelected=new Set();
       if(!box)return;
-      box.innerHTML=prospectSearchResults.length?prospectSearchResults.map(function(p,i){
-        return '<div style="padding:12px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:14px;align-items:center;"><div><b>' + escapeHtml(p.businessName) + '</b><div class="jobmeta">' + escapeHtml(p.email||p.suburb||p.phone||'Public business result') + '</div>' + (p.website?'<a href="' + escapeHtml(p.website) + '" target="_blank" rel="noopener" style="font-size:11px;">Website</a> ':'') + '<a href="' + escapeHtml(p.sourceUrl) + '" target="_blank" rel="noopener" style="font-size:11px;">Source</a></div><button class="btn btn-outline" onclick="saveSearchProspect(\'' + kind + '\',' + i + ')">Save to CRM</button></div>';
-      }).join(''):'<div class="empty">No matching public businesses found.</div>';
-    } catch(e){ if(box)box.innerHTML=''; if(err)err.textContent='Search failed: '+(e&&e.message?e.message:'network error'); }
+      box.innerHTML=prospectSearchResults.length?
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);gap:10px;"><label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;"><input id="prospectSelectAll" type="checkbox" onchange="toggleAllProspectSearch(this.checked)"> Select all</label><span class="jobmeta">'+prospectSearchResults.length+' results</span></div>'+
+        prospectSearchResults.map(function(p,i){
+          const emailLine=p.email?'<div style="font-size:12px;color:#2F7A50;font-weight:700;margin-top:2px;">'+escapeHtml(p.email)+'</div>':'<div style="font-size:12px;color:#B0592E;margin-top:2px;">No public email found</div>';
+          return '<div style="padding:12px 0;border-top:1px solid var(--line);display:flex;gap:10px;align-items:flex-start;"><input data-prospect-index="'+i+'" type="checkbox" onchange="updateProspectSearchSelection('+i+',this.checked)" style="margin-top:4px;"><div style="flex:1;min-width:0;"><b>'+escapeHtml(p.businessName)+'</b>'+emailLine+'<div class="jobmeta">'+escapeHtml(p.suburb||p.phone||'Public business result')+'</div>'+(p.website?'<a href="'+escapeHtml(p.website)+'" target="_blank" rel="noopener" style="font-size:11px;">Website</a> ':'')+'<a href="'+escapeHtml(p.sourceUrl)+'" target="_blank" rel="noopener" style="font-size:11px;">Source</a></div></div>';
+        }).join('')
+        :'<div class="empty">No matching public businesses found.</div>';
+    }catch(e){if(box)box.innerHTML='';if(err)err.textContent='Search failed: '+(e&&e.message?e.message:'network error');}
   }
-  async function saveSearchProspect(kind,index) {
-    const p=prospectSearchResults[index]; if(!p)return;
-    const res=await adminFetch('/api/business-development?action=save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
-    const data=await res.json();
-    if(!res.ok){alert(data.error||'Prospect could not be saved.');return;}
-    bdCrm[kind].prospects=null;
-    await loadBdProspects(kind);
-    alert(data.duplicatePrevented?'Already in CRM — duplicate prevented.':'Saved to CRM. Nothing has been sent.');
+  async function saveSelectedProspects(kind){
+    const indices=Array.from(prospectSearchSelected); if(!indices.length)return;
+    const btn=document.getElementById('saveSelectedProspectsBtn'); if(btn){btn.disabled=true;btn.textContent='Adding '+indices.length+' prospects…';}
+    let saved=0,duplicates=0,failed=0;
+    for(const index of indices){
+      const p=prospectSearchResults[index]; if(!p)continue;
+      try{
+        const res=await adminFetch('/api/business-development?action=save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
+        const data=await res.json().catch(()=>({}));
+        if(res.ok){saved++;if(data.duplicatePrevented)duplicates++;}else failed++;
+      }catch(e){failed++;}
+    }
+    bdCrm[kind].prospects=null; await loadBdProspects(kind);
+    prospectSearchSelected=new Set();
+    const box=document.getElementById('prospectSearchResults');
+    if(box)box.querySelectorAll('input[data-prospect-index]').forEach(el=>el.checked=false);
+    const all=document.getElementById('prospectSelectAll'); if(all)all.checked=false;
+    const err=document.getElementById('prospectSearchError'); if(err)err.textContent='Added '+saved+' prospects to CRM.'+(duplicates?' '+duplicates+' duplicates prevented.':'')+(failed?' '+failed+' could not be added.':'');
+    if(btn){btn.disabled=true;btn.textContent='Add selected to CRM (0)';}
   }
+  async function saveSearchProspect(kind,index){prospectSearchSelected.add(index);await saveSelectedProspects(kind);}
+
 
   let blogData = null, blogLoading = false;
   async function loadBlogSeo() {
