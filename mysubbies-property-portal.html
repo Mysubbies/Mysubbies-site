@@ -306,34 +306,40 @@ function ordersHtml(){
 }
 function openOrder(id){state.selected=(state.data.workOrders||[]).find(x=>x.id===id)||null;state.view='detail';history.replaceState(null,'',location.pathname+'?orderId='+encodeURIComponent(id));render();}
 function back(){state.view='orders';state.selected=null;history.replaceState(null,'',location.pathname);render();}
-function detailActionButtons(o, canApprove, canCancel){
-  if(!canApprove && !canCancel && !o.quotedPriceCents) return '';
-  let html='<div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;align-items:center">';
-  if(o.quotedPriceCents){
-    if(o.ownerApprovalStatus==='approved' && !o.jobNumber) html+='<button class="btn btn-primary" style="min-width:245px" onclick="submitApprovedJobToMysubbies()">Submit job to MySubbies →</button>';
-    else if(o.ownerApprovalStatus==='approved' && o.jobNumber) html+='<button class="btn btn-outline" style="min-width:245px" disabled>Submitted to MySubbies</button>';
-    else if(o.ownerApprovalStatus==='pending') html+='<button class="btn btn-outline" style="min-width:245px" disabled>Owner approval pending</button>';
-    else html+='<button class="btn btn-primary" style="min-width:245px" onclick="requestOwnerApproval()">Submit to owner for approval →</button>';
-  }
-  if(canApprove) html+='<button class="btn btn-primary" onclick="approve(\'approved\')">Approve work</button><button class="btn btn-danger" onclick="approve(\'rejected\')">Reject</button>';
-  if(canCancel) html+='<button class="btn btn-outline" style="min-width:245px" onclick="cancelOrder()">Cancel work order</button>';
-  return html+'</div>';
-}
-
 function renderDetail(){
-  const o=state.selected;if(!o){back();return;}const canApprove=state.data.member.canApprove&&o.approvalStatus==='pending';
+  const o=state.selected;
+  if(!o){back();return;}
+  const canApprove=state.data.member.canApprove&&o.approvalStatus==='pending';
   const canCancel=o.status!=='cancelled'&&o.status!=='completed'&&!['released','assigned','in_progress'].includes(o.status);
   const requestFiles=(o.files||[]).filter(f=>f.kind==='request_photo'),completionFiles=(o.files||[]).filter(f=>f.kind==='completion_photo'),invoiceFiles=(o.files||[]).filter(f=>f.kind==='invoice');
+  let actions='';
+  if(o.quotedPriceCents){
+    if(o.ownerApprovalStatus==='approved'&&!o.jobNumber) actions+='<button class="btn btn-primary" style="min-width:245px" onclick="submitApprovedJobToMysubbies()">Submit job to MySubbies →</button>';
+    else if(o.ownerApprovalStatus==='approved'&&o.jobNumber) actions+='<button class="btn btn-outline" style="min-width:245px" disabled>Submitted to MySubbies</button>';
+    else if(o.ownerApprovalStatus==='pending') actions+='<button class="btn btn-outline" style="min-width:245px" disabled>Owner approval pending</button>';
+    else actions+='<button class="btn btn-primary" style="min-width:245px" onclick="requestOwnerApproval()">Submit to owner for approval →</button>';
+  }
+  if(canApprove) actions+='<button class="btn btn-primary" onclick="approve(\'approved\')">Approve work</button><button class="btn btn-danger" onclick="approve(\'rejected\')">Reject</button>';
+  if(canCancel) actions+='<button class="btn btn-outline" style="min-width:245px" onclick="cancelOrder()">Cancel work order</button>';
   app.innerHTML=`<button class="btn btn-outline" onclick="back()" style="margin-bottom:14px">← Work orders</button>
   <div class="detail-grid"><div class="panel"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px"><div style="min-width:0;flex:1"><h2>${esc(o.taskSummary)}</h2><div class="sub">${esc(o.property?o.property.address:'')}</div></div><span class="badge detail-status-badge ${badgeClass(o.status)}">${statusLabel(o.status)}</span></div>
   <div class="detail-row"><span>Work order</span><b>${o.jobNumber?'Job #'+esc(o.jobNumber):esc(o.id.slice(0,8).toUpperCase())}</b></div>
   <div class="detail-row"><span>Service route</span><b>${o.serviceMode==='project_quote'?'Project quote':'Instant price'}</b></div>
   <div class="detail-row"><span>Price</span><b>${money(o.quotedPriceCents)}</b></div>
-  <div class="detail-row"><span>Approval</span><b>${statusLabel(o.approvalStatus)}</b></div><div class="detail-row"><span>Owner quote approval</span><b>${statusLabel(o.ownerApprovalStatus||'not_requested')}</b></div>
+  <div class="detail-row"><span>Approval</span><b>${statusLabel(o.approvalStatus)}</b></div>
+  <div class="detail-row"><span>Owner quote approval</span><b>${statusLabel(o.ownerApprovalStatus||'not_requested')}</b></div>
   <div class="detail-row"><span>Contract / legal review</span><b>${statusLabel(o.legalReviewStatus||'not_required')}</b></div>
   <div class="detail-row"><span>Priority</span><b>${statusLabel(o.priority)}</b></div>
   <div class="detail-row"><span>Requested completion</span><b>${dateFmt(o.requestedCompletionDate)}</b></div>
-  <div class="detail-row"><span>Cont
+  <div class="detail-row"><span>Contractor status</span><b>${statusLabel(o.contractorStatus||'Not released')}</b></div>
+  <div class="detail-row"><span>Recurring</span><b>${o.recurring?statusLabel(o.recurrenceRule):'No'}</b></div>
+  ${o.description?'<div style="margin-top:15px"><b style="font-size:12px">Scope / notes</b><p style="font-size:13px;margin-top:6px;white-space:pre-wrap">'+esc(o.description)+'</p></div>':''}
+  ${requestFiles.length?'<div style="margin-top:16px"><b style="font-size:12px">Request files</b><div class="filegrid">'+filesHtml(requestFiles)+'</div></div>':''}
+  ${completionFiles.length?'<div style="margin-top:16px"><b style="font-size:12px">Completion evidence</b><div class="filegrid">'+filesHtml(completionFiles)+'</div></div>':''}
+  ${(o.beforePhotos||[]).length?'<div style="margin-top:16px"><b style="font-size:12px">Before photos</b><div class="filegrid">'+jobPhotosHtml(o.beforePhotos)+'</div></div>':''}
+  ${(o.completionPhotos||[]).length?'<div style="margin-top:16px"><b style="font-size:12px">After photos</b><div class="filegrid">'+jobPhotosHtml(o.completionPhotos)+'</div></div>':''}
+  ${o.completionNotes?'<div style="margin-top:15px"><b style="font-size:12px">Completion notes</b><p style="font-size:13px;margin-top:6px">'+esc(o.completionNotes)+'</p></div>':''}
+  ${actions}
   </div><aside><div class="card"><div class="wo-title">Invoice</div><div class="wo-meta" style="margin-top:7px">Status: <b>${statusLabel(o.invoiceStatus)}</b></div>${o.invoiceReference?'<div class="wo-meta">Reference: <b>'+esc(o.invoiceReference)+'</b></div>':''}${o.invoiceAmountCents!=null?'<div class="wo-meta">Amount: <b>'+money(o.invoiceAmountCents)+'</b></div>':''}${invoiceFiles.length?'<div class="filegrid">'+filesHtml(invoiceFiles)+'</div>':''}</div>
   <div class="card"><div class="wo-title">Activity</div><div class="timeline">${eventsHtml(o.events)}</div></div></aside></div>`;
 }
