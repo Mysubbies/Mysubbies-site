@@ -132,8 +132,10 @@ function emailDetailsTable(rows) {
   </table>`;
 }
 
-function emailButton(text, url) {
-  return `<a href="${url}" style="display:inline-block;background:#14213D;color:#fff;text-decoration:none;padding:12px 24px;border-radius:999px;font-size:13px;font-weight:700;margin-top:4px;">${escapeHtml(text)}</a>`;
+function emailButton(text, url, variant) {
+  const bg = variant === 'orange' ? '#FF6A1A' : '#14213D';
+  const fg = variant === 'orange' ? '#14213D' : '#FFFFFF';
+  return `<a href="${url}" style="display:inline-block;background:${bg};color:${fg};text-decoration:none;padding:12px 24px;border-radius:999px;font-size:13px;font-weight:700;margin-top:4px;">${escapeHtml(text)}</a>`;
 }
 
 // dataUrl is a client-resized JPEG thumbnail (see resizeImageDataUrl() in
