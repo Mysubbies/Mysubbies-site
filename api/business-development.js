@@ -197,7 +197,7 @@ async function invite(supabase,body,res){
       '<p>Instead of your team chasing contractors, tenants, quotes, owners, completion photos and invoices across different emails and systems, MySubbies brings the maintenance workflow into one place.</p>'+
       '<p>Your team can raise maintenance requests, get quotes, send quotes to owners for approval, submit approved work to MySubbies, have contractors allocated and track the job through to completion.</p>'+
       '<p><strong>The aim is simple: less chasing and fewer phone calls for your property management team.</strong></p>'+
-      emailButton('See how MySubbies works →','https://www.mysubbies.com.au/mysubbies-property-managers.html')+
+      emailButton('See how MySubbies works →','https://www.mysubbies.com.au/mysubbies-property-managers.html','orange')+
       '<p>Would you be open to a quick 10-minute walkthrough?</p>';
     const contractorBody='<h2 style="margin-top:0;">We bring you the work. You focus on doing the work.</h2>'+
       '<img src="https://www.mysubbies.com.au/images/contractor-landing-hero.jpg" alt="MySubbies contractor network" style="display:block;width:100%;height:auto;border-radius:10px;margin:0 0 22px;">'+
