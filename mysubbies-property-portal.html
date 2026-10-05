@@ -86,7 +86,8 @@ function renderGuestBooking(message){
   app.innerHTML='<div class="loginwrap" style="max-width:760px;"><div class="panel"><div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#E85A0A;margin-bottom:7px;">MySubbies Property & Facilities</div><h2>Book a maintenance job</h2><p class="sub">Tell us what needs attention. You can create your free account when you are ready to submit the job. <strong>No payment is required.</strong></p>'+
   (message?'<div class="error">'+esc(message)+'</div>':'')+
   '<div class="field"><label>Property address</label><input id="guestAddress" autocomplete="street-address" placeholder="Start typing the property address"></div>'+
-  '<div class="grid2"><div class="field"><label>Service category</label><select id="guestCategory" onchange="guestCategoryChanged()"><option value="">Choose…</option>'+cats.map(c=>'<option value="'+esc(c.category)+'">'+esc(c.category)+'</option>').join('')+'</select></div><div class="field"><label>Service</label><select id="guestTask"><option value="">Choose category first</option></select></div></div>'+
+  '<div class="grid2"><div class="field"><label>Service category</label><select id="guestCategory" onchange="guestCategoryChanged()"><option value="">Choose…</option>'+cats.map(c=>'<option value="'+esc(c.category)+'">'+esc(c.category)+'</option>').join('')+'</select></div><div class="field"><label>Service</label><select id="guestTask" onchange="guestEstimateNow()"><option value="">Choose category first</option></select></div></div>'+
+  '<div class="field"><label>Quantity / size</label><input id="guestQty" type="number" min="0.01" step="0.01" value="1" oninput="guestEstimateNow()"><div class="hint" id="guestUnitHint"></div></div><div id="guestEstimateBox"></div>'+
   '<div class="field"><label>What needs to be done?</label><textarea id="guestDescription" placeholder="Describe the issue, access arrangements and anything the contractor should know."></textarea></div>'+
   '<div class="grid2"><div class="field"><label>Priority</label><select id="guestPriority"><option value="low">Low</option><option value="normal" selected>Normal</option><option value="urgent">Urgent</option><option value="emergency">Emergency</option></select></div><div class="field"><label>Requested completion date</label><input id="guestDate" type="date"></div></div>'+
   '<div class="field"><label>Photos / documents (optional)</label><input id="guestFiles" type="file" accept="image/jpeg,image/png,application/pdf" multiple></div>'+
@@ -106,14 +107,31 @@ function guestCategoryChanged(){
   const sel=document.getElementById('guestTask');
   sel.innerHTML='<option value="">Choose…</option>'+((cat&&cat.tasks)||[]).map(t=>'<option value="'+esc(t.name)+'">'+esc(t.name)+(t.serviceMode==='project_quote'?' — quote required':'')+'</option>').join('');
 }
+let guestEstimateTimer=null;
+function guestEstimateNow(){clearTimeout(guestEstimateTimer);guestEstimateTimer=setTimeout(runGuestEstimate,180);}
+async function runGuestEstimate(){
+  const category=document.getElementById('guestCategory')?.value, task=document.getElementById('guestTask')?.value, qty=Number(document.getElementById('guestQty')?.value);
+  const box=document.getElementById('guestEstimateBox'), hint=document.getElementById('guestUnitHint');
+  if(!box)return;
+  box.innerHTML=''; if(!category||!task||!qty)return;
+  const taskObj=(((state.catalog||{}).categories||[]).find(c=>c.category===category)?.tasks||[]).find(t=>t.name===task);
+  if(hint)hint.textContent=taskObj?'Unit: '+taskObj.unit:'';
+  try{
+    const res=await fetch('/api/booking-api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'estimate',category,taskName:task,qty})});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'Could not calculate price.');
+    if(data.serviceMode==='project_quote'){box.innerHTML='<div class="estimate">This service needs a project quote. MySubbies will review the job after submission.</div>';}
+    else{box.innerHTML='<div class="estimate"><span>Live estimated price</span><br><strong>'+money(data.totalCents)+'</strong><div class="hint">GST inclusive. Subject to the listed scope, assumptions and site conditions.</div></div>';}
+  }catch(e){box.innerHTML='<div class="error">'+esc(e.message)+'</div>';}
+}
 async function continueGuestBooking(){
-  const address=document.getElementById('guestAddress').value.trim(),category=document.getElementById('guestCategory').value,task=document.getElementById('guestTask').value,description=document.getElementById('guestDescription').value.trim();
+  const address=document.getElementById('guestAddress').value.trim(),category=document.getElementById('guestCategory').value,task=document.getElementById('guestTask').value,qty=Number(document.getElementById('guestQty').value),description=document.getElementById('guestDescription').value.trim();
   const err=document.getElementById('guestBookError');
-  if(!address||!category||!task||!description){if(err)err.innerHTML='<div class="error">Please complete the property address, service and description.</div>';return;}
+  if(!address||!category||!task||!qty||!description){if(err)err.innerHTML='<div class="error">Please complete the property address, service and description.</div>';return;}
   const files=Array.from(document.getElementById('guestFiles').files||[]).slice(0,4);
   const attachments=[];
   for(const f of files){try{attachments.push(await fileToAttachment(f));}catch(e){if(err)err.innerHTML='<div class="error">One of the selected files could not be prepared.</div>';return;}}
-  localStorage.setItem('mysubbies_pm_guest_booking',JSON.stringify({address,category,task,description,priority:document.getElementById('guestPriority').value,requestedCompletionDate:document.getElementById('guestDate').value||null,attachments,workOrderId:crypto.randomUUID()}));
+  localStorage.setItem('mysubbies_pm_guest_booking',JSON.stringify({address,category,task,description,priority:document.getElementById('guestPriority').value,requestedCompletionDate:document.getElementById('guestDate').value||null,qty,attachments,workOrderId:crypto.randomUUID()}));
   state.authMode='register';renderAuth('Create your free account to submit this maintenance job. Your job details are saved.');
 }
 async function finishGuestBooking(){
@@ -125,7 +143,7 @@ async function finishGuestBooking(){
       const pr=await api('/api/property-management',{method:'POST',body:JSON.stringify({action:'create-property',address:d.address,name:d.address})});
       prop=pr.property;
     }
-    const payload={action:'create-work-order',workOrderId:d.workOrderId,propertyId:prop.id,serviceMode:'project_quote',taskSummary:d.task,description:d.description,priority:d.priority,requestedCompletionDate:d.requestedCompletionDate,recurring:false,attachments:d.attachments||[]};
+    const payload={action:'create-work-order',workOrderId:d.workOrderId,propertyId:prop.id,serviceMode:'instant_price',category:d.category,taskName:d.task,qty:d.qty,description:d.description,priority:d.priority,requestedCompletionDate:d.requestedCompletionDate,recurring:false,attachments:d.attachments||[]};
     await api('/api/property-management',{method:'POST',body:JSON.stringify(payload)});
     localStorage.removeItem('mysubbies_pm_guest_booking');
     history.replaceState(null,'',location.pathname);
