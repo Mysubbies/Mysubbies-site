@@ -29,11 +29,10 @@ async function storeAttachments(supabase, organisationId, workOrderId, memberId,
   if (!Array.isArray(attachments) || !attachments.length) return [];
   if (attachments.length > 4) throw new Error('Upload no more than 4 attachments per request.');
   const rows = [];
-  let totalBytes = 0;
-  for (const item of attachments) {
-    const file = decodeAttachment(item);
-    totalBytes += file.bytes.length;
-    if (totalBytes > MAX_TOTAL_BYTES) throw new Error('Attachments must total 3 MB or less.');
+  // Validate the whole batch before uploading any object.
+  const decoded = attachments.map(decodeAttachment);
+  if (decoded.reduce((total, file) => total + file.bytes.length, 0) > MAX_TOTAL_BYTES) throw new Error('Attachments must total 3 MB or less.');
+  for (const file of decoded) {
     const path = organisationId + '/' + workOrderId + '/' + crypto.randomUUID() + '-' + file.name;
     const { error } = await supabase.storage.from(BUCKET).upload(path, file.bytes, { contentType: file.mime, upsert: false });
     if (error) throw error;

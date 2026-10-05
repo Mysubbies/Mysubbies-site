@@ -16,9 +16,9 @@ const LEGAL_REVIEW_THRESHOLD_CENTS = 990000;
 
 function propertyPortalUrl() {
   const explicit = String(process.env.APP_BASE_URL || process.env.PUBLIC_APP_BASE_URL || '').trim().replace(/\/+$/, '');
-  if (explicit) return explicit + '/mysubbies-property-portal.html';
-  if (process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL) return 'https://' + process.env.VERCEL_URL + '/mysubbies-property-portal.html';
-  return 'https://app.mysubbies.com.au/mysubbies-property-portal.html';
+  if (explicit) return explicit + '/property';
+  if (process.env.VERCEL_ENV === 'preview' && process.env.VERCEL_URL) return 'https://' + process.env.VERCEL_URL + '/property';
+  return 'https://app.mysubbies.com.au/property';
 }
 
 async function sendPropertyInvite(email, organisationName, role) {
@@ -223,10 +223,7 @@ async function createProperty(supabase, auth, body, res) {
   if (auth.member.role !== 'org_admin') { res.status(403).json({ error: 'Organisation admin access is required.' }); return; }
   const address = text(body.address, 300);
   if (!address) { res.status(400).json({ error: 'Property address is required.' }); return; }
-  const requestedId = text(body.workOrderId, 80);
-  const workOrderId = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedId) ? requestedId : null;
   const row = {
-    ...(workOrderId ? { id: workOrderId } : {}),
     organisation_id: auth.organisation.id,
     name: text(body.name, 120) || null,
     address,
@@ -272,6 +269,10 @@ async function updateProperty(supabase, auth, body, res) {
 }
 
 async function createWorkOrder(supabase, auth, body, res) {
+  if (auth.member.role === 'viewer') { res.status(403).json({ error: 'Viewer access cannot submit work orders.' }); return; }
+  const requestedId = text(body.workOrderId, 80);
+  const workOrderId = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedId) ? requestedId : null;
+
   const property = await propertyForOrg(supabase, auth.organisation.id, body.propertyId);
   if (!property) { res.status(404).json({ error: 'Property not found.' }); return; }
 
@@ -303,6 +304,7 @@ async function createWorkOrder(supabase, auth, body, res) {
   const row = {
     organisation_id: auth.organisation.id,
     property_id: property.id,
+    ...(workOrderId ? { id: workOrderId } : {}),
     requested_by_member_id: auth.member.id,
     service_mode: serviceMode,
     category,
@@ -521,6 +523,7 @@ async function approveWorkOrder(supabase, auth, body, res) {
   }
   const order = await memberWorkOrder(supabase, auth.organisation.id, body.workOrderId);
   if (!order) { res.status(404).json({ error: 'Work order not found.' }); return; }
+  if (order.status !== 'awaiting_approval' || order.quoted_price_cents == null) { res.status(409).json({ error: 'Wait for a priced quote before approving this work order.' }); return; }
   if (!['pending'].includes(order.approval_status)) { res.status(409).json({ error: 'This work order is no longer awaiting approval.' }); return; }
   const decision = body.decision === 'rejected' ? 'rejected' : 'approved';
   const now = new Date().toISOString();
@@ -777,6 +780,7 @@ async function adminSetQuote(supabase, body, res) {
   const { data: order, error: findError } = await supabase.from('pm_work_orders').select('*').eq('id', body.workOrderId).maybeSingle();
   if (findError) throw findError;
   if (!order) { res.status(404).json({ error: 'Work order not found.' }); return; }
+  if (order.job_id || ['cancelled','completed'].includes(order.status)) { res.status(409).json({ error: 'Quotes cannot be changed after release or close-out.' }); return; }
   const approvalStatus = order.approval_required ? 'pending' : 'not_required';
   const nextStatus = order.approval_required ? 'awaiting_approval' : 'ready_to_release';
   const { error } = await supabase.from('pm_work_orders').update({
@@ -814,6 +818,7 @@ async function adminRelease(supabase, body, res) {
   const { data: order, error: orderError } = await supabase.from('pm_work_orders').select('*').eq('id', body.workOrderId).maybeSingle();
   if (orderError) throw orderError;
   if (!order) { res.status(404).json({ error: 'Work order not found.' }); return; }
+  if (order.status !== 'ready_to_release') { res.status(409).json({ error: 'Only work orders ready to release can be allocated.' }); return; }
   if (order.job_id) { res.status(409).json({ error: 'This work order has already been released.' }); return; }
   if (!order.quoted_price_cents || order.quoted_price_cents <= 0) { res.status(409).json({ error: 'Set a price before releasing the work order.' }); return; }
   let selectedContractorId = text(body.contractorId, 80);
@@ -826,6 +831,16 @@ async function adminRelease(supabase, body, res) {
   if (!selectedContractorId) { res.status(400).json({ error: 'Select a site contractor or set a preferred contractor for this property.' }); return; }
   const { data: org, error: orgError } = await supabase.from('pm_organisations').select('id, name').eq('id', order.organisation_id).single();
   if (orgError) throw orgError;
+
+  const { data: selectedContractor, error: contractorError } = await supabase.from('contractors')
+    .select('id, email, business_name, status, categories, licence_status, insurance_status, licence_expiry, insurance_expiry').eq('id', selectedContractorId).maybeSingle();
+  if (contractorError) throw contractorError;
+  const expired = value => value && new Date(`${value}T23:59:59Z`) < new Date();
+  if (!selectedContractor || !['approved','preferred'].includes(selectedContractor.status)
+      || selectedContractor.licence_status === 'expired' || selectedContractor.insurance_status === 'expired'
+      || expired(selectedContractor.licence_expiry) || expired(selectedContractor.insurance_expiry)) {
+    res.status(409).json({ error: 'The selected contractor is not currently approved for allocation.' }); return;
+  }
 
   const jobId = 'pm_' + order.id.replace(/-/g, '');
   const now = new Date().toISOString();
@@ -865,12 +880,6 @@ async function adminRelease(supabase, body, res) {
   }).select('id, job_number').single();
   if (jobError) throw jobError;
 
-  const { data: selectedContractor, error: contractorError } = await supabase.from('contractors')
-    .select('id, email, business_name, status, categories').eq('id', selectedContractorId).maybeSingle();
-  if (contractorError) throw contractorError;
-  if (!selectedContractor || !['approved','preferred'].includes(selectedContractor.status)) {
-    res.status(409).json({ error: 'The selected contractor is not currently approved for allocation.' }); return;
-  }
 
   const resolvedCategory = order.category || (Array.isArray(selectedContractor.categories) && selectedContractor.categories[0]) || 'Property Maintenance';
   if (resolvedCategory !== fullRecord.category) {
@@ -976,11 +985,15 @@ async function contractorCompletion(supabase, req, body, res) {
   const { data: order, error: orderError } = await supabase.from('pm_work_orders').select('*').eq('id', body.workOrderId).maybeSingle();
   if (orderError) throw orderError;
   if (!order || !order.job_id) { res.status(404).json({ error: 'Property work order not found.' }); return; }
-  const { data: job, error: jobError } = await supabase.from('jobs').select('id, contractor_email').eq('id', order.job_id).maybeSingle();
+  const { data: job, error: jobError } = await supabase.from('jobs').select('id, contractor_email, full_record').eq('id', order.job_id).maybeSingle();
   if (jobError) throw jobError;
   if (!job || String(job.contractor_email || '').toLowerCase() !== String(auth.account.email).toLowerCase()) {
     res.status(403).json({ error: 'Only the assigned contractor can add completion evidence.' }); return;
   }
+  if (!['started','completed'].includes((job.full_record || {}).operationalStage) || order.status === 'cancelled') {
+    res.status(409).json({ error: 'Start the assigned job before recording completion.' }); return;
+  }
+  if (!Array.isArray(body.attachments) || !body.attachments.length) { res.status(400).json({ error: 'Add completion photos before recording completion.' }); return; }
   const attachments = await storeAttachments(supabase, order.organisation_id, order.id, null, body.attachments, 'completion_photo');
   const notes = text(body.completionNotes, 5000) || null;
   const { error: updateError } = await supabase.from('pm_work_orders').update({
@@ -991,6 +1004,11 @@ async function contractorCompletion(supabase, req, body, res) {
     updated_at: new Date().toISOString(),
   }).eq('id', order.id);
   if (updateError) throw updateError;
+  const { error: jobUpdateError } = await supabase.from('jobs').update({
+    stage: 'completed', full_record: { ...(job.full_record || {}), operationalStage: 'completed', operationalStageUpdatedAt: new Date().toISOString() },
+    updated_at: new Date().toISOString(),
+  }).eq('id', job.id).eq('contractor_email', auth.account.email);
+  if (jobUpdateError) throw jobUpdateError;
   await event(supabase, order.id, 'contractor', auth.account.id, 'completion_evidence_added', { fileCount: attachments.length, hasNotes: !!notes });
   res.status(200).json({ uploaded: attachments.length });
 }

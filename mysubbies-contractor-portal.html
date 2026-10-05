@@ -1580,6 +1580,7 @@
           <p style="font-size:11.5px;color:var(--stone);margin-bottom:10px;">Visible to the customer and MySubbies — good practice for every job, and useful evidence if a dispute comes up.</p>
           ${photoSetHtml('before', j.beforePhotos || [])}
           ${photoSetHtml('after', j.afterPhotos || [])}
+          ${j.source === 'property_management' ? '<label for="propertyCompletionNotes" style="display:block;font-size:12px;margin-top:12px">Completion notes</label><textarea id="propertyCompletionNotes" maxlength="5000" style="width:100%;min-height:80px" placeholder="Describe the work completed"></textarea><p style="font-size:11px">Submit up to four before/after photos, 1.5 MB each and 3 MB total, when recording completion.</p>' : ''}
         </div>
         <div class="detailcard" style="margin-top:14px;">
           <h3 style="font-size:15px;margin-bottom:10px;">Variations</h3>
@@ -2636,8 +2637,11 @@
     const token = await getContractorAccessToken();
     if (!token) { showToast('Please log out and back in, then try again.'); return; }
     try {
-      const response = await fetch('/api/sync-jobs', { method:'POST', headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
-        body:JSON.stringify({ role:'contractor', jobs:[{ id, operationalStage }] }) });
+      const propertyCompletion = operationalStage === 'completed' && currentJob.source === 'property_management';
+      const attachments = propertyCompletion ? [...currentJob.beforePhotos.map((dataUrl,i)=>({name:'Before-'+(i+1)+'.jpg',dataUrl})), ...currentJob.afterPhotos.map((dataUrl,i)=>({name:'After-'+(i+1)+'.jpg',dataUrl}))] : [];
+      const payload = propertyCompletion ? { action:'contractor-completion', workOrderId:currentJob.propertyManagement.workOrderId, completionNotes:document.getElementById('propertyCompletionNotes')?.value || '', attachments } : { role:'contractor', jobs:[{ id, operationalStage }] };
+      const response = await fetch(propertyCompletion ? '/api/property-management' : '/api/sync-jobs', { method:'POST', headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+        body:JSON.stringify(payload) });
       const result = await response.json();
       if (!response.ok) { showToast(result.error || 'Could not update job progress.'); return; }
       const jobs = getJobs(); const job = jobs.find(item => item.id === id);
