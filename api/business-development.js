@@ -112,7 +112,32 @@ async function searchPublic(body,res){
       sourceReference:clean(p.id,500)
     };
   }).filter(function(x){return x.businessName&&x.sourceUrl;});
-  res.status(200).json({query:searchText,results:results,reviewRequired:true});
+
+  // Enrich search results automatically from the public business website so
+  // email is available at the review stage. Prefer generic business inboxes.
+  async function enrichResultEmail(x){
+    if(!x.website)return x;
+    const root=normaliseWebsite(x.website);
+    if(!root)return x;
+    const candidates=[root,root.replace(/\\/$/,'')+'/contact',root.replace(/\\/$/,'')+'/contact-us',root.replace(/\\/$/,'')+'/about'];
+    let found=[];
+    for(const url of candidates){
+      try{
+        const response=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0 MySubbies public contact checker'},redirect:'follow'});
+        if(!response.ok)continue;
+        const html=await response.text();
+        found=extractEmailsFromHtml(html);
+        if(found.length)break;
+      }catch(e){}
+    }
+    if(found.length){
+      x.email=found.find(function(e){return /^(info|admin|office|hello|enquiries|enquiry|contact|reception|property|maintenance|support)@/i.test(e);})||found[0];
+    }
+    return x;
+  }
+  const enrichedResults=[];
+  for(const x of results) enrichedResults.push(await enrichResultEmail(x));
+  res.status(200).json({query:searchText,results:enrichedResults,reviewRequired:true});
 }
 function extractEmailsFromHtml(html) {
   const matches=String(html||'').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)||[];
