@@ -93,6 +93,7 @@ function renderGuestBooking(message){
   '<div class="field"><label>Photos / documents (optional)</label><input id="guestFiles" type="file" accept="image/jpeg,image/png,application/pdf" multiple></div>'+
   '<div class="hint" style="margin:12px 0 16px;">Your job details will be saved before registration, so you will not need to enter them again.</div>'+
   '<div id="guestBookError"></div><button class="btn btn-primary" style="width:100%;" onclick="continueGuestBooking()">Create free account & submit job →</button><div class="hint" style="text-align:center;margin-top:12px;">Already have an account? <a href="/mysubbies-property-portal.html" style="text-decoration:underline;">Log in</a></div></div></div>';
+  initialiseGuestAddressAutocomplete();
 }
 async function fileToAttachment(file){
   return await new Promise(function(resolve,reject){
@@ -535,7 +536,19 @@ function loadPropertyPlaces(){
   })().catch(error=>{propertyAddressAutocompletePromise=null;throw error;});
   return propertyAddressAutocompletePromise;
 }
-async function initialisePropertyAddressAutocomplete(){
+async function initialiseGuestAddressAutocomplete(){
+  const input=document.getElementById('guestAddress'); if(!input) return;
+  selectedPropertyPlace=null;
+  loadPropertyPlaces().then(()=>{
+    if(!document.getElementById('guestAddress')) return;
+    const ac=new google.maps.places.Autocomplete(input,{componentRestrictions:{country:'au'},fields:['formatted_address','geometry','address_components','place_id'],types:['address']});
+    ac.addListener('place_changed',()=>{
+      const place=ac.getPlace(); selectedPropertyPlace=place;
+      if(place.formatted_address) input.value=place.formatted_address;
+    });
+  }).catch(()=>{});
+}
+function initialisePropertyAddressAutocomplete(){
   const input=document.getElementById('pAddress'); if(!input) return;
   selectedPropertyPlace=null;
   try{
