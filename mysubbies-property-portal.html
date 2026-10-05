@@ -69,7 +69,7 @@ async function boot(){
     state.data=await api('/api/property-management?action=bootstrap');
     document.getElementById('logoutBtn').style.display='';
     document.getElementById('navOrg').textContent=state.data.organisation.name;
-    await loadCatalog();if(!openDeepLinkedOrder())render();
+    await loadCatalog();if(new URLSearchParams(location.search).get('mode')==='book'){state.view='new';state.attachments=[];state.estimate=null;state.workOrderDraftId=crypto.randomUUID();state.submitting=false;render();}else if(!openDeepLinkedOrder())render();
   }catch(e){
     try{
       await api('/api/property-management',{method:'POST',body:JSON.stringify({action:'activate-invite'})});
