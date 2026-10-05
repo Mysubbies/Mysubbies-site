@@ -93,6 +93,14 @@ function renderGuestBooking(message){
   '<div class="hint" style="margin:12px 0 16px;">Your job details will be saved before registration, so you will not need to enter them again.</div>'+
   '<div id="guestBookError"></div><button class="btn btn-primary" style="width:100%;" onclick="continueGuestBooking()">Create free account & submit job →</button><div class="hint" style="text-align:center;margin-top:12px;">Already have an account? <a href="/mysubbies-property-portal.html" style="text-decoration:underline;">Log in</a></div></div></div>';
 }
+async function fileToAttachment(file){
+  return await new Promise(function(resolve,reject){
+    const reader=new FileReader();
+    reader.onload=function(){resolve({name:file.name,type:file.type,dataUrl:reader.result});};
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
 function guestCategoryChanged(){
   const cat=((state.catalog||{}).categories||[]).find(c=>c.category===document.getElementById('guestCategory').value);
   const sel=document.getElementById('guestTask');
