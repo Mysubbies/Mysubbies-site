@@ -102,6 +102,42 @@ async function searchPublic(body,res){
   }).filter(function(x){return x.businessName&&x.sourceUrl;});
   res.status(200).json({query:searchText,results:results,reviewRequired:true});
 }
+function extractEmailsFromHtml(html) {
+  const matches=String(html||'').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi)||[];
+  return [...new Set(matches.map(x=>x.toLowerCase()).filter(x=>!/^(example|test|noreply|no-reply)@/.test(x)))];
+}
+function normaliseWebsite(v) {
+  const x=clean(v,500);
+  if(!x)return '';
+  return /^https?:\\/\\//i.test(x)?x:'https://'+x;
+}
+async function enrichPublicEmail(supabase,body,res){
+  const id=clean(body.id,80);
+  if(!id){res.status(400).json({error:'Prospect id is required.'});return;}
+  const {data:p,error}=await supabase.from('business_development_prospects').select('*').eq('id',id).maybeSingle();
+  if(error)throw error;
+  if(!p){res.status(404).json({error:'Prospect not found.'});return;}
+  if(p.email){res.status(200).json({prospect:p,found:true,email:p.email});return;}
+  const root=normaliseWebsite(p.website);
+  if(!root){res.status(422).json({error:'This prospect has no website to check for a public email address.'});return;}
+  const candidates=[root,root.replace(/\\/$/,'')+'/contact',root.replace(/\\/$/,'')+'/contact-us',root.replace(/\\/$/,'')+'/about'];
+  let found=[];
+  for(const url of candidates){
+    try{
+      const response=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0 MySubbies public contact checker'},redirect:'follow'});
+      if(!response.ok)continue;
+      const html=await response.text();
+      found=extractEmailsFromHtml(html);
+      if(found.length)break;
+    }catch(e){}
+  }
+  if(!found.length){await logActivity(supabase,p,'email_enrichment','not_found','No public email address found on the business website pages checked.');res.status(200).json({prospect:p,found:false,error:'No public email address was found on the website. Try the business contact page manually.'});return;}
+  const selected=found.find(x=>/^(info|admin|office|hello|enquiries|enquiry|contact|reception|property|maintenance|support)@/i.test(x))||found[0];
+  const {data:updated,error:updateError}=await supabase.from('business_development_prospects').update({email:selected,updated_at:new Date().toISOString()}).eq('id',id).select('*').single();
+  if(updateError)throw updateError;
+  await logActivity(supabase,updated,'email_enriched','success','Public business email found on the business website.');
+  res.status(200).json({prospect:updated,found:true,email:selected,alternatives:found});
+}
 async function invite(supabase,body,res){
   const ids=Array.isArray(body.prospectIds)?body.prospectIds.slice(0,100):[];
   if(!ids.length){res.status(400).json({error:'Select at least one prospect.'});return;}
@@ -153,6 +189,7 @@ module.exports=async function handler(req,res){
     if(req.method==='POST'&&action==='update'){await updateProspect(supabase,req.body||{},res);return;}
     if(req.method==='POST'&&action==='remove'){await removeProspect(supabase,req.body||{},res);return;}
     if(req.method==='POST'&&action==='search-public'){await searchPublic(req.body||{},res);return;}
+    if(req.method==='POST'&&action==='enrich-email'){await enrichPublicEmail(supabase,req.body||{},res);return;}
     if(req.method==='POST'&&action==='invite'){await invite(supabase,req.body||{},res);return;}
     res.status(400).json({error:'Unsupported CRM action.'});
   }catch(e){console.error('business development error',e);res.status(500).json({error:'Business Development CRM request failed.'});}
