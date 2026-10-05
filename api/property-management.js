@@ -71,6 +71,15 @@ function recurrence(value) {
   const v = text(value, 100);
   return v && /^(weekly|fortnightly|monthly|quarterly|biannual|annual)$/i.test(v) ? v.toLowerCase() : null;
 }
+async function notifyPmTeam(supabase, organisationId, { subject, detailsHtml, ctaText, ctaUrl }) {
+  const { data: members, error } = await supabase.from('pm_members')
+    .select('email').eq('organisation_id', organisationId).eq('status', 'active');
+  if (error) { console.error('PM notification member lookup failed:', error.message); return; }
+  await Promise.all((members || []).filter(m => m.email).map(m =>
+    sendWorkOrderEmail({ to: m.email, subject, detailsHtml, ctaText, ctaUrl }).catch(() => ({}))
+  ));
+}
+
 async function event(supabase, workOrderId, actorType, actorId, eventType, detail) {
   const { error } = await supabase.from('pm_work_order_events').insert({
     work_order_id: workOrderId, actor_type: actorType, actor_id: actorId || null,
@@ -1020,6 +1029,11 @@ async function adminRelease(supabase, body, res) {
     jobId, jobNumber: job.job_number, contractorId: selectedContractor.id,
     contractorName: selectedContractor.business_name || selectedContractor.email,
   });
+  await notifyPmTeam(supabase, order.organisation_id, {
+    subject: 'MySubbies — Contractor allocated · ' + property.address,
+    detailsHtml: '<h2 style="margin-top:0;">Contractor allocated</h2><p>Your maintenance job has been allocated to a MySubbies contractor.</p><table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:22px;margin:18px 0;"><tr><td style="color:#6B7280;padding:5px 0;width:38%;">Property</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(property.address)+'</td></tr><tr><td style="color:#6B7280;padding:5px 0;">Work</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(order.task_summary)+'</td></tr><tr><td style="color:#6B7280;padding:5px 0;">Contractor</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(selectedContractor.business_name || selectedContractor.email)+'</td></tr><tr><td style="color:#6B7280;padding:5px 0;">Job</td><td style="font-weight:700;padding:5px 0;">#'+escapeHtml(job.job_number || jobId)+'</td></tr></table><p>The contractor has been notified and will arrange the next step.</p>',
+    ctaText: 'View work order →', ctaUrl: propertyPortalUrl() + '?orderId=' + encodeURIComponent(order.id),
+  });
   res.status(200).json({
     released: true, jobId, jobNumber: job.job_number, contractorOfferCount: 1,
     contractor: { id: selectedContractor.id, name: selectedContractor.business_name || selectedContractor.email },
@@ -1032,6 +1046,7 @@ async function adminUpdate(supabase, body, res) {
   const patch = { updated_at: new Date().toISOString() };
   if (['released','assigned','in_progress','completed','cancelled'].includes(body.status)) patch.status = body.status;
   if (body.contractorStatus !== undefined) patch.contractor_status = text(body.contractorStatus, 120) || null;
+  if (body.contractorEta !== undefined) patch.contractor_eta = body.contractorEta ? new Date(body.contractorEta).toISOString() : null;
   if (body.completionNotes !== undefined) patch.completion_notes = text(body.completionNotes, 5000) || null;
   if (body.status === 'completed') { patch.completed_at = new Date().toISOString(); }
   if (body.legalReviewStatus === 'cleared' && order.legal_review_status === 'pending') patch.legal_review_status = 'cleared';
@@ -1042,8 +1057,19 @@ async function adminUpdate(supabase, body, res) {
   if (error) throw error;
   await event(supabase, order.id, 'admin', 'admin', 'admin_update', {
     status: patch.status || null, contractorStatus: patch.contractor_status || null,
-    legalReviewStatus: patch.legal_review_status || null, invoiceStatus: patch.invoice_status || null, invoiceReference: patch.invoice_reference || null,
+    contractorEta: patch.contractor_eta || null, legalReviewStatus: patch.legal_review_status || null,
+    invoiceStatus: patch.invoice_status || null, invoiceReference: patch.invoice_reference || null,
   });
+  const property = await propertyForOrg(supabase, order.organisation_id, order.property_id);
+  if (property && (body.status || body.contractorStatus !== undefined || body.contractorEta !== undefined || body.invoiceStatus === 'issued' || body.invoiceStatus === 'paid')) {
+    const statusText = body.status === 'completed' ? 'completed' : body.invoiceStatus === 'issued' ? 'invoice issued' : body.invoiceStatus === 'paid' ? 'invoice paid' : body.contractorStatus ? body.contractorStatus : 'updated';
+    const etaText = patch.contractor_eta ? '<tr><td style="color:#6B7280;padding:5px 0;">Appointment / ETA</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(new Date(patch.contractor_eta).toLocaleString('en-AU'))+'</td></tr>' : '';
+    await notifyPmTeam(supabase, order.organisation_id, {
+      subject: 'MySubbies — ' + statusText.charAt(0).toUpperCase() + statusText.slice(1) + ' · ' + property.address,
+      detailsHtml: '<h2 style="margin-top:0;">Maintenance update</h2><p>Your MySubbies maintenance work order has been <strong>'+escapeHtml(statusText)+'</strong>.</p><table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:22px;margin:18px 0;"><tr><td style="color:#6B7280;padding:5px 0;width:38%;">Property</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(property.address)+'</td></tr><tr><td style="color:#6B7280;padding:5px 0;">Work</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(order.task_summary)+'</td></tr>'+etaText+(order.quoted_price_cents!=null?'<tr><td style="color:#6B7280;padding:5px 0;">Quote</td><td style="font-weight:700;padding:5px 0;">'+new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(order.quoted_price_cents/100)+'</td></tr>':'')+'</table>'+ (body.status === 'completed' ? '<p>Completion evidence and notes are available in the portal.</p>' : body.invoiceStatus ? '<p>Your invoice status has been updated in the portal.</p>' : '<p>Open the portal to see the latest job status.</p>'),
+      ctaText: 'View work order →', ctaUrl: propertyPortalUrl() + '?orderId=' + encodeURIComponent(order.id),
+    });
+  }
   res.status(200).json({ updated: true });
 }
 async function adminUploadInvoice(supabase, body, res) {
@@ -1088,6 +1114,14 @@ async function contractorCompletion(supabase, req, body, res) {
   }).eq('id', order.id);
   if (updateError) throw updateError;
   await event(supabase, order.id, 'contractor', auth.account.id, 'completion_evidence_added', { fileCount: attachments.length, hasNotes: !!notes });
+  const property = await propertyForOrg(supabase, order.organisation_id, order.property_id);
+  if (property) {
+    await notifyPmTeam(supabase, order.organisation_id, {
+      subject: 'MySubbies — Maintenance completed · ' + property.address,
+      detailsHtml: '<h2 style="margin-top:0;">Maintenance completed</h2><p>Your maintenance job has been marked <strong>completed</strong> by the contractor.</p><table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;line-height:22px;margin:18px 0;"><tr><td style="color:#6B7280;padding:5px 0;width:38%;">Property</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(property.address)+'</td></tr><tr><td style="color:#6B7280;padding:5px 0;">Work</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(order.task_summary)+'</td></tr><tr><td style="color:#6B7280;padding:5px 0;">Completion date</td><td style="font-weight:700;padding:5px 0;">'+escapeHtml(new Date().toLocaleDateString('en-AU'))+'</td></tr></table><p>Completion photos and notes are now available in your Property &amp; Facilities Portal.</p>',
+      ctaText: 'View completion report →', ctaUrl: propertyPortalUrl() + '?orderId=' + encodeURIComponent(order.id),
+    });
+  }
   res.status(200).json({ uploaded: attachments.length });
 }
 
