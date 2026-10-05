@@ -306,6 +306,20 @@ function ordersHtml(){
 }
 function openOrder(id){state.selected=(state.data.workOrders||[]).find(x=>x.id===id)||null;state.view='detail';history.replaceState(null,'',location.pathname+'?orderId='+encodeURIComponent(id));render();}
 function back(){state.view='orders';state.selected=null;history.replaceState(null,'',location.pathname);render();}
+function detailActionButtons(o, canApprove, canCancel){
+  if(!canApprove && !canCancel && !o.quotedPriceCents) return '';
+  let html='<div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;align-items:center">';
+  if(o.quotedPriceCents){
+    if(o.ownerApprovalStatus==='approved' && !o.jobNumber) html+='<button class="btn btn-primary" style="min-width:245px" onclick="submitApprovedJobToMysubbies()">Submit job to MySubbies →</button>';
+    else if(o.ownerApprovalStatus==='approved' && o.jobNumber) html+='<button class="btn btn-outline" style="min-width:245px" disabled>Submitted to MySubbies</button>';
+    else if(o.ownerApprovalStatus==='pending') html+='<button class="btn btn-outline" style="min-width:245px" disabled>Owner approval pending</button>';
+    else html+='<button class="btn btn-primary" style="min-width:245px" onclick="requestOwnerApproval()">Submit to owner for approval →</button>';
+  }
+  if(canApprove) html+='<button class="btn btn-primary" onclick="approve(\'approved\')">Approve work</button><button class="btn btn-danger" onclick="approve(\'rejected\')">Reject</button>';
+  if(canCancel) html+='<button class="btn btn-outline" style="min-width:245px" onclick="cancelOrder()">Cancel work order</button>';
+  return html+'</div>';
+}
+
 function renderDetail(){
   const o=state.selected;if(!o){back();return;}const canApprove=state.data.member.canApprove&&o.approvalStatus==='pending';
   const canCancel=o.status!=='cancelled'&&o.status!=='completed'&&!['released','assigned','in_progress'].includes(o.status);
