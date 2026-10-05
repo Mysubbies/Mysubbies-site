@@ -468,6 +468,7 @@
       <button data-tab="projects" onclick="setAdminTab('projects')">◇ &nbsp; Projects</button>
       <button data-tab="contractor-crm" onclick="setAdminTab('contractor-crm')">✦ &nbsp; Contractor CRM</button>
       <button data-tab="property-crm" onclick="setAdminTab('property-crm')">▣ &nbsp; Property Managers</button>
+      <button data-tab="active-pms" onclick="setAdminTab('active-pms')">✓ &nbsp; Active PMs</button>
       <button data-tab="contractors" onclick="setAdminTab('contractors')">◉ &nbsp; Contractors</button>
       <button data-tab="coverage" onclick="setAdminTab('coverage')">⌖ &nbsp; Coverage map</button>
       <button data-tab="customers" onclick="setAdminTab('customers')">◎ &nbsp; Customers</button>
@@ -1966,7 +1967,7 @@
       propertyCrmData = { error:e.message || 'Property Manager CRM could not be loaded.' };
     }
     propertyCrmLoading = false;
-    if (tab === 'property-crm') render();
+    if (tab === 'property-crm' || tab === 'active-pms') render();
     const deepId = new URLSearchParams(window.location.search).get('propertyWorkOrder');
     if (deepId && propertyCrmData && !propertyCrmData.error) {
       const order = (propertyCrmData.workOrders || []).find(o => o.id === deepId);
@@ -2038,6 +2039,34 @@
     const data=await res.json();if(!res.ok){alert(data.error||'Could not archive prospect.');return;}
     bdCrm[kind].prospects=null;await loadBdProspects(kind);
   }
+  function renderActivePropertyManagers() {
+    const data = propertyCrmData;
+    if (!data || data.error) return '<div class="detailcard" style="max-width:none;"><h2>Active Property Managers</h2><p class="empty">'+escapeHtml((data&&data.error)||'Loading active Property Manager accounts…')+'</p></div>';
+    const orgs = (data.organisations || []).filter(o => String(o.status || '').toLowerCase() === 'active');
+    const members = data.members || [], properties = data.properties || [], orders = data.workOrders || [];
+    const cards = orgs.map(function(org) {
+      const orgMembers = members.filter(m => m.organisation_id === org.id);
+      const activeMembers = orgMembers.filter(m => String(m.status||'').toLowerCase() === 'active');
+      const orgProperties = properties.filter(p => p.organisation_id === org.id);
+      const orgOrders = orders.filter(o => o.organisation_id === org.id);
+      const activeJobs = orgOrders.filter(o => !['completed','cancelled','closed'].includes(String(o.status||'').toLowerCase())).length;
+      const primary = activeMembers[0] || orgMembers[0] || {};
+      return '<div class="detailcard" style="max-width:none;margin:0 0 12px;">' +
+        '<div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;">' +
+        '<div><div style="font-size:17px;font-weight:800;color:var(--black);">'+escapeHtml(org.name||'Property Manager')+'</div><div class="jobmeta" style="margin-top:4px;">'+escapeHtml(org.organisation_type||'property_manager')+' · Active since '+escapeHtml(org.created_at?new Date(org.created_at).toLocaleDateString('en-AU'):'—')+'</div></div><span class="statusbadge" style="color:var(--good);">Active</span></div>' +
+        '<div style="display:grid;grid-template-columns:repeat(4,minmax(100px,1fr));gap:10px;margin-top:16px;">' +
+        '<div style="background:var(--paper);padding:12px;border-radius:10px;"><b style="font-size:18px;">'+orgProperties.length+'</b><div class="jobmeta">Properties</div></div>' +
+        '<div style="background:var(--paper);padding:12px;border-radius:10px;"><b style="font-size:18px;">'+activeJobs+'</b><div class="jobmeta">Active jobs</div></div>' +
+        '<div style="background:var(--paper);padding:12px;border-radius:10px;"><b style="font-size:18px;">'+activeMembers.length+'</b><div class="jobmeta">Active users</div></div>' +
+        '<div style="background:var(--paper);padding:12px;border-radius:10px;"><b style="font-size:18px;">'+orgOrders.length+'</b><div class="jobmeta">Total work orders</div></div></div>' +
+        '<div style="margin-top:14px;font-size:13px;color:var(--stone);">Primary contact: <strong style="color:var(--ink);">'+escapeHtml(primary.name||'Not recorded')+'</strong> · '+escapeHtml(primary.email||org.billing_email||'No email recorded')+(primary.phone?' · '+escapeHtml(primary.phone):'')+'</div>' +
+        '<div style="display:flex;gap:8px;margin-top:14px;"><button class="btn btn-black" onclick="setAdminTab(\'property-crm\')">Open PM workspace</button></div></div>';
+    }).join('');
+    return '<div class="welcome-head"><div><div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#E85A0A;margin-bottom:7px;">Business Development</div><h1>Active Property Managers</h1><p>Your live Property Manager accounts in one place — separate from the prospect directory.</p></div></div>' +
+      '<div class="statgrid"><div class="statcard"><div class="num">'+orgs.length+'</div><div class="lab">Active PMs</div></div><div class="statcard"><div class="num">'+properties.filter(p=>orgs.some(o=>o.id===p.organisation_id)).length+'</div><div class="lab">Properties</div></div><div class="statcard"><div class="num">'+orders.filter(o=>orgs.some(org=>org.id===o.organisation_id) && !['completed','cancelled','closed'].includes(String(o.status||'').toLowerCase())).length+'</div><div class="lab">Active work orders</div></div><div class="statcard"><div class="num">'+members.filter(m=>orgs.some(o=>o.id===m.organisation_id) && String(m.status||'').toLowerCase()==='active').length+'</div><div class="lab">Active users</div></div></div>' +
+      '<div style="margin-top:18px;">'+(cards||'<div class="detailcard" style="max-width:none;"><div class="empty">No active Property Manager organisations yet.</div></div>')+'</div>';
+  }
+
   function renderBusinessDevelopmentCrm(kind) {
     const property = kind === 'property';
     const bucket = bdCrm[kind];
@@ -2453,7 +2482,7 @@ function openManualProspect(kind, seed) {
               : jobsTableHtml(filtered);
           })()}
         `}
-      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractor-crm' ? renderBusinessDevelopmentCrm('contractor') : tab === 'property-crm' ? renderBusinessDevelopmentCrm('property') : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'invoices' ? renderInvoicesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'marketing' ? renderMarketingCentre() : tab === 'tenders' ? renderTenders() : tab === 'blog-seo' ? renderBlogSeo() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
+      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractor-crm' ? renderBusinessDevelopmentCrm('contractor') : tab === 'property-crm' ? renderBusinessDevelopmentCrm('property') : tab === 'active-pms' ? renderActivePropertyManagers() : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'invoices' ? renderInvoicesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'marketing' ? renderMarketingCentre() : tab === 'tenders' ? renderTenders() : tab === 'blog-seo' ? renderBlogSeo() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
     } catch (e) {
       console.error('Tab render error on tab=' + tab, e);
       tabContentHtml = `
