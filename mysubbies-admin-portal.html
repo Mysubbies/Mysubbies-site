@@ -625,8 +625,15 @@
       });
       if (!res.ok) throw new Error('Logout could not be completed.');
     } catch (e) {
+      // An expired session cannot authenticate the server-side logout endpoint.
+      // Treat it as logged out locally so the user is never trapped on the dashboard.
+      adminHydrationStarted = false;
+      window.adminMfaChallenge = null;
+      document.body.classList.add('logged-out');
+      const app = document.getElementById('app');
+      if (app) app.innerHTML = '';
       if (button) { button.disabled = false; button.textContent = 'Log out'; }
-      alert(e.message || 'Logout could not be completed.');
+      checkAdminAuth();
       return;
     }
     adminHydrationStarted = false;
