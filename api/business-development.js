@@ -119,7 +119,7 @@ async function searchPublic(body,res){
     if(!x.website)return x;
     const root=normaliseWebsite(x.website);
     if(!root)return x;
-    const candidates=[root,root.replace(/\\/$/,'')+'/contact',root.replace(/\\/$/,'')+'/contact-us',root.replace(/\\/$/,'')+'/about'];
+    const candidates=[root,root.replace(/\/$/,'')+'/contact',root.replace(/\/$/,'')+'/contact-us',root.replace(/\/$/,'')+'/about'];
     let found=[];
     for(const url of candidates){
       try{
