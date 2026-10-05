@@ -312,15 +312,15 @@ function renderDetail(){
   const canApprove=state.data.member.canApprove&&o.approvalStatus==='pending';
   const canCancel=o.status!=='cancelled'&&o.status!=='completed'&&!['released','assigned','in_progress'].includes(o.status);
   const requestFiles=(o.files||[]).filter(f=>f.kind==='request_photo'),completionFiles=(o.files||[]).filter(f=>f.kind==='completion_photo'),invoiceFiles=(o.files||[]).filter(f=>f.kind==='invoice');
-  let actions='';
+  let actions='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">';
   if(o.quotedPriceCents){
-    if(o.ownerApprovalStatus==='approved'&&!o.jobNumber) actions+='<button class="btn btn-primary" style="min-width:245px" onclick="submitApprovedJobToMysubbies()">Submit job to MySubbies →</button>';
-    else if(o.ownerApprovalStatus==='approved'&&o.jobNumber) actions+='<button class="btn btn-outline" style="min-width:245px" disabled>Submitted to MySubbies</button>';
-    else if(o.ownerApprovalStatus==='pending') actions+='<button class="btn btn-outline" style="min-width:245px" disabled>Owner approval pending</button>';
-    else actions+='<button class="btn btn-primary" style="min-width:245px" onclick="requestOwnerApproval()">Submit to owner for approval →</button>';
+    if(o.ownerApprovalStatus==='approved'&&!o.jobNumber) actions+='<button class="btn btn-primary" style="width:245px" onclick="submitApprovedJobToMysubbies()">Submit job to MySubbies →</button>';
+    else if(o.ownerApprovalStatus==='approved'&&o.jobNumber) actions+='<button class="btn btn-outline" style="width:245px" disabled>Submitted to MySubbies</button>';
+    else if(o.ownerApprovalStatus==='pending') actions+='<button class="btn btn-outline" style="width:245px" disabled>Owner approval pending</button>';
+    else actions+='<button class="btn btn-primary" style="width:245px" onclick="requestOwnerApproval()">Submit to owner for approval →</button>';
   }
   if(canApprove) actions+='<button class="btn btn-primary" onclick="approve(\'approved\')">Approve work</button><button class="btn btn-danger" onclick="approve(\'rejected\')">Reject</button>';
-  if(canCancel) actions+='<button class="btn btn-outline" style="min-width:245px" onclick="cancelOrder()">Cancel work order</button>';
+  if(canCancel) actions+='<button class="btn btn-outline" style="width:245px" onclick="cancelOrder()">Cancel work order</button>';
   app.innerHTML=`<button class="btn btn-outline" onclick="back()" style="margin-bottom:14px">← Work orders</button>
   <div class="detail-grid"><div class="panel"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px"><div style="min-width:0;flex:1"><h2>${esc(o.taskSummary)}</h2><div class="sub">${esc(o.property?o.property.address:'')}</div></div><span class="badge detail-status-badge ${badgeClass(o.status)}">${statusLabel(o.status)}</span></div>
   <div class="detail-row"><span>Work order</span><b>${o.jobNumber?'Job #'+esc(o.jobNumber):esc(o.id.slice(0,8).toUpperCase())}</b></div>
