@@ -103,13 +103,13 @@ async function searchPublic(body,res){
   res.status(200).json({query:searchText,results:results,reviewRequired:true});
 }
 function extractEmailsFromHtml(html) {
-  const matches=String(html||'').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi)||[];
+  const matches=String(html||'').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)||[];
   return [...new Set(matches.map(x=>x.toLowerCase()).filter(x=>!/^(example|test|noreply|no-reply)@/.test(x)))];
 }
 function normaliseWebsite(v) {
   const x=clean(v,500);
   if(!x)return '';
-  return /^https?:\\/\\//i.test(x)?x:'https://'+x;
+  return /^https?:\/\//i.test(x)?x:'https://'+x;
 }
 async function enrichPublicEmail(supabase,body,res){
   const id=clean(body.id,80);
@@ -120,7 +120,7 @@ async function enrichPublicEmail(supabase,body,res){
   if(p.email){res.status(200).json({prospect:p,found:true,email:p.email});return;}
   const root=normaliseWebsite(p.website);
   if(!root){res.status(422).json({error:'This prospect has no website to check for a public email address.'});return;}
-  const candidates=[root,root.replace(/\\/$/,'')+'/contact',root.replace(/\\/$/,'')+'/contact-us',root.replace(/\\/$/,'')+'/about'];
+  const candidates=[root,root.replace(/\/$/,'')+'/contact',root.replace(/\/$/,'')+'/contact-us',root.replace(/\/$/,'')+'/about'];
   let found=[];
   for(const url of candidates){
     try{
