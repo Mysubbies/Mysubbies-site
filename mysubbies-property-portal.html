@@ -333,9 +333,7 @@ function renderDetail(){
   <div class="detail-row"><span>Contract / legal review</span><b>${statusLabel(o.legalReviewStatus||'not_required')}</b></div>
   <div class="detail-row"><span>Priority</span><b>${statusLabel(o.priority)}</b></div>
   <div class="detail-row"><span>Requested completion</span><b>${dateFmt(o.requestedCompletionDate)}</b></div>
-  <div class="detail-row"><span>Cont  ${detailActionButtons(o, canApprove, canCancel)}div></div>':''}
-  ${o.completionNotes?'<div style="margin-top:15px"><b style="font-size:12px">Completion notes</b><p style="font-size:13px;margin-top:6px">'+esc(o.completionNotes)+'</p></div>':''}
-  ${detailActionButtons(o, canApprove, canCancel)}
+  <div class="detail-row"><span>Cont
   </div><aside><div class="card"><div class="wo-title">Invoice</div><div class="wo-meta" style="margin-top:7px">Status: <b>${statusLabel(o.invoiceStatus)}</b></div>${o.invoiceReference?'<div class="wo-meta">Reference: <b>'+esc(o.invoiceReference)+'</b></div>':''}${o.invoiceAmountCents!=null?'<div class="wo-meta">Amount: <b>'+money(o.invoiceAmountCents)+'</b></div>':''}${invoiceFiles.length?'<div class="filegrid">'+filesHtml(invoiceFiles)+'</div>':''}</div>
   <div class="card"><div class="wo-title">Activity</div><div class="timeline">${eventsHtml(o.events)}</div></div></aside></div>`;
 }
