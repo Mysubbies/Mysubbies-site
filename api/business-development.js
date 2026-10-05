@@ -54,6 +54,18 @@ async function updateProspect(supabase,body,res){
   await logActivity(supabase,data,'prospect_updated','success','Prospect details updated by admin.');
   res.status(200).json({prospect:data});
 }
+async function deleteProspect(supabase,body,res){
+  const id=clean(body.id,80);
+  if(!id){res.status(400).json({error:'Prospect id is required.'});return;}
+  const {data:p,error:findError}=await supabase.from('business_development_prospects').select('*').eq('id',id).maybeSingle();
+  if(findError)throw findError;
+  if(!p){res.status(404).json({error:'Prospect not found.'});return;}
+  const {error:activityError}=await supabase.from('business_development_activity').delete().eq('prospect_id',id);
+  if(activityError)throw activityError;
+  const {error:deleteError}=await supabase.from('business_development_prospects').delete().eq('id',id);
+  if(deleteError)throw deleteError;
+  res.status(200).json({deleted:true});
+}
 async function removeProspect(supabase,body,res){
   const id=clean(body.id,80);
   if(!id){res.status(400).json({error:'Prospect id is required.'});return;}
@@ -188,6 +200,7 @@ module.exports=async function handler(req,res){
     if(req.method==='POST'&&action==='save'){await save(supabase,req.body||{},res);return;}
     if(req.method==='POST'&&action==='update'){await updateProspect(supabase,req.body||{},res);return;}
     if(req.method==='POST'&&action==='remove'){await removeProspect(supabase,req.body||{},res);return;}
+    if(req.method==='POST'&&action==='delete'){await deleteProspect(supabase,req.body||{},res);return;}
     if(req.method==='POST'&&action==='search-public'){await searchPublic(req.body||{},res);return;}
     if(req.method==='POST'&&action==='enrich-email'){await enrichPublicEmail(supabase,req.body||{},res);return;}
     if(req.method==='POST'&&action==='invite'){await invite(supabase,req.body||{},res);return;}
