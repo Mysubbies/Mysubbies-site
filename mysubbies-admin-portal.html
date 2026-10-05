@@ -1977,7 +1977,7 @@
       '<label>Status<select id="editBdStatus"><option value="prospect">Prospect</option><option value="invited">Invited</option><option value="opened">Opened</option><option value="interested">Interested</option><option value="registration_started">Registration started</option><option value="registered">Registered</option><option value="under_review">Under review</option><option value="approved">Approved</option><option value="active">Active</option><option value="declined">Declined</option><option value="archived">Archived</option></select></label>'+
       '<label class="full">Admin notes<textarea id="editBdNotes" rows="4" placeholder="Call notes, follow-up date, decision maker, objections, next action...">'+escapeHtml(p.notes||'')+'</textarea></label>'+
       '</div><div id="editBdError" style="color:#B4232C;font-size:13px;margin-top:10px;"></div>'+
-      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;"><button class="btn btn-outline" onclick="closeCrmModal()">Cancel</button><button class="btn btn-black" onclick="saveBdProspectEdit(\''+kind+'\',\''+id+'\')">Save changes</button></div>');
+      '<div style="display:flex;justify-content:space-between;gap:8px;margin-top:18px;"><button class="btn btn-danger" onclick="deleteBdProspect(\''+kind+'\',\''+id+'\')">Delete prospect</button><div style="display:flex;gap:8px;"><button class="btn btn-outline" onclick="closeCrmModal()">Cancel</button><button class="btn btn-black" onclick="saveBdProspectEdit(\''+kind+'\',\''+id+'\')">Save changes</button></div></div>');
     const s=document.getElementById('editBdStatus'); if(s)s.value=p.status||'prospect';
   }
   async function saveBdProspectEdit(kind,id){
@@ -1990,6 +1990,19 @@
       closeCrmModal();bdCrm[kind].prospects=null;await loadBdProspects(kind);
     }catch(e){if(err)err.textContent='Could not update prospect.';}
   }
+  async function deleteBdProspect(kind,id){
+    const p=(bdCrm[kind].prospects||[]).find(x=>x.id===id); if(!p)return;
+    if(!confirm('Permanently delete '+(p.business_name||'this prospect')+'? This will remove the prospect and its CRM activity history. This cannot be undone.')) return;
+    try{
+      const res=await adminFetch('/api/business-development?action=delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok){alert(data.error||'Could not delete prospect.');return;}
+      bdCrm[kind].selected.delete(id);
+      bdCrm[kind].prospects=null;
+      await loadBdProspects(kind);
+    }catch(e){alert('Could not delete prospect.');}
+  }
+
   async function archiveBdProspect(kind,id){
     const p=(bdCrm[kind].prospects||[]).find(x=>x.id===id);if(!p)return;
     if(!confirm('Archive '+(p.business_name||'this prospect')+'? It will not be deleted and can be retained for history.'))return;
