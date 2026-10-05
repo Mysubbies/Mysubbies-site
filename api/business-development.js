@@ -175,6 +175,13 @@ async function enrichPublicEmail(supabase,body,res){
   await logActivity(supabase,updated,'email_enriched','success','Public business email found on the business website.');
   res.status(200).json({prospect:updated,found:true,email:selected,alternatives:found});
 }
+function prospectEmailWrap(bodyHtml) {
+  return '<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;background:#F4F5F6;padding:24px 12px;">'+
+    '<div style="background:#fff;overflow:hidden;">'+
+    '<div style="background:#102541;padding:30px 36px;"><span style="color:#fff;font-size:28px;font-weight:800;">My<span style="color:#FF6A1A;">Subbies</span></span></div>'+
+    '<div style="padding:28px 36px;color:#14213D;font-size:15px;line-height:1.55;">'+bodyHtml+'</div>'+
+    '</div></div>';
+}
 async function invite(supabase,body,res){
   const ids=Array.isArray(body.prospectIds)?body.prospectIds.slice(0,100):[];
   if(!ids.length){res.status(400).json({error:'Select at least one prospect.'});return;}
@@ -201,7 +208,7 @@ async function invite(supabase,body,res){
       '<p><strong>You know what the job is and what you will be paid before you accept it.</strong></p>'+
       emailButton('Join the MySubbies contractor network →',registrationUrl(p.prospect_type))+
       '<p style="font-size:12px;color:#6B7280;margin-top:18px;">There is no upfront cost to join. We are looking for reliable contractors who want straightforward work opportunities.</p>';
-    const result=await sendEmailWithResult({to:p.email,bcc:['accounts@mysubbies.com.au'],subject,html:wrapEmail((property?propertyBody:contractorBody)+'<p style="font-size:13px;line-height:20px;margin-top:24px;">Kind Regards,<br><strong>Mysubbies Holding Pty Ltd</strong></p>')});
+    const result=await sendEmailWithResult({to:p.email,bcc:['accounts@mysubbies.com.au'],subject,html:prospectEmailWrap((property?propertyBody:contractorBody)+'<p style="font-size:13px;line-height:20px;margin-top:24px;">Kind regards,<br><strong>Sammy</strong><br>MySubbies Group</p>')});
     if(result.ok){await supabase.from('business_development_prospects').update({status:'invited',invitation_count:(p.invitation_count||0)+1,last_invited_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',p.id);}
     await logActivity(supabase,p,'invitation_attempt',result.ok?'success':'failed',result.ok?'Invitation sent.':(result.error||'Invitation failed.'));
     results.push({id:p.id,ok:!!result.ok,error:result.ok?null:result.error});
