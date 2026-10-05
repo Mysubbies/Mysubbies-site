@@ -64,12 +64,12 @@ async function api(url,opts={}){
 }
 async function boot(){
   const {data}=await sb.auth.getSession();
-  if(!data.session){renderAuth();return;}
+  if(!data.session){if(new URLSearchParams(location.search).get('mode')==='book'){await loadCatalog();renderGuestBooking();}else renderAuth();return;}
   try{
     state.data=await api('/api/property-management?action=bootstrap');
     document.getElementById('logoutBtn').style.display='';
     document.getElementById('navOrg').textContent=state.data.organisation.name;
-    await loadCatalog();if(new URLSearchParams(location.search).get('mode')==='book'){state.view='new';state.attachments=[];state.estimate=null;state.workOrderDraftId=crypto.randomUUID();state.submitting=false;render();}else if(!openDeepLinkedOrder())render();
+    await loadCatalog();if(localStorage.getItem('mysubbies_pm_guest_booking')){await finishGuestBooking();}else if(new URLSearchParams(location.search).get('mode')==='book'){state.view='new';state.attachments=[];state.estimate=null;state.workOrderDraftId=crypto.randomUUID();state.submitting=false;render();}else if(!openDeepLinkedOrder())render();
   }catch(e){
     try{
       await api('/api/property-management',{method:'POST',body:JSON.stringify({action:'activate-invite'})});
@@ -81,6 +81,51 @@ async function boot(){
   }
 }
 async function loadCatalog(){try{state.catalog=await api('/api/booking-api?action=catalog');}catch(e){state.catalog={categories:[]};}}
+function renderGuestBooking(message){
+  const cats=(state.catalog&&state.catalog.categories)||[];
+  app.innerHTML='<div class="loginwrap" style="max-width:760px;"><div class="panel"><div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#E85A0A;margin-bottom:7px;">MySubbies Property & Facilities</div><h2>Book a maintenance job</h2><p class="sub">Tell us what needs attention. You can create your free account when you are ready to submit the job. <strong>No payment is required.</strong></p>'+
+  (message?'<div class="error">'+esc(message)+'</div>':'')+
+  '<div class="field"><label>Property address</label><input id="guestAddress" autocomplete="street-address" placeholder="Start typing the property address"></div>'+
+  '<div class="grid2"><div class="field"><label>Service category</label><select id="guestCategory" onchange="guestCategoryChanged()"><option value="">Choose…</option>'+cats.map(c=>'<option value="'+esc(c.category)+'">'+esc(c.category)+'</option>').join('')+'</select></div><div class="field"><label>Service</label><select id="guestTask"><option value="">Choose category first</option></select></div></div>'+
+  '<div class="field"><label>What needs to be done?</label><textarea id="guestDescription" placeholder="Describe the issue, access arrangements and anything the contractor should know."></textarea></div>'+
+  '<div class="grid2"><div class="field"><label>Priority</label><select id="guestPriority"><option value="low">Low</option><option value="normal" selected>Normal</option><option value="urgent">Urgent</option><option value="emergency">Emergency</option></select></div><div class="field"><label>Requested completion date</label><input id="guestDate" type="date"></div></div>'+
+  '<div class="field"><label>Photos / documents (optional)</label><input id="guestFiles" type="file" accept="image/jpeg,image/png,application/pdf" multiple></div>'+
+  '<div class="hint" style="margin:12px 0 16px;">Your job details will be saved before registration, so you will not need to enter them again.</div>'+
+  '<div id="guestBookError"></div><button class="btn btn-primary" style="width:100%;" onclick="continueGuestBooking()">Create free account & submit job →</button><div class="hint" style="text-align:center;margin-top:12px;">Already have an account? <a href="/mysubbies-property-portal.html" style="text-decoration:underline;">Log in</a></div></div></div>';
+}
+function guestCategoryChanged(){
+  const cat=((state.catalog||{}).categories||[]).find(c=>c.category===document.getElementById('guestCategory').value);
+  const sel=document.getElementById('guestTask');
+  sel.innerHTML='<option value="">Choose…</option>'+((cat&&cat.tasks)||[]).map(t=>'<option value="'+esc(t.name)+'">'+esc(t.name)+(t.serviceMode==='project_quote'?' — quote required':'')+'</option>').join('');
+}
+async function continueGuestBooking(){
+  const address=document.getElementById('guestAddress').value.trim(),category=document.getElementById('guestCategory').value,task=document.getElementById('guestTask').value,description=document.getElementById('guestDescription').value.trim();
+  const err=document.getElementById('guestBookError');
+  if(!address||!category||!task||!description){if(err)err.innerHTML='<div class="error">Please complete the property address, service and description.</div>';return;}
+  const files=Array.from(document.getElementById('guestFiles').files||[]).slice(0,4);
+  const attachments=[];
+  for(const f of files){try{attachments.push(await fileToAttachment(f));}catch(e){if(err)err.innerHTML='<div class="error">One of the selected files could not be prepared.</div>';return;}}
+  localStorage.setItem('mysubbies_pm_guest_booking',JSON.stringify({address,category,task,description,priority:document.getElementById('guestPriority').value,requestedCompletionDate:document.getElementById('guestDate').value||null,attachments,workOrderId:crypto.randomUUID()}));
+  state.authMode='register';renderAuth('Create your free account to submit this maintenance job. Your job details are saved.');
+}
+async function finishGuestBooking(){
+  const raw=localStorage.getItem('mysubbies_pm_guest_booking');if(!raw)return;
+  let d;try{d=JSON.parse(raw)}catch(e){localStorage.removeItem('mysubbies_pm_guest_booking');return;}
+  try{
+    let prop=state.data.properties.find(p=>String(p.address||'').trim().toLowerCase()===String(d.address||'').trim().toLowerCase());
+    if(!prop){
+      const pr=await api('/api/property-management',{method:'POST',body:JSON.stringify({action:'create-property',address:d.address,name:d.address})});
+      prop=pr.property;
+    }
+    const payload={action:'create-work-order',workOrderId:d.workOrderId,propertyId:prop.id,serviceMode:'project_quote',taskSummary:d.task,description:d.description,priority:d.priority,requestedCompletionDate:d.requestedCompletionDate,recurring:false,attachments:d.attachments||[]};
+    await api('/api/property-management',{method:'POST',body:JSON.stringify(payload)});
+    localStorage.removeItem('mysubbies_pm_guest_booking');
+    history.replaceState(null,'',location.pathname);
+    state.notice='Your maintenance job has been submitted successfully.';
+    state.data=await api('/api/property-management?action=bootstrap');
+    state.view='orders';render();
+  }catch(e){renderGuestBooking('Your account is ready, but the maintenance job could not be submitted yet. Please try again: '+e.message);}
+}
 function renderAuth(message){
   document.getElementById('logoutBtn').style.display='none';document.getElementById('navOrg').textContent='';
   const register=state.authMode==='register';
