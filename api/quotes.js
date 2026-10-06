@@ -161,7 +161,8 @@ async function resolveInvoiceToken(req, res, supabase) {
 }
 
 async function handleCreateInvoice(req, res, supabase) {
-  const { quoteId, milestoneKey, milestoneLabel, milestonePercentage, amountCents, dueDate } = req.body || {};
+  const { quoteId, milestoneKey, milestoneLabel, milestonePercentage, amountCents, dueDate, lineAllocations } = req.body || {};
+  const allocations = Array.isArray(lineAllocations) ? lineAllocations : [];
   if (!quoteId || !milestoneKey || !milestoneLabel || !dueDate) { res.status(400).json({ error: 'Quote, milestone, label and due date are required.' }); return; }
   const bank = bankConfig();
   if (!bank) { res.status(409).json({ error: 'Invoice bank details are not configured. Add INVOICE_BANK_ACCOUNT_NAME, INVOICE_BANK_BSB and INVOICE_BANK_ACCOUNT_NUMBER in Vercel.' }); return; }
@@ -177,6 +178,27 @@ async function handleCreateInvoice(req, res, supabase) {
   if (existingError) { res.status(500).json({ error: invoiceDatabaseError(existingError) }); return; }
   if ((existing || []).some(row => row.milestone_key === milestoneKey)) { res.status(409).json({ error: 'An invoice already exists for this milestone.' }); return; }
   const previous = (existing || []).reduce((sum, row) => sum + Number(row.total_inc_gst_cents || 0), 0);
+  if (allocations.length) {
+    const quoteLines = Array.isArray(version.line_items) ? version.line_items : [];
+    const { data: priorAllocations, error: allocationReadError } = await supabase.from('invoice_line_allocations')
+      .select('quote_line_key,invoiced_amount_cents,invoices!inner(status)')
+      .eq('quote_id', quote.id).neq('invoices.status', 'void');
+    if (allocationReadError) { res.status(500).json({ error: invoiceDatabaseError(allocationReadError) }); return; }
+    const used = {};
+    for (const row of (priorAllocations || [])) used[row.quote_line_key] = (used[row.quote_line_key] || 0) + Number(row.invoiced_amount_cents || 0);
+    let allocationTotal = 0;
+    for (const allocation of allocations) {
+      const key = String(allocation.quoteLineKey || '').trim();
+      const index = Number(key.replace(/^line_/, '')) - 1;
+      const line = Number.isInteger(index) && index >= 0 ? quoteLines[index] : null;
+      const quoted = line ? Number(line.lineTotalCents || line.totalCents || 0) : 0;
+      const requested = Math.round(Number(allocation.amountCents || 0));
+      if (!line || quoted <= 0 || requested <= 0) { res.status(400).json({ error: 'Each invoice allocation must reference a valid quoted item and amount.' }); return; }
+      if ((used[key] || 0) + requested > quoted) { res.status(400).json({ error: `Invoice amount for quote item ${index + 1} exceeds its remaining balance.` }); return; }
+      allocationTotal += requested;
+    }
+    if (allocationTotal !== Number(amountCents)) { res.status(400).json({ error: 'Invoice total must equal the selected quote-item allocations.' }); return; }
+  }
   const amountError = validateInvoiceAmount({ amountCents: Number(amountCents), quoteTotalCents: version.total_inc_gst_cents, previouslyInvoicedCents: previous });
   if (amountError) { res.status(400).json({ error: amountError }); return; }
   const { data: entity, error: entityError } = await supabase.from('issuing_entities').select('*').eq('id', version.issuing_entity_id).maybeSingle();
@@ -202,7 +224,26 @@ async function handleCreateInvoice(req, res, supabase) {
     console.error('invoice create error:', { code: error.code || 'unknown', message: error.message || 'unknown' });
     res.status(500).json({ error: invoiceDatabaseError(error) }); return;
   }
-  await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'invoice_created', actorRole: 'admin', payload: { invoiceId: invoice.id, invoiceNumber: invoice.invoice_number } });
+  if (allocations.length) {
+    const quoteLines = Array.isArray(version.line_items) ? version.line_items : [];
+    const rows = allocations.map(allocation => {
+      const key = String(allocation.quoteLineKey || '').trim();
+      const index = Number(key.replace(/^line_/, '')) - 1;
+      const line = quoteLines[index];
+      const quoted = Number(line.lineTotalCents || line.totalCents || 0);
+      const invoiced = Math.round(Number(allocation.amountCents || 0));
+      return { invoice_id: invoice.id, quote_id: quote.id, quote_version_id: version.id, quote_line_key: key,
+        quote_line_description: String(line.description || line.name || `Quote item ${index + 1}`).slice(0,1000),
+        quoted_amount_cents: quoted, invoiced_amount_cents: invoiced,
+        progress_percentage: quoted ? Number(((invoiced / quoted) * 100).toFixed(3)) : null };
+    });
+    const { error: allocationWriteError } = await supabase.from('invoice_line_allocations').insert(rows);
+    if (allocationWriteError) {
+      await supabase.from('invoices').delete().eq('id', invoice.id);
+      res.status(500).json({ error: invoiceDatabaseError(allocationWriteError) }); return;
+    }
+  }
+  await logQuoteEvent(supabase, { quoteId: quote.id, quoteVersionId: version.id, eventType: 'invoice_created', actorRole: 'admin', payload: { invoiceId: invoice.id, invoiceNumber: invoice.invoice_number, itemAllocations: allocations.length } });
   res.status(200).json({ invoice: serializeInvoice(invoice) });
 }
 
