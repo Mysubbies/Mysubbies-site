@@ -1042,6 +1042,15 @@ module.exports = async (req, res) => {
         const { data: invoicePayments } = invoiceIds.length
           ? await supabase.from('invoice_payments').select('*').in('invoice_id', invoiceIds).order('received_at')
           : { data: [] };
+        const { data: invoiceLineAllocations } = invoiceIds.length
+          ? await supabase.from('invoice_line_allocations').select('*').in('invoice_id', invoiceIds).order('created_at')
+          : { data: [] };
+        const allocationByLine = {};
+        (invoiceLineAllocations || []).forEach(row => {
+          const invoice = (invoices || []).find(item => item.id === row.invoice_id);
+          if (!invoice || invoice.status === 'void') return;
+          allocationByLine[row.quote_line_key] = (allocationByLine[row.quote_line_key] || 0) + Number(row.invoiced_amount_cents || 0);
+        });
         const paymentsByInvoice = new Map();
         (invoicePayments || []).forEach(payment => {
           if (!paymentsByInvoice.has(payment.invoice_id)) paymentsByInvoice.set(payment.invoice_id, []);
@@ -1061,6 +1070,12 @@ module.exports = async (req, res) => {
           versions: (versions || []).map(serializeVersionAdmin),
           events: (events || []).map(ev => ({ id: ev.id, eventType: ev.event_type, actorRole: ev.actor_role, actorId: ev.actor_id, payload: ev.payload, createdAt: ev.created_at })),
           invoices: (invoices || []).map(row => serializeInvoice(row, { payments: paymentsByInvoice.get(row.id) || [] })),
+          invoiceLineProgress: current ? (Array.isArray(current.line_items) ? current.line_items : []).map((line, index) => {
+            const key = `line_${index + 1}`;
+            const quotedAmountCents = Number(line.lineTotalCents || line.totalCents || 0);
+            const previouslyInvoicedCents = Number(allocationByLine[key] || 0);
+            return { quoteLineKey:key, description:String(line.description || line.name || `Quote item ${index + 1}`), quotedAmountCents, previouslyInvoicedCents, remainingCents:Math.max(0, quotedAmountCents - previouslyInvoicedCents) };
+          }) : [],
           invoiceMilestoneOptions: current ? milestoneOptions(paymentTermsFromVersion(current), current.total_inc_gst_cents) : [],
         });
         return;
