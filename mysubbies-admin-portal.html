@@ -4170,8 +4170,8 @@ function openManualProspect(kind, seed) {
     const first = options.find(o => !used.has(o.key));
     const due = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
     invoiceDraft = first
-      ? { milestoneKey:first.key, milestoneLabel:first.label, milestonePercentage:first.percentage, amountCents:first.amountCents, dueDate:due }
-      : { milestoneKey:'custom_'+Date.now(), milestoneLabel:'Payment milestone', milestonePercentage:null, amountCents:0, dueDate:due };
+      ? { mode:'milestone', milestoneKey:first.key, milestoneLabel:first.label, milestonePercentage:first.percentage, amountCents:first.amountCents, dueDate:due, lineAllocations:[] }
+      : { mode:'milestone', milestoneKey:'custom_'+Date.now(), milestoneLabel:'Payment milestone', milestonePercentage:null, amountCents:0, dueDate:due, lineAllocations:[] };
     render();
   }
   function closeInvoiceBuilder() { invoiceDraft = null; render(); }
@@ -4181,12 +4181,37 @@ function openManualProspect(kind, seed) {
     else Object.assign(invoiceDraft, { milestoneKey:'custom_'+Date.now(), milestoneLabel:'Payment milestone', milestonePercentage:null, amountCents:0 });
     render();
   }
+  function setInvoiceMode(mode) {
+    invoiceDraft.mode = mode;
+    if (mode === 'items') {
+      invoiceDraft.milestoneKey = 'items_' + Date.now();
+      invoiceDraft.milestoneLabel = 'Progress invoice by quote items';
+      invoiceDraft.milestonePercentage = null;
+      invoiceDraft.lineAllocations = (quoteDetailData.invoiceLineProgress || []).map(x => ({ quoteLineKey:x.quoteLineKey, amountCents:0 }));
+      invoiceDraft.amountCents = 0;
+    }
+    render();
+  }
+  function setInvoiceItemPercent(index, pct) {
+    const progress=(quoteDetailData.invoiceLineProgress||[])[index], allocation=invoiceDraft.lineAllocations[index];
+    if(!progress||!allocation)return;
+    const percentage=Math.max(0,Math.min(100,Number(pct)||0));
+    allocation.amountCents=Math.min(progress.remainingCents,Math.round(progress.quotedAmountCents*percentage/100));
+    invoiceDraft.amountCents=invoiceDraft.lineAllocations.reduce((s,x)=>s+Number(x.amountCents||0),0);
+    render();
+  }
+  function setInvoiceItemAmount(index, dollars) {
+    const progress=(quoteDetailData.invoiceLineProgress||[])[index], allocation=invoiceDraft.lineAllocations[index];
+    if(!progress||!allocation)return;
+    allocation.amountCents=Math.max(0,Math.min(progress.remainingCents,Math.round((Number(dollars)||0)*100)));
+    invoiceDraft.amountCents=invoiceDraft.lineAllocations.reduce((s,x)=>s+Number(x.amountCents||0),0);
+  }
   async function createMilestoneInvoice() {
     if (!invoiceDraft || !invoiceDraft.milestoneLabel || !(Number(invoiceDraft.amountCents) > 0) || !invoiceDraft.dueDate) { alert('Complete the milestone, amount and due date.'); return; }
     if (!confirm(`Create a tax invoice for ${invoiceDraft.milestoneLabel} — ${fmtCents(invoiceDraft.amountCents)}?`)) return;
     invoiceSaving = true; render();
     try {
-      const res = await adminFetch('/api/quotes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'create_invoice', quoteId:selectedQuoteId, ...invoiceDraft }) });
+      const res = await adminFetch('/api/quotes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'create_invoice', quoteId:selectedQuoteId, ...invoiceDraft, lineAllocations:invoiceDraft.mode==='items'?(invoiceDraft.lineAllocations||[]).filter(x=>Number(x.amountCents)>0):[] }) });
       const data = await res.json(); invoiceSaving = false;
       if (!res.ok) { alert(data.error || 'Could not create invoice.'); render(); return; }
       invoiceDraft = null; await openQuoteDetail(selectedQuoteId);
@@ -4323,10 +4348,22 @@ function openManualProspect(kind, seed) {
   function renderInvoiceBuilder() {
     if (!invoiceDraft) return '';
     const options=quoteDetailData.invoiceMilestoneOptions||[], used=new Set((quoteDetailData.invoices||[]).filter(i=>i.status!=='void').map(i=>i.milestoneKey));
-    return `<div class="quote-card" style="border-color:#F3C671;background:#FFFBF2;"><div class="quote-card-title"><h2>Create milestone tax invoice</h2><button class="btn btn-outline" style="width:auto;padding:6px 10px" onclick="closeInvoiceBuilder()">Cancel</button></div>
-      <div style="font-size:11.5px;color:var(--stone);margin-bottom:12px;">Prefilled from the accepted quote. Review every field before creating the invoice.</div>
-      <label class="fieldlabel">Payment milestone</label><select class="fieldinput" onchange="selectInvoiceMilestone(this.value)"><option value="custom">Custom milestone</option>${options.map(o=>`<option value="${escapeHtml(o.key)}" ${invoiceDraft.milestoneKey===o.key?'selected':''} ${used.has(o.key)?'disabled':''}>${escapeHtml(o.label)} — ${o.percentage}% (${fmtCents(o.amountCents)})${used.has(o.key)?' · already invoiced':''}</option>`).join('')}</select>
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-top:10px;"><label><span class="fieldlabel">Invoice description</span><input class="fieldinput" value="${escapeHtml(invoiceDraft.milestoneLabel)}" oninput="invoiceDraft.milestoneLabel=this.value"></label><label><span class="fieldlabel">Amount inc. GST</span><input class="fieldinput" type="number" step="0.01" value="${(invoiceDraft.amountCents/100).toFixed(2)}" oninput="invoiceDraft.amountCents=Math.round(Number(this.value)*100)"></label><label><span class="fieldlabel">Due date</span><input class="fieldinput" type="date" value="${invoiceDraft.dueDate}" oninput="invoiceDraft.dueDate=this.value"></label></div>
+    const progress=quoteDetailData.invoiceLineProgress||[];
+    const itemRows=progress.map((x,i)=>{
+      const a=(invoiceDraft.lineAllocations||[])[i]||{amountCents:0};
+      const pct=x.quotedAmountCents?Math.round((Number(a.amountCents||0)/x.quotedAmountCents)*1000)/10:0;
+      return `<div style="display:grid;grid-template-columns:minmax(220px,2fr) repeat(4,minmax(100px,1fr));gap:8px;align-items:end;padding:10px 0;border-top:1px solid var(--line);">
+        <div><span class="fieldlabel">Quote item</span><strong style="font-size:12.5px;">${escapeHtml(x.description)}</strong></div>
+        <div><span class="fieldlabel">Quoted</span>${fmtCents(x.quotedAmountCents)}</div>
+        <div><span class="fieldlabel">Previously invoiced</span>${fmtCents(x.previouslyInvoicedCents)}</div>
+        <label><span class="fieldlabel">% this invoice</span><input class="fieldinput" type="number" min="0" max="100" step="1" value="${pct||''}" oninput="setInvoiceItemPercent(${i},this.value)"></label>
+        <label><span class="fieldlabel">This invoice</span><input class="fieldinput" type="number" min="0" max="${(x.remainingCents/100).toFixed(2)}" step="0.01" value="${a.amountCents?(a.amountCents/100).toFixed(2):''}" oninput="setInvoiceItemAmount(${i},this.value)"><small style="color:var(--stone);">Remaining ${fmtCents(x.remainingCents)}</small></label>
+      </div>`;
+    }).join('');
+    return `<div class="quote-card" style="border-color:#F3C671;background:#FFFBF2;"><div class="quote-card-title"><h2>Create tax invoice</h2><button class="btn btn-outline" style="width:auto;padding:6px 10px" onclick="closeInvoiceBuilder()">Cancel</button></div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;"><button class="btn ${invoiceDraft.mode==='milestone'?'btn-black':'btn-outline'}" style="width:auto" onclick="setInvoiceMode('milestone')">Milestone</button><button class="btn ${invoiceDraft.mode==='items'?'btn-black':'btn-outline'}" style="width:auto" onclick="setInvoiceMode('items')">Quote items / progress</button></div>
+      ${invoiceDraft.mode==='items' ? `<div style="font-size:11.5px;color:var(--stone);margin-bottom:8px;">Invoice completed work by individual quote item. Enter a percentage or amount; the remaining balance is protected server-side.</div>${itemRows||'<div class="empty">No quote items are available for progress invoicing.</div>'}` : `<label class="fieldlabel">Payment milestone</label><select class="fieldinput" onchange="selectInvoiceMilestone(this.value)"><option value="custom">Custom milestone</option>${options.map(o=>`<option value="${escapeHtml(o.key)}" ${invoiceDraft.milestoneKey===o.key?'selected':''} ${used.has(o.key)?'disabled':''}>${escapeHtml(o.label)} — ${o.percentage}% (${fmtCents(o.amountCents)})${used.has(o.key)?' · already invoiced':''}</option>`).join('')}</select>`}
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-top:10px;"><label><span class="fieldlabel">Invoice description</span><input class="fieldinput" value="${escapeHtml(invoiceDraft.milestoneLabel)}" oninput="invoiceDraft.milestoneLabel=this.value"></label><label><span class="fieldlabel">Amount inc. GST</span><input class="fieldinput" type="number" step="0.01" value="${(invoiceDraft.amountCents/100).toFixed(2)}" ${invoiceDraft.mode==='items'?'readonly':''} oninput="invoiceDraft.amountCents=Math.round(Number(this.value)*100)"></label><label><span class="fieldlabel">Due date</span><input class="fieldinput" type="date" value="${invoiceDraft.dueDate}" oninput="invoiceDraft.dueDate=this.value"></label></div>
       <button class="btn btn-black" style="margin-top:12px" ${invoiceSaving?'disabled':''} onclick="createMilestoneInvoice()">${invoiceSaving?'Creating…':'Create tax invoice'}</button></div>`;
   }
 
