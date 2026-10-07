@@ -3710,7 +3710,7 @@ function openManualProspect(kind, seed) {
   function invoiceStatusBadgeClass(status) {
     return { paid: 'badge-completed', part_paid: 'badge-assigned', sent: 'badge-assigned', issued: 'badge-feed', draft: 'badge-feed', void: 'badge-rejected' }[status] || 'badge-feed';
   }
-  function openStandaloneInvoiceBuilder(){ standaloneInvoiceDraft={customerId:'',customerName:'',customerEmail:'',customerPhone:'',billingAddress:'',propertyAddress:'',description:'Tax invoice',dueDate:new Date(Date.now()+7*86400000).toISOString().slice(0,10),lineItems:[{description:'',amountCents:0}],adminNotes:''}; if(!customersTabData&&!customersTabLoading)loadCustomersTab(); render(); }
+  function openStandaloneInvoiceBuilder(){ standaloneInvoiceDraft={customerId:'',customerName:'',customerEmail:'',customerPhone:'',billingAddress:'',propertyAddress:'',description:'Tax invoice',dueDate:new Date(Date.now()+7*86400000).toISOString().slice(0,10),lineItems:[{description:'',amountCents:0}],scopeText:'',inclusionsText:'',exclusionsText:'',paymentTermsText:'',adminNotes:''}; if(!customersTabData&&!customersTabLoading)loadCustomersTab(); render(); }
   function selectStandaloneInvoiceCustomer(customerId){
     if(!standaloneInvoiceDraft)return;
     standaloneInvoiceDraft.customerId=customerId||'';
@@ -3777,6 +3777,12 @@ function openManualProspect(kind, seed) {
         </div>
       </div>`).join('')}
       <button class="btn btn-outline" onclick="addStandaloneInvoiceItem()">+ Add item</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+        <label><span class="fieldlabel">Scope of works</span><textarea class="fieldinput" rows="4" placeholder="Scope of works" oninput="standaloneInvoiceDraft.scopeText=this.value">${escapeHtml(d.scopeText||'')}</textarea></label>
+        <label><span class="fieldlabel">Inclusions</span><textarea class="fieldinput" rows="4" placeholder="Inclusions" oninput="standaloneInvoiceDraft.inclusionsText=this.value">${escapeHtml(d.inclusionsText||'')}</textarea></label>
+        <label><span class="fieldlabel">Exclusions</span><textarea class="fieldinput" rows="4" placeholder="Exclusions" oninput="standaloneInvoiceDraft.exclusionsText=this.value">${escapeHtml(d.exclusionsText||'')}</textarea></label>
+        <label><span class="fieldlabel">Payment terms</span><textarea class="fieldinput" rows="4" placeholder="Payment terms" oninput="standaloneInvoiceDraft.paymentTermsText=this.value">${escapeHtml(d.paymentTermsText||'')}</textarea></label>
+      </div>
       <label style="display:block;margin-top:10px"><span class="fieldlabel">Admin notes</span><textarea class="fieldinput" rows="2" oninput="standaloneInvoiceDraft.adminNotes=this.value">${escapeHtml(d.adminNotes)}</textarea></label>
       <button class="btn btn-black" style="margin-top:12px" onclick="createStandaloneInvoice()">Create invoice</button>
     </div>`;
@@ -3808,6 +3814,7 @@ function openManualProspect(kind, seed) {
       dueDate:invoice.dueAt?new Date(invoice.dueAt).toISOString().slice(0,10):'',
       description:invoice.description||'Tax invoice',
       lineItems:(invoice.lineItems||[]).map(item=>({description:item.description||'',amountCents:Number(item.amountCents||0)})),
+      scopeText:invoice.scopeText||'', inclusionsText:invoice.inclusionsText||'', exclusionsText:invoice.exclusionsText||'', paymentTermsText:invoice.paymentTermsText||'',
       adminNotes:invoice.adminNotes||''
     };
     render();
@@ -3818,7 +3825,7 @@ function openManualProspect(kind, seed) {
     if(!selectedStandaloneInvoiceId||!d)return;
     const validItems=(d.lineItems||[]).filter(x=>String(x.description||'').trim()&&Number(x.amountCents)>0);
     if(!d.customerEmail||!d.dueDate||!validItems.length){alert('Customer email, due date and at least one invoice item are required.');return;}
-    const res=await adminFetch('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'update_invoice',invoiceId:selectedStandaloneInvoiceId,customerName:d.customerName,customerEmail:d.customerEmail,billingAddress:d.billingAddress,dueDate:d.dueDate,description:d.description,lineItems:validItems,adminNotes:d.adminNotes})});
+    const res=await adminFetch('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'update_invoice',invoiceId:selectedStandaloneInvoiceId,customerName:d.customerName,customerEmail:d.customerEmail,billingAddress:d.billingAddress,dueDate:d.dueDate,description:d.description,lineItems:validItems,scopeText:d.scopeText,inclusionsText:d.inclusionsText,exclusionsText:d.exclusionsText,paymentTermsText:d.paymentTermsText,adminNotes:d.adminNotes})});
     const data=await res.json();
     if(!res.ok){alert(data.error||'Could not update invoice.');return;}
     invoicesTabData=null;selectedStandaloneInvoiceId=null;standaloneInvoiceEditDraft=null;await loadInvoicesTab();alert('Invoice updated.');
@@ -3841,6 +3848,12 @@ function openManualProspect(kind, seed) {
       <h3 style="margin-top:14px;">Invoice items</h3>
       ${d.lineItems.map((x,i)=>`<div style="display:grid;grid-template-columns:1fr 160px;gap:8px;margin-bottom:8px"><textarea class="fieldinput" rows="3" ${locked?'readonly':''} oninput="standaloneInvoiceEditDraft.lineItems[${i}].description=this.value">${escapeHtml(x.description)}</textarea><input class="fieldinput" type="number" step="0.01" ${locked?'readonly':''} value="${x.amountCents?(x.amountCents/100).toFixed(2):''}" oninput="standaloneInvoiceEditDraft.lineItems[${i}].amountCents=Math.round(Number(this.value)*100)"></div>`).join('')}
       ${locked?'<div style="font-size:12px;color:var(--stone);margin:6px 0 10px;">Amounts are locked because a payment has already been recorded.</div>':'<button class="btn btn-outline" onclick="addStandaloneInvoiceEditItem()">+ Add item</button>'}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+        <label><span class="fieldlabel">Scope of works</span><textarea class="fieldinput" rows="4" oninput="standaloneInvoiceEditDraft.scopeText=this.value">${escapeHtml(d.scopeText||'')}</textarea></label>
+        <label><span class="fieldlabel">Inclusions</span><textarea class="fieldinput" rows="4" oninput="standaloneInvoiceEditDraft.inclusionsText=this.value">${escapeHtml(d.inclusionsText||'')}</textarea></label>
+        <label><span class="fieldlabel">Exclusions</span><textarea class="fieldinput" rows="4" oninput="standaloneInvoiceEditDraft.exclusionsText=this.value">${escapeHtml(d.exclusionsText||'')}</textarea></label>
+        <label><span class="fieldlabel">Payment terms</span><textarea class="fieldinput" rows="4" oninput="standaloneInvoiceEditDraft.paymentTermsText=this.value">${escapeHtml(d.paymentTermsText||'')}</textarea></label>
+      </div>
       <label style="display:block;margin-top:10px"><span class="fieldlabel">Admin notes</span><textarea class="fieldinput" rows="2" oninput="standaloneInvoiceEditDraft.adminNotes=this.value">${escapeHtml(d.adminNotes)}</textarea></label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         <button class="btn btn-black" onclick="saveStandaloneInvoiceDetail()">Save changes</button>
