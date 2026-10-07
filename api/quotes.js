@@ -157,7 +157,11 @@ async function resolveInvoiceToken(req, res, supabase) {
   const { data: version } = await supabase.from('quote_versions').select('*').eq('id', invoice.quote_version_id).maybeSingle();
   await supabase.from('document_access_tokens').update({ last_accessed_at: new Date().toISOString() }).eq('id', tokenRow.id);
   const { data: payments } = await supabase.from('invoice_payments').select('*').eq('invoice_id', invoice.id).order('received_at');
-  return { invoice, entity, quote, version, payments: payments || [] };
+  const { data: lineAllocations, error: lineAllocationError } = await supabase.from('invoice_line_allocations')
+    .select('quote_line_key,quote_line_description,quoted_amount_cents,invoiced_amount_cents,progress_percentage')
+    .eq('invoice_id', invoice.id).order('created_at');
+  if (lineAllocationError && !['42P01','PGRST205'].includes(String(lineAllocationError.code || ''))) throw lineAllocationError;
+  return { invoice, entity, quote, version, payments: payments || [], lineAllocations: lineAllocations || [] };
 }
 
 async function handleCreateInvoice(req, res, supabase) {
@@ -951,9 +955,17 @@ module.exports = async (req, res) => {
         res.setHeader('Cache-Control', 'private, no-store');
         const resolvedInvoice = await resolveInvoiceToken(req, res, supabase);
         if (!resolvedInvoice) return;
-        const { invoice, entity, quote, version, payments } = resolvedInvoice;
+        const { invoice, entity, quote, version, payments, lineAllocations } = resolvedInvoice;
         res.status(200).json({
-          invoice: serializeInvoice(invoice, { publicView: true, payments }), quoteNumber: quote && quote.quote_number,
+          invoice: serializeInvoice(invoice, { publicView: true, payments }),
+          invoiceLineAllocations: (lineAllocations || []).map(row => ({
+            quoteLineKey: row.quote_line_key,
+            description: row.quote_line_description,
+            quotedAmountCents: Number(row.quoted_amount_cents || 0),
+            invoicedAmountCents: Number(row.invoiced_amount_cents || 0),
+            progressPercentage: row.progress_percentage == null ? null : Number(row.progress_percentage),
+          })),
+          quoteNumber: quote && quote.quote_number,
           quoteDetails: version ? {
             lineItems: Array.isArray(version.line_items) ? version.line_items : [],
             subtotalExGstCents: Number(version.subtotal_ex_gst_cents || 0),
