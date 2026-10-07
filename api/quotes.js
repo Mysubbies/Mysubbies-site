@@ -407,8 +407,8 @@ async function handleSendInvoice(req, res, supabase) {
   if (!invoice || invoice.status === 'void') { res.status(404).json({ error: 'Invoice not found.' }); return; }
   const email = invoice.customer_snapshot && invoice.customer_snapshot.email;
   if (!email) { res.status(400).json({ error: 'This invoice has no customer email.' }); return; }
-  const { data: quote } = await supabase.from('quotes').select('*').eq('id', invoice.quote_id).maybeSingle();
-  const { data: version } = await supabase.from('quote_versions').select('*').eq('id', invoice.quote_version_id).maybeSingle();
+  const quote = invoice.quote_id ? (await supabase.from('quotes').select('*').eq('id', invoice.quote_id).maybeSingle()).data : null;
+  const version = invoice.quote_version_id ? (await supabase.from('quote_versions').select('*').eq('id', invoice.quote_version_id).maybeSingle()).data : null;
   const { data: lineAllocations, error: lineAllocationError } = await supabase.from('invoice_line_allocations')
     .select('quote_line_key,quote_line_description,quoted_amount_cents,invoiced_amount_cents,progress_percentage')
     .eq('invoice_id', invoice.id).order('created_at');
