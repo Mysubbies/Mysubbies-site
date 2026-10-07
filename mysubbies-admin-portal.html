@@ -4332,31 +4332,21 @@ function openManualProspect(kind, seed) {
       <button class="btn btn-black" style="margin-top:12px" ${d.saving?'disabled':''} onclick="recordInvoicePayment()">${d.saving?'Recording…':'Record payment received'}</button>
     </div>`;
   }
-  function downloadAdminInvoicePdf(invoiceId) {
-    const invoice=(quoteDetailData.invoices||[]).find(i=>i.id===invoiceId); if(!invoice)return;
-    const {jsPDF}=window.jspdf,doc=new jsPDF(),q=quoteDetailData.quote,v=quoteDetailData.currentVersion||quoteDetailData.version||{},entityName='Mysubbies Holdings Pty Ltd',abn='69 693 675 268';
-    const navy=[20,33,61], orange=[255,106,26], light=[247,247,245], line=[225,226,228], stone=[107,114,128], left=14,right=196,width=182,pageBottom=282;
-    let y=0;
-    const addHeader=()=>{doc.setFillColor(...navy);doc.rect(0,0,210,34,'F');doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(18);doc.text('My',14,16);doc.setTextColor(...orange);doc.text('Subbies',31,16);doc.setTextColor(255);doc.setFontSize(9);doc.text('TAX INVOICE',196,12,{align:'right'});doc.setFont('helvetica','normal');doc.text('INV-'+invoice.invoiceNumber+'  |  Quote #'+q.quoteNumber,196,19,{align:'right'});doc.text('Issued '+new Date(invoice.issuedAt).toLocaleDateString('en-AU')+'  |  Due '+new Date(invoice.dueAt).toLocaleDateString('en-AU'),196,26,{align:'right'});y=45;};
-    const addFooter=()=>{const pages=doc.getNumberOfPages();for(let p=1;p<=pages;p++){doc.setPage(p);doc.setDrawColor(...line);doc.line(left,287,right,287);doc.setTextColor(...stone);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.text('Mysubbies Holdings Pty Ltd  |  ABN 69 693 675 268  |  PO Box 1126, Craigieburn VIC 3064',left,292);doc.text('INV-'+invoice.invoiceNumber+'  |  Page '+p+' of '+pages,right,292,{align:'right'});}};
-    const ensure=h=>{if(y+h>pageBottom){doc.addPage();addHeader();}};
-    const sectionTitle=title=>{ensure(13);doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text(String(title).toUpperCase(),left,y);y+=5;doc.setDrawColor(...line);doc.line(left,y,right,y);y+=7;};
-    const wrap=text=>{const lines=doc.splitTextToSize(String(text||''),width);for(const t of lines){ensure(5);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(35);doc.text(t,left,y);y+=4.5;}};
-    const serviceTitle=text=>{const raw=String(text||'').trim();if(!raw)return 'Quoted service';let title=(raw.split(/\r?\n/)[0]||'').replace(/\s+/g,' ').trim();const cuts=[/\s+Supply and install\b/i,/\s+Supply & Install\b/i,/\s+Carefully break\b/i,/\s+Scope Includes\b/i,/\s+Areas?:\b/i,/\s+Price is based\b/i];for(const re of cuts){const m=title.match(re);if(m&&m.index>8){title=title.slice(0,m.index).trim();break;}}if(title.length>72)title=title.slice(0,69).trimEnd()+'…';return title;};
-    addHeader();
-    doc.setTextColor(...stone);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('ISSUED BY',left,y);doc.text('BILL TO',108,y);y+=6;
-    doc.setTextColor(20);doc.setFontSize(9.5);doc.text(entityName,left,y);doc.text((invoice.customer&&invoice.customer.name)||(invoice.customer&&invoice.customer.email)||'Customer',108,y);y+=5;
-    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.text('ABN '+abn,left,y);doc.text((invoice.customer&&invoice.customer.email)||'',108,y);y+=5;doc.text('PO Box 1126, Craigieburn VIC 3064',left,y);const billAddress=(invoice.customer&&invoice.customer.billingAddress)||[invoice.property&&invoice.property.address,invoice.property&&invoice.property.suburb].filter(Boolean).join(', ');if(billAddress)doc.text(billAddress,108,y,{maxWidth:88});y+=12;
-    sectionTitle('Accepted quote summary');
-    doc.setFillColor(...light);doc.rect(left,y-2,width,8,'F');doc.setTextColor(...stone);doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.text('SERVICE',left+3,y+3);doc.text('QTY',151,y+3,{align:'right'});doc.text('AMOUNT',193,y+3,{align:'right'});y+=11;
-    const items=(v.lineItems||v.line_items||[]);
-    items.forEach((item,index)=>{const titleLines=doc.splitTextToSize(serviceTitle(item.description),112),rowH=Math.max(10,titleLines.length*4.4+5);ensure(rowH+2);if(index%2===1){doc.setFillColor(252,252,251);doc.rect(left,y-4,width,rowH,'F');}doc.setTextColor(30);doc.setFont('helvetica','bold');doc.setFontSize(8.3);doc.text(titleLines,left+3,y,{maxWidth:112});doc.setFont('helvetica','normal');doc.setTextColor(...stone);doc.setFontSize(7.8);const qtyText=[item.qty==null?'':item.qty,item.unit||''].filter(Boolean).join(' ');doc.text(String(qtyText),154,y,{align:'right'});doc.setTextColor(20);doc.setFont('helvetica','bold');doc.setFontSize(8.3);doc.text(fmtCents(item.lineTotalCents!=null?item.lineTotalCents:item.line_total_cents),193,y,{align:'right'});y+=rowH;doc.setDrawColor(...line);doc.line(left+3,y-2,right-3,y-2);});
-    ensure(12);doc.setFont('helvetica','bold');doc.setTextColor(...navy);doc.setFontSize(9);doc.text('Accepted quote total',145,y,{align:'right'});doc.text(fmtCents((v.totalIncGstCents!=null?v.totalIncGstCents:v.total_inc_gst_cents)||0),193,y,{align:'right'});y+=6;doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...stone);doc.text('Quote values are shown for reference. The amount due is the invoice amount below.',left,y);y+=11;
-    ensure(48);doc.setFillColor(249,250,252);doc.setDrawColor(210,213,218);doc.roundedRect(left,y,width,44,3,3,'FD');doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text('THIS INVOICE',left+6,y+9);doc.setFontSize(9);doc.text(invoice.milestoneLabel||invoice.description,left+6,y+18,{maxWidth:95});doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...stone);doc.text('Subtotal (ex. GST)',126,y+12);doc.text('GST',126,y+20);doc.text('Payments received',126,y+28);doc.setTextColor(30);doc.text(fmtCents(invoice.subtotalExGstCents),190,y+12,{align:'right'});doc.text(fmtCents(invoice.gstCents),190,y+20,{align:'right'});doc.text(fmtCents(invoice.paidCents||0),190,y+28,{align:'right'});doc.setDrawColor(210,213,218);doc.line(126,y+32,190,y+32);doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.setTextColor(...navy);doc.text('AMOUNT DUE',126,y+39);doc.text(fmtCents(invoice.balanceCents),190,y+39,{align:'right'});y+=54;
-    ensure(39);doc.setFillColor(255,248,237);doc.setDrawColor(243,198,113);doc.roundedRect(left,y,width,34,3,3,'FD');doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text('PAYMENT OPTIONS',left+6,y+9);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(45);doc.text('Card: pay securely from the online invoice link via Stripe.',left+6,y+16);doc.text('Bank: '+invoice.bankAccountName+'  |  BSB '+invoice.bankBsb+'  |  Account '+invoice.bankAccountNumber,left+6,y+22,{maxWidth:168});doc.text('Reference: INV-'+invoice.invoiceNumber+'  |  Due '+new Date(invoice.dueAt).toLocaleDateString('en-AU'),left+6,y+28);y+=44;
-    const details=[['Scope of works',v.scopeText||v.scope_text],['Inclusions',v.inclusionsText||v.inclusions_text],['Exclusions',v.exclusionsText||v.exclusions_text],['Payment terms',v.paymentTermsText||'']].filter(([,t])=>String(t||'').trim());
-    if(details.length){doc.addPage();addHeader();details.forEach(([title,text],idx)=>{sectionTitle(title);wrap(text);if(idx<details.length-1)y+=8;});}
-    addFooter();doc.save('mysubbies-tax-invoice-INV-'+invoice.invoiceNumber+'.pdf');
+  async function downloadAdminInvoicePdf(invoiceId) {
+    try {
+      const res = await adminFetch('/api/quotes', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ action:'generate_invoice_preview_link', invoiceId })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) { alert(data.error || 'Could not generate invoice PDF.'); return; }
+      const url = new URL(data.url, window.location.origin);
+      url.searchParams.set('download', '1');
+      window.open(url.toString(), '_blank', 'noopener');
+    } catch (e) {
+      alert('Could not generate invoice PDF — check your connection.');
+    }
   }
 
   function renderInvoiceBuilder() {
