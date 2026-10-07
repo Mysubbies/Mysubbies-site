@@ -3744,7 +3744,40 @@ function openManualProspect(kind, seed) {
       const b=document.getElementById('invoiceAiDetails_'+index);
       if(b){b.disabled=false;b.textContent='✦ Create AI details';}
     }
+  }  async function generateAiStandaloneInvoiceSections(mode){
+    const d=mode==='edit'?standaloneInvoiceEditDraft:standaloneInvoiceDraft;
+    if(!d)return;
+    const lineItems=(d.lineItems||[]).filter(x=>String(x.description||'').trim());
+    if(!lineItems.length){alert('Add at least one invoice item first.');return;}
+    const btnId=mode==='edit'?'invoiceAiSectionsEdit':'invoiceAiSectionsNew';
+    const btn=document.getElementById(btnId);
+    if(btn){btn.disabled=true;btn.textContent='Generating…';}
+    try{
+      const res=await adminFetch('/api/quotes',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          action:'ai_draft_text',
+          lineItems:lineItems.map((x,i)=>({id:'invoice_'+i,description:x.description,qty:1,unit:'item',unitPriceCents:Number(x.amountCents||0),lineTotalCents:Number(x.amountCents||0)})),
+          scopeBrief:d.scopeText||'',
+          inclusionsBrief:d.inclusionsText||'',
+          exclusionsBrief:d.exclusionsText||''
+        })
+      });
+      const data=await res.json();
+      if(!res.ok){alert(data.error||'Could not generate invoice scope details.');return;}
+      if(data.scopeText)d.scopeText=data.scopeText;
+      if(data.inclusionsText)d.inclusionsText=data.inclusionsText;
+      if(data.exclusionsText)d.exclusionsText=data.exclusionsText;
+      if(!String(d.paymentTermsText||'').trim()) d.paymentTermsText='Payment is due by the due date shown on this invoice. Please use the invoice number as the bank-transfer reference.';
+      render();
+    }catch(e){alert('Could not generate invoice scope details — check your connection.');}
+    finally{
+      const b=document.getElementById(btnId);
+      if(b){b.disabled=false;b.textContent='✦ Create AI scope details';}
+    }
   }
+
+
   async function createStandaloneInvoice(){const d=standaloneInvoiceDraft;if(!d.customerEmail||!d.dueDate||!d.lineItems.some(x=>x.description&&x.amountCents>0)){alert('Enter customer email, due date and at least one item.');return;}const res=await adminFetch('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create_standalone_invoice',...d})});const data=await res.json();if(!res.ok){alert(data.error||'Could not create invoice.');return;}standaloneInvoiceDraft=null;invoicesTabData=null;await loadInvoicesTab();alert('Invoice INV-'+data.invoice.invoiceNumber+' created.');}
   function renderStandaloneInvoiceBuilder(){
     const d=standaloneInvoiceDraft;if(!d)return '';
@@ -3777,11 +3810,20 @@ function openManualProspect(kind, seed) {
         </div>
       </div>`).join('')}
       <button class="btn btn-outline" onclick="addStandaloneInvoiceItem()">+ Add item</button>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px;margin-bottom:8px;">
+        <strong style="font-size:13px;">Invoice scope & terms</strong>
+        <button id="invoiceAiSectionsNew" class="btn btn-outline" type="button" style="width:auto;padding:7px 11px;font-size:12px;" onclick="generateAiStandaloneInvoiceSections('new')">✦ Create AI scope details</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <label><span class="fieldlabel">Scope of works</span><textarea class="fieldinput" rows="4" placeholder="Scope of works" oninput="standaloneInvoiceDraft.scopeText=this.value">${escapeHtml(d.scopeText||'')}</textarea></label>
         <label><span class="fieldlabel">Inclusions</span><textarea class="fieldinput" rows="4" placeholder="Inclusions" oninput="standaloneInvoiceDraft.inclusionsText=this.value">${escapeHtml(d.inclusionsText||'')}</textarea></label>
         <label><span class="fieldlabel">Exclusions</span><textarea class="fieldinput" rows="4" placeholder="Exclusions" oninput="standaloneInvoiceDraft.exclusionsText=this.value">${escapeHtml(d.exclusionsText||'')}</textarea></label>
         <label><span class="fieldlabel">Payment terms</span><textarea class="fieldinput" rows="4" placeholder="Payment terms" oninput="standaloneInvoiceDraft.paymentTermsText=this.value">${escapeHtml(d.paymentTermsText||'')}</textarea></label>
+      </div>
+      <div style="margin-top:12px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#F7F7F5;">
+        <div class="fieldlabel">Terms &amp; Conditions</div>
+        <div style="font-size:12px;line-height:1.55;color:var(--stone);">${escapeHtml(STANDARD_QUOTE_TERMS_V1)}</div>
+        <div style="font-size:11.5px;margin-top:6px;"><a href="https://app.mysubbies.com.au/mysubbies-terms.html" target="_blank" rel="noopener">View full MySubbies Platform Terms</a></div>
       </div>
       <label style="display:block;margin-top:10px"><span class="fieldlabel">Admin notes</span><textarea class="fieldinput" rows="2" oninput="standaloneInvoiceDraft.adminNotes=this.value">${escapeHtml(d.adminNotes)}</textarea></label>
       <button class="btn btn-black" style="margin-top:12px" onclick="createStandaloneInvoice()">Create invoice</button>
@@ -3873,11 +3915,20 @@ function openManualProspect(kind, seed) {
       <h3 style="margin-top:14px;">Invoice items</h3>
       ${d.lineItems.map((x,i)=>`<div style="display:grid;grid-template-columns:1fr 160px;gap:8px;margin-bottom:8px"><textarea class="fieldinput" rows="3" ${locked?'readonly':''} oninput="standaloneInvoiceEditDraft.lineItems[${i}].description=this.value">${escapeHtml(x.description)}</textarea><input class="fieldinput" type="number" step="0.01" ${locked?'readonly':''} value="${x.amountCents?(x.amountCents/100).toFixed(2):''}" oninput="standaloneInvoiceEditDraft.lineItems[${i}].amountCents=Math.round(Number(this.value)*100)"></div>`).join('')}
       ${locked?'<div style="font-size:12px;color:var(--stone);margin:6px 0 10px;">Amounts are locked because a payment has already been recorded.</div>':'<button class="btn btn-outline" onclick="addStandaloneInvoiceEditItem()">+ Add item</button>'}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px;margin-bottom:8px;">
+        <strong style="font-size:13px;">Invoice scope & terms</strong>
+        <button id="invoiceAiSectionsEdit" class="btn btn-outline" type="button" style="width:auto;padding:7px 11px;font-size:12px;" onclick="generateAiStandaloneInvoiceSections('edit')">✦ Create AI scope details</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <label><span class="fieldlabel">Scope of works</span><textarea class="fieldinput" rows="4" oninput="standaloneInvoiceEditDraft.scopeText=this.value">${escapeHtml(d.scopeText||'')}</textarea></label>
         <label><span class="fieldlabel">Inclusions</span><textarea class="fieldinput" rows="4" oninput="standaloneInvoiceEditDraft.inclusionsText=this.value">${escapeHtml(d.inclusionsText||'')}</textarea></label>
         <label><span class="fieldlabel">Exclusions</span><textarea class="fieldinput" rows="4" oninput="standaloneInvoiceEditDraft.exclusionsText=this.value">${escapeHtml(d.exclusionsText||'')}</textarea></label>
         <label><span class="fieldlabel">Payment terms</span><textarea class="fieldinput" rows="4" oninput="standaloneInvoiceEditDraft.paymentTermsText=this.value">${escapeHtml(d.paymentTermsText||'')}</textarea></label>
+      </div>
+      <div style="margin-top:12px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#F7F7F5;">
+        <div class="fieldlabel">Terms &amp; Conditions</div>
+        <div style="font-size:12px;line-height:1.55;color:var(--stone);">${escapeHtml(STANDARD_QUOTE_TERMS_V1)}</div>
+        <div style="font-size:11.5px;margin-top:6px;"><a href="https://app.mysubbies.com.au/mysubbies-terms.html" target="_blank" rel="noopener">View full MySubbies Platform Terms</a></div>
       </div>
       <label style="display:block;margin-top:10px"><span class="fieldlabel">Admin notes</span><textarea class="fieldinput" rows="2" oninput="standaloneInvoiceEditDraft.adminNotes=this.value">${escapeHtml(d.adminNotes)}</textarea></label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
