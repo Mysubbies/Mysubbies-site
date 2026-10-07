@@ -111,7 +111,7 @@ async function downloadPdf(){
 
   const addHeader=()=>{
     doc.setFillColor(...navy);doc.rect(0,0,210,34,'F');
-    doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(18);doc.text('My',14,16);doc.setTextColor(...orange);doc.text('Subbies',31,16);
+    doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(18);doc.text('My',14,16);doc.setTextColor(...orange);doc.text('Subbies',25.5,16);
     doc.setTextColor(255);doc.setFontSize(9);doc.text('TAX INVOICE',196,12,{align:'right'});doc.setFont('helvetica','normal');doc.text('INV-'+i.invoiceNumber+'  |  Quote #'+payload.quoteNumber,196,19,{align:'right'});
     doc.text('Issued '+date(i.issuedAt)+'  |  Due '+date(i.dueAt),196,26,{align:'right'});
     y=45;
@@ -120,21 +120,40 @@ async function downloadPdf(){
     const pages=doc.getNumberOfPages();
     for(let p=1;p<=pages;p++){
       doc.setPage(p);
+      const footerY=257, footerH=22, textW=108, imageX=left+112, imageW=70;
+      doc.setFillColor(...navy);doc.roundedRect(left,footerY,width,footerH,2.5,2.5,'F');
+
+      // Brand message on the left.
+      doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(10);
+      doc.text('MySubbies - Your Personal Tradie',left+6,footerY+7);
+      doc.setFont('helvetica','normal');doc.setFontSize(7.3);
+      doc.text('One trusted team for your home, property & outdoor projects.',left+6,footerY+12.5,{maxWidth:textW});
+      doc.setFontSize(6.8);
+      doc.text('Landscaping • Outdoor Living • Property Maintenance • Construction',left+6,footerY+18,{maxWidth:textW});
+
+      // Image panel on the right, cropped rather than stretched.
       if(footerPhoto){
         try{
-          doc.addImage(footerPhoto,'PNG',left,258,width,20);
-          doc.setFillColor(20,33,61);doc.setGState(new doc.GState({opacity:0.72}));doc.rect(left,258,width,20,'F');doc.setGState(new doc.GState({opacity:1}));
-          doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(10);
-          doc.text('Need help with your outdoor space?',left+6,267);
-          doc.setFont('helvetica','normal');doc.setFontSize(7.5);
-          doc.text('Landscaping • Pergolas • Decking • Concrete • Fencing • Turf',left+6,272);
-          doc.setFont('helvetica','bold');doc.text('mysubbies.com.au',right-6,272,{align:'right'});
+          const imgProps=doc.getImageProperties(footerPhoto);
+          const ratio=imgProps.width/imgProps.height;
+          let drawW=imageW, drawH=footerH;
+          if(ratio>imageW/footerH){ drawH=footerH; drawW=footerH*ratio; }
+          else { drawW=imageW; drawH=imageW/ratio; }
+          const cropX=imageX-(drawW-imageW)/2;
+          const cropY=footerY-(drawH-footerH)/2;
+          doc.saveGraphicsState();
+          doc.rect(imageX,footerY,imageW,footerH,'S');
+          doc.clip();
+          doc.addImage(footerPhoto,'PNG',cropX,cropY,drawW,drawH);
+          doc.restoreGraphicsState();
+          doc.setFillColor(20,33,61);doc.setGState(new doc.GState({opacity:0.42}));doc.rect(imageX,footerY,imageW,footerH,'F');doc.setGState(new doc.GState({opacity:1}));
         }catch(e){}
-      }else{
-        doc.setFillColor(...navy);doc.rect(left,258,width,20,'F');
-        doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text('Need help with your outdoor space?',left+6,267);
-        doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.text('Landscaping • Pergolas • Decking • Concrete • Fencing • Turf',left+6,272);
       }
+
+      // Clickable website on image panel.
+      doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(8);
+      doc.textWithLink('www.mysubbies.com.au',right-5,footerY+17,{align:'right',url:'https://www.mysubbies.com.au'});
+
       doc.setDrawColor(...line);doc.line(left,284,right,284);
       doc.setTextColor(...stone);doc.setFont('helvetica','normal');doc.setFontSize(7);
       doc.text('Mysubbies Holdings Pty Ltd  |  ABN 69 693 675 268  |  PO Box 1126, Craigieburn VIC 3064',left,290);
