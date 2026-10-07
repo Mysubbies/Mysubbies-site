@@ -405,7 +405,8 @@ async function handleSendInvoice(req, res, supabase) {
   const { error: tokenError } = await supabase.from('document_access_tokens').insert({ document_type: 'invoice', document_id: invoice.id, token_hash: hashToken(rawToken), expires_at: expiresAt });
   if (tokenError) throw tokenError;
   const url = `${invoiceBaseUrl()}?token=${encodeURIComponent(rawToken)}`;
-  const result = await sendEmailWithResult({ to: email, bcc: 'accounts@mysubbies.com.au', subject: `Tax invoice INV-${invoice.invoice_number} — MySubbies`, html: renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl: url, lineAllocations: lineAllocations || [] }) });
+  const { recommendations } = version ? await loadRecommendations(supabase, version) : { recommendations: [] };
+  const result = await sendEmailWithResult({ to: email, bcc: 'accounts@mysubbies.com.au', subject: `Tax invoice INV-${invoice.invoice_number} — MySubbies`, html: renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl: url, lineAllocations: lineAllocations || [], recommendations }) });
   if (!result.ok) { res.status(502).json({ error: result.error, url }); return; }
   const invoiceUpdate = { sent_at: now.toISOString(), updated_at: now.toISOString() };
   if (invoice.status === 'issued') invoiceUpdate.status = 'sent';
