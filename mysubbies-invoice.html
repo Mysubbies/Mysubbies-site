@@ -30,6 +30,7 @@ const money=c=>'$'+((Number(c)||0)/100).toLocaleString('en-AU',{minimumFractionD
 const date=v=>v?new Date(v).toLocaleDateString('en-AU'):'—';
 const nl=s=>esc(s||'').replace(/\n/g,'<br>');
 let payload;
+const STANDARD_INVOICE_TERMS="This quote is valid until the expiry date shown above and may be withdrawn or revised after that date. Accepting this quote confirms you agree to the scope, pricing and payment terms described above. This document does not replace the MySubbies Platform Terms, which continue to apply in full -- see mysubbies-terms.html on the MySubbies website. Work is carried out by a vetted MySubbies contractor; any site-specific conditions discovered after acceptance may require a separate variation, which will always be agreed with you before proceeding.";
 let invoiceToken;
 
 async function load(){
@@ -97,7 +98,7 @@ function render(){
       : '<div class="card"><h3>Accepted quote details</h3>'+quoteRows(q)+'<p class="muted" style="margin-bottom:0">These are the items from accepted Quote #'+esc(payload.quoteNumber)+'. They are shown for reference and are not an additional amount payable on this invoice.</p></div>'))+
   '<div class="card"><h3>This invoice</h3><div class="row"><span>'+invoiceSummaryLabel+'</span><strong>'+money(i.totalIncGstCents)+'</strong></div><div class="row"><span>Subtotal (ex. GST)</span><span>'+money(i.subtotalExGstCents)+'</span></div><div class="row"><span>GST</span><span>'+money(i.gstCents)+'</span></div><div class="row total"><span>Invoice total (inc. GST)</span><span>'+money(i.totalIncGstCents)+'</span></div><div class="row"><span>Payments received</span><strong>'+money(paid)+'</strong></div><div class="row total"><span>Balance remaining</span><span>'+money(balance)+'</span></div></div>'+
   (isProgressInvoice?'':(isStandaloneInvoice
-    ? textCard('Scope of works',i.scopeText)+textCard('Inclusions',i.inclusionsText)+textCard('Exclusions',i.exclusionsText)+textCard('Payment terms',i.paymentTermsText)
+    ? textCard('Scope of works',i.scopeText)+textCard('Inclusions',i.inclusionsText)+textCard('Exclusions',i.exclusionsText)+textCard('Payment terms',i.paymentTermsText)+textCard('Terms & conditions',STANDARD_INVOICE_TERMS)
     : textCard('Scope of works',q.scopeText)+textCard('Inclusions',q.inclusionsText)+textCard('Exclusions',q.exclusionsText)+textCard('Payment terms',q.paymentTermsText)+terms))+
   (balance>0?'<div class="card bank"><div class="label">Payment by bank transfer</div><div class="value"><strong>'+esc(i.bankAccountName)+'</strong><br>BSB: '+esc(i.bankBsb)+'<br>Account: '+esc(i.bankAccountNumber)+'<br>Reference: INV-'+esc(i.invoiceNumber)+'<br><br><strong>Amount due: '+money(balance)+'</strong><br><strong>Due: '+date(i.dueAt)+'</strong></div></div>':'<div class="card" style="background:#eaf5ee;border-color:#b9ddc6"><strong>✓ Paid in full</strong>'+(i.paidAt?' on '+date(i.paidAt):'')+'</div>')+
   ((i.payments||[]).length?'<div class="card"><h3>Payment history</h3>'+(i.payments||[]).map(payment=>'<div class="row"><span>'+date(payment.receivedAt)+' · '+esc(paymentMethod(payment.method))+(payment.reference?' · '+esc(payment.reference):'')+'</span><span><strong>'+money(payment.amountCents)+'</strong> <button class="btn secondary" style="padding:6px 9px;margin-left:7px" onclick="downloadReceipt(\''+payment.id+'\')">Receipt</button></span></div>').join('')+'</div>':'')+
@@ -286,7 +287,8 @@ async function downloadPdf(){
     ['Scope of works',i.scopeText],
     ['Inclusions',i.inclusionsText],
     ['Exclusions',i.exclusionsText],
-    ['Payment terms',i.paymentTermsText]
+    ['Payment terms',i.paymentTermsText],
+    ['Terms & conditions',STANDARD_INVOICE_TERMS]
   ] : [
     ['Scope of works',q.scopeText],
     ['Inclusions',q.inclusionsText],
