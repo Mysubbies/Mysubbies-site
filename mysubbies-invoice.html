@@ -66,6 +66,13 @@ function invoiceAllocationRows(){
     rows.map(row=>'<tr><td>'+esc(row.description||'Quoted item')+'</td><td class="num">'+money(row.quotedAmountCents)+'</td><td class="num">'+(row.progressPercentage==null?'—':Number(row.progressPercentage).toLocaleString('en-AU',{maximumFractionDigits:1})+'%')+'</td><td class="num"><strong>'+money(row.invoicedAmountCents)+'</strong></td></tr>').join('')+
     '</tbody></table>';
 }
+function standaloneInvoiceRows(i){
+  const items=Array.isArray(i&&i.lineItems)?i.lineItems:[];
+  if(!items.length)return '<p class="muted">No invoice items were stored.</p>';
+  return '<table class="quote-table"><thead><tr><th>Description</th><th class="num">Amount</th></tr></thead><tbody>'+
+    items.map(item=>'<tr><td>'+esc(item.description||'Invoice item')+'</td><td class="num"><strong>'+money(item.amountCents!=null?item.amountCents:item.amount_cents)+'</strong></td></tr>').join('')+
+    '</tbody></table>';
+}
 function textCard(title,text){
   if(!text)return '';
   return '<div class="card note"><h3>'+esc(title)+'</h3><div class="section-text">'+nl(text)+'</div></div>';
@@ -76,17 +83,22 @@ function render(){
   const paymentState=params.get('payment');
   const paymentNotice=paymentState==='success'?'<div class="success"><strong>Card payment submitted.</strong> Stripe will confirm the payment securely. The balance will update automatically once confirmation is received.</div>':paymentState==='cancelled'?'<div class="cancelled">Card payment was cancelled. No change has been made to the invoice.</div>':'';
   const isProgressInvoice=(payload.invoiceLineAllocations||[]).length>0;
+  const isStandaloneInvoice=!payload.quoteNumber;
   const invoiceSummaryLabel=isProgressInvoice?'Progress claim for selected quote items':esc(i.description);
   const terms=q.termsText?'<div class="card note"><h3>Terms &amp; conditions</h3><div class="section-text">'+nl(q.termsText)+'</div>'+(q.termsUrl?'<p class="muted" style="margin-bottom:0">Full MySubbies Platform Terms: <a class="terms-link" href="'+esc(q.termsUrl)+'" target="_blank" rel="noopener">View terms</a></p>':'')+'</div>':'';
   document.getElementById('app').innerHTML=
-  '<section class="sheet"><div class="head"><div><h1>TAX INVOICE</h1><p>INV-'+esc(i.invoiceNumber)+' · Quote #'+esc(payload.quoteNumber)+' · '+esc(String(i.status||'issued').replace('_',' '))+'</p></div><div class="amount"><span class="muted" style="color:#cbd2df">'+(balance>0?'AMOUNT DUE':'PAID IN FULL')+'</span><br><strong>'+money(balance)+'</strong><br><span class="muted" style="color:#cbd2df">Due '+date(i.dueAt)+'</span></div></div>'+
+  '<section class="sheet"><div class="head"><div><h1>TAX INVOICE</h1><p>INV-'+esc(i.invoiceNumber)+(payload.quoteNumber?' · Quote #'+esc(payload.quoteNumber):'')+' · '+esc(String(i.status||'issued').replace('_',' '))+'</p></div><div class="amount"><span class="muted" style="color:#cbd2df">'+(balance>0?'AMOUNT DUE':'PAID IN FULL')+'</span><br><strong>'+money(balance)+'</strong><br><span class="muted" style="color:#cbd2df">Due '+date(i.dueAt)+'</span></div></div>'+
   '<div class="body">'+paymentNotice+
   '<div class="grid"><div><div class="label">Issued by</div><div class="value"><strong>'+esc(e.legalName)+'</strong><br>ABN '+esc(e.abn)+'<br>'+esc([e.addressLine,e.suburb,e.state,e.postcode].filter(Boolean).join(', '))+'<br>'+esc(e.email||'')+'</div></div><div><div class="label">Bill to</div><div class="value"><strong>'+esc(c.name||c.email)+'</strong><br>'+esc(c.email||'')+'<br>'+esc(c.billingAddress||'')+'<br>'+esc([p.address,p.suburb].filter(Boolean).join(', '))+'</div></div></div>'+
-  ((payload.invoiceLineAllocations||[]).length
-    ? '<div class="card"><h3>Items billed on this invoice</h3>'+invoiceAllocationRows()+'<p class="muted" style="margin-bottom:0">Only the quote items being charged on this invoice are shown here.</p></div>'
-    : '<div class="card"><h3>Accepted quote details</h3>'+quoteRows(q)+'<p class="muted" style="margin-bottom:0">These are the items from accepted Quote #'+esc(payload.quoteNumber)+'. They are shown for reference and are not an additional amount payable on this invoice.</p></div>')+
+  (isStandaloneInvoice
+    ? '<div class="card"><h3>Invoice items</h3>'+standaloneInvoiceRows(i)+'</div>'
+    : ((payload.invoiceLineAllocations||[]).length
+      ? '<div class="card"><h3>Items billed on this invoice</h3>'+invoiceAllocationRows()+'<p class="muted" style="margin-bottom:0">Only the quote items being charged on this invoice are shown here.</p></div>'
+      : '<div class="card"><h3>Accepted quote details</h3>'+quoteRows(q)+'<p class="muted" style="margin-bottom:0">These are the items from accepted Quote #'+esc(payload.quoteNumber)+'. They are shown for reference and are not an additional amount payable on this invoice.</p></div>'))+
   '<div class="card"><h3>This invoice</h3><div class="row"><span>'+invoiceSummaryLabel+'</span><strong>'+money(i.totalIncGstCents)+'</strong></div><div class="row"><span>Subtotal (ex. GST)</span><span>'+money(i.subtotalExGstCents)+'</span></div><div class="row"><span>GST</span><span>'+money(i.gstCents)+'</span></div><div class="row total"><span>Invoice total (inc. GST)</span><span>'+money(i.totalIncGstCents)+'</span></div><div class="row"><span>Payments received</span><strong>'+money(paid)+'</strong></div><div class="row total"><span>Balance remaining</span><span>'+money(balance)+'</span></div></div>'+
-  (isProgressInvoice?'':textCard('Scope of works',q.scopeText)+textCard('Inclusions',q.inclusionsText)+textCard('Exclusions',q.exclusionsText)+textCard('Payment terms',q.paymentTermsText)+terms)+
+  (isProgressInvoice?'':(isStandaloneInvoice
+    ? textCard('Scope of works',i.scopeText)+textCard('Inclusions',i.inclusionsText)+textCard('Exclusions',i.exclusionsText)+textCard('Payment terms',i.paymentTermsText)
+    : textCard('Scope of works',q.scopeText)+textCard('Inclusions',q.inclusionsText)+textCard('Exclusions',q.exclusionsText)+textCard('Payment terms',q.paymentTermsText)+terms))+
   (balance>0?'<div class="card bank"><div class="label">Payment by bank transfer</div><div class="value"><strong>'+esc(i.bankAccountName)+'</strong><br>BSB: '+esc(i.bankBsb)+'<br>Account: '+esc(i.bankAccountNumber)+'<br>Reference: INV-'+esc(i.invoiceNumber)+'<br><br><strong>Amount due: '+money(balance)+'</strong><br><strong>Due: '+date(i.dueAt)+'</strong></div></div>':'<div class="card" style="background:#eaf5ee;border-color:#b9ddc6"><strong>✓ Paid in full</strong>'+(i.paidAt?' on '+date(i.paidAt):'')+'</div>')+
   ((i.payments||[]).length?'<div class="card"><h3>Payment history</h3>'+(i.payments||[]).map(payment=>'<div class="row"><span>'+date(payment.receivedAt)+' · '+esc(paymentMethod(payment.method))+(payment.reference?' · '+esc(payment.reference):'')+'</span><span><strong>'+money(payment.amountCents)+'</strong> <button class="btn secondary" style="padding:6px 9px;margin-left:7px" onclick="downloadReceipt(\''+payment.id+'\')">Receipt</button></span></div>').join('')+'</div>':'')+
   '<div class="actions"><button class="btn secondary" onclick="downloadPdf()">Download invoice PDF</button></div><p class="muted">'+(balance>0?'Use INV-'+esc(i.invoiceNumber)+' as your bank-transfer payment reference. ':'')+'Keep this tax invoice and any payment receipts for your records.</p></div></section>';
@@ -191,9 +203,25 @@ async function downloadPdf(){
   bill.forEach((t,idx)=>doc.text(t,108,y+idx*4.5,{maxWidth:88}));
   y+=Math.max(issuer.length,bill.length)*4.5+10;
 
-  // Items being billed on this invoice. Progress invoices show only selected quote items.
+  // Items being billed on this invoice.
   const allocations=Array.isArray(payload.invoiceLineAllocations)?payload.invoiceLineAllocations:[];
-  if(allocations.length){
+  const standaloneItems=Array.isArray(i.lineItems)?i.lineItems:[];
+  if(!payload.quoteNumber && standaloneItems.length){
+    sectionTitle('Invoice items');
+    doc.setFillColor(...light);doc.rect(left,y-2,width,8,'F');
+    doc.setTextColor(...stone);doc.setFont('helvetica','bold');doc.setFontSize(7.2);
+    doc.text('DESCRIPTION',left+3,y+3);doc.text('AMOUNT',193,y+3,{align:'right'});y+=11;
+    standaloneItems.forEach((item,index)=>{
+      const fullDescription=String(item.description||'Invoice item').replace(/\s+/g,' ').trim();
+      const descriptionLines=doc.splitTextToSize(fullDescription,145);
+      const rowH=Math.max(11,descriptionLines.length*3.8+5);ensure(rowH+3);
+      if(index%2===1){doc.setFillColor(252,252,251);doc.rect(left,y-4,width,rowH,'F');}
+      doc.setTextColor(30);doc.setFont('helvetica','normal');doc.setFontSize(7.7);doc.text(descriptionLines,left+3,y,{maxWidth:145});
+      doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text(money(item.amountCents!=null?item.amountCents:item.amount_cents),193,y,{align:'right'});
+      y+=rowH;doc.setDrawColor(...line);doc.line(left+3,y-2,right-3,y-2);
+    });
+    y+=7;
+  } else if(allocations.length){
     sectionTitle('Items billed on this invoice');
     doc.setFillColor(...light);doc.rect(left,y-2,width,8,'F');
     doc.setTextColor(...stone);doc.setFont('helvetica','bold');doc.setFontSize(7.2);
@@ -254,13 +282,18 @@ async function downloadPdf(){
   y+=44;
 
   // Details start cleanly on a new page when present
-  const details=allocations.length ? [] : [
+  const details=allocations.length ? [] : (!payload.quoteNumber ? [
+    ['Scope of works',i.scopeText],
+    ['Inclusions',i.inclusionsText],
+    ['Exclusions',i.exclusionsText],
+    ['Payment terms',i.paymentTermsText]
+  ] : [
     ['Scope of works',q.scopeText],
     ['Inclusions',q.inclusionsText],
     ['Exclusions',q.exclusionsText],
     ['Payment terms',q.paymentTermsText],
     ['Terms & conditions',q.termsText]
-  ].filter(([,text])=>String(text||'').trim());
+  ]).filter(([,text])=>String(text||'').trim());
   if(details.length){
     doc.addPage();addHeader();
     details.forEach(([title,text],idx)=>{
