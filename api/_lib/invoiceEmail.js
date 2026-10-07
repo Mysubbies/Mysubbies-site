@@ -137,6 +137,23 @@ function renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl, lineAll
           </td></tr>
         </table>
 
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;background:#FFF8ED;border:1px solid #F3C671;border-radius:12px;">
+          <tr><td style="padding:18px 20px;">
+            <div style="font-size:11px;color:#8A93A3;font-weight:800;text-transform:uppercase;letter-spacing:.05em;">Pay by bank transfer</div>
+            <div style="margin-top:7px;font-size:14px;line-height:21px;color:#14213D;">
+              <strong>${escapeHtml(invoice.bank_account_name)}</strong><br>
+              BSB: ${escapeHtml(invoice.bank_bsb)}<br>
+              Account: ${escapeHtml(invoice.bank_account_number)}<br>
+              Reference: INV-${escapeHtml(invoice.invoice_number)}
+            </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:13px;">
+              <tr><td style="padding:3px 0;font-size:12px;color:#6B7280;">Amount due</td><td align="right" style="padding:3px 0;font-size:14px;font-weight:800;color:#14213D;">${money(invoice.total_inc_gst_cents)}</td></tr>
+              <tr><td style="padding:3px 0;font-size:12px;color:#6B7280;">Due date</td><td align="right" style="padding:3px 0;font-size:12px;font-weight:700;color:#14213D;">${new Date(invoice.due_at).toLocaleDateString('en-AU')}</td></tr>
+            </table>
+            <div style="margin-top:12px;padding-top:11px;border-top:1px solid #E7D8B8;font-size:11px;line-height:17px;color:#6B7280;">For security, use the bank details shown in this email or your secure MySubbies invoice. If you ever receive changed bank details, verify them with MySubbies before making payment.</div>
+          </td></tr>
+        </table>
+
         <a class="primary-button" href="${escapeHtml(secureInvoiceUrl)}" style="display:inline-block;margin-top:20px;background:#FFD400;color:#111111;text-decoration:none;border-radius:999px;padding:14px 24px;font-size:14px;font-weight:800;">View invoice →</a>
         <p style="margin:12px 0 0;color:#6B7280;font-size:12px;line-height:19px;">The secure invoice includes the invoice details, payment reference and bank-transfer information.</p>
       </td></tr>
