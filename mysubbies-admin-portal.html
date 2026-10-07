@@ -3724,6 +3724,25 @@ function openManualProspect(kind, seed) {
   }
   function closeStandaloneInvoiceBuilder(){standaloneInvoiceDraft=null;render();}
   function addStandaloneInvoiceItem(){standaloneInvoiceDraft.lineItems.push({description:'',amountCents:0});render();}
+  async function generateAiStandaloneInvoiceDescription(index){
+    const item=standaloneInvoiceDraft&&standaloneInvoiceDraft.lineItems&&standaloneInvoiceDraft.lineItems[index];
+    if(!item)return;
+    const seed=String(item.description||'').trim();
+    if(!seed){alert('Type a short description first — for example, Artificial turf installation.');return;}
+    const btn=document.getElementById('invoiceAiDetails_'+index);
+    if(btn){btn.disabled=true;btn.textContent='Generating…';}
+    try{
+      const res=await adminFetch('/api/generate-quote-scope',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({description:seed})});
+      const data=await res.json();
+      if(!res.ok||!data.description){alert(data.error||'Could not generate details.');return;}
+      standaloneInvoiceDraft.lineItems[index].description=data.description;
+      render();
+    }catch(e){alert('Could not generate AI details — check your connection.');}
+    finally{
+      const b=document.getElementById('invoiceAiDetails_'+index);
+      if(b){b.disabled=false;b.textContent='✦ Create AI details';}
+    }
+  }
   async function createStandaloneInvoice(){const d=standaloneInvoiceDraft;if(!d.customerEmail||!d.dueDate||!d.lineItems.some(x=>x.description&&x.amountCents>0)){alert('Enter customer email, due date and at least one item.');return;}const res=await adminFetch('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create_standalone_invoice',...d})});const data=await res.json();if(!res.ok){alert(data.error||'Could not create invoice.');return;}standaloneInvoiceDraft=null;invoicesTabData=null;await loadInvoicesTab();alert('Invoice INV-'+data.invoice.invoiceNumber+' created.');}
   function renderStandaloneInvoiceBuilder(){
     const d=standaloneInvoiceDraft;if(!d)return '';
@@ -3746,7 +3765,15 @@ function openManualProspect(kind, seed) {
         <label><span class="fieldlabel">Due date</span><input class="fieldinput" type="date" value="${d.dueDate}" oninput="standaloneInvoiceDraft.dueDate=this.value"></label>
       </div>
       <h3>Invoice items</h3>
-      ${d.lineItems.map((x,i)=>`<div style="display:grid;grid-template-columns:1fr 160px;gap:8px;margin-bottom:8px"><textarea class="fieldinput" rows="2" placeholder="Full item description" oninput="standaloneInvoiceDraft.lineItems[${i}].description=this.value">${escapeHtml(x.description)}</textarea><input class="fieldinput" type="number" step="0.01" placeholder="Amount inc GST" value="${x.amountCents?(x.amountCents/100).toFixed(2):''}" oninput="standaloneInvoiceDraft.lineItems[${i}].amountCents=Math.round(Number(this.value)*100)"></div>`).join('')}
+      ${d.lineItems.map((x,i)=>`<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px;">
+        <div style="display:grid;grid-template-columns:1fr 160px;gap:8px;align-items:start;">
+          <textarea class="fieldinput" rows="3" placeholder="Type a short item description, then click Create AI details" oninput="standaloneInvoiceDraft.lineItems[${i}].description=this.value">${escapeHtml(x.description)}</textarea>
+          <input class="fieldinput" type="number" step="0.01" placeholder="Amount inc GST" value="${x.amountCents?(x.amountCents/100).toFixed(2):''}" oninput="standaloneInvoiceDraft.lineItems[${i}].amountCents=Math.round(Number(this.value)*100)">
+        </div>
+        <div style="display:flex;justify-content:flex-start;margin-top:8px;">
+          <button id="invoiceAiDetails_${i}" class="btn btn-outline" type="button" style="padding:7px 11px;font-size:12px;" onclick="generateAiStandaloneInvoiceDescription(${i})">✦ Create AI details</button>
+        </div>
+      </div>`).join('')}
       <button class="btn btn-outline" onclick="addStandaloneInvoiceItem()">+ Add item</button>
       <label style="display:block;margin-top:10px"><span class="fieldlabel">Admin notes</span><textarea class="fieldinput" rows="2" oninput="standaloneInvoiceDraft.adminNotes=this.value">${escapeHtml(d.adminNotes)}</textarea></label>
       <button class="btn btn-black" style="margin-top:12px" onclick="createStandaloneInvoice()">Create invoice</button>
