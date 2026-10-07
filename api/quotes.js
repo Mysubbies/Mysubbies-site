@@ -137,6 +137,10 @@ function serializeInvoice(row, { publicView = false, payments = [] } = {}) {
       ? serializedPayments.map(payment => ({ id: payment.id, amountCents: payment.amountCents, receivedAt: payment.receivedAt, method: payment.method, reference: payment.reference }))
       : serializedPayments,
     lineItems: Array.isArray(row.line_items) ? row.line_items : [],
+    scopeText: row.scope_text || '',
+    inclusionsText: row.inclusions_text || '',
+    exclusionsText: row.exclusions_text || '',
+    paymentTermsText: row.payment_terms_text || '',
     adminNotes: publicView ? undefined : (row.admin_notes || null),
   };
   if (!publicView) output.createdAt = row.created_at;
@@ -254,7 +258,7 @@ async function handleCreateInvoice(req, res, supabase) {
 }
 
 async function handleCreateStandaloneInvoice(req, res, supabase) {
-  const { customerName, customerEmail, customerPhone, billingAddress, propertyAddress, lineItems, dueDate, description, adminNotes } = req.body || {};
+  const { customerName, customerEmail, customerPhone, billingAddress, propertyAddress, lineItems, dueDate, description, scopeText, inclusionsText, exclusionsText, paymentTermsText, adminNotes } = req.body || {};
   const items = Array.isArray(lineItems) ? lineItems.filter(x => String(x.description || '').trim() && Number(x.amountCents) > 0) : [];
   if (!customerEmail || !items.length || !dueDate) { res.status(400).json({ error: 'Customer email, at least one invoice item and due date are required.' }); return; }
   const bank = bankConfig(); if (!bank) { res.status(409).json({ error: 'Invoice bank details are not configured.' }); return; }
@@ -266,7 +270,10 @@ async function handleCreateStandaloneInvoice(req, res, supabase) {
     milestone_label:String(description||'Tax invoice').trim().slice(0,120),
     customer_snapshot:{name:String(customerName||'').trim(),email:String(customerEmail).trim(),phone:String(customerPhone||'').trim(),billingAddress:String(billingAddress||'').trim()},
     property_snapshot:propertyAddress?{address:String(propertyAddress).trim()}:null,
-    description:String(description||'Tax invoice').trim(), line_items:items, admin_notes:String(adminNotes||'').trim()||null,
+    description:String(description||'Tax invoice').trim(), line_items:items,
+    scope_text:String(scopeText||'').trim()||null, inclusions_text:String(inclusionsText||'').trim()||null,
+    exclusions_text:String(exclusionsText||'').trim()||null, payment_terms_text:String(paymentTermsText||'').trim()||null,
+    admin_notes:String(adminNotes||'').trim()||null,
     subtotal_ex_gst_cents:totals.subtotalExGstCents,gst_cents:totals.gstCents,total_inc_gst_cents:totals.totalIncGstCents,
     bank_account_name:bank.accountName,bank_bsb:bank.bsb,bank_account_number:bank.accountNumber,
     due_at:new Date(dueDate+'T23:59:59.999Z').toISOString()
@@ -275,14 +282,20 @@ async function handleCreateStandaloneInvoice(req, res, supabase) {
 }
 
 async function handleUpdateInvoice(req,res,supabase){
-  const {invoiceId,customerName,customerEmail,billingAddress,dueDate,description,lineItems,adminNotes}=req.body||{};
+  const {invoiceId,customerName,customerEmail,billingAddress,dueDate,description,lineItems,scopeText,inclusionsText,exclusionsText,paymentTermsText,adminNotes}=req.body||{};
   const {data:invoice}=await supabase.from('invoices').select('*').eq('id',invoiceId).maybeSingle();
   if(!invoice||invoice.status==='void'){res.status(404).json({error:'Invoice not found.'});return;}
   const {data:payments}=await supabase.from('invoice_payments').select('amount_cents').eq('invoice_id',invoiceId);
   const items=Array.isArray(lineItems)?lineItems.filter(x=>String(x.description||'').trim()&&Number(x.amountCents)>0):null;
   const update={updated_at:new Date().toISOString()};
   if(customerName!=null||customerEmail!=null||billingAddress!=null) update.customer_snapshot={...(invoice.customer_snapshot||{}),...(customerName!=null?{name:String(customerName).trim()}:{}),...(customerEmail!=null?{email:String(customerEmail).trim()}:{}),...(billingAddress!=null?{billingAddress:String(billingAddress).trim()}: {})};
-  if(dueDate)update.due_at=new Date(dueDate+'T23:59:59.999Z').toISOString(); if(description!=null)update.description=String(description).trim(); if(adminNotes!=null)update.admin_notes=String(adminNotes).trim()||null;
+  if(dueDate)update.due_at=new Date(dueDate+'T23:59:59.999Z').toISOString();
+  if(description!=null)update.description=String(description).trim();
+  if(scopeText!=null)update.scope_text=String(scopeText).trim()||null;
+  if(inclusionsText!=null)update.inclusions_text=String(inclusionsText).trim()||null;
+  if(exclusionsText!=null)update.exclusions_text=String(exclusionsText).trim()||null;
+  if(paymentTermsText!=null)update.payment_terms_text=String(paymentTermsText).trim()||null;
+  if(adminNotes!=null)update.admin_notes=String(adminNotes).trim()||null;
   if(items){if((payments||[]).length){res.status(409).json({error:'Financial amounts cannot be edited after a payment has been recorded. Create a credit note instead.'});return;} const total=items.reduce((s,x)=>s+Math.round(Number(x.amountCents)),0),t=gstBreakdown(total);update.line_items=items;update.subtotal_ex_gst_cents=t.subtotalExGstCents;update.gst_cents=t.gstCents;update.total_inc_gst_cents=t.totalIncGstCents;}
   const {data:updated,error}=await supabase.from('invoices').update(update).eq('id',invoiceId).select().single();if(error){res.status(400).json({error:'Could not update invoice.'});return;}res.status(200).json({invoice:serializeInvoice(updated,{payments:payments||[]})});
 }
