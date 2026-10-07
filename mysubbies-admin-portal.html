@@ -2367,7 +2367,7 @@ function openManualProspect(kind, seed) {
     // they happen to click into that tab.
     if (!paymentTabData && !paymentTabLoading) loadPaymentScheduleTab();
     if (unreadContractorMessageCount === null && !unreadContractorMessageLoading) loadUnreadContractorMessageCount();
-    if ((tab === 'customers' || tab === 'quotes' || tab === 'ceo' || tab === 'operations') && !customersTabData && !customersTabLoading) loadCustomersTab();
+    if ((tab === 'customers' || tab === 'quotes' || tab === 'invoices' || tab === 'ceo' || tab === 'operations') && !customersTabData && !customersTabLoading) loadCustomersTab();
     if (tab === 'leads' && !leadsTabData && !leadsTabLoading) loadLeadsTab();
     if (tab === 'ceo') {
       if(!marketingData&&!marketingLoading)loadMarketing();
@@ -3708,11 +3708,50 @@ function openManualProspect(kind, seed) {
   function invoiceStatusBadgeClass(status) {
     return { paid: 'badge-completed', part_paid: 'badge-assigned', sent: 'badge-assigned', issued: 'badge-feed', draft: 'badge-feed', void: 'badge-rejected' }[status] || 'badge-feed';
   }
-  function openStandaloneInvoiceBuilder(){ standaloneInvoiceDraft={customerName:'',customerEmail:'',customerPhone:'',billingAddress:'',propertyAddress:'',description:'Tax invoice',dueDate:new Date(Date.now()+7*86400000).toISOString().slice(0,10),lineItems:[{description:'',amountCents:0}],adminNotes:''}; render(); }
+  function openStandaloneInvoiceBuilder(){ standaloneInvoiceDraft={customerId:'',customerName:'',customerEmail:'',customerPhone:'',billingAddress:'',propertyAddress:'',description:'Tax invoice',dueDate:new Date(Date.now()+7*86400000).toISOString().slice(0,10),lineItems:[{description:'',amountCents:0}],adminNotes:''}; if(!customersTabData&&!customersTabLoading)loadCustomersTab(); render(); }
+  function selectStandaloneInvoiceCustomer(customerId){
+    if(!standaloneInvoiceDraft)return;
+    standaloneInvoiceDraft.customerId=customerId||'';
+    if(!customerId){standaloneInvoiceDraft.customerName='';standaloneInvoiceDraft.customerEmail='';standaloneInvoiceDraft.customerPhone='';standaloneInvoiceDraft.billingAddress='';standaloneInvoiceDraft.propertyAddress='';render();return;}
+    const customer=(customersTabData&&customersTabData.rows||[]).find(row=>row.id===customerId);
+    if(!customer)return;
+    standaloneInvoiceDraft.customerName=customer.name||'';
+    standaloneInvoiceDraft.customerEmail=customer.email||'';
+    standaloneInvoiceDraft.customerPhone=customer.phone||'';
+    standaloneInvoiceDraft.billingAddress=customer.address_formatted||'';
+    standaloneInvoiceDraft.propertyAddress=customer.address_formatted||'';
+    render();
+  }
   function closeStandaloneInvoiceBuilder(){standaloneInvoiceDraft=null;render();}
   function addStandaloneInvoiceItem(){standaloneInvoiceDraft.lineItems.push({description:'',amountCents:0});render();}
   async function createStandaloneInvoice(){const d=standaloneInvoiceDraft;if(!d.customerEmail||!d.dueDate||!d.lineItems.some(x=>x.description&&x.amountCents>0)){alert('Enter customer email, due date and at least one item.');return;}const res=await adminFetch('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create_standalone_invoice',...d})});const data=await res.json();if(!res.ok){alert(data.error||'Could not create invoice.');return;}standaloneInvoiceDraft=null;invoicesTabData=null;await loadInvoicesTab();alert('Invoice INV-'+data.invoice.invoiceNumber+' created.');}
-  function renderStandaloneInvoiceBuilder(){const d=standaloneInvoiceDraft;if(!d)return '';return `<div class="quote-card" style="margin-bottom:18px"><div class="quote-card-title"><h2>Create invoice without quote</h2><button class="btn btn-outline" onclick="closeStandaloneInvoiceBuilder()">Cancel</button></div><div class="invoice-payment-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label><span class="fieldlabel">Customer name</span><input class="fieldinput" value="${escapeHtml(d.customerName)}" oninput="standaloneInvoiceDraft.customerName=this.value"></label><label><span class="fieldlabel">Customer email</span><input class="fieldinput" type="email" value="${escapeHtml(d.customerEmail)}" oninput="standaloneInvoiceDraft.customerEmail=this.value"></label><label><span class="fieldlabel">Billing address</span><input class="fieldinput" value="${escapeHtml(d.billingAddress)}" oninput="standaloneInvoiceDraft.billingAddress=this.value"></label><label><span class="fieldlabel">Due date</span><input class="fieldinput" type="date" value="${d.dueDate}" oninput="standaloneInvoiceDraft.dueDate=this.value"></label></div><h3>Invoice items</h3>${d.lineItems.map((x,i)=>`<div style="display:grid;grid-template-columns:1fr 160px;gap:8px;margin-bottom:8px"><textarea class="fieldinput" rows="2" placeholder="Full item description" oninput="standaloneInvoiceDraft.lineItems[${i}].description=this.value">${escapeHtml(x.description)}</textarea><input class="fieldinput" type="number" step="0.01" placeholder="Amount inc GST" value="${x.amountCents?(x.amountCents/100).toFixed(2):''}" oninput="standaloneInvoiceDraft.lineItems[${i}].amountCents=Math.round(Number(this.value)*100)"></div>`).join('')}<button class="btn btn-outline" onclick="addStandaloneInvoiceItem()">+ Add item</button><label style="display:block;margin-top:10px"><span class="fieldlabel">Admin notes</span><textarea class="fieldinput" rows="2" oninput="standaloneInvoiceDraft.adminNotes=this.value">${escapeHtml(d.adminNotes)}</textarea></label><button class="btn btn-black" style="margin-top:12px" onclick="createStandaloneInvoice()">Create invoice</button></div>`;}
+  function renderStandaloneInvoiceBuilder(){
+    const d=standaloneInvoiceDraft;if(!d)return '';
+    const customers=(customersTabData&&customersTabData.rows||[]).filter(x=>x.status!=='deactivated');
+    const customerOptions=customers.map(customer=>`<option value="${escapeHtml(customer.id)}" ${d.customerId===customer.id?'selected':''}>${escapeHtml(customer.name||customer.email||'Customer')} — ${escapeHtml(customer.email||'')}${customer.phone?' · '+escapeHtml(customer.phone):''}</option>`).join('');
+    return `<div class="quote-card" style="margin-bottom:18px">
+      <div class="quote-card-title"><h2>Create invoice without quote</h2><button class="btn btn-outline" onclick="closeStandaloneInvoiceBuilder()">Cancel</button></div>
+      <label style="display:block;margin-bottom:12px;">
+        <span class="fieldlabel">Existing customer</span>
+        <select class="fieldinput" onchange="selectStandaloneInvoiceCustomer(this.value)">
+          <option value="">New / manual customer</option>
+          ${customerOptions}
+        </select>
+        <small style="display:block;margin-top:5px;color:var(--stone);">Select an existing customer to prefill their details, or leave this as New / manual customer.</small>
+      </label>
+      <div class="invoice-payment-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <label><span class="fieldlabel">Customer name</span><input class="fieldinput" value="${escapeHtml(d.customerName)}" oninput="standaloneInvoiceDraft.customerName=this.value"></label>
+        <label><span class="fieldlabel">Customer email</span><input class="fieldinput" type="email" value="${escapeHtml(d.customerEmail)}" oninput="standaloneInvoiceDraft.customerEmail=this.value"></label>
+        <label><span class="fieldlabel">Billing address</span><input class="fieldinput" value="${escapeHtml(d.billingAddress)}" oninput="standaloneInvoiceDraft.billingAddress=this.value"></label>
+        <label><span class="fieldlabel">Due date</span><input class="fieldinput" type="date" value="${d.dueDate}" oninput="standaloneInvoiceDraft.dueDate=this.value"></label>
+      </div>
+      <h3>Invoice items</h3>
+      ${d.lineItems.map((x,i)=>`<div style="display:grid;grid-template-columns:1fr 160px;gap:8px;margin-bottom:8px"><textarea class="fieldinput" rows="2" placeholder="Full item description" oninput="standaloneInvoiceDraft.lineItems[${i}].description=this.value">${escapeHtml(x.description)}</textarea><input class="fieldinput" type="number" step="0.01" placeholder="Amount inc GST" value="${x.amountCents?(x.amountCents/100).toFixed(2):''}" oninput="standaloneInvoiceDraft.lineItems[${i}].amountCents=Math.round(Number(this.value)*100)"></div>`).join('')}
+      <button class="btn btn-outline" onclick="addStandaloneInvoiceItem()">+ Add item</button>
+      <label style="display:block;margin-top:10px"><span class="fieldlabel">Admin notes</span><textarea class="fieldinput" rows="2" oninput="standaloneInvoiceDraft.adminNotes=this.value">${escapeHtml(d.adminNotes)}</textarea></label>
+      <button class="btn btn-black" style="margin-top:12px" onclick="createStandaloneInvoice()">Create invoice</button>
+    </div>`;
+  }
   async function changeInvoiceDueDate(invoiceId, currentDueAt) {
     const current = currentDueAt ? new Date(currentDueAt).toISOString().slice(0,10) : new Date().toISOString().slice(0,10);
     const dueDate = prompt('Enter invoice due date (YYYY-MM-DD). Use today for payment due immediately.', current);
