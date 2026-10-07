@@ -41,6 +41,14 @@ async function load(){
     const d=await r.json();
     if(!r.ok)throw new Error(d.error||'Invoice unavailable');
     payload=d;render();
+    if(params.get('download')==='1'){
+      setTimeout(async()=>{
+        try{
+          await downloadPdf();
+          window.setTimeout(()=>window.close(),500);
+        }catch(e){}
+      },150);
+    }
   }catch(e){fail(e.message)}
 }
 function fail(m){document.getElementById('app').innerHTML='<div class="sheet error"><h1>Invoice unavailable</h1><p>'+esc(m)+'</p></div>'}
@@ -211,15 +219,15 @@ async function downloadPdf(){
     doc.text('SERVICE',left+3,y+3);doc.text('QTY',151,y+3,{align:'right'});doc.text('AMOUNT',193,y+3,{align:'right'});y+=11;
     const items=q.lineItems||[];
     items.forEach((item,index)=>{
-      const title=serviceTitle(item.description);
-      const titleLines=doc.splitTextToSize(title,112);
-      const rowH=Math.max(10,titleLines.length*4.4+5);ensure(rowH+2);
+      const fullDescription=String(item.description||'Quoted item').replace(/\s+/g,' ').trim();
+      const descriptionLines=doc.splitTextToSize(fullDescription,112);
+      const rowH=Math.max(10,descriptionLines.length*3.8+5);ensure(rowH+2);
       if(index%2===1){doc.setFillColor(252,252,251);doc.rect(left,y-4,width,rowH,'F');}
-      doc.setTextColor(30);doc.setFont('helvetica','bold');doc.setFontSize(8.3);doc.text(titleLines,left+3,y,{maxWidth:112});
-      doc.setFont('helvetica','normal');doc.setTextColor(...stone);doc.setFontSize(7.8);
+      doc.setTextColor(30);doc.setFont('helvetica','normal');doc.setFontSize(7.7);doc.text(descriptionLines,left+3,y,{maxWidth:112});
+      doc.setFont('helvetica','normal');doc.setTextColor(...stone);doc.setFontSize(7.6);
       const qtyText=[item.qty==null?'':item.qty,item.unit||''].filter(Boolean).join(' ');
       doc.text(String(qtyText),154,y,{align:'right'});
-      doc.setTextColor(20);doc.setFont('helvetica','bold');doc.setFontSize(8.3);doc.text(money(item.lineTotalCents),193,y,{align:'right'});
+      doc.setTextColor(20);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text(money(item.lineTotalCents),193,y,{align:'right'});
       y+=rowH;doc.setDrawColor(...line);doc.line(left+3,y-2,right-3,y-2);
     });
     ensure(12);doc.setFont('helvetica','bold');doc.setTextColor(...navy);doc.setFontSize(9);
