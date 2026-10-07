@@ -40,6 +40,30 @@ function quoteItemsTable(version) {
     <div style="margin-top:4px;font-size:11px;line-height:17px;color:#6B7280;">Shown for reference only. The amount payable now is the invoice amount below.</div>`;
 }
 
+function serviceUrl(service, secureInvoiceUrl) {
+  const target = absoluteUrl((service.destination && service.destination.page) || 'mysubbies-website.html#categories', secureInvoiceUrl);
+  if (!target) return '';
+  const url = new URL(target);
+  url.searchParams.set('service', service.category);
+  return url.toString();
+}
+
+function recommendationCell(service, secureInvoiceUrl) {
+  const image = absoluteUrl(service.image, secureInvoiceUrl);
+  const destination = serviceUrl(service, secureInvoiceUrl);
+  const price = service.startingPriceDollars == null ? 'Get an estimate' : `From ${Number(service.startingPriceDollars).toLocaleString('en-AU')}`;
+  return `<td class="recommendation-column" width="33.33%" valign="top" style="padding:0 5px 10px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E7E7E4;border-radius:12px;background:#FFFFFF;overflow:hidden;">
+      <tr><td><img src="${escapeHtml(image)}" width="170" alt="${escapeHtml(service.displayName)}" style="display:block;width:100%;height:105px;object-fit:cover;border:0;" /></td></tr>
+      <tr><td style="padding:13px 13px 15px;">
+        <div style="font-size:14px;line-height:20px;font-weight:700;color:#14213D;">${escapeHtml(service.displayName)}</div>
+        <div style="font-size:12px;line-height:18px;color:#6B7280;margin-top:3px;">${escapeHtml(price)}</div>
+        <a href="${escapeHtml(destination)}" style="display:inline-block;margin-top:9px;color:#D84F09;text-decoration:none;font-size:12px;line-height:18px;font-weight:700;">Explore service →</a>
+      </td></tr>
+    </table>
+  </td>`;
+}
+
 function invoiceAllocationsTable(lineAllocations) {
   const items = Array.isArray(lineAllocations) ? lineAllocations : [];
   if (!items.length) return '';
@@ -70,7 +94,7 @@ function absoluteUrl(value, secureInvoiceUrl) {
   catch (e) { return ''; }
 }
 
-function renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl, lineAllocations = [] }) {
+function renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl, lineAllocations = [], recommendations = [] }) {
   const customer = invoice.customer_snapshot || {};
   const firstName = String(customer.name || '').trim().split(/\s+/)[0] || 'there';
   const isProgressInvoice = Array.isArray(lineAllocations) && lineAllocations.length > 0;
@@ -78,10 +102,11 @@ function renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl, lineAll
   const portalUrl = absoluteUrl('mysubbies-customer-portal.html', secureInvoiceUrl);
   const privacyUrl = absoluteUrl('mysubbies-privacy-policy.html', secureInvoiceUrl);
   const termsUrl = absoluteUrl('mysubbies-terms.html', secureInvoiceUrl);
+  const cards = (recommendations || []).slice(0, 3).map(item => recommendationCell(item, secureInvoiceUrl)).join('');
 
   return `<!doctype html><html lang="en" dir="ltr"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tax invoice INV-${escapeHtml(invoice.invoice_number)} — MySubbies</title><style>
     .primary-button:hover,.primary-button:active{background:#E6BF00!important}
-    @media only screen and (max-width:600px){.email-shell{width:100%!important}.email-pad{padding-left:20px!important;padding-right:20px!important}.primary-button{display:block!important;text-align:center!important}}
+    @media only screen and (max-width:600px){.email-shell{width:100%!important}.email-pad{padding-left:20px!important;padding-right:20px!important}.recommendation-column{display:block!important;width:100%!important}.primary-button{display:block!important;text-align:center!important}}
   </style></head><body style="margin:0;padding:0;background:#F3F4F6;font-family:Arial,'Helvetica Neue',sans-serif;color:#151A26;">
   <table role="presentation" lang="en" dir="ltr" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4F6;"><tr><td align="center" style="padding:24px 10px;">
     <table role="presentation" class="email-shell" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background:#FFFFFF;border-radius:16px;overflow:hidden;">
@@ -118,6 +143,7 @@ function renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl, lineAll
 
       <tr><td class="email-pad" style="padding:4px 34px 25px;"><table role="presentation" width="100%"><tr style="font-size:11px;color:#4B5563;"><td>✓ Bank transfer</td><td>✓ Payment receipts</td><td>✓ Secure invoice link</td><td>✓ Australian support</td></tr></table></td></tr>
 
+      ${cards ? `<tr><td class="email-pad" style="border-top:1px solid #E7E7E4;padding:27px 29px 23px;"><h2 style="margin:0;color:#14213D;font-size:19px;line-height:26px;">Something else planned for your property?</h2><p style="margin:6px 5px 16px 0;color:#6B7280;font-size:13px;line-height:20px;">Here are a few other MySubbies services that may help at this property.</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${cards}</tr></table></td></tr>` : ''}
       <tr><td class="email-pad" style="background:#14213D;padding:25px 34px;"><h2 style="margin:0;color:#FFFFFF;font-size:19px;line-height:26px;">Manage everything in MySubbies.</h2><p style="margin:7px 0 16px;color:#CBD2DF;font-size:13px;line-height:20px;">View your jobs, quotes, invoices, payments, receipts and messages in one place.</p><a href="${escapeHtml(portalUrl)}" style="display:inline-block;background:#FF6A1A;color:#14213D;text-decoration:none;border-radius:999px;padding:12px 20px;font-size:13px;font-weight:800;">Open MySubbies →</a></td></tr>
       <tr><td class="email-pad" style="padding:23px 34px 28px;color:#6B7280;font-size:11px;line-height:18px;"><p style="margin:0 0 12px;">Questions about this invoice? Reply to this email and quote <strong>INV-${escapeHtml(invoice.invoice_number)}</strong>.</p><div>MySubbies Holdings Pty Ltd<br>ABN 69 693 675 268<br>PO Box 1126, Craigieburn VIC 3064</div><p style="margin:13px 0 0;"><a href="${escapeHtml(privacyUrl)}" style="color:#6B7280;">Privacy Policy</a> &nbsp;·&nbsp; <a href="${escapeHtml(termsUrl)}" style="color:#6B7280;">Terms</a></p></td></tr>
     </table>
