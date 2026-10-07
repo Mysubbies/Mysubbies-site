@@ -136,6 +136,8 @@ function serializeInvoice(row, { publicView = false, payments = [] } = {}) {
     payments: publicView
       ? serializedPayments.map(payment => ({ id: payment.id, amountCents: payment.amountCents, receivedAt: payment.receivedAt, method: payment.method, reference: payment.reference }))
       : serializedPayments,
+    lineItems: Array.isArray(row.line_items) ? row.line_items : [],
+    adminNotes: publicView ? undefined : (row.admin_notes || null),
   };
   if (!publicView) output.createdAt = row.created_at;
   return output;
