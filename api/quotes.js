@@ -394,6 +394,10 @@ async function handleSendInvoice(req, res, supabase) {
   if (!email) { res.status(400).json({ error: 'This invoice has no customer email.' }); return; }
   const { data: quote } = await supabase.from('quotes').select('*').eq('id', invoice.quote_id).maybeSingle();
   const { data: version } = await supabase.from('quote_versions').select('*').eq('id', invoice.quote_version_id).maybeSingle();
+  const { data: lineAllocations, error: lineAllocationError } = await supabase.from('invoice_line_allocations')
+    .select('quote_line_key,quote_line_description,quoted_amount_cents,invoiced_amount_cents,progress_percentage')
+    .eq('invoice_id', invoice.id).order('created_at');
+  if (lineAllocationError && !['42P01','PGRST205'].includes(String(lineAllocationError.code || ''))) throw lineAllocationError;
   const now = new Date();
   await supabase.from('document_access_tokens').update({ revoked_at: now.toISOString() }).eq('document_type', 'invoice').eq('document_id', invoice.id).is('revoked_at', null);
   const rawToken = generateToken();
@@ -401,7 +405,7 @@ async function handleSendInvoice(req, res, supabase) {
   const { error: tokenError } = await supabase.from('document_access_tokens').insert({ document_type: 'invoice', document_id: invoice.id, token_hash: hashToken(rawToken), expires_at: expiresAt });
   if (tokenError) throw tokenError;
   const url = `${invoiceBaseUrl()}?token=${encodeURIComponent(rawToken)}`;
-  const result = await sendEmailWithResult({ to: email, bcc: 'accounts@mysubbies.com.au', subject: `Tax invoice INV-${invoice.invoice_number} — MySubbies`, html: renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl: url }) });
+  const result = await sendEmailWithResult({ to: email, bcc: 'accounts@mysubbies.com.au', subject: `Tax invoice INV-${invoice.invoice_number} — MySubbies`, html: renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl: url, lineAllocations: lineAllocations || [] }) });
   if (!result.ok) { res.status(502).json({ error: result.error, url }); return; }
   const invoiceUpdate = { sent_at: now.toISOString(), updated_at: now.toISOString() };
   if (invoice.status === 'issued') invoiceUpdate.status = 'sent';
