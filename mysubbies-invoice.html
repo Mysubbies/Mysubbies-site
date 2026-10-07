@@ -111,7 +111,7 @@ async function downloadPdf(){
 
   const addHeader=()=>{
     doc.setFillColor(...navy);doc.rect(0,0,210,34,'F');
-    doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(18);doc.text('My',14,16);doc.setTextColor(...orange);doc.text('Subbies',25.5,16);
+    doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(18);doc.text('My',14,16);const brandX=14+doc.getTextWidth('My')-0.8;doc.setTextColor(...orange);doc.text('Subbies',brandX,16);
     doc.setTextColor(255);doc.setFontSize(9);doc.text('TAX INVOICE',196,12,{align:'right'});doc.setFont('helvetica','normal');doc.text('INV-'+i.invoiceNumber+'  |  Quote #'+payload.quoteNumber,196,19,{align:'right'});
     doc.text('Issued '+date(i.issuedAt)+'  |  Due '+date(i.dueAt),196,26,{align:'right'});
     y=45;
@@ -131,28 +131,24 @@ async function downloadPdf(){
       doc.setFontSize(6.8);
       doc.text('Landscaping • Outdoor Living • Property Maintenance • Construction',left+6,footerY+18,{maxWidth:textW});
 
-      // Image panel on the right, cropped rather than stretched.
+      // Image panel on the right. Preserve aspect ratio and keep it fully inside the footer.
+      doc.setFillColor(10,20,42);doc.rect(imageX,footerY,imageW,footerH,'F');
       if(footerPhoto){
         try{
           const imgProps=doc.getImageProperties(footerPhoto);
           const ratio=imgProps.width/imgProps.height;
-          let drawW=imageW, drawH=footerH;
-          if(ratio>imageW/footerH){ drawH=footerH; drawW=footerH*ratio; }
-          else { drawW=imageW; drawH=imageW/ratio; }
-          const cropX=imageX-(drawW-imageW)/2;
-          const cropY=footerY-(drawH-footerH)/2;
-          doc.saveGraphicsState();
-          doc.rect(imageX,footerY,imageW,footerH,'S');
-          doc.clip();
-          doc.addImage(footerPhoto,'PNG',cropX,cropY,drawW,drawH);
-          doc.restoreGraphicsState();
-          doc.setFillColor(20,33,61);doc.setGState(new doc.GState({opacity:0.42}));doc.rect(imageX,footerY,imageW,footerH,'F');doc.setGState(new doc.GState({opacity:1}));
+          let drawW=imageW, drawH=imageW/ratio;
+          if(drawH>footerH){ drawH=footerH; drawW=footerH*ratio; }
+          const drawX=imageX+(imageW-drawW)/2;
+          const drawY=footerY+(footerH-drawH)/2;
+          doc.addImage(footerPhoto,'PNG',drawX,drawY,drawW,drawH);
+          doc.setFillColor(20,33,61);doc.setGState(new doc.GState({opacity:0.38}));doc.rect(imageX,footerY,imageW,footerH,'F');doc.setGState(new doc.GState({opacity:1}));
         }catch(e){}
       }
 
-      // Clickable website on image panel.
-      doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(8);
-      doc.textWithLink('www.mysubbies.com.au',right-5,footerY+17,{align:'right',url:'https://www.mysubbies.com.au'});
+      // Clickable website stays inside the right image panel.
+      doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(7.6);
+      doc.textWithLink('www.mysubbies.com.au',imageX+imageW-4,footerY+17,{align:'right',url:'https://www.mysubbies.com.au'});
 
       doc.setDrawColor(...line);doc.line(left,284,right,284);
       doc.setTextColor(...stone);doc.setFont('helvetica','normal');doc.setFontSize(7);
