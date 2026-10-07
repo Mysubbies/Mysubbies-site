@@ -54,8 +54,8 @@ function quoteRows(q){
 function invoiceAllocationRows(){
   const rows=Array.isArray(payload&&payload.invoiceLineAllocations)?payload.invoiceLineAllocations:[];
   if(!rows.length)return '';
-  return '<table class="quote-table"><thead><tr><th>Description</th><th class="num">Quote amount</th><th class="num">This invoice</th></tr></thead><tbody>'+
-    rows.map(row=>'<tr><td>'+esc(row.description||'Quoted item')+'</td><td class="num">'+money(row.quotedAmountCents)+'</td><td class="num"><strong>'+money(row.invoicedAmountCents)+'</strong></td></tr>').join('')+
+  return '<table class="quote-table"><thead><tr><th>Description</th><th class="num">Quote amount</th><th class="num">Payment %</th><th class="num">This invoice</th></tr></thead><tbody>'+
+    rows.map(row=>'<tr><td>'+esc(row.description||'Quoted item')+'</td><td class="num">'+money(row.quotedAmountCents)+'</td><td class="num">'+(row.progressPercentage==null?'—':Number(row.progressPercentage).toLocaleString('en-AU',{maximumFractionDigits:1})+'%')+'</td><td class="num"><strong>'+money(row.invoicedAmountCents)+'</strong></td></tr>').join('')+
     '</tbody></table>';
 }
 function textCard(title,text){
@@ -79,30 +79,34 @@ function render(){
     : '<div class="card"><h3>Accepted quote details</h3>'+quoteRows(q)+'<p class="muted" style="margin-bottom:0">These are the items from accepted Quote #'+esc(payload.quoteNumber)+'. They are shown for reference and are not an additional amount payable on this invoice.</p></div>')+
   '<div class="card"><h3>This invoice</h3><div class="row"><span>'+invoiceSummaryLabel+'</span><strong>'+money(i.totalIncGstCents)+'</strong></div><div class="row"><span>Subtotal (ex. GST)</span><span>'+money(i.subtotalExGstCents)+'</span></div><div class="row"><span>GST</span><span>'+money(i.gstCents)+'</span></div><div class="row total"><span>Invoice total (inc. GST)</span><span>'+money(i.totalIncGstCents)+'</span></div><div class="row"><span>Payments received</span><strong>'+money(paid)+'</strong></div><div class="row total"><span>Balance remaining</span><span>'+money(balance)+'</span></div></div>'+
   (isProgressInvoice?'':textCard('Scope of works',q.scopeText)+textCard('Inclusions',q.inclusionsText)+textCard('Exclusions',q.exclusionsText)+textCard('Payment terms',q.paymentTermsText)+terms)+
-  (balance>0?'<div class="pay-grid"><div class="card pay-card"><div class="label">Pay securely by card</div><div class="value"><strong>Credit or debit card</strong><br>Pay the outstanding balance of <strong>'+money(balance)+'</strong> securely through Stripe.</div><div class="actions"><button class="btn" id="payCardBtn" onclick="payByCard()">Pay '+money(balance)+' by card</button></div></div><div class="card bank"><div class="label">Payment by bank transfer</div><div class="value"><strong>'+esc(i.bankAccountName)+'</strong><br>BSB: '+esc(i.bankBsb)+'<br>Account: '+esc(i.bankAccountNumber)+'<br>Reference: INV-'+esc(i.invoiceNumber)+'<br><br><strong>Due: '+date(i.dueAt)+'</strong></div></div></div>':'<div class="card" style="background:#eaf5ee;border-color:#b9ddc6"><strong>✓ Paid in full</strong>'+(i.paidAt?' on '+date(i.paidAt):'')+'</div>')+
+  (balance>0?'<div class="card bank"><div class="label">Payment by bank transfer</div><div class="value"><strong>'+esc(i.bankAccountName)+'</strong><br>BSB: '+esc(i.bankBsb)+'<br>Account: '+esc(i.bankAccountNumber)+'<br>Reference: INV-'+esc(i.invoiceNumber)+'<br><br><strong>Amount due: '+money(balance)+'</strong><br><strong>Due: '+date(i.dueAt)+'</strong></div></div>':'<div class="card" style="background:#eaf5ee;border-color:#b9ddc6"><strong>✓ Paid in full</strong>'+(i.paidAt?' on '+date(i.paidAt):'')+'</div>')+
   ((i.payments||[]).length?'<div class="card"><h3>Payment history</h3>'+(i.payments||[]).map(payment=>'<div class="row"><span>'+date(payment.receivedAt)+' · '+esc(paymentMethod(payment.method))+(payment.reference?' · '+esc(payment.reference):'')+'</span><span><strong>'+money(payment.amountCents)+'</strong> <button class="btn secondary" style="padding:6px 9px;margin-left:7px" onclick="downloadReceipt(\''+payment.id+'\')">Receipt</button></span></div>').join('')+'</div>':'')+
   '<div class="actions"><button class="btn secondary" onclick="downloadPdf()">Download invoice PDF</button></div><p class="muted">'+(balance>0?'Use INV-'+esc(i.invoiceNumber)+' as your bank-transfer payment reference. ':'')+'Keep this tax invoice and any payment receipts for your records.</p></div></section>';
-}
-async function payByCard(){
-  const btn=document.getElementById('payCardBtn');
-  if(btn){btn.disabled=true;btn.textContent='Opening secure payment…'}
-  try{
-    const r=await fetch('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create_invoice_card_checkout',invoiceToken})});
-    const d=await r.json();
-    if(!r.ok||!d.url)throw new Error(d.error||'Could not start card payment.');
-    location.href=d.url;
-  }catch(e){if(btn){btn.disabled=false;btn.textContent='Try card payment again'}alert(e.message)}
 }
 function paymentMethod(method){return({bank_transfer:'Bank transfer',card:'Card',cash:'Cash',finance:'Finance provider',other:'Other'})[method]||method}
 function downloadReceipt(paymentId){
   const {jsPDF}=window.jspdf,i=payload.invoice,p=(i.payments||[]).find(item=>item.id===paymentId);if(!p)return;
   const doc=new jsPDF();doc.setFillColor(20,33,61);doc.rect(0,0,210,38,'F');doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(23);doc.text('PAYMENT RECEIPT',14,18);doc.setFontSize(10);doc.text('INV-'+i.invoiceNumber+'  |  Quote #'+payload.quoteNumber,14,28);doc.setTextColor(20);doc.setFontSize(11);doc.text('Received by: '+((payload.issuingEntity||{}).legalName||'Mysubbies Holdings Pty Ltd'),14,54);doc.text('Received from: '+((i.customer||{}).name||(i.customer||{}).email||''),14,63);doc.text(['Amount received: '+money(p.amountCents),'Date received: '+date(p.receivedAt),'Payment method: '+paymentMethod(p.method),'Reference: '+(p.reference||'—')],14,82);doc.save('mysubbies-payment-receipt-INV-'+i.invoiceNumber+'.pdf')
 }
-function downloadPdf(){
+async function loadPdfImage(url){
+  try{
+    const response=await fetch(url,{cache:'force-cache'});
+    if(!response.ok)throw new Error('image');
+    const blob=await response.blob();
+    return await new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=()=>resolve(reader.result);
+      reader.onerror=reject;
+      reader.readAsDataURL(blob);
+    });
+  }catch(e){return null}
+}
+async function downloadPdf(){
   const {jsPDF}=window.jspdf,i=payload.invoice,e=payload.issuingEntity||{},c=i.customer||{},q=payload.quoteDetails||{},doc=new jsPDF();
+  const footerPhoto=await loadPdfImage('/images/images-categoriesoutdoor-living-homepage.png');
   const navy=[20,33,61], orange=[255,106,26], light=[247,247,245], line=[225,226,228], stone=[107,114,128];
   const left=14,right=196,width=182;
-  const pageBottom=282;
+  const pageBottom=252;
   let y=0;
 
   const addHeader=()=>{
@@ -115,10 +119,26 @@ function downloadPdf(){
   const addFooter=()=>{
     const pages=doc.getNumberOfPages();
     for(let p=1;p<=pages;p++){
-      doc.setPage(p);doc.setDrawColor(...line);doc.line(left,287,right,287);
-      doc.setTextColor(...stone);doc.setFont('helvetica','normal');doc.setFontSize(7.5);
-      doc.text('Mysubbies Holdings Pty Ltd  |  ABN 69 693 675 268  |  PO Box 1126, Craigieburn VIC 3064',left,292);
-      doc.text('INV-'+i.invoiceNumber+'  |  Page '+p+' of '+pages,right,292,{align:'right'});
+      doc.setPage(p);
+      if(footerPhoto){
+        try{
+          doc.addImage(footerPhoto,'PNG',left,258,width,20);
+          doc.setFillColor(20,33,61);doc.setGState(new doc.GState({opacity:0.72}));doc.rect(left,258,width,20,'F');doc.setGState(new doc.GState({opacity:1}));
+          doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(10);
+          doc.text('Need help with your outdoor space?',left+6,267);
+          doc.setFont('helvetica','normal');doc.setFontSize(7.5);
+          doc.text('Landscaping • Pergolas • Decking • Concrete • Fencing • Turf',left+6,272);
+          doc.setFont('helvetica','bold');doc.text('mysubbies.com.au',right-6,272,{align:'right'});
+        }catch(e){}
+      }else{
+        doc.setFillColor(...navy);doc.rect(left,258,width,20,'F');
+        doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text('Need help with your outdoor space?',left+6,267);
+        doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.text('Landscaping • Pergolas • Decking • Concrete • Fencing • Turf',left+6,272);
+      }
+      doc.setDrawColor(...line);doc.line(left,284,right,284);
+      doc.setTextColor(...stone);doc.setFont('helvetica','normal');doc.setFontSize(7);
+      doc.text('Mysubbies Holdings Pty Ltd  |  ABN 69 693 675 268  |  PO Box 1126, Craigieburn VIC 3064',left,290);
+      doc.text('INV-'+i.invoiceNumber+'  |  Page '+p+' of '+pages,right,290,{align:'right'});
     }
   };
   const ensure=(h)=>{if(y+h>pageBottom){doc.addPage();addHeader();}};
@@ -153,18 +173,18 @@ function downloadPdf(){
   if(allocations.length){
     sectionTitle('Items billed on this invoice');
     doc.setFillColor(...light);doc.rect(left,y-2,width,8,'F');
-    doc.setTextColor(...stone);doc.setFont('helvetica','bold');doc.setFontSize(7.5);
-    doc.text('SERVICE',left+3,y+3);doc.text('QUOTE',160,y+3,{align:'right'});doc.text('THIS INVOICE',193,y+3,{align:'right'});y+=11;
+    doc.setTextColor(...stone);doc.setFont('helvetica','bold');doc.setFontSize(7.2);
+    doc.text('DESCRIPTION',left+3,y+3);doc.text('QUOTE',143,y+3,{align:'right'});doc.text('PAYMENT %',165,y+3,{align:'right'});doc.text('THIS INVOICE',193,y+3,{align:'right'});y+=11;
     allocations.forEach((row,index)=>{
-      const title=serviceTitle(row.description);
-      const titleLines=doc.splitTextToSize(title,118);
-      const rowH=Math.max(10,titleLines.length*4.4+5);ensure(rowH+2);
+      const fullDescription=String(row.description||'Quoted item').replace(/\s+/g,' ').trim();
+      const descriptionLines=doc.splitTextToSize(fullDescription,108);
+      const rowH=Math.max(11,descriptionLines.length*3.8+5);ensure(rowH+3);
       if(index%2===1){doc.setFillColor(252,252,251);doc.rect(left,y-4,width,rowH,'F');}
-      doc.setTextColor(30);doc.setFont('helvetica','bold');doc.setFontSize(8.3);doc.text(titleLines,left+3,y,{maxWidth:118});
-      doc.setTextColor(...stone);doc.setFont('helvetica','normal');doc.setFontSize(8);
-      doc.text(money(row.quotedAmountCents),160,y,{align:'right'});
-      doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(8.5);
-      doc.text(money(row.invoicedAmountCents),193,y,{align:'right'});
+      doc.setTextColor(30);doc.setFont('helvetica','normal');doc.setFontSize(7.7);doc.text(descriptionLines,left+3,y,{maxWidth:108});
+      doc.setTextColor(...stone);doc.setFontSize(7.6);doc.text(money(row.quotedAmountCents),143,y,{align:'right'});
+      const pct=row.progressPercentage==null?'—':Number(row.progressPercentage).toLocaleString('en-AU',{maximumFractionDigits:1})+'%';
+      doc.text(pct,165,y,{align:'right'});
+      doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text(money(row.invoicedAmountCents),193,y,{align:'right'});
       y+=rowH;doc.setDrawColor(...line);doc.line(left+3,y-2,right-3,y-2);
     });
     ensure(10);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...stone);
@@ -205,8 +225,8 @@ function downloadPdf(){
   ensure(39);doc.setFillColor(255,248,237);doc.setDrawColor(243,198,113);doc.roundedRect(left,y,width,34,3,3,'FD');
   doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text('PAYMENT OPTIONS',left+6,y+9);
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(45);
-  doc.text('Card: pay securely from the online invoice link via Stripe.',left+6,y+16);
-  doc.text('Bank: '+i.bankAccountName+'  |  BSB '+i.bankBsb+'  |  Account '+i.bankAccountNumber,left+6,y+22,{maxWidth:168});
+  doc.text('Bank transfer: '+i.bankAccountName,left+6,y+16);
+  doc.text('BSB '+i.bankBsb+'  |  Account '+i.bankAccountNumber,left+6,y+22,{maxWidth:168});
   doc.text('Reference: INV-'+i.invoiceNumber+'  |  Due '+date(i.dueAt),left+6,y+28);
   y+=44;
 
