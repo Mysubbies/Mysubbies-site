@@ -3831,6 +3831,25 @@ function openManualProspect(kind, seed) {
     invoicesTabData=null;selectedStandaloneInvoiceId=null;standaloneInvoiceEditDraft=null;await loadInvoicesTab();alert('Invoice updated.');
   }
   function addStandaloneInvoiceEditItem(){if(!standaloneInvoiceEditDraft)return;standaloneInvoiceEditDraft.lineItems.push({description:'',amountCents:0});render();}
+  async function sendStandaloneInvoice(invoiceId){
+    if(!confirm('Email this tax invoice to the customer and BCC Accounts?'))return;
+    try{
+      const res=await adminFetch('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'send_invoice',invoiceId})});
+      const data=await res.json();
+      if(!res.ok){alert(data.error||'Could not send invoice.');return;}
+      invoicesTabData=null;await loadInvoicesTab();openStandaloneInvoiceDetail(invoiceId);alert('Tax invoice sent successfully.');
+    }catch(e){alert('Could not send invoice — check your connection.');}
+  }
+  async function recordStandaloneInvoicePayment(invoiceId){
+    const invoice=(invoicesTabData&&invoicesTabData.rows||[]).find(row=>row.id===invoiceId);if(!invoice||!(invoice.balanceCents>0))return;
+    const dollars=prompt('Amount received',(invoice.balanceCents/100).toFixed(2));if(dollars==null)return;
+    const amountCents=Math.round(Number(dollars)*100);if(!(amountCents>0)||amountCents>invoice.balanceCents){alert('Enter a valid amount up to the outstanding balance.');return;}
+    const receivedAt=prompt('Date received (YYYY-MM-DD)',new Date().toISOString().slice(0,10));if(!receivedAt)return;
+    if(!confirm('Record '+fmtCents(amountCents)+' as received by bank transfer?'))return;
+    const res=await adminFetch('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'record_invoice_payment',invoiceId,amountCents,receivedAt,method:'bank_transfer',reference:'',notes:''})});
+    const data=await res.json();if(!res.ok){alert(data.error||'Could not record payment.');return;}
+    invoicesTabData=null;await loadInvoicesTab();openStandaloneInvoiceDetail(invoiceId);alert('Payment recorded successfully.');
+  }
 
   function renderStandaloneInvoiceDetail(){
     const invoice=(invoicesTabData&&invoicesTabData.rows||[]).find(row=>row.id===selectedStandaloneInvoiceId);
@@ -3839,6 +3858,12 @@ function openManualProspect(kind, seed) {
     const locked=(invoice.payments||[]).length>0;
     return `<div class="quote-card" style="margin-bottom:18px">
       <div class="quote-card-title"><div><button class="backbtn" onclick="closeStandaloneInvoiceDetail()">← Back to invoices</button><h2 style="margin-top:8px;">INV-${invoice.invoiceNumber}</h2></div><span class="badge ${invoiceStatusBadgeClass(invoice.status)}">${escapeHtml(String(invoice.status||'').replace('_',' '))}</span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px;">
+        <button class="btn btn-outline" onclick="viewMilestoneInvoice('${invoice.id}')">View invoice</button>
+        <button class="btn btn-outline" onclick="downloadAdminInvoicePdf('${invoice.id}')">Invoice PDF</button>
+        <button class="btn btn-outline" onclick="sendStandaloneInvoice('${invoice.id}')">Email customer</button>
+        ${invoice.balanceCents>0 ? '<button class="btn btn-black" onclick="recordStandaloneInvoicePayment(\''+invoice.id+'\')">+ Record payment</button>' : ''}
+      </div>
       <div class="invoice-payment-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <label><span class="fieldlabel">Customer name</span><input class="fieldinput" value="${escapeHtml(d.customerName)}" oninput="standaloneInvoiceEditDraft.customerName=this.value"></label>
         <label><span class="fieldlabel">Customer email</span><input class="fieldinput" type="email" value="${escapeHtml(d.customerEmail)}" oninput="standaloneInvoiceEditDraft.customerEmail=this.value"></label>
@@ -3856,7 +3881,7 @@ function openManualProspect(kind, seed) {
       </div>
       <label style="display:block;margin-top:10px"><span class="fieldlabel">Admin notes</span><textarea class="fieldinput" rows="2" oninput="standaloneInvoiceEditDraft.adminNotes=this.value">${escapeHtml(d.adminNotes)}</textarea></label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-        <button class="btn btn-black" onclick="saveStandaloneInvoiceDetail()">Save changes</button>
+        <button class="btn btn-black" onclick="saveStandaloneInvoiceDetail()">Save invoice changes</button>
         <button class="btn btn-outline" onclick="changeInvoiceDueDate('${invoice.id}','${invoice.dueAt||''}')">Change due date</button>
       </div>
     </div>`;
