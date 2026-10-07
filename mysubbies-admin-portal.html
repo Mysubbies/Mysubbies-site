@@ -3660,6 +3660,8 @@ function openManualProspect(kind, seed) {
   let standaloneInvoiceDraft = null;
   let invoiceSaving = false;
   let invoicePaymentDraft = null;
+  let selectedStandaloneInvoiceId = null;
+  let standaloneInvoiceEditDraft = null;
   let invoicesTabData = null;
   let invoicesTabLoading = false;
   let quoteSearchInput = '';
@@ -3795,9 +3797,61 @@ function openManualProspect(kind, seed) {
     tab = 'quotes';
     await openQuoteDetail(quoteId);
   }
+  function openStandaloneInvoiceDetail(invoiceId) {
+    const invoice=(invoicesTabData&&invoicesTabData.rows||[]).find(row=>row.id===invoiceId);
+    if(!invoice)return;
+    selectedStandaloneInvoiceId=invoiceId;
+    standaloneInvoiceEditDraft={
+      customerName:(invoice.customer&&invoice.customer.name)||'',
+      customerEmail:(invoice.customer&&invoice.customer.email)||'',
+      billingAddress:(invoice.customer&&invoice.customer.billingAddress)||'',
+      dueDate:invoice.dueAt?new Date(invoice.dueAt).toISOString().slice(0,10):'',
+      description:invoice.description||'Tax invoice',
+      lineItems:(invoice.lineItems||[]).map(item=>({description:item.description||'',amountCents:Number(item.amountCents||0)})),
+      adminNotes:invoice.adminNotes||''
+    };
+    render();
+  }
+  function closeStandaloneInvoiceDetail(){selectedStandaloneInvoiceId=null;standaloneInvoiceEditDraft=null;render();}
+  async function saveStandaloneInvoiceDetail(){
+    const d=standaloneInvoiceEditDraft;
+    if(!selectedStandaloneInvoiceId||!d)return;
+    const validItems=(d.lineItems||[]).filter(x=>String(x.description||'').trim()&&Number(x.amountCents)>0);
+    if(!d.customerEmail||!d.dueDate||!validItems.length){alert('Customer email, due date and at least one invoice item are required.');return;}
+    const res=await adminFetch('/api/quotes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'update_invoice',invoiceId:selectedStandaloneInvoiceId,customerName:d.customerName,customerEmail:d.customerEmail,billingAddress:d.billingAddress,dueDate:d.dueDate,description:d.description,lineItems:validItems,adminNotes:d.adminNotes})});
+    const data=await res.json();
+    if(!res.ok){alert(data.error||'Could not update invoice.');return;}
+    invoicesTabData=null;selectedStandaloneInvoiceId=null;standaloneInvoiceEditDraft=null;await loadInvoicesTab();alert('Invoice updated.');
+  }
+  function addStandaloneInvoiceEditItem(){if(!standaloneInvoiceEditDraft)return;standaloneInvoiceEditDraft.lineItems.push({description:'',amountCents:0});render();}
+
+  function renderStandaloneInvoiceDetail(){
+    const invoice=(invoicesTabData&&invoicesTabData.rows||[]).find(row=>row.id===selectedStandaloneInvoiceId);
+    const d=standaloneInvoiceEditDraft;
+    if(!invoice||!d)return '';
+    const locked=(invoice.payments||[]).length>0;
+    return `<div class="quote-card" style="margin-bottom:18px">
+      <div class="quote-card-title"><div><button class="backbtn" onclick="closeStandaloneInvoiceDetail()">← Back to invoices</button><h2 style="margin-top:8px;">INV-${invoice.invoiceNumber}</h2></div><span class="badge ${invoiceStatusBadgeClass(invoice.status)}">${escapeHtml(String(invoice.status||'').replace('_',' '))}</span></div>
+      <div class="invoice-payment-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <label><span class="fieldlabel">Customer name</span><input class="fieldinput" value="${escapeHtml(d.customerName)}" oninput="standaloneInvoiceEditDraft.customerName=this.value"></label>
+        <label><span class="fieldlabel">Customer email</span><input class="fieldinput" type="email" value="${escapeHtml(d.customerEmail)}" oninput="standaloneInvoiceEditDraft.customerEmail=this.value"></label>
+        <label><span class="fieldlabel">Billing address</span><input class="fieldinput" value="${escapeHtml(d.billingAddress)}" oninput="standaloneInvoiceEditDraft.billingAddress=this.value"></label>
+        <label><span class="fieldlabel">Due date</span><input class="fieldinput" type="date" value="${d.dueDate}" oninput="standaloneInvoiceEditDraft.dueDate=this.value"></label>
+      </div>
+      <h3 style="margin-top:14px;">Invoice items</h3>
+      ${d.lineItems.map((x,i)=>`<div style="display:grid;grid-template-columns:1fr 160px;gap:8px;margin-bottom:8px"><textarea class="fieldinput" rows="3" ${locked?'readonly':''} oninput="standaloneInvoiceEditDraft.lineItems[${i}].description=this.value">${escapeHtml(x.description)}</textarea><input class="fieldinput" type="number" step="0.01" ${locked?'readonly':''} value="${x.amountCents?(x.amountCents/100).toFixed(2):''}" oninput="standaloneInvoiceEditDraft.lineItems[${i}].amountCents=Math.round(Number(this.value)*100)"></div>`).join('')}
+      ${locked?'<div style="font-size:12px;color:var(--stone);margin:6px 0 10px;">Amounts are locked because a payment has already been recorded.</div>':'<button class="btn btn-outline" onclick="addStandaloneInvoiceEditItem()">+ Add item</button>'}
+      <label style="display:block;margin-top:10px"><span class="fieldlabel">Admin notes</span><textarea class="fieldinput" rows="2" oninput="standaloneInvoiceEditDraft.adminNotes=this.value">${escapeHtml(d.adminNotes)}</textarea></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn btn-black" onclick="saveStandaloneInvoiceDetail()">Save changes</button>
+        <button class="btn btn-outline" onclick="changeInvoiceDueDate('${invoice.id}','${invoice.dueAt||''}')">Change due date</button>
+      </div>
+    </div>`;
+  }
 
   function renderInvoicesTab() {
     if (!invoicesTabData || invoicesTabLoading) return '<h1 class="pagetitle">Invoices</h1><div class="empty">Loading…</div>';
+    if (selectedStandaloneInvoiceId) return '<h1 class="pagetitle">Invoices</h1>'+renderStandaloneInvoiceDetail();
     if (invoicesTabData.error) return `<h1 class="pagetitle">Invoices</h1><div class="empty">${escapeHtml(invoicesTabData.error)}</div>`;
     const allRows = invoicesTabData.rows || [];
     const rows = invoiceSearchQuery ? allRows.filter(i => [i.invoiceNumber, i.quoteNumber, i.status, i.customer && i.customer.name, i.customer && i.customer.email].some(value => String(value || '').toLowerCase().includes(invoiceSearchQuery))) : allRows;
@@ -3824,7 +3878,7 @@ function openManualProspect(kind, seed) {
     ${rows.length === 0 ? `<div class="empty">${invoiceSearchQuery ? 'No invoices match your search.' : 'No invoices created yet. Open an accepted quote to create the first invoice.'}</div>` : `<div class="quote-card-title"><h2>${invoiceSearchQuery ? 'Search results' : 'All invoices'}</h2><span style="font-size:11.5px;color:var(--stone);">${rows.length} invoice${rows.length === 1 ? '' : 's'} · Select to view, email, download or record payment</span></div>
       <table class="quote-list-table">
         <thead><tr><th>Invoice</th><th>Customer</th><th>Status</th><th>Total</th><th>Paid</th><th>Balance</th><th>Due</th></tr></thead>
-        <tbody>${rows.map(i => `<tr class="jobrow" onclick="${i.quoteId?`openInvoiceQuote('${i.quoteId}')`:`alert('Standalone invoice INV-${i.invoiceNumber}. Edit and credit controls are enabled by the new invoice API and will open here after the schema update is applied.')`}">
+        <tbody>${rows.map(i => `<tr class="jobrow" onclick="${i.quoteId?`openInvoiceQuote('${i.quoteId}')`:`openStandaloneInvoiceDetail('${i.id}')`}">
           <td data-label="Invoice"><strong>INV-${i.invoiceNumber}</strong><br><small style="color:var(--stone);">Quote #${i.quoteNumber || '—'}</small></td>
           <td data-label="Customer">${escapeHtml((i.customer && (i.customer.name || i.customer.email)) || '—')}</td>
           <td data-label="Status"><span class="badge ${invoiceStatusBadgeClass(i.status)}">${escapeHtml(String(i.status || '').replace('_',' '))}</span></td>
