@@ -86,11 +86,11 @@ function renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl }) {
           </td></tr>
         </table>
 
-        <a class="primary-button" href="${escapeHtml(secureInvoiceUrl)}" style="display:inline-block;margin-top:20px;background:#FFD400;color:#111111;text-decoration:none;border-radius:999px;padding:14px 24px;font-size:14px;font-weight:800;">View invoice &amp; pay securely →</a>
-        <p style="margin:12px 0 0;color:#6B7280;font-size:12px;line-height:19px;">The secure invoice includes the full quote details, terms, bank-transfer information and credit/debit card payment through Stripe.</p>
+        <a class="primary-button" href="${escapeHtml(secureInvoiceUrl)}" style="display:inline-block;margin-top:20px;background:#FFD400;color:#111111;text-decoration:none;border-radius:999px;padding:14px 24px;font-size:14px;font-weight:800;">View invoice →</a>
+        <p style="margin:12px 0 0;color:#6B7280;font-size:12px;line-height:19px;">The secure invoice includes the invoice details, payment reference and bank-transfer information.</p>
       </td></tr>
 
-      <tr><td class="email-pad" style="padding:4px 34px 25px;"><table role="presentation" width="100%"><tr style="font-size:11px;color:#4B5563;"><td>✓ Secure card payments</td><td>✓ Bank transfer available</td><td>✓ Payment receipts</td><td>✓ Australian support</td></tr></table></td></tr>
+      <tr><td class="email-pad" style="padding:4px 34px 25px;"><table role="presentation" width="100%"><tr style="font-size:11px;color:#4B5563;"><td>✓ Bank transfer</td><td>✓ Payment receipts</td><td>✓ Secure invoice link</td><td>✓ Australian support</td></tr></table></td></tr>
 
       <tr><td class="email-pad" style="background:#14213D;padding:25px 34px;"><h2 style="margin:0;color:#FFFFFF;font-size:19px;line-height:26px;">Manage everything in MySubbies.</h2><p style="margin:7px 0 16px;color:#CBD2DF;font-size:13px;line-height:20px;">View your jobs, quotes, invoices, payments, receipts and messages in one place.</p><a href="${escapeHtml(portalUrl)}" style="display:inline-block;background:#FF6A1A;color:#14213D;text-decoration:none;border-radius:999px;padding:12px 20px;font-size:13px;font-weight:800;">Open MySubbies →</a></td></tr>
       <tr><td class="email-pad" style="padding:23px 34px 28px;color:#6B7280;font-size:11px;line-height:18px;"><p style="margin:0 0 12px;">Questions about this invoice? Reply to this email and quote <strong>INV-${escapeHtml(invoice.invoice_number)}</strong>.</p><div>MySubbies Holdings Pty Ltd<br>ABN 69 693 675 268<br>PO Box 1126, Craigieburn VIC 3064</div><p style="margin:13px 0 0;"><a href="${escapeHtml(privacyUrl)}" style="color:#6B7280;">Privacy Policy</a> &nbsp;·&nbsp; <a href="${escapeHtml(termsUrl)}" style="color:#6B7280;">Terms</a></p></td></tr>
