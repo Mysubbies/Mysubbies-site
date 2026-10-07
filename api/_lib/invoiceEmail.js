@@ -89,6 +89,23 @@ function invoiceAllocationsTable(lineAllocations) {
     <div style="margin-top:7px;font-size:11px;line-height:17px;color:#6B7280;">Only the quote items charged on this invoice are shown.</div>`;
 }
 
+function standaloneInvoiceItemsTable(invoice) {
+  const items = Array.isArray(invoice && invoice.line_items) ? invoice.line_items : [];
+  if (!items.length) return '';
+  const rows = items.map(item => `<tr>
+    <td style="padding:12px 8px 12px 0;border-bottom:1px solid #E7E7E4;font-size:13px;line-height:19px;color:#14213D;">${escapeHtml(item.description || 'Invoice item').replace(/\r\n?|\n/g, '<br>')}</td>
+    <td valign="top" align="right" style="padding:12px 0 12px 8px;border-bottom:1px solid #E7E7E4;font-size:13px;line-height:19px;font-weight:700;color:#14213D;white-space:nowrap;">${money(item.amountCents != null ? item.amountCents : item.amount_cents)}</td>
+  </tr>`).join('');
+  return `<div style="margin-top:17px;font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Invoice items</div>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:7px;border-collapse:collapse;">
+      <thead><tr>
+        <th scope="col" align="left" style="padding:0 8px 7px 0;font-size:10px;line-height:15px;color:#6B7280;text-transform:uppercase;letter-spacing:.04em;">Description</th>
+        <th scope="col" align="right" style="padding:0 0 7px 8px;font-size:10px;line-height:15px;color:#6B7280;text-transform:uppercase;letter-spacing:.04em;">Amount</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
 function absoluteUrl(value, secureInvoiceUrl) {
   try { return new URL(value, secureInvoiceUrl).toString(); }
   catch (e) { return ''; }
@@ -98,7 +115,8 @@ function renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl, lineAll
   const customer = invoice.customer_snapshot || {};
   const firstName = String(customer.name || '').trim().split(/\s+/)[0] || 'there';
   const isProgressInvoice = Array.isArray(lineAllocations) && lineAllocations.length > 0;
-  const itemsTable = isProgressInvoice ? invoiceAllocationsTable(lineAllocations) : quoteItemsTable(version || {});
+  const isStandaloneInvoice = !quote || !version;
+  const itemsTable = isProgressInvoice ? invoiceAllocationsTable(lineAllocations) : (isStandaloneInvoice ? standaloneInvoiceItemsTable(invoice) : quoteItemsTable(version || {}));
   const portalUrl = absoluteUrl('mysubbies-customer-portal.html', secureInvoiceUrl);
   const privacyUrl = absoluteUrl('mysubbies-privacy-policy.html', secureInvoiceUrl);
   const termsUrl = absoluteUrl('mysubbies-terms.html', secureInvoiceUrl);
@@ -114,7 +132,7 @@ function renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl, lineAll
       <tr><td class="email-pad" style="padding:30px 34px 18px;">
         <p style="margin:0 0 15px;font-size:15px;line-height:23px;">Hi ${escapeHtml(firstName)},</p>
         <h1 style="margin:0 0 10px;color:#14213D;font-size:26px;line-height:33px;">Your tax invoice is ready</h1>
-        <p style="margin:0;color:#4B5563;font-size:14px;line-height:22px;">Invoice <strong>INV-${escapeHtml(invoice.invoice_number)}</strong> relates to accepted Quote #${escapeHtml(quote.quote_number)}.</p>
+        <p style="margin:0;color:#4B5563;font-size:14px;line-height:22px;">Invoice <strong>INV-${escapeHtml(invoice.invoice_number)}</strong>${quote && quote.quote_number ? ' relates to accepted Quote #'+escapeHtml(quote.quote_number)+'.' : ' is ready for payment.'}</p>
       </td></tr>
 
       <tr><td class="email-pad" style="padding:8px 34px 22px;">
@@ -123,6 +141,10 @@ function renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl, lineAll
             <div style="font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Tax invoice INV-${escapeHtml(invoice.invoice_number)}</div>
             <div style="margin-top:6px;font-size:12px;color:#6B7280;">${escapeHtml(invoice.milestone_label)} · Due ${new Date(invoice.due_at).toLocaleDateString('en-AU')}</div>
             ${itemsTable}
+            ${isStandaloneInvoice && invoice.scope_text ? `<div style="margin-top:14px;font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Scope of works</div><div style="margin-top:5px;font-size:13px;line-height:20px;color:#14213D;">${escapeHtml(invoice.scope_text).replace(/\r\n?|\n/g, '<br>')}</div>` : ''}
+            ${isStandaloneInvoice && invoice.inclusions_text ? `<div style="margin-top:14px;font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Inclusions</div><div style="margin-top:5px;font-size:13px;line-height:20px;color:#14213D;">${escapeHtml(invoice.inclusions_text).replace(/\r\n?|\n/g, '<br>')}</div>` : ''}
+            ${isStandaloneInvoice && invoice.exclusions_text ? `<div style="margin-top:14px;font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Exclusions</div><div style="margin-top:5px;font-size:13px;line-height:20px;color:#14213D;">${escapeHtml(invoice.exclusions_text).replace(/\r\n?|\n/g, '<br>')}</div>` : ''}
+            ${isStandaloneInvoice && invoice.payment_terms_text ? `<div style="margin-top:14px;font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Payment terms</div><div style="margin-top:5px;font-size:13px;line-height:20px;color:#14213D;">${escapeHtml(invoice.payment_terms_text).replace(/\r\n?|\n/g, '<br>')}</div>` : ''}
             ${!isProgressInvoice && version && version.scope_text ? `<div style="margin-top:14px;font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Scope</div><div style="margin-top:5px;font-size:13px;line-height:20px;color:#14213D;">${escapeHtml(version.scope_text).replace(/\r\n?|\n/g, '<br>')}</div>` : ''}
             ${!isProgressInvoice && version && version.inclusions_text ? `<div style="margin-top:14px;font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Inclusions</div><div style="margin-top:5px;font-size:13px;line-height:20px;color:#14213D;">${escapeHtml(version.inclusions_text).replace(/\r\n?|\n/g, '<br>')}</div>` : ''}
             <div style="margin-top:18px;padding-top:15px;border-top:1px solid #D7D9DD;">
