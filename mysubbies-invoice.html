@@ -67,6 +67,8 @@ function render(){
   const params=new URLSearchParams(location.search);
   const paymentState=params.get('payment');
   const paymentNotice=paymentState==='success'?'<div class="success"><strong>Card payment submitted.</strong> Stripe will confirm the payment securely. The balance will update automatically once confirmation is received.</div>':paymentState==='cancelled'?'<div class="cancelled">Card payment was cancelled. No change has been made to the invoice.</div>':'';
+  const isProgressInvoice=(payload.invoiceLineAllocations||[]).length>0;
+  const invoiceSummaryLabel=isProgressInvoice?'Progress claim for selected quote items':esc(i.description);
   const terms=q.termsText?'<div class="card note"><h3>Terms &amp; conditions</h3><div class="section-text">'+nl(q.termsText)+'</div>'+(q.termsUrl?'<p class="muted" style="margin-bottom:0">Full MySubbies Platform Terms: <a class="terms-link" href="'+esc(q.termsUrl)+'" target="_blank" rel="noopener">View terms</a></p>':'')+'</div>':'';
   document.getElementById('app').innerHTML=
   '<section class="sheet"><div class="head"><div><h1>TAX INVOICE</h1><p>INV-'+esc(i.invoiceNumber)+' · Quote #'+esc(payload.quoteNumber)+' · '+esc(String(i.status||'issued').replace('_',' '))+'</p></div><div class="amount"><span class="muted" style="color:#cbd2df">'+(balance>0?'AMOUNT DUE':'PAID IN FULL')+'</span><br><strong>'+money(balance)+'</strong><br><span class="muted" style="color:#cbd2df">Due '+date(i.dueAt)+'</span></div></div>'+
@@ -75,8 +77,8 @@ function render(){
   ((payload.invoiceLineAllocations||[]).length
     ? '<div class="card"><h3>Items billed on this invoice</h3>'+invoiceAllocationRows()+'<p class="muted" style="margin-bottom:0">Only the quote items being charged on this invoice are shown here.</p></div>'
     : '<div class="card"><h3>Accepted quote details</h3>'+quoteRows(q)+'<p class="muted" style="margin-bottom:0">These are the items from accepted Quote #'+esc(payload.quoteNumber)+'. They are shown for reference and are not an additional amount payable on this invoice.</p></div>')+
-  '<div class="card"><h3>This invoice</h3><div class="row"><span>'+(payload.invoiceLineAllocations||[]).length?'Progress claim for selected quote items':esc(i.description)+'</span><strong>'+money(i.totalIncGstCents)+'</strong></div><div class="row"><span>Subtotal (ex. GST)</span><span>'+money(i.subtotalExGstCents)+'</span></div><div class="row"><span>GST</span><span>'+money(i.gstCents)+'</span></div><div class="row total"><span>Invoice total (inc. GST)</span><span>'+money(i.totalIncGstCents)+'</span></div><div class="row"><span>Payments received</span><strong>'+money(paid)+'</strong></div><div class="row total"><span>Balance remaining</span><span>'+money(balance)+'</span></div></div>'+
-  textCard('Scope of works',q.scopeText)+textCard('Inclusions',q.inclusionsText)+textCard('Exclusions',q.exclusionsText)+textCard('Payment terms',q.paymentTermsText)+terms+
+  '<div class="card"><h3>This invoice</h3><div class="row"><span>'+invoiceSummaryLabel+'</span><strong>'+money(i.totalIncGstCents)+'</strong></div><div class="row"><span>Subtotal (ex. GST)</span><span>'+money(i.subtotalExGstCents)+'</span></div><div class="row"><span>GST</span><span>'+money(i.gstCents)+'</span></div><div class="row total"><span>Invoice total (inc. GST)</span><span>'+money(i.totalIncGstCents)+'</span></div><div class="row"><span>Payments received</span><strong>'+money(paid)+'</strong></div><div class="row total"><span>Balance remaining</span><span>'+money(balance)+'</span></div></div>'+
+  (isProgressInvoice?'':textCard('Scope of works',q.scopeText)+textCard('Inclusions',q.inclusionsText)+textCard('Exclusions',q.exclusionsText)+textCard('Payment terms',q.paymentTermsText)+terms)+
   (balance>0?'<div class="pay-grid"><div class="card pay-card"><div class="label">Pay securely by card</div><div class="value"><strong>Credit or debit card</strong><br>Pay the outstanding balance of <strong>'+money(balance)+'</strong> securely through Stripe.</div><div class="actions"><button class="btn" id="payCardBtn" onclick="payByCard()">Pay '+money(balance)+' by card</button></div></div><div class="card bank"><div class="label">Payment by bank transfer</div><div class="value"><strong>'+esc(i.bankAccountName)+'</strong><br>BSB: '+esc(i.bankBsb)+'<br>Account: '+esc(i.bankAccountNumber)+'<br>Reference: INV-'+esc(i.invoiceNumber)+'<br><br><strong>Due: '+date(i.dueAt)+'</strong></div></div></div>':'<div class="card" style="background:#eaf5ee;border-color:#b9ddc6"><strong>✓ Paid in full</strong>'+(i.paidAt?' on '+date(i.paidAt):'')+'</div>')+
   ((i.payments||[]).length?'<div class="card"><h3>Payment history</h3>'+(i.payments||[]).map(payment=>'<div class="row"><span>'+date(payment.receivedAt)+' · '+esc(paymentMethod(payment.method))+(payment.reference?' · '+esc(payment.reference):'')+'</span><span><strong>'+money(payment.amountCents)+'</strong> <button class="btn secondary" style="padding:6px 9px;margin-left:7px" onclick="downloadReceipt(\''+payment.id+'\')">Receipt</button></span></div>').join('')+'</div>':'')+
   '<div class="actions"><button class="btn secondary" onclick="downloadPdf()">Download invoice PDF</button></div><p class="muted">'+(balance>0?'Use INV-'+esc(i.invoiceNumber)+' as your bank-transfer payment reference. ':'')+'Keep this tax invoice and any payment receipts for your records.</p></div></section>';
@@ -209,7 +211,7 @@ function downloadPdf(){
   y+=44;
 
   // Details start cleanly on a new page when present
-  const details=[
+  const details=allocations.length ? [] : [
     ['Scope of works',q.scopeText],
     ['Inclusions',q.inclusionsText],
     ['Exclusions',q.exclusionsText],
