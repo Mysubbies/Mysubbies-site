@@ -51,6 +51,13 @@ function quoteRows(q){
     items.map(item=>'<tr><td>'+esc(item.description||'Quoted item')+'</td><td>'+esc(item.qty==null?'':item.qty)+'</td><td>'+esc(item.unit||'')+'</td><td class="num">'+money(item.lineTotalCents)+'</td></tr>').join('')+
     '</tbody></table><div class="row"><span>Accepted quote total (inc. GST)</span><strong>'+money(q.totalIncGstCents)+'</strong></div>';
 }
+function invoiceAllocationRows(){
+  const rows=Array.isArray(payload&&payload.invoiceLineAllocations)?payload.invoiceLineAllocations:[];
+  if(!rows.length)return '';
+  return '<table class="quote-table"><thead><tr><th>Description</th><th class="num">Quote amount</th><th class="num">This invoice</th></tr></thead><tbody>'+
+    rows.map(row=>'<tr><td>'+esc(row.description||'Quoted item')+'</td><td class="num">'+money(row.quotedAmountCents)+'</td><td class="num"><strong>'+money(row.invoicedAmountCents)+'</strong></td></tr>').join('')+
+    '</tbody></table>';
+}
 function textCard(title,text){
   if(!text)return '';
   return '<div class="card note"><h3>'+esc(title)+'</h3><div class="section-text">'+nl(text)+'</div></div>';
@@ -65,8 +72,10 @@ function render(){
   '<section class="sheet"><div class="head"><div><h1>TAX INVOICE</h1><p>INV-'+esc(i.invoiceNumber)+' · Quote #'+esc(payload.quoteNumber)+' · '+esc(String(i.status||'issued').replace('_',' '))+'</p></div><div class="amount"><span class="muted" style="color:#cbd2df">'+(balance>0?'AMOUNT DUE':'PAID IN FULL')+'</span><br><strong>'+money(balance)+'</strong><br><span class="muted" style="color:#cbd2df">Due '+date(i.dueAt)+'</span></div></div>'+
   '<div class="body">'+paymentNotice+
   '<div class="grid"><div><div class="label">Issued by</div><div class="value"><strong>'+esc(e.legalName)+'</strong><br>ABN '+esc(e.abn)+'<br>'+esc([e.addressLine,e.suburb,e.state,e.postcode].filter(Boolean).join(', '))+'<br>'+esc(e.email||'')+'</div></div><div><div class="label">Bill to</div><div class="value"><strong>'+esc(c.name||c.email)+'</strong><br>'+esc(c.email||'')+'<br>'+esc(c.billingAddress||'')+'<br>'+esc([p.address,p.suburb].filter(Boolean).join(', '))+'</div></div></div>'+
-  '<div class="card"><h3>Accepted quote details</h3>'+quoteRows(q)+'<p class="muted" style="margin-bottom:0">These are the items from accepted Quote #'+esc(payload.quoteNumber)+'. They are shown for reference and are not an additional amount payable on this invoice.</p></div>'+
-  '<div class="card"><h3>This invoice</h3><div class="row"><span>'+esc(i.description)+'</span><strong>'+money(i.totalIncGstCents)+'</strong></div><div class="row"><span>Subtotal (ex. GST)</span><span>'+money(i.subtotalExGstCents)+'</span></div><div class="row"><span>GST</span><span>'+money(i.gstCents)+'</span></div><div class="row total"><span>Invoice total (inc. GST)</span><span>'+money(i.totalIncGstCents)+'</span></div><div class="row"><span>Payments received</span><strong>'+money(paid)+'</strong></div><div class="row total"><span>Balance remaining</span><span>'+money(balance)+'</span></div></div>'+
+  ((payload.invoiceLineAllocations||[]).length
+    ? '<div class="card"><h3>Items billed on this invoice</h3>'+invoiceAllocationRows()+'<p class="muted" style="margin-bottom:0">Only the quote items being charged on this invoice are shown here.</p></div>'
+    : '<div class="card"><h3>Accepted quote details</h3>'+quoteRows(q)+'<p class="muted" style="margin-bottom:0">These are the items from accepted Quote #'+esc(payload.quoteNumber)+'. They are shown for reference and are not an additional amount payable on this invoice.</p></div>')+
+  '<div class="card"><h3>This invoice</h3><div class="row"><span>'+(payload.invoiceLineAllocations||[]).length?'Progress claim for selected quote items':esc(i.description)+'</span><strong>'+money(i.totalIncGstCents)+'</strong></div><div class="row"><span>Subtotal (ex. GST)</span><span>'+money(i.subtotalExGstCents)+'</span></div><div class="row"><span>GST</span><span>'+money(i.gstCents)+'</span></div><div class="row total"><span>Invoice total (inc. GST)</span><span>'+money(i.totalIncGstCents)+'</span></div><div class="row"><span>Payments received</span><strong>'+money(paid)+'</strong></div><div class="row total"><span>Balance remaining</span><span>'+money(balance)+'</span></div></div>'+
   textCard('Scope of works',q.scopeText)+textCard('Inclusions',q.inclusionsText)+textCard('Exclusions',q.exclusionsText)+textCard('Payment terms',q.paymentTermsText)+terms+
   (balance>0?'<div class="pay-grid"><div class="card pay-card"><div class="label">Pay securely by card</div><div class="value"><strong>Credit or debit card</strong><br>Pay the outstanding balance of <strong>'+money(balance)+'</strong> securely through Stripe.</div><div class="actions"><button class="btn" id="payCardBtn" onclick="payByCard()">Pay '+money(balance)+' by card</button></div></div><div class="card bank"><div class="label">Payment by bank transfer</div><div class="value"><strong>'+esc(i.bankAccountName)+'</strong><br>BSB: '+esc(i.bankBsb)+'<br>Account: '+esc(i.bankAccountNumber)+'<br>Reference: INV-'+esc(i.invoiceNumber)+'<br><br><strong>Due: '+date(i.dueAt)+'</strong></div></div></div>':'<div class="card" style="background:#eaf5ee;border-color:#b9ddc6"><strong>✓ Paid in full</strong>'+(i.paidAt?' on '+date(i.paidAt):'')+'</div>')+
   ((i.payments||[]).length?'<div class="card"><h3>Payment history</h3>'+(i.payments||[]).map(payment=>'<div class="row"><span>'+date(payment.receivedAt)+' · '+esc(paymentMethod(payment.method))+(payment.reference?' · '+esc(payment.reference):'')+'</span><span><strong>'+money(payment.amountCents)+'</strong> <button class="btn secondary" style="padding:6px 9px;margin-left:7px" onclick="downloadReceipt(\''+payment.id+'\')">Receipt</button></span></div>').join('')+'</div>':'')+
@@ -137,32 +146,54 @@ function downloadPdf(){
   bill.forEach((t,idx)=>doc.text(t,108,y+idx*4.5,{maxWidth:88}));
   y+=Math.max(issuer.length,bill.length)*4.5+10;
 
-  // Accepted quote summary
-  sectionTitle('Accepted quote summary');
-  doc.setFillColor(...light);doc.rect(left,y-2,width,8,'F');
-  doc.setTextColor(...stone);doc.setFont('helvetica','bold');doc.setFontSize(7.5);
-  doc.text('SERVICE',left+3,y+3);doc.text('QTY',151,y+3,{align:'right'});doc.text('AMOUNT',193,y+3,{align:'right'});y+=11;
-  const items=q.lineItems||[];
-  items.forEach((item,index)=>{
-    const title=serviceTitle(item.description);
-    const titleLines=doc.splitTextToSize(title,112);
-    const rowH=Math.max(10,titleLines.length*4.4+5);ensure(rowH+2);
-    if(index%2===1){doc.setFillColor(252,252,251);doc.rect(left,y-4,width,rowH,'F');}
-    doc.setTextColor(30);doc.setFont('helvetica','bold');doc.setFontSize(8.3);doc.text(titleLines,left+3,y,{maxWidth:112});
-    doc.setFont('helvetica','normal');doc.setTextColor(...stone);doc.setFontSize(7.8);
-    const qtyText=[item.qty==null?'':item.qty,item.unit||''].filter(Boolean).join(' ');
-    doc.text(String(qtyText),154,y,{align:'right'});
-    doc.setTextColor(20);doc.setFont('helvetica','bold');doc.setFontSize(8.3);doc.text(money(item.lineTotalCents),193,y,{align:'right'});
-    y+=rowH;doc.setDrawColor(...line);doc.line(left+3,y-2,right-3,y-2);
-  });
-  ensure(12);doc.setFont('helvetica','bold');doc.setTextColor(...navy);doc.setFontSize(9);
-  doc.text('Accepted quote total',145,y,{align:'right'});doc.text(money(q.totalIncGstCents),193,y,{align:'right'});y+=6;
-  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...stone);doc.text('Quote values are shown for reference. The amount due is the invoice amount below.',left,y);y+=11;
+  // Items being billed on this invoice. Progress invoices show only selected quote items.
+  const allocations=Array.isArray(payload.invoiceLineAllocations)?payload.invoiceLineAllocations:[];
+  if(allocations.length){
+    sectionTitle('Items billed on this invoice');
+    doc.setFillColor(...light);doc.rect(left,y-2,width,8,'F');
+    doc.setTextColor(...stone);doc.setFont('helvetica','bold');doc.setFontSize(7.5);
+    doc.text('SERVICE',left+3,y+3);doc.text('QUOTE',160,y+3,{align:'right'});doc.text('THIS INVOICE',193,y+3,{align:'right'});y+=11;
+    allocations.forEach((row,index)=>{
+      const title=serviceTitle(row.description);
+      const titleLines=doc.splitTextToSize(title,118);
+      const rowH=Math.max(10,titleLines.length*4.4+5);ensure(rowH+2);
+      if(index%2===1){doc.setFillColor(252,252,251);doc.rect(left,y-4,width,rowH,'F');}
+      doc.setTextColor(30);doc.setFont('helvetica','bold');doc.setFontSize(8.3);doc.text(titleLines,left+3,y,{maxWidth:118});
+      doc.setTextColor(...stone);doc.setFont('helvetica','normal');doc.setFontSize(8);
+      doc.text(money(row.quotedAmountCents),160,y,{align:'right'});
+      doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(8.5);
+      doc.text(money(row.invoicedAmountCents),193,y,{align:'right'});
+      y+=rowH;doc.setDrawColor(...line);doc.line(left+3,y-2,right-3,y-2);
+    });
+    ensure(10);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...stone);
+    doc.text('Only items charged on this invoice are shown. Accepted Quote #'+payload.quoteNumber+' total: '+money(q.totalIncGstCents),left,y);y+=11;
+  } else {
+    sectionTitle('Accepted quote summary');
+    doc.setFillColor(...light);doc.rect(left,y-2,width,8,'F');
+    doc.setTextColor(...stone);doc.setFont('helvetica','bold');doc.setFontSize(7.5);
+    doc.text('SERVICE',left+3,y+3);doc.text('QTY',151,y+3,{align:'right'});doc.text('AMOUNT',193,y+3,{align:'right'});y+=11;
+    const items=q.lineItems||[];
+    items.forEach((item,index)=>{
+      const title=serviceTitle(item.description);
+      const titleLines=doc.splitTextToSize(title,112);
+      const rowH=Math.max(10,titleLines.length*4.4+5);ensure(rowH+2);
+      if(index%2===1){doc.setFillColor(252,252,251);doc.rect(left,y-4,width,rowH,'F');}
+      doc.setTextColor(30);doc.setFont('helvetica','bold');doc.setFontSize(8.3);doc.text(titleLines,left+3,y,{maxWidth:112});
+      doc.setFont('helvetica','normal');doc.setTextColor(...stone);doc.setFontSize(7.8);
+      const qtyText=[item.qty==null?'':item.qty,item.unit||''].filter(Boolean).join(' ');
+      doc.text(String(qtyText),154,y,{align:'right'});
+      doc.setTextColor(20);doc.setFont('helvetica','bold');doc.setFontSize(8.3);doc.text(money(item.lineTotalCents),193,y,{align:'right'});
+      y+=rowH;doc.setDrawColor(...line);doc.line(left+3,y-2,right-3,y-2);
+    });
+    ensure(12);doc.setFont('helvetica','bold');doc.setTextColor(...navy);doc.setFontSize(9);
+    doc.text('Accepted quote total',145,y,{align:'right'});doc.text(money(q.totalIncGstCents),193,y,{align:'right'});y+=6;
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...stone);doc.text('Quote values are shown for reference. The amount due is the invoice amount below.',left,y);y+=11;
+  }
 
   // Invoice summary box
   ensure(48);doc.setFillColor(249,250,252);doc.setDrawColor(210,213,218);doc.roundedRect(left,y,width,44,3,3,'FD');
   doc.setTextColor(...navy);doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text('THIS INVOICE',left+6,y+9);
-  doc.setFontSize(9);doc.text(i.milestoneLabel||i.description,left+6,y+18,{maxWidth:95});
+  doc.setFontSize(9);doc.text(allocations.length?'Progress claim for selected quote items':(i.milestoneLabel||i.description),left+6,y+18,{maxWidth:95});
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...stone);doc.text('Subtotal (ex. GST)',126,y+12);doc.text('GST',126,y+20);doc.text('Payments received',126,y+28);
   doc.setTextColor(30);doc.text(money(i.subtotalExGstCents),190,y+12,{align:'right'});doc.text(money(i.gstCents),190,y+20,{align:'right'});doc.text(money(i.paidCents||0),190,y+28,{align:'right'});
   doc.setDrawColor(210,213,218);doc.line(126,y+32,190,y+32);doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.setTextColor(...navy);doc.text('AMOUNT DUE',126,y+39);doc.text(money(i.balanceCents),190,y+39,{align:'right'});
