@@ -1,6 +1,7 @@
 const { getSupabase } = require('./_lib/clients');
 const { requireAdmin } = require('./_lib/adminAuth');
 const { sendEmailWithResult, escapeHtml, emailButton } = require('./_lib/email');
+const { runRegulationWatch } = require('./_lib/regulationWatch');
 
 function clean(v,n){return String(v||'').trim().slice(0,n||5000);}
 function validEmail(v){const x=clean(v,254).toLowerCase();return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)?x:'';}
@@ -164,6 +165,10 @@ module.exports=async function handler(req,res){
       ]);
       for(const q of [campaigns,contacts,regulations,targets])if(q.error)throw q.error;
       res.status(200).json({campaigns:campaigns.data||[],contacts:contacts.data||[],regulations:regulations.data||[],searchTargets:targets.data||[]});return;
+    }
+    if(req.method==='POST'&&action==='scan_regulations'){
+      const result=await runRegulationWatch(s);
+      res.status(200).json(result);return;
     }
     if(req.method==='POST'&&action==='discover_contacts'){await discoverContacts(s,req.body||{},res);return;}
     if(req.method==='POST'&&action==='update_contact'){
