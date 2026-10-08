@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>MySubbies | Campaign Service Request</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#14213D;--orange:#FF6A1A;--paper:#F7F7F5;--line:#E7E7E4;--stone:#6B7280;--ink:#151A26}
+*{box-sizing:border-box}body{margin:0;font-family:'Plus Jakarta Sans',sans-serif;background:var(--paper);color:var(--ink)}.wrap{max-width:760px;margin:0 auto;padding:32px 18px 60px}.brand{font-size:24px;font-weight:800;color:var(--navy);margin-bottom:20px}.brand span{color:var(--orange)}.card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:26px;box-shadow:0 14px 34px rgba(20,33,61,.06)}h1{font-size:30px;line-height:1.1;margin:0 0 10px;color:var(--navy)}p{color:var(--stone);line-height:1.6}.service{margin:18px 0;padding:14px 16px;border-radius:12px;background:#FFF7F1;font-weight:800;color:var(--navy)}label{display:block;font-size:12px;font-weight:800;margin-top:14px;margin-bottom:6px}input,textarea{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:12px;font:500 14px inherit;background:#fff}textarea{min-height:120px;resize:vertical}.btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:12px;background:var(--orange);color:var(--navy);font-weight:800;padding:13px 20px;cursor:pointer;margin-top:18px;text-decoration:none}.btn.secondary{background:#fff;border:1px solid var(--line)}.actions{display:flex;gap:10px;flex-wrap:wrap}.note{font-size:12px;color:var(--stone);margin-top:12px}.success{padding:14px;border-radius:10px;background:#eef7ef;color:#1e633e;font-weight:700;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">My<span>Subbies</span></div>
+  <div class="card" id="app"><p>Checking this service…</p></div>
+</div>
+<script>
+const params=new URLSearchParams(location.search);
+const campaignId=params.get('campaign')||'';
+const campaignName=params.get('campaign_name')||'';
+const service=params.get('service')||'Property Maintenance';
+const app=document.getElementById('app');
+const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function init(){
+  try{
+    const r=await fetch('/api/campaign-service?service='+encodeURIComponent(service),{cache:'no-store'});
+    const d=await r.json();
+    if(r.ok&&d.bookable&&d.match){
+      const q=new URLSearchParams({campaign_service:d.match.category});
+      if(d.match.task)q.set('campaign_task',d.match.task);
+      if(campaignId)q.set('utm_campaign',campaignId);
+      app.innerHTML='<h1>'+esc(service)+'</h1><p>This service is available through MySubbies. You can continue directly into the booking flow.</p><div class="service">'+esc(d.match.task||d.match.category)+'</div><div class="actions"><a class="btn" href="https://www.mysubbies.com.au/?'+q.toString()+'#categories">Book this service →</a><a class="btn secondary" href="https://www.mysubbies.com.au/#categories">View all services</a></div><div class="note">If your exact scope is unusual, you can still return here from the campaign and send us the details.</div>';
+      return;
+    }
+  }catch(e){}
+  renderRequest();
+}
+function renderRequest(){
+  app.innerHTML='<h1>Request '+esc(service)+'</h1><p>This campaign service is not currently listed as a fixed-price MySubbies service. Send us the scope and our team will review it and come back to you.</p><div class="service">'+esc(service)+'</div>'+
+  '<label>Business / agency name</label><input id="businessName" autocomplete="organization">'+
+  '<label>Your name</label><input id="contactName" autocomplete="name">'+
+  '<label>Email *</label><input id="email" type="email" autocomplete="email">'+
+  '<label>Phone</label><input id="phone" autocomplete="tel">'+
+  '<label>Suburb</label><input id="suburb" autocomplete="address-level2">'+
+  '<label>Property / site address</label><input id="propertyAddress" autocomplete="street-address">'+
+  '<label>Tell us what you need</label><textarea id="scope" placeholder="Describe the property, issue, number of sites or any deadline."></textarea>'+
+  '<button class="btn" onclick="submitRequest()">Request this service →</button><div id="msg"></div>';
+}
+async function submitRequest(){
+  const v=id=>document.getElementById(id).value.trim();
+  const btn=document.querySelector('button.btn');btn.disabled=true;btn.textContent='Sending…';
+  const body={campaignId,campaignName,requestedService:service,businessName:v('businessName'),contactName:v('contactName'),email:v('email'),phone:v('phone'),suburb:v('suburb'),propertyAddress:v('propertyAddress'),scope:v('scope'),sourceUrl:location.href};
+  try{
+    const r=await fetch('/api/campaign-service',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Could not submit request.');
+    app.innerHTML='<h1>Request received</h1><div class="success">Thanks — MySubbies has received your '+esc(service)+' request.</div><p>Our team can now review the scope and prepare the next step or quote.</p><a class="btn" href="https://www.mysubbies.com.au/">Back to MySubbies</a>';
+  }catch(e){
+    document.getElementById('msg').innerHTML='<div class="note" style="color:#9B1C24">'+esc(e.message)+'</div>';
+    btn.disabled=false;btn.textContent='Request this service →';
+  }
+}
+init();
+</script>
+</body>
+</html>
