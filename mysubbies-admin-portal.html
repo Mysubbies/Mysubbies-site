@@ -2298,42 +2298,267 @@ function openManualProspect(kind, seed) {
       '<div class="detailcard" style="max-width:none;">' + (tenderLoading && !tenderData ? '<div class="empty">Loading tenders…</div>' : (list || '<div class="empty">No tenders recorded yet.</div>')) + '</div>';
   }
 
-  let marketingData = null, marketingLoading = false;
+  let marketingData = null, marketingLoading = false, marketingView = 'dashboard';
+  let marketingDiscoveryMessage = '';
+  const MARKETING_SEGMENTS = [
+    ['real_estate','Real estate & property management','real estate agency property management'],
+    ['childcare','Childcare centres','childcare centre'],
+    ['medical_clinic','Medical clinics','medical clinic'],
+    ['dental_clinic','Dental clinics','dental clinic'],
+    ['physio','Physio & allied health','physiotherapy clinic allied health'],
+    ['aged_care','Aged care','aged care facility'],
+    ['body_corporate','Owners corporation / strata','owners corporation strata management'],
+    ['school','Schools & education','school private college'],
+    ['gym','Gyms & fitness','gym fitness centre'],
+    ['warehouse','Warehouses & industrial','warehouse industrial business'],
+    ['retail','Retail & shopping','retail store shopping centre'],
+    ['hospitality','Hospitality','restaurant cafe hotel']
+  ];
+  function marketingSegmentLabel(value) {
+    const hit = MARKETING_SEGMENTS.find(function(x){return x[0]===value;});
+    return hit ? hit[1] : (value || 'Other SME');
+  }
+  function marketingSegmentsFromSelect(id) {
+    const el=document.getElementById(id);
+    if(!el)return [];
+    return Array.from(el.selectedOptions||[]).map(function(o){return o.value;}).filter(Boolean);
+  }
   async function loadMarketing() {
     if (marketingLoading) return;
     marketingLoading = true;
     try {
       const r = await adminFetch('/api/marketing-centre?action=list');
       const d = await r.json();
-      marketingData = r.ok ? (d.campaigns || []) : [];
-    } catch (e) { marketingData = []; }
+      marketingData = r.ok ? d : { campaigns:[], contacts:[], regulations:[], searchTargets:[], error:d.error||'Marketing Centre could not be loaded.' };
+    } catch (e) {
+      marketingData = { campaigns:[], contacts:[], regulations:[], searchTargets:[], error:'Marketing Centre could not be loaded.' };
+    }
     marketingLoading = false;
     if (tab === 'marketing') render();
   }
+  function setMarketingView(view){marketingView=view;render();}
+  async function refreshMarketing(){marketingData=null;await loadMarketing();}
+  async function discoverMarketingContacts(segment, query, location) {
+    marketingDiscoveryMessage='Searching '+marketingSegmentLabel(segment)+'…';render();
+    try{
+      const r=await adminFetch('/api/marketing-centre?action=discover_contacts',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({segment:segment,query:query,location:location||'Melbourne VIC'})
+      });
+      const d=await r.json();
+      if(!r.ok){marketingDiscoveryMessage=d.error||'Prospect search failed.';render();return null;}
+      marketingDiscoveryMessage='Added '+d.created+' new and refreshed '+d.updated+' existing '+marketingSegmentLabel(segment)+' contacts. '+d.withEmail+' have a public email.';
+      await refreshMarketing();
+      return d;
+    }catch(e){marketingDiscoveryMessage='Prospect search failed. Check the Google Places server key and try again.';render();return null;}
+  }
+  async function discoverMarketingFromForm(){
+    const seg=document.getElementById('mktDiscoverSegment').value;
+    const preset=MARKETING_SEGMENTS.find(function(x){return x[0]===seg;});
+    const q=(document.getElementById('mktDiscoverQuery').value||'').trim()||(preset?preset[2]:seg);
+    const loc=(document.getElementById('mktDiscoverLocation').value||'Melbourne VIC').trim();
+    await discoverMarketingContacts(seg,q,loc);
+  }
+  async function buildMelbourneMarketingDatabase(){
+    if(!confirm('Build the Melbourne facilities-maintenance prospect database across the main SME segments? This searches public business listings and may take a few minutes.'))return;
+    const btn=document.getElementById('mktBuildDbBtn');if(btn){btn.disabled=true;btn.textContent='Building database…';}
+    let created=0,updated=0,emailCount=0,failed=0;
+    for(const item of MARKETING_SEGMENTS){
+      marketingDiscoveryMessage='Building database: '+item[1]+'…';render();
+      try{
+        const r=await adminFetch('/api/marketing-centre?action=discover_contacts',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({segment:item[0],query:item[2],location:'Melbourne VIC'})
+        });
+        const d=await r.json();
+        if(r.ok){created+=d.created||0;updated+=d.updated||0;emailCount+=d.withEmail||0;}else failed++;
+      }catch(e){failed++;}
+    }
+    marketingDiscoveryMessage='Database build finished: '+created+' new contacts, '+updated+' refreshed, '+emailCount+' public emails found'+(failed?' · '+failed+' segment searches failed.':'.');
+    await refreshMarketing();
+  }
+  function editMarketingContact(id){
+    const p=((marketingData&&marketingData.contacts)||[]).find(function(x){return x.id===id;});if(!p)return;
+    const segmentOptions=MARKETING_SEGMENTS.map(function(s){return '<option value="'+s[0]+'">'+escapeHtml(s[1])+'</option>';}).join('');
+    showCrmModal('<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:16px;"><div><h2 style="margin:0;">'+escapeHtml(p.business_name||'Marketing contact')+'</h2><div class="jobmeta">Marketing eligibility and CRM details</div></div><button class="btn btn-outline" onclick="closeCrmModal()">Close</button></div>'+
+      '<div class="bd-prospect-formgrid">'+
+      '<label>Segment<select id="mktEditSegment">'+segmentOptions+'</select></label>'+
+      '<label>Contact name<input id="mktEditContactName" value="'+escapeHtml(p.contact_name||'')+'"></label>'+
+      '<label>Email<input id="mktEditEmail" type="email" value="'+escapeHtml(p.email||'')+'"></label>'+
+      '<label>Phone<input id="mktEditPhone" value="'+escapeHtml(p.phone||'')+'"></label>'+
+      '<label>Consent / basis<select id="mktEditConsent"><option value="unknown">Unknown — do not market</option><option value="express">Express consent</option><option value="inferred">Inferred consent — verified relevance</option><option value="existing_relationship">Existing business relationship</option><option value="opted_out">Opted out</option></select></label>'+
+      '<label>Status<select id="mktEditStatus"><option value="prospect">Prospect</option><option value="contacted">Contacted</option><option value="engaged">Engaged</option><option value="qualified">Qualified</option><option value="customer">Customer</option><option value="archived">Archived</option></select></label>'+
+      '<label class="full">Consent / relevance evidence<textarea id="mktEditConsentBasis" rows="3" placeholder="Record why this address is eligible for this business message and the source evidence.">'+escapeHtml(p.consent_basis||'')+'</textarea></label>'+
+      '<label class="full" style="flex-direction:row;align-items:center;gap:10px;"><input id="mktEditEligible" type="checkbox" style="width:auto;height:auto;" '+(p.marketing_eligible?'checked':'')+'> Eligible for MySubbies marketing campaigns</label>'+
+      '<label class="full">CRM notes<textarea id="mktEditNotes" rows="4">'+escapeHtml(p.notes||'')+'</textarea></label>'+
+      '</div><div style="margin-top:14px;padding:11px 13px;border-radius:9px;background:#FFF8ED;font-size:12px;color:#6B5A35;">Publicly listed contact details are not automatically treated as permission to market. Record the consent/relevance basis before enabling campaign sends.</div>'+
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;"><button class="btn btn-outline" onclick="closeCrmModal()">Cancel</button><button class="btn btn-black" onclick="saveMarketingContact(\''+p.id+'\')">Save contact</button></div>');
+    document.getElementById('mktEditSegment').value=p.segment||'';
+    document.getElementById('mktEditConsent').value=p.consent_status||'unknown';
+    document.getElementById('mktEditStatus').value=p.status||'prospect';
+  }
+  async function saveMarketingContact(id){
+    const v=function(x){const e=document.getElementById(x);return e?e.value.trim():'';};
+    const eligible=!!(document.getElementById('mktEditEligible')&&document.getElementById('mktEditEligible').checked);
+    const r=await adminFetch('/api/marketing-centre?action=update_contact',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      id:id,segment:v('mktEditSegment'),contactName:v('mktEditContactName'),email:v('mktEditEmail'),phone:v('mktEditPhone'),
+      consentStatus:v('mktEditConsent'),consentBasis:v('mktEditConsentBasis'),marketingEligible:eligible,status:v('mktEditStatus'),notes:v('mktEditNotes')
+    })});
+    const d=await r.json();if(!r.ok){alert(d.error||'Contact could not be updated.');return;}
+    closeCrmModal();await refreshMarketing();
+  }
+  function openMarketingCampaign(id,seed){
+    const existing=id?((marketingData&&marketingData.campaigns)||[]).find(function(x){return x.id===id;}):null;
+    const x=existing||seed||{};
+    const selected=new Set(x.audience_segments||[]);
+    const options=MARKETING_SEGMENTS.map(function(s){return '<option value="'+s[0]+'" '+(selected.has(s[0])?'selected':'')+'>'+escapeHtml(s[1])+'</option>';}).join('');
+    showCrmModal('<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:16px;"><div><h2 style="margin:0;">'+(existing?'Edit campaign':'Create campaign')+'</h2><div class="jobmeta">Email + flyer campaign</div></div><button class="btn btn-outline" onclick="closeCrmModal()">Close</button></div>'+
+      '<div class="bd-prospect-formgrid">'+
+      '<label>Campaign name<input id="mktCampaignName" value="'+escapeHtml(x.name||'')+'"></label>'+
+      '<label>Type<select id="mktCampaignType"><option value="regulation">Regulation / compliance</option><option value="facilities">Facilities maintenance</option><option value="seasonal">Seasonal</option><option value="seo">SEO content promotion</option><option value="offer">Offer / promotion</option></select></label>'+
+      '<label class="full">Audience segments<select id="mktCampaignSegments" multiple size="6">'+options+'</select></label>'+
+      '<label>Email subject<input id="mktEmailSubject" value="'+escapeHtml(x.email_subject||'')+'"></label>'+
+      '<label>Headline<input id="mktCampaignHeadline" value="'+escapeHtml(x.headline||'')+'"></label>'+
+      '<label class="full">Email body<textarea id="mktCampaignBody" rows="7" placeholder="Useful update first, then how MySubbies can help.">'+escapeHtml(x.body_copy||'')+'</textarea></label>'+
+      '<label class="full">Flyer copy<textarea id="mktFlyerCopy" rows="5" placeholder="Short headline, compliance/update summary and CTA for the flyer.">'+escapeHtml(x.flyer_copy||'')+'</textarea></label>'+
+      '<label>CTA text<input id="mktCampaignCta" value="'+escapeHtml(x.call_to_action||'Book a maintenance job')+'"></label>'+
+      '<label>CTA / booking URL<input id="mktCampaignUrl" value="'+escapeHtml(x.booking_url||'https://www.mysubbies.com.au/mysubbies-property-managers.html')+'"></label>'+
+      '<label>Service category<input id="mktCampaignService" value="'+escapeHtml(x.service_category||'Property Maintenance')+'"></label>'+
+      '<label>Flyer / hero image URL<input id="mktCampaignImage" value="'+escapeHtml(x.image_url||'')+'"></label>'+
+      '</div>'+
+      '<div style="margin-top:12px;font-size:12px;color:var(--stone);">New campaigns save as <strong>Ready for review</strong>. Approve them before the one-click send button becomes available.</div>'+
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;"><button class="btn btn-outline" onclick="closeCrmModal()">Cancel</button><button class="btn btn-black" onclick="saveMarketingCampaign(\''+(existing?existing.id:'')+'\',\''+(x.regulation_id||'')+'\')">Save campaign</button></div>');
+    document.getElementById('mktCampaignType').value=x.campaign_type||'facilities';
+  }
+  async function saveMarketingCampaign(id,regulationId){
+    const v=function(x){const e=document.getElementById(x);return e?e.value.trim():'';};
+    const body={id:id||undefined,name:v('mktCampaignName'),campaignType:v('mktCampaignType'),audienceSegments:marketingSegmentsFromSelect('mktCampaignSegments'),
+      emailSubject:v('mktEmailSubject'),headline:v('mktCampaignHeadline'),bodyCopy:v('mktCampaignBody'),flyerCopy:v('mktFlyerCopy'),
+      callToAction:v('mktCampaignCta'),bookingUrl:v('mktCampaignUrl'),serviceCategory:v('mktCampaignService'),imageUrl:v('mktCampaignImage'),
+      regulationId:regulationId||undefined,status:'ready_for_review'};
+    const r=await adminFetch('/api/marketing-centre?action=save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();if(!r.ok){alert(d.error||'Campaign could not be saved.');return;}
+    closeCrmModal();marketingView='campaigns';await refreshMarketing();
+  }
   async function approveMarketingCampaign(id) {
-    if (!confirm('Approve this campaign? Approval does not publish it automatically.')) return;
-    const r = await adminFetch('/api/marketing-centre?action=approve', {
-      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:id})
+    if (!confirm('Approve this campaign for sending?')) return;
+    const r = await adminFetch('/api/marketing-centre?action=approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id})});
+    const d = await r.json();if (!r.ok) { alert(d.error || 'Campaign could not be approved.'); return; }
+    await refreshMarketing();
+  }
+  async function sendMarketingCampaign(id){
+    const c=((marketingData&&marketingData.campaigns)||[]).find(function(x){return x.id===id;});if(!c)return;
+    const segments=(c.audience_segments||[]).map(marketingSegmentLabel).join(', ')||'all eligible contacts';
+    if(!confirm('Send "'+(c.name||'this campaign')+'" now to '+segments+'? Only contacts marked marketing-eligible and not opted out will be sent.'))return;
+    const r=await adminFetch('/api/marketing-centre?action=send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id})});
+    const d=await r.json();if(!r.ok){alert(d.error||'Campaign send failed.');return;}
+    alert('Campaign complete: '+d.sent+' sent, '+d.failed+' failed. '+d.eligible+' eligible contacts matched.');
+    await refreshMarketing();
+  }
+  function downloadMarketingFlyer(id){
+    const c=((marketingData&&marketingData.campaigns)||[]).find(function(x){return x.id===id;});if(!c)return;
+    if(!window.jspdf||!window.jspdf.jsPDF){alert('PDF generator is still loading. Try again in a moment.');return;}
+    const doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'}), navy=[20,33,61], orange=[255,106,26], stone=[107,114,128];
+    doc.setFillColor.apply(doc,navy);doc.rect(0,0,210,42,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(26);doc.setTextColor(255,255,255);doc.text('My',16,25);
+    const myW=doc.getTextWidth('My');doc.setTextColor.apply(doc,orange);doc.text('Subbies',16+myW,25);
+    doc.setTextColor.apply(doc,navy);doc.setFontSize(25);doc.text(doc.splitTextToSize(c.headline||c.name||'MySubbies update',178),16,62);
+    let y=82;doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(30,30,30);
+    const body=doc.splitTextToSize(c.flyer_copy||c.body_copy||'',178);doc.text(body,16,y);y+=body.length*5+12;
+    doc.setFillColor.apply(doc,orange);doc.roundedRect(16,y,92,13,6,6,'F');doc.setTextColor.apply(doc,navy);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text(c.call_to_action||'Book a maintenance job',62,y+8.3,{align:'center'});
+    doc.setTextColor.apply(doc,stone);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text('1300 200 601  ·  www.mysubbies.com.au',16,283);
+    doc.save(String(c.name||'mysubbies-campaign').replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'.pdf');
+  }
+  function openMarketingRegulation(id){
+    const x=id?((marketingData&&marketingData.regulations)||[]).find(function(r){return r.id===id;}):{};
+    const selected=new Set(x.affected_segments||[]);
+    const opts=MARKETING_SEGMENTS.map(function(s){return '<option value="'+s[0]+'" '+(selected.has(s[0])?'selected':'')+'>'+escapeHtml(s[1])+'</option>';}).join('');
+    showCrmModal('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div><h2 style="margin:0;">'+(id?'Edit regulation / opportunity':'Add regulation / opportunity')+'</h2><div class="jobmeta">Track changes that create maintenance or construction demand.</div></div><button class="btn btn-outline" onclick="closeCrmModal()">Close</button></div>'+
+      '<div class="bd-prospect-formgrid"><label>Title<input id="mktRuleTitle" value="'+escapeHtml(x.title||'')+'"></label><label>Effective date<input id="mktRuleDate" type="date" value="'+escapeHtml(x.effective_date||'')+'"></label>'+
+      '<label>Source / regulator<input id="mktRuleSource" value="'+escapeHtml(x.source_name||'')+'"></label><label>Source URL<input id="mktRuleUrl" value="'+escapeHtml(x.source_url||'')+'"></label>'+
+      '<label class="full">Affected industries<select id="mktRuleSegments" multiple size="6">'+opts+'</select></label>'+
+      '<label class="full">What changed?<textarea id="mktRuleSummary" rows="5">'+escapeHtml(x.summary||'')+'</textarea></label>'+
+      '<label class="full">MySubbies opportunity / solution<textarea id="mktRuleOpportunity" rows="4">'+escapeHtml(x.opportunity_angle||'')+'</textarea></label>'+
+      '<label>Relevant service<input id="mktRuleService" value="'+escapeHtml(x.service_category||'Property Maintenance')+'"></label></div>'+
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;"><button class="btn btn-outline" onclick="closeCrmModal()">Cancel</button><button class="btn btn-black" onclick="saveMarketingRegulation(\''+(id||'')+'\')">Save rule</button></div>');
+  }
+  async function saveMarketingRegulation(id){
+    const v=function(x){const e=document.getElementById(x);return e?e.value.trim():'';};
+    const r=await adminFetch('/api/marketing-centre?action=save_regulation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      id:id||undefined,title:v('mktRuleTitle'),effectiveDate:v('mktRuleDate'),sourceName:v('mktRuleSource'),sourceUrl:v('mktRuleUrl'),
+      affectedSegments:marketingSegmentsFromSelect('mktRuleSegments'),summary:v('mktRuleSummary'),opportunityAngle:v('mktRuleOpportunity'),serviceCategory:v('mktRuleService'),status:'watching'
+    })});
+    const d=await r.json();if(!r.ok){alert(d.error||'Rule could not be saved.');return;}closeCrmModal();await refreshMarketing();
+  }
+  function campaignFromRegulation(id){
+    const r=((marketingData&&marketingData.regulations)||[]).find(function(x){return x.id===id;});if(!r)return;
+    openMarketingCampaign('',{
+      name:(r.title||'Industry update')+' campaign',campaign_type:'regulation',regulation_id:r.id,audience_segments:r.affected_segments||[],
+      email_subject:r.title||'Important industry update',headline:r.title||'Important update',
+      body_copy:(r.summary||'')+(r.opportunity_angle?'\\n\\nHow MySubbies can help\\n'+r.opportunity_angle:''),
+      flyer_copy:(r.summary||'')+(r.opportunity_angle?'\\n\\nMySubbies solution: '+r.opportunity_angle:''),
+      call_to_action:'Book a maintenance job',booking_url:'https://www.mysubbies.com.au/mysubbies-property-managers.html',service_category:r.service_category||'Property Maintenance'
     });
-    const d = await r.json();
-    if (!r.ok) { alert(d.error || 'Campaign could not be approved.'); return; }
-    marketingData = null; loadMarketing();
+  }
+  function openMarketingSearchTarget(){
+    showCrmModal('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div><h2 style="margin:0;">Add SEO / SEM target</h2><div class="jobmeta">Track the keyword, landing page and priority.</div></div><button class="btn btn-outline" onclick="closeCrmModal()">Close</button></div>'+
+      '<div class="bd-prospect-formgrid"><label>Channel<select id="mktSearchChannel"><option value="seo">SEO</option><option value="sem">SEM / Google Ads</option></select></label>'+
+      '<label>Keyword<input id="mktSearchKeyword" placeholder="property maintenance Melbourne"></label><label>Location<input id="mktSearchLocation" value="Melbourne VIC"></label>'+
+      '<label>Intent<input id="mktSearchIntent" placeholder="Commercial / lead generation"></label><label>Landing page<input id="mktSearchLanding" placeholder="/property-maintenance"></label>'+
+      '<label>Service category<input id="mktSearchService" value="Property Maintenance"></label><label>Priority<select id="mktSearchPriority"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label>'+
+      '<label>Monthly SEM budget ($)<input id="mktSearchBudget" type="number" min="0" step="100"></label><label class="full">Notes<textarea id="mktSearchNotes" rows="3"></textarea></label></div>'+
+      '<div style="display:flex;justify-content:flex-end;margin-top:18px;"><button class="btn btn-black" onclick="saveMarketingSearchTarget()">Save target</button></div>');
+  }
+  async function saveMarketingSearchTarget(){
+    const v=function(x){const e=document.getElementById(x);return e?e.value.trim():'';};
+    const budget=Number(v('mktSearchBudget')||0);
+    const r=await adminFetch('/api/marketing-centre?action=save_search_target',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      channel:v('mktSearchChannel'),keyword:v('mktSearchKeyword'),location:v('mktSearchLocation'),intent:v('mktSearchIntent'),landingPage:v('mktSearchLanding'),
+      serviceCategory:v('mktSearchService'),priority:v('mktSearchPriority'),monthlyBudgetCents:Math.round(budget*100),notes:v('mktSearchNotes'),status:'planned'
+    })});
+    const d=await r.json();if(!r.ok){alert(d.error||'Search target could not be saved.');return;}closeCrmModal();await refreshMarketing();
   }
   function renderMarketingCentre() {
-    const rows = marketingData || [];
-    const list = rows.map(function(x) {
-      const action = x.status === 'ready_for_review'
-        ? '<button class="btn btn-black" onclick="approveMarketingCampaign(\'' + x.id + '\')">Approve</button>' : '';
-      return '<div style="display:grid;grid-template-columns:minmax(180px,1.5fr) 120px 140px;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);"><div><b>' +
-        escapeHtml(x.name || 'Untitled campaign') + '</b><div class="jobmeta">' + escapeHtml(x.headline || x.offer || 'Draft campaign') +
-        '</div></div><span class="statusbadge">' + escapeHtml(x.status || 'draft') + '</span><div>' + action + '</div></div>';
-    }).join('');
-    return '<div class="detailcard" style="max-width:none;background:#14213D;color:#fff;border:0;padding:24px;margin-bottom:16px;"><h2 style="font-size:24px;">Marketing Centre</h2><p style="color:#CBD5E1;">Create, review and approve campaigns before publishing.</p></div>' +
-      '<div class="statgrid"><div class="statcard"><div class="num">' + rows.length + '</div><div class="lab">Campaigns</div></div><div class="statcard"><div class="num">' +
-      rows.filter(function(x){return x.status === 'ready_for_review';}).length + '</div><div class="lab">Needs review</div></div><div class="statcard"><div class="num">' +
-      rows.filter(function(x){return x.status === 'approved';}).length + '</div><div class="lab">Approved</div></div><div class="statcard"><div class="num">' +
-      rows.filter(function(x){return x.status === 'published';}).length + '</div><div class="lab">Published</div></div></div>' +
-      '<div class="detailcard" style="max-width:none;">' + (marketingLoading && !marketingData ? '<div class="empty">Loading campaigns…</div>' : (list || '<div class="empty">No campaigns yet.</div>')) + '</div>';
+    const data=marketingData||{campaigns:[],contacts:[],regulations:[],searchTargets:[]};
+    if(marketingLoading&&!marketingData)return '<div class="detailcard"><div class="empty">Loading Marketing Centre…</div></div>';
+    if(data.error)return '<div class="detailcard"><h2>Marketing Centre needs setup</h2><p style="margin-top:8px;color:var(--stone);">'+escapeHtml(data.error)+'</p><p style="margin-top:8px;font-size:13px;">Apply the Growth Marketing Supabase migration, then refresh.</p></div>';
+    const campaigns=data.campaigns||[], contacts=data.contacts||[], rules=data.regulations||[], targets=data.searchTargets||[];
+    const eligible=contacts.filter(function(x){return x.marketing_eligible&&x.email&&x.consent_status!=='opted_out';});
+    const withEmail=contacts.filter(function(x){return !!x.email;});
+    const header='<div class="detailcard" style="max-width:none;background:#14213D;color:#fff;border:0;padding:24px;margin-bottom:16px;"><div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;"><div><div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#FF9A60;margin-bottom:6px;">Growth engine</div><h2 style="font-size:26px;">SEO, SEM & Marketing Centre</h2><p style="color:#CBD5E1;max-width:760px;">Build the facilities-maintenance database, track industry rule changes, create campaigns and reach the right businesses from one workspace.</p></div><button class="btn btn-black" onclick="openMarketingCampaign()">+ New campaign</button></div></div>';
+    const nav='<div class="tabs" style="margin-bottom:16px;"><button class="'+(marketingView==='dashboard'?'active':'')+'" onclick="setMarketingView(\\'dashboard\\')">Dashboard</button><button class="'+(marketingView==='contacts'?'active':'')+'" onclick="setMarketingView(\\'contacts\\')">Prospect database</button><button class="'+(marketingView==='campaigns'?'active':'')+'" onclick="setMarketingView(\\'campaigns\\')">Campaigns</button><button class="'+(marketingView==='rules'?'active':'')+'" onclick="setMarketingView(\\'rules\\')">Regulation watch</button><button class="'+(marketingView==='search'?'active':'')+'" onclick="setMarketingView(\\'search\\')">SEO / SEM</button></div>';
+    const stats='<div class="statgrid"><div class="statcard"><div class="num">'+contacts.length+'</div><div class="lab">Business prospects</div></div><div class="statcard"><div class="num">'+withEmail.length+'</div><div class="lab">Public emails found</div></div><div class="statcard"><div class="num">'+eligible.length+'</div><div class="lab">Campaign eligible</div></div><div class="statcard"><div class="num">'+campaigns.filter(function(x){return x.status==='approved'||x.status==='published';}).length+'</div><div class="lab">Approved / sent campaigns</div></div></div>';
+    if(marketingView==='contacts'){
+      const segOptions=MARKETING_SEGMENTS.map(function(s){return '<option value="'+s[0]+'">'+escapeHtml(s[1])+'</option>';}).join('');
+      const rows=contacts.map(function(p){return '<tr><td><b>'+escapeHtml(p.business_name)+'</b><div class="jobmeta">'+escapeHtml(marketingSegmentLabel(p.segment))+' · '+escapeHtml(p.suburb||'')+'</div></td><td>'+escapeHtml(p.email||'—')+'<div class="jobmeta">'+escapeHtml(p.phone||'')+'</div></td><td><span class="statusbadge">'+escapeHtml(p.consent_status||'unknown')+'</span></td><td>'+(p.marketing_eligible?'<span style="color:#2F7A50;font-weight:700;">Eligible</span>':'<span style="color:#9CA3AF;">Review</span>')+'</td><td><button class="btn btn-outline" style="padding:7px 10px;" onclick="editMarketingContact(\\''+p.id+'\\')">Edit</button></td></tr>';}).join('');
+      return header+nav+stats+'<div class="detailcard" style="max-width:none;margin-bottom:16px;"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;"><div><h2 style="font-size:17px;">Build facilities-maintenance database</h2><p class="jobmeta">Searches public business listings, stores source evidence and checks business websites for a public email.</p></div><button id="mktBuildDbBtn" class="btn btn-black" onclick="buildMelbourneMarketingDatabase()">Build Melbourne database</button></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-top:14px;"><select id="mktDiscoverSegment" class="fieldinput">'+segOptions+'</select><input id="mktDiscoverQuery" class="fieldinput" placeholder="Optional custom search"><input id="mktDiscoverLocation" class="fieldinput" value="Melbourne VIC"><button class="btn btn-outline" onclick="discoverMarketingFromForm()">Find & import</button></div>'+(marketingDiscoveryMessage?'<div style="margin-top:10px;font-size:12px;color:var(--stone);">'+escapeHtml(marketingDiscoveryMessage)+'</div>':'')+'</div><div class="detailcard" style="max-width:none;overflow:auto;"><table><thead><tr><th>Business</th><th>Contact</th><th>Consent basis</th><th>Marketing</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+(rows?'':'<div class="empty">No marketing prospects yet. Build the Melbourne database above.</div>')+'</div>';
+    }
+    if(marketingView==='campaigns'){
+      const list=campaigns.map(function(x){
+        let actions='<button class="btn btn-outline" style="padding:7px 10px;" onclick="openMarketingCampaign(\\''+x.id+'\\')">Edit</button> <button class="btn btn-outline" style="padding:7px 10px;" onclick="downloadMarketingFlyer(\\''+x.id+'\\')">Flyer PDF</button>';
+        if(x.status==='ready_for_review')actions+=' <button class="btn btn-black" style="padding:7px 10px;" onclick="approveMarketingCampaign(\\''+x.id+'\\')">Approve</button>';
+        if(x.status==='approved')actions+=' <button class="btn btn-black" style="padding:7px 10px;" onclick="sendMarketingCampaign(\\''+x.id+'\\')">Send now</button>';
+        return '<div style="display:grid;grid-template-columns:minmax(220px,1.5fr) minmax(180px,1fr) 120px minmax(280px,auto);gap:10px;align-items:center;padding:13px 0;border-top:1px solid var(--line);"><div><b>'+escapeHtml(x.name||'Untitled campaign')+'</b><div class="jobmeta">'+escapeHtml(x.headline||x.email_subject||'')+'</div></div><div class="jobmeta">'+escapeHtml((x.audience_segments||[]).map(marketingSegmentLabel).join(', ')||'All eligible contacts')+'</div><span class="statusbadge">'+escapeHtml(x.status||'draft')+'</span><div>'+actions+'</div></div>';
+      }).join('');
+      return header+nav+stats+'<div class="detailcard" style="max-width:none;"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;"><div><h2 style="font-size:17px;">Campaigns</h2><p class="jobmeta">Create the email and flyer once, approve it, then send to the matching eligible CRM segment.</p></div><button class="btn btn-black" onclick="openMarketingCampaign()">+ New campaign</button></div>'+ (list||'<div class="empty">No campaigns yet.</div>')+'</div>';
+    }
+    if(marketingView==='rules'){
+      const list=rules.map(function(r){return '<div style="display:grid;grid-template-columns:minmax(220px,1.5fr) 120px minmax(180px,1fr) 240px;gap:12px;align-items:center;padding:13px 0;border-top:1px solid var(--line);"><div><b>'+escapeHtml(r.title)+'</b><div class="jobmeta">'+escapeHtml(r.source_name||'Source not recorded')+'</div></div><div>'+escapeHtml(r.effective_date||'No date')+'</div><div class="jobmeta">'+escapeHtml((r.affected_segments||[]).map(marketingSegmentLabel).join(', '))+'</div><div><button class="btn btn-outline" style="padding:7px 10px;" onclick="openMarketingRegulation(\\''+r.id+'\\')">Edit</button> <button class="btn btn-black" style="padding:7px 10px;" onclick="campaignFromRegulation(\\''+r.id+'\\')">Create campaign</button></div></div>';}).join('');
+      return header+nav+'<div class="detailcard" style="max-width:none;"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;"><div><h2 style="font-size:17px;">Regulation & opportunity watch</h2><p class="jobmeta">Any construction, property, safety or business rule can be mapped to the industries affected and turned into a targeted campaign.</p></div><button class="btn btn-black" onclick="openMarketingRegulation()">+ Add rule / change</button></div>'+ (list||'<div class="empty">No regulation opportunities recorded yet.</div>')+'</div>';
+    }
+    if(marketingView==='search'){
+      const list=targets.map(function(x){return '<tr><td><b>'+escapeHtml(String(x.channel||'').toUpperCase())+'</b></td><td><b>'+escapeHtml(x.keyword)+'</b><div class="jobmeta">'+escapeHtml(x.location||'')+'</div></td><td>'+escapeHtml(x.service_category||'—')+'</td><td>'+escapeHtml(x.landing_page||'—')+'</td><td><span class="statusbadge">'+escapeHtml(x.priority||'medium')+'</span></td><td>'+escapeHtml(x.status||'planned')+'</td></tr>';}).join('');
+      return header+nav+'<div class="detailcard" style="max-width:none;"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;"><div><h2 style="font-size:17px;">SEO & SEM targets</h2><p class="jobmeta">Keep organic search and paid-search priorities tied to the services and landing pages that generate leads.</p></div><button class="btn btn-black" onclick="openMarketingSearchTarget()">+ Add target</button></div><div style="overflow:auto;margin-top:14px;"><table><thead><tr><th>Channel</th><th>Keyword</th><th>Service</th><th>Landing page</th><th>Priority</th><th>Status</th></tr></thead><tbody>'+list+'</tbody></table></div>'+(list?'':'<div class="empty">No SEO / SEM targets yet.</div>')+'</div>';
+    }
+    const upcoming=rules.filter(function(r){return r.status!=='archived';}).slice(0,5);
+    const recent=campaigns.slice(0,5);
+    return header+nav+stats+
+      '<div style="display:grid;grid-template-columns:1.2fr 1fr;gap:16px;align-items:start;"><div class="detailcard" style="max-width:none;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><h2 style="font-size:17px;">Next marketing actions</h2><p class="jobmeta">Build audience → capture opportunity → create campaign → approve → one-click send.</p></div></div>'+
+      '<div style="margin-top:14px;padding:13px;border-radius:10px;background:#FFF8ED;"><b>1. Build the SME database</b><div class="jobmeta">Real estate, childcare, clinics, aged care, strata, schools, gyms, industrial and other facility-maintenance prospects.</div><button class="btn btn-outline" style="margin-top:9px;" onclick="setMarketingView(\\'contacts\\')">Open prospect database</button></div>'+
+      '<div style="margin-top:10px;padding:13px;border-radius:10px;background:#F5F7FA;"><b>2. Add regulation & industry changes</b><div class="jobmeta">Record the source, effective date and affected industries, then create the campaign from the rule.</div><button class="btn btn-outline" style="margin-top:9px;" onclick="setMarketingView(\\'rules\\')">Open regulation watch</button></div>'+
+      '<div style="margin-top:10px;padding:13px;border-radius:10px;background:#F5F7FA;"><b>3. Run SEO + SEM in the same workspace</b><div class="jobmeta">Prioritise high-intent maintenance and outdoor-service keywords and link them to landing pages.</div><button class="btn btn-outline" style="margin-top:9px;" onclick="setMarketingView(\\'search\\')">Open SEO / SEM</button></div></div>'+
+      '<div><div class="detailcard" style="max-width:none;margin-bottom:16px;"><h2 style="font-size:16px;margin-bottom:8px;">Regulation watch</h2>'+(upcoming.map(function(r){return '<div style="padding:10px 0;border-top:1px solid var(--line);"><b style="font-size:13px;">'+escapeHtml(r.title)+'</b><div class="jobmeta">'+escapeHtml(r.effective_date||'Date not set')+' · '+escapeHtml((r.affected_segments||[]).map(marketingSegmentLabel).join(', '))+'</div></div>';}).join('')||'<div class="empty" style="padding:22px;">No rules tracked yet.</div>')+'</div>'+
+      '<div class="detailcard" style="max-width:none;"><h2 style="font-size:16px;margin-bottom:8px;">Recent campaigns</h2>'+(recent.map(function(x){return '<div style="padding:10px 0;border-top:1px solid var(--line);"><b style="font-size:13px;">'+escapeHtml(x.name)+'</b><div class="jobmeta">'+escapeHtml(x.status||'draft')+'</div></div>';}).join('')||'<div class="empty" style="padding:22px;">No campaigns yet.</div>')+'</div></div></div>';
   }
 
   function renderInner() {
