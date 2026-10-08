@@ -2,6 +2,7 @@ const { getSupabase } = require('./_lib/clients');
 const { requireAdmin } = require('./_lib/adminAuth');
 const { sendEmailWithResult, escapeHtml, emailButton } = require('./_lib/email');
 const { runRegulationWatch } = require('./_lib/regulationWatch');
+const { generateDailyMarketingSuggestions } = require('./_lib/dailyMarketingSuggestions');
 
 function clean(v,n){return String(v||'').trim().slice(0,n||5000);}
 function validEmail(v){const x=clean(v,254).toLowerCase();return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)?x:'';}
@@ -188,6 +189,10 @@ module.exports=async function handler(req,res){
     }
     if(req.method==='POST'&&action==='scan_regulations'){
       const result=await runRegulationWatch(s);
+      res.status(200).json(result);return;
+    }
+    if(req.method==='POST'&&action==='generate_daily_suggestions'){
+      const result=await generateDailyMarketingSuggestions(s,{force:!!(req.body&&req.body.force)});
       res.status(200).json(result);return;
     }
     if(req.method==='POST'&&action==='discover_contacts'){await discoverContacts(s,req.body||{},res);return;}
