@@ -2338,6 +2338,21 @@ function openManualProspect(kind, seed) {
   }
   function setMarketingView(view){marketingView=view;render();}
   async function refreshMarketing(){marketingData=null;await loadMarketing();}
+  async function runMarketingRegulationScan(){
+    const btn=document.getElementById('mktRuleScanBtn');
+    if(btn){btn.disabled=true;btn.textContent='Scanning…';}
+    try{
+      const r=await adminFetch('/api/marketing-centre?action=scan_regulations',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+      const d=await r.json();
+      if(!r.ok){alert(d.error||'Regulation scan failed.');return;}
+      await refreshMarketing();
+      alert('AI Regulation Watch checked '+(d.sources||0)+' official sources and added '+(d.added||0)+' new opportunities for review.');
+    }catch(e){alert('Regulation scan failed — check your connection.');}
+    finally{
+      const b=document.getElementById('mktRuleScanBtn');
+      if(b){b.disabled=false;b.textContent='Run AI scan now';}
+    }
+  }
   async function discoverMarketingContacts(segment, query, location) {
     marketingDiscoveryMessage='Searching '+marketingSegmentLabel(segment)+'…';render();
     try{
@@ -2543,8 +2558,8 @@ function openManualProspect(kind, seed) {
       return header+nav+stats+'<div class="detailcard" style="max-width:none;"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;"><div><h2 style="font-size:17px;">Campaigns</h2><p class="jobmeta">Create the email and flyer once, approve it, then send to the matching eligible CRM segment.</p></div><button class="btn btn-black" onclick="openMarketingCampaign()">+ New campaign</button></div>'+ (list||'<div class="empty">No campaigns yet.</div>')+'</div>';
     }
     if(marketingView==='rules'){
-      const list=rules.map(function(r){return '<div style="display:grid;grid-template-columns:minmax(220px,1.5fr) 120px minmax(180px,1fr) 240px;gap:12px;align-items:center;padding:13px 0;border-top:1px solid var(--line);"><div><b>'+escapeHtml(r.title)+'</b><div class="jobmeta">'+escapeHtml(r.source_name||'Source not recorded')+'</div></div><div>'+escapeHtml(r.effective_date||'No date')+'</div><div class="jobmeta">'+escapeHtml((r.affected_segments||[]).map(marketingSegmentLabel).join(', '))+'</div><div><button class="btn btn-outline" style="padding:7px 10px;" onclick="openMarketingRegulation(\''+r.id+'\')">Edit</button> <button class="btn btn-black" style="padding:7px 10px;" onclick="campaignFromRegulation(\''+r.id+'\')">Create campaign</button></div></div>';}).join('');
-      return header+nav+'<div class="detailcard" style="max-width:none;"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;"><div><h2 style="font-size:17px;">Regulation & opportunity watch</h2><p class="jobmeta">Any construction, property, safety or business rule can be mapped to the industries affected and turned into a targeted campaign.</p></div><button class="btn btn-black" onclick="openMarketingRegulation()">+ Add rule / change</button></div>'+ (list||'<div class="empty">No regulation opportunities recorded yet.</div>')+'</div>';
+      const list=rules.map(function(r){return '<div style="display:grid;grid-template-columns:minmax(220px,1.5fr) 120px minmax(180px,1fr) 240px;gap:12px;align-items:center;padding:13px 0;border-top:1px solid var(--line);"><div><b>'+escapeHtml(r.title)+'</b><div class="jobmeta">'+escapeHtml(r.source_name||'Source not recorded')+(r.ai_generated?' · AI detected':'')+'</div></div><div>'+escapeHtml(r.effective_date||'No date')+'</div><div class="jobmeta">'+escapeHtml((r.affected_segments||[]).map(marketingSegmentLabel).join(', '))+'</div><div><button class="btn btn-outline" style="padding:7px 10px;" onclick="openMarketingRegulation(\''+r.id+'\')">Review / edit</button> <button class="btn btn-black" style="padding:7px 10px;" onclick="campaignFromRegulation(\''+r.id+'\')">Create campaign</button></div></div>';}).join('');
+      return header+nav+'<div class="detailcard" style="max-width:none;"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;"><div><h2 style="font-size:17px;">Regulation & opportunity watch</h2><p class="jobmeta">AI checks official Victorian regulator sources every day. New opportunities land here for review before you create a flyer or campaign.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button id="mktRuleScanBtn" class="btn btn-outline" onclick="runMarketingRegulationScan()">Run AI scan now</button><button class="btn btn-black" onclick="openMarketingRegulation()">+ Add rule / change</button></div></div>'+ (list||'<div class="empty">No regulation opportunities recorded yet.</div>')+'</div>';
     }
     if(marketingView==='search'){
       const list=targets.map(function(x){return '<tr><td><b>'+escapeHtml(String(x.channel||'').toUpperCase())+'</b></td><td><b>'+escapeHtml(x.keyword)+'</b><div class="jobmeta">'+escapeHtml(x.location||'')+'</div></td><td>'+escapeHtml(x.service_category||'—')+'</td><td>'+escapeHtml(x.landing_page||'—')+'</td><td><span class="statusbadge">'+escapeHtml(x.priority||'medium')+'</span></td><td>'+escapeHtml(x.status||'planned')+'</td></tr>';}).join('');
