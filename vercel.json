@@ -7,6 +7,10 @@
     {
       "path": "/api/regulation-watch-cron",
       "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/daily-marketing-suggestions-cron",
+      "schedule": "10 21 * * *"
     }
   ],
   "rewrites": [
