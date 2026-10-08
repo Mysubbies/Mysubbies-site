@@ -124,7 +124,7 @@ async function loadPdfImage(url){
 }
 async function downloadPdf(){
   const {jsPDF}=window.jspdf,i=payload.invoice,e=payload.issuingEntity||{},c=i.customer||{},q=payload.quoteDetails||{},doc=new jsPDF();
-  const footerPhoto=await loadPdfImage('/images/images-categoriesoutdoor-living-homepage.png');
+  const footerPhoto=await loadPdfImage('/images/categories/outdoor-living-homepage.png');
   const navy=[20,33,61], orange=[255,106,26], light=[247,247,245], line=[225,226,228], stone=[107,114,128];
   const left=14,right=196,width=182;
   const pageBottom=252;
