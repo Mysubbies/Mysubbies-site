@@ -2300,6 +2300,8 @@ function openManualProspect(kind, seed) {
 
   let marketingData = null, marketingLoading = false, marketingView = 'dashboard';
   let marketingDiscoveryMessage = '';
+  let marketingSuggestionGenerating = false;
+  let marketingSelectedCampaignIds = new Set();
   let marketingContactSegmentFilter = '';
   let marketingContactAreaFilter = '';
   let marketingContactSearchFilter = '';
@@ -2369,8 +2371,8 @@ function openManualProspect(kind, seed) {
     }
   }
   async function generateDailyMarketingSuggestions(force){
-    const btn=document.getElementById('mktDailyIdeasBtn');
-    if(btn){btn.disabled=true;btn.textContent='AI is preparing ideas…';}
+    if(marketingSuggestionGenerating)return;
+    marketingSuggestionGenerating=true;render();
     try{
       const r=await adminFetch('/api/marketing-centre?action=generate_daily_suggestions',{
         method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({force:!!force})
@@ -2382,9 +2384,46 @@ function openManualProspect(kind, seed) {
       else alert((d.created||0)+' AI campaign suggestions are ready for review.');
     }catch(e){alert('Could not generate campaign suggestions — check your connection.');}
     finally{
-      const b=document.getElementById('mktDailyIdeasBtn');
-      if(b){b.disabled=false;b.textContent='Generate today\'s AI suggestions';}
+      marketingSuggestionGenerating=false;
+      if(tab==='marketing')render();
     }
+  }
+  function toggleMarketingCampaignSelection(id,checked){
+    if(checked)marketingSelectedCampaignIds.add(id);else marketingSelectedCampaignIds.delete(id);
+    render();
+  }
+  function selectAllMarketingCampaigns(checked){
+    const active=((marketingData&&marketingData.campaigns)||[]).filter(function(x){return x.status!=='archived';});
+    marketingSelectedCampaignIds=new Set(checked?active.map(function(x){return x.id;}):[]);
+    render();
+  }
+  async function bulkTestMarketingCampaigns(){
+    const ids=Array.from(marketingSelectedCampaignIds);
+    if(!ids.length){alert('Select at least one campaign first.');return;}
+    if(!confirm('Send '+ids.length+' selected campaign test email'+(ids.length===1?'':'s')+' to accounts@mysubbies.com.au?'))return;
+    let sent=0,failed=0;
+    for(const id of ids){
+      try{
+        const r=await adminFetch('/api/marketing-centre?action=send_test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id})});
+        if(r.ok)sent++;else failed++;
+      }catch(e){failed++;}
+    }
+    alert(sent+' test email'+(sent===1?'':'s')+' sent to accounts@mysubbies.com.au'+(failed?' · '+failed+' failed.':'.'));
+  }
+  async function bulkRemoveMarketingCampaigns(){
+    const ids=Array.from(marketingSelectedCampaignIds);
+    if(!ids.length){alert('Select at least one campaign first.');return;}
+    if(!confirm('Remove '+ids.length+' selected campaign'+(ids.length===1?'':'s')+'? Unsent campaigns will be deleted; sent campaigns will be archived so delivery history is kept.'))return;
+    let removed=0,failed=0;
+    for(const id of ids){
+      try{
+        const r=await adminFetch('/api/marketing-centre?action=remove_campaign',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id})});
+        if(r.ok)removed++;else failed++;
+      }catch(e){failed++;}
+    }
+    marketingSelectedCampaignIds.clear();
+    await refreshMarketing();
+    alert(removed+' campaign'+(removed===1?'':'s')+' removed'+(failed?' · '+failed+' failed.':'.'));
   }
   async function discoverMarketingContacts(segment, query, location) {
     marketingDiscoveryMessage='Searching '+marketingSegmentLabel(segment)+'…';render();
@@ -2731,7 +2770,8 @@ function openManualProspect(kind, seed) {
       const todayIdeas=campaigns.filter(function(x){return x.status!=='archived'&&x.ai_generated&&x.suggestion_date===todayMelbourne;}).sort(function(a,b){return Number(a.ai_rank||99)-Number(b.ai_rank||99);});
       const ideaCards=todayIdeas.map(function(x){
         const audience=(x.audience_segments||[]).map(marketingSegmentLabel).join(', ')||'All eligible contacts';
-        return '<div style="border:1px solid var(--line);border-radius:14px;padding:16px;background:#fff;">'+
+        return '<div style="border:1px solid var(--line);border-radius:14px;padding:16px;background:#fff;position:relative;">'+
+          '<label style="position:absolute;right:12px;top:12px;display:flex;align-items:center;gap:5px;font-size:11px;color:var(--stone);"><input type="checkbox" '+(marketingSelectedCampaignIds.has(x.id)?'checked':'')+' onchange="toggleMarketingCampaignSelection(\''+x.id+'\',this.checked)"> Select</label>'+
           '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;"><div><div style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#FF6A1A;">AI suggestion #'+escapeHtml(x.ai_rank||'')+'</div><h3 style="font-size:16px;margin-top:4px;">'+escapeHtml(x.name||'Campaign idea')+'</h3></div><span class="statusbadge">'+escapeHtml(x.status||'ready_for_review')+'</span></div>'+
           '<div class="jobmeta" style="margin-top:7px;"><strong>Audience:</strong> '+escapeHtml(audience)+'</div>'+
           '<div style="font-size:13px;margin-top:8px;"><strong>'+escapeHtml(x.headline||x.email_subject||'')+'</strong></div>'+
@@ -2750,10 +2790,11 @@ function openManualProspect(kind, seed) {
         if(x.status==='ready_for_review')actions+=' <button class="btn btn-black" style="padding:7px 10px;" onclick="approveMarketingCampaign(\''+x.id+'\')">Approve</button>';
         if(x.status==='approved')actions+=' <button class="btn btn-black" style="padding:7px 10px;" onclick="sendMarketingCampaign(\''+x.id+'\')">Send now</button>';
         actions+=' <button class="btn btn-outline" style="padding:7px 10px;color:#9B1C24;border-color:#E9C7C4;" onclick="removeMarketingCampaign(\''+x.id+'\')">Remove</button>';
-        return '<div style="display:grid;grid-template-columns:minmax(220px,1.5fr) minmax(180px,1fr) 120px minmax(280px,auto);gap:10px;align-items:center;padding:13px 0;border-top:1px solid var(--line);"><div><b>'+escapeHtml(x.name||'Untitled campaign')+'</b><div class="jobmeta">'+(x.ai_generated?'AI suggested · ':'')+escapeHtml(x.headline||x.email_subject||'')+'</div></div><div class="jobmeta">'+escapeHtml((x.audience_segments||[]).map(marketingSegmentLabel).join(', ')||'All eligible contacts')+'</div><span class="statusbadge">'+escapeHtml(x.status||'draft')+'</span><div>'+actions+'</div></div>';
+        return '<div style="display:grid;grid-template-columns:34px minmax(220px,1.5fr) minmax(180px,1fr) 120px minmax(280px,auto);gap:10px;align-items:center;padding:13px 0;border-top:1px solid var(--line);"><div><input type="checkbox" '+(marketingSelectedCampaignIds.has(x.id)?'checked':'')+' onchange="toggleMarketingCampaignSelection(\''+x.id+'\',this.checked)"></div><div><b>'+escapeHtml(x.name||'Untitled campaign')+'</b><div class="jobmeta">'+(x.ai_generated?'AI suggested · ':'')+escapeHtml(x.headline||x.email_subject||'')+'</div></div><div class="jobmeta">'+escapeHtml((x.audience_segments||[]).map(marketingSegmentLabel).join(', ')||'All eligible contacts')+'</div><span class="statusbadge">'+escapeHtml(x.status||'draft')+'</span><div>'+actions+'</div></div>';
       }).join('');
       return header+nav+stats+
-        '<div class="detailcard" style="max-width:none;margin-bottom:16px;background:#FFF8ED;border-color:#F3D39D;"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;"><div><div style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#B65B13;">Daily AI marketing planner</div><h2 style="font-size:18px;margin-top:4px;">Today\'s recommended campaigns</h2><p class="jobmeta">Every morning AI reviews your CRM audience, regulation opportunities and recent campaigns, then prepares three campaigns for you to review. Nothing is sent until you approve it.</p></div><button id="mktDailyIdeasBtn" class="btn btn-black" onclick="generateDailyMarketingSuggestions(false)">Generate today\'s AI suggestions</button></div>'+
+        '<div class="detailcard" style="max-width:none;margin-bottom:12px;"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;"><label style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:700;"><input type="checkbox" onchange="selectAllMarketingCampaigns(this.checked)"> Select all campaigns <span style="color:var(--stone);font-weight:500;">('+marketingSelectedCampaignIds.size+' selected)</span></label><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-outline" '+(marketingSelectedCampaignIds.size?'':'disabled')+' onclick="bulkTestMarketingCampaigns()">Send test emails</button><button class="btn btn-outline" style="color:#9B1C24;border-color:#E9C7C4;" '+(marketingSelectedCampaignIds.size?'':'disabled')+' onclick="bulkRemoveMarketingCampaigns()">Remove selected</button></div></div></div>'+
+        '<div class="detailcard" style="max-width:none;margin-bottom:16px;background:#FFF8ED;border-color:#F3D39D;"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;"><div><div style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#B65B13;">Daily AI marketing planner</div><h2 style="font-size:18px;margin-top:4px;">Today\'s recommended campaigns</h2><p class="jobmeta">Every morning AI reviews your CRM audience, regulation opportunities and recent campaigns, then prepares three campaigns for you to review. Nothing is sent until you approve it.</p></div><button id="mktDailyIdeasBtn" class="btn btn-black" '+(marketingSuggestionGenerating?'disabled':'')+' onclick="generateDailyMarketingSuggestions(false)">'+(marketingSuggestionGenerating?'AI is preparing ideas…':'Generate today\'s AI suggestions')+'</button></div>'+
         (ideaCards?'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px;margin-top:15px;">'+ideaCards+'</div>':'<div class="empty" style="padding:24px 0 8px;">No AI suggestions have been generated for today yet.</div>')+
         '</div>'+
         '<div class="detailcard" style="max-width:none;"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;"><div><h2 style="font-size:17px;">All campaigns</h2><p class="jobmeta">Create the email, send a test copy, approve it, then send to the matching eligible CRM segment.</p></div><button class="btn btn-black" onclick="openMarketingCampaign()">+ New campaign</button></div>'+ (list||'<div class="empty">No campaigns yet.</div>')+'</div>';
