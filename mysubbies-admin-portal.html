@@ -2506,17 +2506,117 @@ function openManualProspect(kind, seed) {
   function downloadMarketingFlyer(id){
     const c=((marketingData&&marketingData.campaigns)||[]).find(function(x){return x.id===id;});if(!c)return;
     if(!window.jspdf||!window.jspdf.jsPDF){alert('PDF generator is still loading. Try again in a moment.');return;}
-    const doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'}), navy=[20,33,61], orange=[255,106,26], stone=[107,114,128];
-    doc.setFillColor.apply(doc,navy);doc.rect(0,0,210,42,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(26);doc.setTextColor(255,255,255);doc.text('My',16,25);
-    const myW=doc.getTextWidth('My');doc.setTextColor.apply(doc,orange);doc.text('Subbies',16+myW,25);
-    doc.setTextColor.apply(doc,navy);doc.setFontSize(25);doc.text(doc.splitTextToSize(c.headline||c.name||'MySubbies update',178),16,62);
-    let y=82;doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(30,30,30);
-    const body=doc.splitTextToSize(c.flyer_copy||c.body_copy||'',178);doc.text(body,16,y);y+=body.length*5+12;
-    doc.setFillColor.apply(doc,orange);doc.roundedRect(16,y,92,13,6,6,'F');doc.setTextColor.apply(doc,navy);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text(c.call_to_action||'Book a maintenance job',62,y+8.3,{align:'center'});
-    doc.setTextColor.apply(doc,stone);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text('1300 200 601  ·  www.mysubbies.com.au',16,283);
-    doc.save(String(c.name||'mysubbies-campaign').replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'.pdf');
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({unit:'mm',format:'a4'});
+    const navy=[20,33,61], orange=[255,106,26], green=[54,162,48], paleGreen=[240,249,240], paleOrange=[255,248,237], line=[229,231,235], stone=[90,98,112], ink=[20,33,61];
+    const left=14,right=196,width=182;
+    const headline=String(c.headline||c.name||'MySubbies update').trim();
+    const audience=(c.audience_segments||[]).map(marketingSegmentLabel).join(', ');
+    const raw=String(c.flyer_copy||c.body_copy||'').replace(/\\n/g,'\n').trim();
+    const paragraphs=raw.split(/\n{2,}/).map(function(x){return x.replace(/\n/g,' ').trim();}).filter(Boolean);
+    const summary=paragraphs[0]||String(c.body_copy||'').split(/\n+/)[0]||'';
+    const keyPoints=(paragraphs.slice(1).join(' ').match(/[^.!?]+[.!?]?/g)||[]).map(function(x){return x.trim();}).filter(Boolean).slice(0,5);
+    if(!keyPoints.length){
+      const fallback=(String(c.body_copy||'').match(/[^.!?]+[.!?]?/g)||[]).map(function(x){return x.trim();}).filter(Boolean).slice(1,6);
+      keyPoints.push.apply(keyPoints,fallback);
+    }
+    const service=String(c.service_category||'Property Maintenance').trim();
+    const cta=String(c.call_to_action||'Book a maintenance job').trim();
+
+    function fitText(text,maxWidth,fontSize,minSize){
+      let size=fontSize,lines=[];
+      while(size>minSize){
+        doc.setFontSize(size);
+        lines=doc.splitTextToSize(String(text||''),maxWidth);
+        if(lines.length<=4)return {size,lines};
+        size-=1;
+      }
+      doc.setFontSize(minSize);lines=doc.splitTextToSize(String(text||''),maxWidth);
+      return {size:minSize,lines:lines.slice(0,5)};
+    }
+    function sectionLabel(text,x,y,color){
+      doc.setTextColor.apply(doc,color||green);doc.setFont('helvetica','bold');doc.setFontSize(10);
+      doc.text(String(text||'').toUpperCase(),x,y);
+    }
+    function bulletItem(text,x,y,maxWidth){
+      doc.setFillColor.apply(doc,green);doc.circle(x+3,y-1.2,3,'F');
+      doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('✓',x+3,y+1,{align:'center'});
+      doc.setTextColor.apply(doc,ink);doc.setFont('helvetica','bold');doc.setFontSize(9.2);
+      const lines=doc.splitTextToSize(text,maxWidth-12);
+      doc.text(lines,x+10,y);
+      return y+Math.max(9,lines.length*4.2+2);
+    }
+
+    // Branded hero.
+    doc.setFillColor.apply(doc,navy);doc.rect(0,0,210,46,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(25);doc.setTextColor(255,255,255);doc.text('My',left,23);
+    const myW=doc.getTextWidth('My');doc.setTextColor.apply(doc,orange);doc.text('Subbies',left+myW,23);
+    doc.setTextColor(220,226,235);doc.setFont('helvetica','bold');doc.setFontSize(7.5);
+    doc.text('TRUSTED TRADES. LESS ADMIN. MORE DONE.',left,31);
+
+    const title=fitText(headline,118,24,17);
+    doc.setTextColor.apply(doc,ink);doc.setFont('helvetica','bold');doc.setFontSize(title.size);doc.text(title.lines,left,61);
+    let heroBottom=61+title.lines.length*(title.size*0.38)+4;
+
+    doc.setFillColor.apply(doc,paleGreen);doc.roundedRect(139,55,57,31,4,4,'F');
+    sectionLabel('Built for',145,64,green);
+    doc.setTextColor.apply(doc,ink);doc.setFont('helvetica','bold');doc.setFontSize(10);
+    const aud=doc.splitTextToSize(audience||'Melbourne property & facilities teams',45);doc.text(aud,145,71);
+    doc.setTextColor.apply(doc,green);doc.setFontSize(8);doc.text(service,145,81,{maxWidth:45});
+
+    // Summary / why-now panel.
+    const y0=Math.max(heroBottom+6,92);
+    doc.setFillColor.apply(doc,paleOrange);doc.roundedRect(left,y0,width,31,4,4,'F');
+    sectionLabel(c.campaign_type==='regulation'?'What is changing':'Why this matters',left+5,y0+8,orange);
+    doc.setTextColor(35,35,35);doc.setFont('helvetica','normal');doc.setFontSize(9.4);
+    const summaryLines=doc.splitTextToSize(summary,170).slice(0,5);doc.text(summaryLines,left+5,y0+15);
+
+    // Two-column middle section.
+    const midY=y0+39;
+    const colW=87;
+    doc.setDrawColor.apply(doc,line);doc.setFillColor(255,255,255);doc.roundedRect(left,midY,colW,95,4,4,'FD');
+    doc.setFillColor.apply(doc,paleGreen);doc.roundedRect(left+95,midY,colW,95,4,4,'F');
+    sectionLabel(c.campaign_type==='regulation'?'Key requirements':'Recommended actions',left+6,midY+10,ink);
+    sectionLabel('How MySubbies helps',left+101,midY+10,green);
+
+    let ky=midY+19;
+    const defaultPoints=keyPoints.length?keyPoints:[
+      'Review the property or facility before issues become urgent.',
+      'Identify maintenance, safety and compliance items early.',
+      'Keep clear records of completed works and follow-up actions.'
+    ];
+    defaultPoints.slice(0,5).forEach(function(p){ky=bulletItem(p,left+4,ky,colW-8);});
+
+    let hy=midY+19;
+    const helpPoints=[
+      'One team to organise inspections, repairs and follow-on works.',
+      'Vetted trades matched to the job and service required.',
+      'Simple online booking and central job communication.',
+      'Quotes and records kept together for easier administration.',
+      'Property maintenance, outdoor works and construction support.'
+    ];
+    helpPoints.forEach(function(p){hy=bulletItem(p,left+99,hy,colW-8);});
+
+    // Value strip.
+    const stripY=midY+102;
+    doc.setFillColor.apply(doc,navy);doc.roundedRect(left,stripY,width,39,4,4,'F');
+    doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(17);
+    doc.text('Less admin. Faster action. One trusted team.',left+6,stripY+11);
+    doc.setTextColor(215,224,235);doc.setFont('helvetica','normal');doc.setFontSize(8.6);
+    doc.text(doc.splitTextToSize('MySubbies helps property and facilities teams coordinate maintenance, qualified trades and follow-up work without juggling multiple suppliers.',118),left+6,stripY+19);
+    doc.setFillColor.apply(doc,green);doc.roundedRect(145,stripY+9,45,14,7,7,'F');
+    doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.text(cta,167.5,stripY+17.8,{align:'center',maxWidth:39});
+
+    // Footer.
+    doc.setTextColor.apply(doc,ink);doc.setFont('helvetica','bold');doc.setFontSize(10);
+    doc.text('Tel: 1300 200 601',left,286);
+    doc.text('mysubbies.com.au',196,286,{align:'right'});
+    doc.setTextColor.apply(doc,stone);doc.setFont('helvetica','normal');doc.setFontSize(7.2);
+    doc.text('MySubbies · Melbourne, Victoria',105,292,{align:'center'});
+
+    doc.save(String(c.name||'mysubbies-campaign').replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'-premium-flyer.pdf');
   }
+
   function openMarketingRegulation(id){
     const x=id?((marketingData&&marketingData.regulations)||[]).find(function(r){return r.id===id;}):{};
     const selected=new Set(x.affected_segments||[]);
