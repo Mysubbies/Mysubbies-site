@@ -35,6 +35,26 @@ async function log(s,id,event,detail){
 function placesKey(){
   return String(process.env.GOOGLE_PLACES_SERVER_API_KEY||process.env.GOOGLE_PLACES_API_KEY||process.env.GOOGLE_MAPS_API_KEY||process.env.GOOGLE_MAPS_JS_API_KEY||process.env.GOOGLE_MAPS_BROWSER_API_KEY||process.env.GOOGLE_API_KEY||'').trim();
 }
+function placeAddressPart(place, wantedTypes){
+  const components=Array.isArray(place&&place.addressComponents)?place.addressComponents:[];
+  for(const wanted of wantedTypes){
+    const hit=components.find(c=>Array.isArray(c.types)&&c.types.includes(wanted));
+    if(hit){
+      const value=clean(hit.longText||hit.shortText,160);
+      if(value)return value;
+    }
+  }
+  return '';
+}
+function placeSuburb(place){
+  // Australian business addresses should be grouped by locality/suburb,
+  // never by the street-address portion shown in formattedAddress.
+  const component=placeAddressPart(place,['locality','postal_town','sublocality_level_1','sublocality']);
+  if(component)return component;
+  const formatted=clean(place&&place.formattedAddress,300);
+  const match=formatted.match(/,\s*([^,]+?)\s+(?:VIC|Victoria)\s+\d{4}(?:,|$)/i);
+  return match?clean(match[1],160):'';
+}
 async function discoverContacts(s,b,res){
   const key=placesKey();
   if(!key){res.status(503).json({error:'Google Places server key is missing from this deployment.'});return;}
@@ -44,7 +64,7 @@ async function discoverContacts(s,b,res){
   if(!segment||!query){res.status(400).json({error:'Segment and business search are required.'});return;}
   const response=await fetch('https://places.googleapis.com/v1/places:searchText',{
     method:'POST',
-    headers:{'Content-Type':'application/json','X-Goog-Api-Key':key,'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.googleMapsUri'},
+    headers:{'Content-Type':'application/json','X-Goog-Api-Key':key,'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.addressComponents,places.websiteUri,places.nationalPhoneNumber,places.googleMapsUri'},
     body:JSON.stringify({textQuery:query+' in '+location,pageSize:20,regionCode:'AU',languageCode:'en'})
   });
   const payload=await response.json().catch(()=>({}));
@@ -64,12 +84,12 @@ async function discoverContacts(s,b,res){
     const name=clean(p.displayName&&p.displayName.text,180);if(!name)continue;
     const sourceReference=clean(p.id,500);
     const formatted=clean(p.formattedAddress,300);
-    const pieces=formatted.split(',').map(x=>x.trim());
+    const suburb=placeSuburb(p);
     const email=await websiteEmail(p.websiteUri);
     const row={
       business_name:name,segment,contact_name:null,email:email||null,
       phone:clean(p.nationalPhoneNumber,60)||null,website:clean(p.websiteUri,600)||null,
-      suburb:pieces.length>1?pieces[pieces.length-2]:null,state:'VIC',
+      suburb:suburb||null,state:placeAddressPart(p,['administrative_area_level_1'])||'VIC',
       source_provider:'Google Places',
       source_url:clean(p.googleMapsUri,1000)||('https://www.google.com/maps/search/?api=1&query_place_id='+encodeURIComponent(p.id||'')),
       source_reference:sourceReference||null,
