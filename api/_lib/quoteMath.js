@@ -32,7 +32,11 @@ function computeLineItem(raw) {
   const calculatedAreaM2 = areaUnit ? calculateAreaQuantity(lengthM, widthM) : null;
   const measuredQty = calculatedAreaM2 || (linearUnit ? lengthM : null);
   const qty = measuredQty || (Number(raw && raw.qty) > 0 ? Number(raw.qty) : 1);
-  const unitPriceCents = Math.max(0, Math.round(Number(raw && raw.unitPriceCents) || 0));
+  // Allow negative line prices for genuine quote adjustments such as discounts.
+  // The quote total is still calculated server-side, so a discount remains part
+  // of the authoritative GST/subtotal/total calculation instead of being lost.
+  const unitPriceNumber = Number(raw && raw.unitPriceCents);
+  const unitPriceCents = Number.isFinite(unitPriceNumber) ? Math.round(unitPriceNumber) : 0;
   const taxTreatment = (raw && raw.taxTreatment === 'gst_exclusive') ? 'gst_exclusive' : 'gst_inclusive_10';
   const rawLineCents = Math.round(qty * unitPriceCents);
 
