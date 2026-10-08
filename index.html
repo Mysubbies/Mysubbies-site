@@ -1595,28 +1595,12 @@
 <section id="categories">
   <div class="wrap">
     <div class="cat-head reveal">
-      <h2>Popular categories</h2>
-      <p>Pick a service to get an instant, estimated price — or explore the full list of 31 categories.</p>
+      <h2>All services</h2>
+      <p>Browse every available MySubbies service and choose the job you need for an instant estimated price.</p>
     </div>
-    <!-- Populated by renderPopularCategories() from live CATEGORIES data
-         (see main <script> below) -- admin controls which categories show
-         here via a "Popular" toggle in the Rate Card tab, instead of this
-         being a fixed hardcoded set of 6. -->
-    <div class="catgrid-popular" id="catGridPopular"></div>
-
-    <button class="btn btn-outline explore-all-btn" id="exploreAllBtn" onclick="toggleAllCategories()" aria-expanded="false" aria-controls="catGridAllWrap">
-      Explore all services
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-    </button>
-
-    <div class="catgrid-all-wrap" id="catGridAllWrap">
-      <!-- Populated by renderFullCategoryGrid() from live CATEGORIES data (see
-           main <script> below) instead of hardcoded markup, so a category an
-           admin fully disables in the Rate Card tab disappears here and
-           reappears the moment it's re-enabled -- and any brand-new category
-           an admin adds shows up automatically too, without an HTML edit. -->
-      <div class="catgrid catgrid-all" id="catGrid"></div>
-    </div>
+    <!-- Populated from live CATEGORIES data so disabled services disappear
+         automatically and newly added categories show on the homepage. -->
+    <div class="catgrid catgrid-all" id="catGrid"></div>
   </div>
 </section>
 
@@ -2336,7 +2320,6 @@
   }
 
   renderFullCategoryGrid();
-  renderPopularCategories();
 
   const TARGETED_QUESTIONS = {
     'Decking': [
