@@ -204,14 +204,16 @@ module.exports=async function handler(req,res){
   try{
     const action=clean((req.query&&req.query.action)||(req.body&&req.body.action),80);
     if(req.method==='GET'&&action==='list'){
-      const [campaigns,contacts,regulations,targets]=await Promise.all([
+      const [campaigns,contacts,regulations,targets,serviceRequests]=await Promise.all([
         s.from('marketing_campaigns').select('*').order('updated_at',{ascending:false}).limit(500),
         s.from('marketing_contacts').select('*').order('updated_at',{ascending:false}).limit(1500),
         s.from('marketing_regulation_watch').select('*').order('effective_date',{ascending:true}).limit(500),
-        s.from('marketing_search_targets').select('*').order('updated_at',{ascending:false}).limit(500)
+        s.from('marketing_search_targets').select('*').order('updated_at',{ascending:false}).limit(500),
+        s.from('marketing_service_requests').select('*').order('created_at',{ascending:false}).limit(500)
       ]);
       for(const q of [campaigns,contacts,regulations,targets])if(q.error)throw q.error;
-      res.status(200).json({campaigns:campaigns.data||[],contacts:contacts.data||[],regulations:regulations.data||[],searchTargets:targets.data||[]});return;
+      if(serviceRequests.error && !['42P01','PGRST205'].includes(String(serviceRequests.error.code||'')))throw serviceRequests.error;
+      res.status(200).json({campaigns:campaigns.data||[],contacts:contacts.data||[],regulations:regulations.data||[],searchTargets:targets.data||[],serviceRequests:serviceRequests.data||[]});return;
     }
     if(req.method==='POST'&&action==='scan_regulations'){
       const result=await runRegulationWatch(s);
