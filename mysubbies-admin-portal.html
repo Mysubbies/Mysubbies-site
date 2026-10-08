@@ -2334,9 +2334,9 @@ function openManualProspect(kind, seed) {
     try {
       const r = await adminFetch('/api/marketing-centre?action=list');
       const d = await r.json();
-      marketingData = r.ok ? d : { campaigns:[], contacts:[], regulations:[], searchTargets:[], error:d.error||'Marketing Centre could not be loaded.' };
+      marketingData = r.ok ? d : { campaigns:[], contacts:[], regulations:[], searchTargets:[], serviceRequests:[], error:d.error||'Marketing Centre could not be loaded.' };
     } catch (e) {
-      marketingData = { campaigns:[], contacts:[], regulations:[], searchTargets:[], error:'Marketing Centre could not be loaded.' };
+      marketingData = { campaigns:[], contacts:[], regulations:[], searchTargets:[], serviceRequests:[], error:'Marketing Centre could not be loaded.' };
     }
     marketingLoading = false;
     if (tab === 'marketing') render();
@@ -2731,10 +2731,10 @@ function openManualProspect(kind, seed) {
     const d=await r.json();if(!r.ok){alert(d.error||'Search target could not be saved.');return;}closeCrmModal();await refreshMarketing();
   }
   function renderMarketingCentre() {
-    const data=marketingData||{campaigns:[],contacts:[],regulations:[],searchTargets:[]};
+    const data=marketingData||{campaigns:[],contacts:[],regulations:[],searchTargets:[],serviceRequests:[]};
     if(marketingLoading&&!marketingData)return '<div class="detailcard"><div class="empty">Loading Marketing Centre…</div></div>';
     if(data.error)return '<div class="detailcard"><h2>Marketing Centre needs setup</h2><p style="margin-top:8px;color:var(--stone);">'+escapeHtml(data.error)+'</p><p style="margin-top:8px;font-size:13px;">Apply the Growth Marketing Supabase migration, then refresh.</p></div>';
-    const campaigns=data.campaigns||[], contacts=data.contacts||[], rules=data.regulations||[], targets=data.searchTargets||[];
+    const campaigns=data.campaigns||[], contacts=data.contacts||[], rules=data.regulations||[], targets=data.searchTargets||[], serviceRequests=data.serviceRequests||[];
     const eligible=contacts.filter(function(x){return x.marketing_eligible&&x.email&&x.consent_status!=='opted_out';});
     const withEmail=contacts.filter(function(x){return !!x.email;});
     const header='<div class="detailcard" style="max-width:none;background:#14213D;color:#fff;border:0;padding:24px;margin-bottom:16px;"><div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;"><div><div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#FF9A60;margin-bottom:6px;">Growth engine</div><h2 style="font-size:26px;">SEO, SEM & Marketing Centre</h2><p style="color:#CBD5E1;max-width:760px;">Build the facilities-maintenance database, track industry rule changes, create campaigns and reach the right businesses from one workspace.</p></div><button class="btn btn-black" onclick="openMarketingCampaign()">+ New campaign</button></div></div>';
@@ -2792,7 +2792,11 @@ function openManualProspect(kind, seed) {
         actions+=' <button class="btn btn-outline" style="padding:7px 10px;color:#9B1C24;border-color:#E9C7C4;" onclick="removeMarketingCampaign(\''+x.id+'\')">Remove</button>';
         return '<div style="display:grid;grid-template-columns:34px minmax(220px,1.5fr) minmax(180px,1fr) 120px minmax(280px,auto);gap:10px;align-items:center;padding:13px 0;border-top:1px solid var(--line);"><div><input type="checkbox" '+(marketingSelectedCampaignIds.has(x.id)?'checked':'')+' onchange="toggleMarketingCampaignSelection(\''+x.id+'\',this.checked)"></div><div><b>'+escapeHtml(x.name||'Untitled campaign')+'</b><div class="jobmeta">'+(x.ai_generated?'AI suggested · ':'')+escapeHtml(x.headline||x.email_subject||'')+'</div></div><div class="jobmeta">'+escapeHtml((x.audience_segments||[]).map(marketingSegmentLabel).join(', ')||'All eligible contacts')+'</div><span class="statusbadge">'+escapeHtml(x.status||'draft')+'</span><div>'+actions+'</div></div>';
       }).join('');
+      const requestRows=serviceRequests.slice(0,12).map(function(r){
+        return '<tr><td><b>'+escapeHtml(r.requested_service||'Service request')+'</b><div class="jobmeta">'+escapeHtml(r.campaign_name||'Campaign enquiry')+'</div></td><td>'+escapeHtml(r.business_name||r.contact_name||'—')+'<div class="jobmeta">'+escapeHtml(r.email||'')+'</div></td><td>'+escapeHtml(r.suburb||'—')+'</td><td><span class="statusbadge">'+escapeHtml(r.status||'new')+'</span></td><td><div class="jobmeta">'+escapeHtml(r.scope||'')+'</div></td></tr>';
+      }).join('');
       return header+nav+stats+
+        (serviceRequests.length?'<div class="detailcard" style="max-width:none;margin-bottom:12px;"><div><h2 style="font-size:16px;">Campaign service requests</h2><p class="jobmeta">Prospects who clicked a campaign for a service that is not in the fixed-price catalogue.</p></div><div style="overflow:auto;margin-top:10px;"><table><thead><tr><th>Requested service</th><th>Prospect</th><th>Suburb</th><th>Status</th><th>Scope</th></tr></thead><tbody>'+requestRows+'</tbody></table></div></div>':'')+
         '<div class="detailcard" style="max-width:none;margin-bottom:12px;"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;"><label style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:700;"><input type="checkbox" onchange="selectAllMarketingCampaigns(this.checked)"> Select all campaigns <span style="color:var(--stone);font-weight:500;">('+marketingSelectedCampaignIds.size+' selected)</span></label><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-outline" '+(marketingSelectedCampaignIds.size?'':'disabled')+' onclick="bulkTestMarketingCampaigns()">Send test emails</button><button class="btn btn-outline" style="color:#9B1C24;border-color:#E9C7C4;" '+(marketingSelectedCampaignIds.size?'':'disabled')+' onclick="bulkRemoveMarketingCampaigns()">Remove selected</button></div></div></div>'+
         '<div class="detailcard" style="max-width:none;margin-bottom:16px;background:#FFF8ED;border-color:#F3D39D;"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;"><div><div style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#B65B13;">Daily AI marketing planner</div><h2 style="font-size:18px;margin-top:4px;">Today\'s recommended campaigns</h2><p class="jobmeta">Every morning AI reviews your CRM audience, regulation opportunities and recent campaigns, then prepares three campaigns for you to review. Nothing is sent until you approve it.</p></div><button id="mktDailyIdeasBtn" class="btn btn-black" '+(marketingSuggestionGenerating?'disabled':'')+' onclick="generateDailyMarketingSuggestions(false)">'+(marketingSuggestionGenerating?'AI is preparing ideas…':'Generate today\'s AI suggestions')+'</button></div>'+
         (ideaCards?'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px;margin-top:15px;">'+ideaCards+'</div>':'<div class="empty" style="padding:24px 0 8px;">No AI suggestions have been generated for today yet.</div>')+
