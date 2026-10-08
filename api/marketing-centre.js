@@ -124,7 +124,8 @@ async function discoverContacts(s,b,res){
 function campaignEmail(c,contact,options={}){
   const testMode=!!options.testMode;
   const cta=clean(c.call_to_action,200)||'Book a maintenance job';
-  const url=clean(c.booking_url,1000)||'https://www.mysubbies.com.au/';
+  const service=clean(c.service_category,180)||clean(c.headline,180)||'Property Maintenance';
+  const url='https://www.mysubbies.com.au/mysubbies-campaign-service.html?campaign='+encodeURIComponent(c.id||'')+'&campaign_name='+encodeURIComponent(c.name||'')+'&service='+encodeURIComponent(service);
   const headline=clean(c.headline,300)||clean(c.name,180);
   const body=clean(c.body_copy,12000).replace(/\n/g,'<br>');
   const flyer=c.image_url?'<img src="'+escapeHtml(c.image_url)+'" alt="'+escapeHtml(headline)+'" style="display:block;width:100%;height:auto;border-radius:12px;margin:0 0 20px;">':'';
