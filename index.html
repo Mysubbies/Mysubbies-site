@@ -2227,6 +2227,7 @@
       // after a second visit.
       renderFullCategoryGrid();
       renderPopularCategories();
+      handleCampaignServiceDeepLink();
     } catch (e) { /* offline or first load -- local data still works */ }
   }
   hydrateRateCardFromServer();
@@ -2246,6 +2247,22 @@
   // Existing checked-in category assets remain the default. If either an
   // uploaded URL or a checked-in asset fails, swap to the category icon so
   // customers never see a broken image tile.
+  function handleCampaignServiceDeepLink() {
+    const params=new URLSearchParams(window.location.search);
+    const categoryName=params.get('campaign_service');
+    const taskName=params.get('campaign_task');
+    if(!categoryName)return;
+    const cat=CATEGORIES.find(c=>c.label===categoryName && !c.deleted && !c.disabled && (c.tasks||[]).some(t=>!t.disabled&&!t.unavailable));
+    if(!cat)return;
+    setTimeout(()=>{
+      if(taskName){
+        const task=(cat.tasks||[]).find(t=>t.name===taskName && !t.disabled&&!t.unavailable);
+        if(task){selectSubCategoryAndGoToStep2(cat.label,task.name);return;}
+      }
+      openSubCategoryGallery(cat.label);
+    },250);
+  }
+
   function categoryCardImageHtml(category, slug) {
     const src = category.photoUrl || category.photoDataUrl || `images/categories/${slug}.jpg`;
     const fallback = CATEGORY_FALLBACK_ICON[slug] || category.icon || '🔧';
