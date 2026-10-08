@@ -223,6 +223,24 @@ module.exports=async function handler(req,res){
       const q=await s.from('marketing_campaigns').update({status:'approved',updated_at:new Date().toISOString()}).eq('id',id).select('*').single();if(q.error)throw q.error;
       await log(s,id,'campaign_approved','Approved by admin.');res.status(200).json({campaign:q.data});return;
     }
+    if(req.method==='POST'&&action==='remove_campaign'){
+      const id=clean(req.body&&req.body.id,80);if(!id){res.status(400).json({error:'Campaign id is required.'});return;}
+      const current=await s.from('marketing_campaigns').select('*').eq('id',id).maybeSingle();
+      if(current.error)throw current.error;
+      if(!current.data){res.status(404).json({error:'Campaign not found.'});return;}
+      const sent=await s.from('marketing_campaign_recipients').select('id',{count:'exact',head:true}).eq('campaign_id',id).eq('delivery_status','sent');
+      if(sent.error)throw sent.error;
+      const hasSent=Number(sent.count||0)>0 || current.data.status==='published' || !!current.data.sent_at || !!current.data.published_at;
+      if(hasSent){
+        const q=await s.from('marketing_campaigns').update({status:'archived',updated_at:new Date().toISOString()}).eq('id',id).select('*').single();
+        if(q.error)throw q.error;
+        await log(s,id,'campaign_archived','Removed from active portal after sending; delivery history retained.');
+        res.status(200).json({removed:true,archived:true,campaign:q.data});return;
+      }
+      const q=await s.from('marketing_campaigns').delete().eq('id',id);
+      if(q.error)throw q.error;
+      res.status(200).json({removed:true,archived:false});return;
+    }
     if(req.method==='POST'&&action==='send'){await sendCampaign(s,req.body||{},res);return;}
     if(req.method==='POST'&&action==='save_regulation'){
       const b=req.body||{},id=clean(b.id,80);
