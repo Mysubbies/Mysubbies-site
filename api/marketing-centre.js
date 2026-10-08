@@ -47,7 +47,16 @@ async function discoverContacts(s,b,res){
     body:JSON.stringify({textQuery:query+' in '+location,pageSize:20,regionCode:'AU',languageCode:'en'})
   });
   const payload=await response.json().catch(()=>({}));
-  if(!response.ok){res.status(502).json({error:'Google Places search failed.'});return;}
+  if(!response.ok){
+    const reason=clean(payload&&payload.error&&payload.error.message,700)||('Google Places returned HTTP '+response.status);
+    const code=clean(payload&&payload.error&&payload.error.status,120)||'PLACES_API_ERROR';
+    console.error('Marketing prospect Places search failed',{status:response.status,code:code});
+    res.status(502).json({
+      error:'Google Places search failed: '+reason,
+      code:code,
+      setupHint:'Use a server-side Google Places API key in Vercel (GOOGLE_PLACES_SERVER_API_KEY) with Places API (New) enabled. A browser/referrer-restricted Maps JavaScript key may not work from the server.'
+    });return;
+  }
   let created=0,updated=0,withEmail=0;
   const contacts=[];
   for(const p of payload.places||[]){
