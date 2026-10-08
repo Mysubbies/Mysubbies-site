@@ -2300,6 +2300,9 @@ function openManualProspect(kind, seed) {
 
   let marketingData = null, marketingLoading = false, marketingView = 'dashboard';
   let marketingDiscoveryMessage = '';
+  let marketingContactSegmentFilter = '';
+  let marketingContactAreaFilter = '';
+  let marketingContactSearchFilter = '';
   const MARKETING_SEGMENTS = [
     ['real_estate','Real estate & property management','real estate agency property management'],
     ['childcare','Childcare centres','childcare centre'],
@@ -2337,6 +2340,18 @@ function openManualProspect(kind, seed) {
     if (tab === 'marketing') render();
   }
   function setMarketingView(view){marketingView=view;render();}
+  function setMarketingContactFilter(kind,value){
+    if(kind==='segment')marketingContactSegmentFilter=value||'';
+    if(kind==='area')marketingContactAreaFilter=String(value||'').trim();
+    if(kind==='search')marketingContactSearchFilter=String(value||'').trim();
+    render();
+  }
+  function clearMarketingContactFilters(){
+    marketingContactSegmentFilter='';
+    marketingContactAreaFilter='';
+    marketingContactSearchFilter='';
+    render();
+  }
   async function refreshMarketing(){marketingData=null;await loadMarketing();}
   async function runMarketingRegulationScan(){
     const btn=document.getElementById('mktRuleScanBtn');
@@ -2545,8 +2560,28 @@ function openManualProspect(kind, seed) {
     const stats='<div class="statgrid"><div class="statcard"><div class="num">'+contacts.length+'</div><div class="lab">Business prospects</div></div><div class="statcard"><div class="num">'+withEmail.length+'</div><div class="lab">Public emails found</div></div><div class="statcard"><div class="num">'+eligible.length+'</div><div class="lab">Campaign eligible</div></div><div class="statcard"><div class="num">'+campaigns.filter(function(x){return x.status==='approved'||x.status==='published';}).length+'</div><div class="lab">Approved / sent campaigns</div></div></div>';
     if(marketingView==='contacts'){
       const segOptions=MARKETING_SEGMENTS.map(function(s){return '<option value="'+s[0]+'">'+escapeHtml(s[1])+'</option>';}).join('');
-      const rows=contacts.map(function(p){return '<tr><td><b>'+escapeHtml(p.business_name)+'</b><div class="jobmeta">'+escapeHtml(marketingSegmentLabel(p.segment))+' · '+escapeHtml(p.suburb||'')+'</div></td><td>'+escapeHtml(p.email||'—')+'<div class="jobmeta">'+escapeHtml(p.phone||'')+'</div></td><td><span class="statusbadge">'+escapeHtml(p.consent_status||'unknown')+'</span></td><td>'+(p.marketing_eligible?'<span style="color:#2F7A50;font-weight:700;">Eligible</span>':'<span style="color:#9CA3AF;">Review</span>')+'</td><td><button class="btn btn-outline" style="padding:7px 10px;" onclick="editMarketingContact(\''+p.id+'\')">Edit</button></td></tr>';}).join('');
-      return header+nav+stats+'<div class="detailcard" style="max-width:none;margin-bottom:16px;"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;"><div><h2 style="font-size:17px;">Build facilities-maintenance database</h2><p class="jobmeta">Searches public business listings, stores source evidence and checks business websites for a public email.</p></div><button id="mktBuildDbBtn" class="btn btn-black" onclick="buildMelbourneMarketingDatabase()">Build Melbourne database</button></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-top:14px;"><select id="mktDiscoverSegment" class="fieldinput">'+segOptions+'</select><input id="mktDiscoverQuery" class="fieldinput" placeholder="Optional custom search"><input id="mktDiscoverLocation" class="fieldinput" value="Melbourne VIC"><button class="btn btn-outline" onclick="discoverMarketingFromForm()">Find & import</button></div>'+(marketingDiscoveryMessage?'<div style="margin-top:10px;font-size:12px;color:var(--stone);">'+escapeHtml(marketingDiscoveryMessage)+'</div>':'')+'</div><div class="detailcard" style="max-width:none;overflow:auto;"><table><thead><tr><th>Business</th><th>Contact</th><th>Consent basis</th><th>Marketing</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+(rows?'':'<div class="empty">No marketing prospects yet. Build the Melbourne database above.</div>')+'</div>';
+      const areaValues=[...new Set(contacts.map(function(p){return String(p.suburb||'').trim();}).filter(Boolean))].sort(function(a,b){return a.localeCompare(b);});
+      const areaOptions=areaValues.map(function(a){return '<option value="'+escapeHtml(a)+'">'+escapeHtml(a)+'</option>';}).join('');
+      const q=marketingContactSearchFilter.toLowerCase();
+      const filteredContacts=contacts.filter(function(p){
+        if(marketingContactSegmentFilter&&p.segment!==marketingContactSegmentFilter)return false;
+        if(marketingContactAreaFilter&&String(p.suburb||'').toLowerCase()!==marketingContactAreaFilter.toLowerCase())return false;
+        if(q){
+          const hay=[p.business_name,p.contact_name,p.email,p.phone,p.website,p.suburb,marketingSegmentLabel(p.segment)].map(function(x){return String(x||'').toLowerCase();}).join(' ');
+          if(!hay.includes(q))return false;
+        }
+        return true;
+      });
+      const rows=filteredContacts.map(function(p){return '<tr><td><b>'+escapeHtml(p.business_name)+'</b><div class="jobmeta">'+escapeHtml(marketingSegmentLabel(p.segment))+' · '+escapeHtml(p.suburb||'')+'</div></td><td>'+escapeHtml(p.email||'—')+'<div class="jobmeta">'+escapeHtml(p.phone||'')+'</div></td><td><span class="statusbadge">'+escapeHtml(p.consent_status||'unknown')+'</span></td><td>'+(p.marketing_eligible?'<span style="color:#2F7A50;font-weight:700;">Eligible</span>':'<span style="color:#9CA3AF;">Review</span>')+'</td><td><button class="btn btn-outline" style="padding:7px 10px;" onclick="editMarketingContact(\''+p.id+'\')">Edit</button></td></tr>';}).join('');
+      return header+nav+stats+
+        '<div class="detailcard" style="max-width:none;margin-bottom:16px;"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;"><div><h2 style="font-size:17px;">Build facilities-maintenance database</h2><p class="jobmeta">Searches public business listings, stores source evidence and checks business websites for a public email.</p></div><button id="mktBuildDbBtn" class="btn btn-black" onclick="buildMelbourneMarketingDatabase()">Build Melbourne database</button></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-top:14px;"><select id="mktDiscoverSegment" class="fieldinput">'+segOptions+'</select><input id="mktDiscoverQuery" class="fieldinput" placeholder="Optional custom search"><input id="mktDiscoverLocation" class="fieldinput" value="Melbourne VIC"><button class="btn btn-outline" onclick="discoverMarketingFromForm()">Find & import</button></div>'+(marketingDiscoveryMessage?'<div style="margin-top:10px;font-size:12px;color:var(--stone);">'+escapeHtml(marketingDiscoveryMessage)+'</div>':'')+'</div>'+
+        '<div class="detailcard" style="max-width:none;margin-bottom:16px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;"><div><h2 style="font-size:16px;">Filter prospect database</h2><div class="jobmeta">'+filteredContacts.length+' of '+contacts.length+' businesses shown</div></div><button class="btn btn-outline" style="padding:7px 12px;" onclick="clearMarketingContactFilters()">Clear filters</button></div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:8px;margin-top:12px;">'+
+          '<select class="fieldinput" onchange="setMarketingContactFilter(\'segment\',this.value)"><option value="">All industries</option>'+MARKETING_SEGMENTS.map(function(s){return '<option value="'+s[0]+'" '+(marketingContactSegmentFilter===s[0]?'selected':'')+'>'+escapeHtml(s[1])+'</option>';}).join('')+'</select>'+
+          '<select class="fieldinput" onchange="setMarketingContactFilter(\'area\',this.value)"><option value="">All areas</option>'+areaValues.map(function(a){return '<option value="'+escapeHtml(a)+'" '+(marketingContactAreaFilter===a?'selected':'')+'>'+escapeHtml(a)+'</option>';}).join('')+'</select>'+
+          '<input class="fieldinput" value="'+escapeHtml(marketingContactSearchFilter)+'" placeholder="Search business, email, phone or suburb" oninput="setMarketingContactFilter(\'search\',this.value)">'+
+        '</div></div>'+
+        '<div class="detailcard" style="max-width:none;overflow:auto;"><table><thead><tr><th>Business</th><th>Contact</th><th>Consent basis</th><th>Marketing</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+(rows?'':'<div class="empty">No prospects match these filters.</div>')+'</div>';
     }
     if(marketingView==='campaigns'){
       const list=campaigns.map(function(x){
