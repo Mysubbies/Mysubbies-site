@@ -2494,6 +2494,21 @@ function openManualProspect(kind, seed) {
     const d = await r.json();if (!r.ok) { alert(d.error || 'Campaign could not be approved.'); return; }
     await refreshMarketing();
   }
+  async function removeMarketingCampaign(id){
+    const campaign=((marketingData&&marketingData.campaigns)||[]).find(function(x){return x.id===id;});
+    if(!campaign)return;
+    const msg=(campaign.status==='published'||campaign.sent_at||campaign.published_at)
+      ? 'Remove this campaign from the active portal? Because it has already been sent, it will be archived and delivery history will be kept.'
+      : 'Permanently delete this campaign? This cannot be undone.';
+    if(!confirm(msg))return;
+    const r=await adminFetch('/api/marketing-centre?action=remove_campaign',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id})
+    });
+    const d=await r.json();
+    if(!r.ok){alert(d.error||'Campaign could not be removed.');return;}
+    await refreshMarketing();
+    alert(d.archived?'Campaign archived and removed from the active portal.':'Campaign deleted.');
+  }
   async function sendMarketingCampaign(id){
     const c=((marketingData&&marketingData.campaigns)||[]).find(function(x){return x.id===id;});if(!c)return;
     const segments=(c.audience_segments||[]).map(marketingSegmentLabel).join(', ')||'all eligible contacts';
@@ -2703,7 +2718,7 @@ function openManualProspect(kind, seed) {
     }
     if(marketingView==='campaigns'){
       const todayMelbourne=new Intl.DateTimeFormat('en-CA',{timeZone:'Australia/Melbourne',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-      const todayIdeas=campaigns.filter(function(x){return x.ai_generated&&x.suggestion_date===todayMelbourne;}).sort(function(a,b){return Number(a.ai_rank||99)-Number(b.ai_rank||99);});
+      const todayIdeas=campaigns.filter(function(x){return x.status!=='archived'&&x.ai_generated&&x.suggestion_date===todayMelbourne;}).sort(function(a,b){return Number(a.ai_rank||99)-Number(b.ai_rank||99);});
       const ideaCards=todayIdeas.map(function(x){
         const audience=(x.audience_segments||[]).map(marketingSegmentLabel).join(', ')||'All eligible contacts';
         return '<div style="border:1px solid var(--line);border-radius:14px;padding:16px;background:#fff;">'+
@@ -2716,12 +2731,14 @@ function openManualProspect(kind, seed) {
             '<button class="btn btn-outline" style="padding:7px 10px;" onclick="downloadMarketingFlyer(\''+x.id+'\')">Flyer PDF</button>'+
             (x.status==='ready_for_review'?'<button class="btn btn-black" style="padding:7px 10px;" onclick="approveMarketingCampaign(\''+x.id+'\')">Approve campaign</button>':'')+
             (x.status==='approved'?'<button class="btn btn-black" style="padding:7px 10px;" onclick="sendMarketingCampaign(\''+x.id+'\')">Send now</button>':'')+
+            '<button class="btn btn-outline" style="padding:7px 10px;color:#9B1C24;border-color:#E9C7C4;" onclick="removeMarketingCampaign(\''+x.id+'\')">Remove</button>'+
           '</div></div>';
       }).join('');
-      const list=campaigns.map(function(x){
+      const list=campaigns.filter(function(x){return x.status!=='archived';}).map(function(x){
         let actions='<button class="btn btn-outline" style="padding:7px 10px;" onclick="openMarketingCampaign(\''+x.id+'\')">Edit</button> <button class="btn btn-outline" style="padding:7px 10px;" onclick="downloadMarketingFlyer(\''+x.id+'\')">Flyer PDF</button>';
         if(x.status==='ready_for_review')actions+=' <button class="btn btn-black" style="padding:7px 10px;" onclick="approveMarketingCampaign(\''+x.id+'\')">Approve</button>';
         if(x.status==='approved')actions+=' <button class="btn btn-black" style="padding:7px 10px;" onclick="sendMarketingCampaign(\''+x.id+'\')">Send now</button>';
+        actions+=' <button class="btn btn-outline" style="padding:7px 10px;color:#9B1C24;border-color:#E9C7C4;" onclick="removeMarketingCampaign(\''+x.id+'\')">Remove</button>';
         return '<div style="display:grid;grid-template-columns:minmax(220px,1.5fr) minmax(180px,1fr) 120px minmax(280px,auto);gap:10px;align-items:center;padding:13px 0;border-top:1px solid var(--line);"><div><b>'+escapeHtml(x.name||'Untitled campaign')+'</b><div class="jobmeta">'+(x.ai_generated?'AI suggested · ':'')+escapeHtml(x.headline||x.email_subject||'')+'</div></div><div class="jobmeta">'+escapeHtml((x.audience_segments||[]).map(marketingSegmentLabel).join(', ')||'All eligible contacts')+'</div><span class="statusbadge">'+escapeHtml(x.status||'draft')+'</span><div>'+actions+'</div></div>';
       }).join('');
       return header+nav+stats+
