@@ -20,6 +20,22 @@ function validSegments(v){
   const allowed=['real_estate','childcare','medical_clinic','dental_clinic','physio','aged_care','body_corporate','school','gym','warehouse','retail','hospitality'];
   return Array.isArray(v)?[...new Set(v.map(x=>String(x||'').trim()).filter(x=>allowed.includes(x)))]:[];
 }
+function suggestedHeroImage(serviceCategory,segments){
+  const service=String(serviceCategory||'').toLowerCase();
+  const segs=validSegments(segments);
+  let file='property-maintenance.jpg';
+  if(/landscap|garden|lawn|outdoor/.test(service)) file='gardening-lawn-mowing.jpg';
+  else if(/deck/.test(service)) file='decking.jpg';
+  else if(/pergola/.test(service)) file='pergola.jpg';
+  else if(/fenc/.test(service)) file='fencing.jpg';
+  else if(/concret/.test(service)) file='concreting.jpg';
+  else if(/clean/.test(service)) file='cleaning.jpg';
+  else if(/electrical|energy|lighting/.test(service)) file='electrical.jpg';
+  else if(/plumb|drain|gutter/.test(service)) file='plumbing.jpg';
+  else if(segs.includes('gym')) file='gardening-lawn-mowing.jpg';
+  else if(segs.includes('real_estate')||segs.includes('body_corporate')) file='property-maintenance.jpg';
+  return 'https://www.mysubbies.com.au/images/categories/'+file;
+}
 async function generateDailyMarketingSuggestions(supabase,{force=false}={}){
   const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Australia/Melbourne',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   if(!force){
@@ -124,17 +140,28 @@ Return ONLY a JSON array with exactly 3 objects:
       headline:clean(x.headline,240)||null,
       body_copy:clean(x.bodyCopy,12000)||null,
       email_subject:clean(x.emailSubject,240)||null,
-      flyer_copy:clean(x.flyerCopy,8000)||null,
+      flyer_copy:null,
       call_to_action:clean(x.callToAction,300)||'Book a maintenance job',
       booking_url:clean(x.bookingUrl,1000)||'https://www.mysubbies.com.au/',
+      image_url:suggestedHeroImage(x.serviceCategory,x.audienceSegments),
       status:'ready_for_review',
       ai_generated:true,suggestion_date:today,ai_rationale:clean(x.rationale,3000)||null,
       ai_rank:Number.isFinite(Number(x.rank))?Math.max(1,Math.min(3,Math.round(Number(x.rank)))):i+1,
-      tracking_code:'ai_'+today.replace(/-/g,'')+'_'+Date.now().toString(36)+'_'+(i+1),
+      tracking_code:'ai_'+today.replace(/-/g,'')+'_'+(i+1),
       updated_at:new Date().toISOString()
     };
+    const existingRank=await supabase.from('marketing_campaigns').select('*').eq('tracking_code',row.tracking_code).maybeSingle();
+    if(existingRank.error)throw existingRank.error;
+    if(existingRank.data){inserted.push(existingRank.data);continue;}
     const out=await supabase.from('marketing_campaigns').insert(row).select('*').single();
-    if(out.error)throw out.error;
+    if(out.error){
+      if(String(out.error.code||'')==='23505'){
+        const raced=await supabase.from('marketing_campaigns').select('*').eq('tracking_code',row.tracking_code).single();
+        if(raced.error)throw raced.error;
+        inserted.push(raced.data);continue;
+      }
+      throw out.error;
+    }
     inserted.push(out.data);
     try{await supabase.from('marketing_campaign_activity').insert({campaign_id:out.data.id,event_type:'ai_suggested',detail:'Daily AI marketing suggestion for '+today});}catch(e){}
   }
