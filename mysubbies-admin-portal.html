@@ -2518,6 +2518,16 @@ function openManualProspect(kind, seed) {
     alert('Campaign complete: '+d.sent+' sent, '+d.failed+' failed. '+d.eligible+' eligible contacts matched.');
     await refreshMarketing();
   }
+  async function sendMarketingTestEmail(id){
+    const campaign=((marketingData&&marketingData.campaigns)||[]).find(function(x){return x.id===id;});if(!campaign)return;
+    if(!confirm('Send a test copy of this campaign to accounts@mysubbies.com.au?'))return;
+    const r=await adminFetch('/api/marketing-centre?action=send_test',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id})
+    });
+    const d=await r.json();
+    if(!r.ok){alert(d.error||'Test email could not be sent.');return;}
+    alert('Test email sent to accounts@mysubbies.com.au.');
+  }
   function downloadMarketingFlyer(id){
     const c=((marketingData&&marketingData.campaigns)||[]).find(function(x){return x.id===id;});if(!c)return;
     if(!window.jspdf||!window.jspdf.jsPDF){alert('PDF generator is still loading. Try again in a moment.');return;}
@@ -2728,6 +2738,7 @@ function openManualProspect(kind, seed) {
           (x.ai_rationale?'<div style="font-size:12px;color:var(--stone);margin-top:7px;line-height:1.5;">'+escapeHtml(x.ai_rationale)+'</div>':'')+
           '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:13px;">'+
             '<button class="btn btn-outline" style="padding:7px 10px;" onclick="openMarketingCampaign(\''+x.id+'\')">Review / edit</button>'+
+            '<button class="btn btn-outline" style="padding:7px 10px;" onclick="sendMarketingTestEmail(\''+x.id+'\')">Send test email</button>'+
             '<button class="btn btn-outline" style="padding:7px 10px;" onclick="downloadMarketingFlyer(\''+x.id+'\')">Optional flyer PDF</button>'+
             (x.status==='ready_for_review'?'<button class="btn btn-black" style="padding:7px 10px;" onclick="approveMarketingCampaign(\''+x.id+'\')">Approve campaign</button>':'')+
             (x.status==='approved'?'<button class="btn btn-black" style="padding:7px 10px;" onclick="sendMarketingCampaign(\''+x.id+'\')">Send now</button>':'')+
@@ -2735,7 +2746,7 @@ function openManualProspect(kind, seed) {
           '</div></div>';
       }).join('');
       const list=campaigns.filter(function(x){return x.status!=='archived';}).map(function(x){
-        let actions='<button class="btn btn-outline" style="padding:7px 10px;" onclick="openMarketingCampaign(\''+x.id+'\')">Edit</button> <button class="btn btn-outline" style="padding:7px 10px;" onclick="downloadMarketingFlyer(\''+x.id+'\')">Optional flyer PDF</button>';
+        let actions='<button class="btn btn-outline" style="padding:7px 10px;" onclick="openMarketingCampaign(\''+x.id+'\')">Edit</button> <button class="btn btn-outline" style="padding:7px 10px;" onclick="sendMarketingTestEmail(\''+x.id+'\')">Send test email</button> <button class="btn btn-outline" style="padding:7px 10px;" onclick="downloadMarketingFlyer(\''+x.id+'\')">Optional flyer PDF</button>';
         if(x.status==='ready_for_review')actions+=' <button class="btn btn-black" style="padding:7px 10px;" onclick="approveMarketingCampaign(\''+x.id+'\')">Approve</button>';
         if(x.status==='approved')actions+=' <button class="btn btn-black" style="padding:7px 10px;" onclick="sendMarketingCampaign(\''+x.id+'\')">Send now</button>';
         actions+=' <button class="btn btn-outline" style="padding:7px 10px;color:#9B1C24;border-color:#E9C7C4;" onclick="removeMarketingCampaign(\''+x.id+'\')">Remove</button>';
