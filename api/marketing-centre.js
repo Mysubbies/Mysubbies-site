@@ -121,14 +121,16 @@ async function discoverContacts(s,b,res){
   }
   res.status(200).json({query:query+' in '+location,created,updated,withEmail,contacts});
 }
-function campaignEmail(c,contact){
+function campaignEmail(c,contact,options={}){
+  const testMode=!!options.testMode;
   const cta=clean(c.call_to_action,200)||'Book a maintenance job';
   const url=clean(c.booking_url,1000)||'https://www.mysubbies.com.au/';
   const headline=clean(c.headline,300)||clean(c.name,180);
   const body=clean(c.body_copy,12000).replace(/\n/g,'<br>');
   const flyer=c.image_url?'<img src="'+escapeHtml(c.image_url)+'" alt="'+escapeHtml(headline)+'" style="display:block;width:100%;height:auto;border-radius:12px;margin:0 0 20px;">':'';
-  const unsubscribe='https://app.mysubbies.com.au/api/marketing-unsubscribe?token='+encodeURIComponent(contact.unsubscribe_token);
-  return '<div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;background:#F4F5F6;padding:24px 12px;">'+
+  const unsubscribe=!testMode&&contact&&contact.unsubscribe_token?'https://app.mysubbies.com.au/api/marketing-unsubscribe?token='+encodeURIComponent(contact.unsubscribe_token):'';
+  const testBanner=testMode?'<div style="background:#FFF3CD;border:1px solid #F1D27A;color:#664D03;padding:10px 14px;text-align:center;font-size:12px;font-weight:700;">TEST EMAIL — ADMIN REVIEW ONLY — NOT SENT TO PROSPECTS</div>':'';
+  return '<div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;background:#F4F5F6;padding:24px 12px;">'+testBanner+
     '<div style="background:#fff;border-radius:14px;overflow:hidden;">'+
     '<div style="background:#14213D;padding:28px 34px;"><span style="color:#fff;font-size:26px;font-weight:800;">My<span style="color:#FF6A1A;">Subbies</span></span></div>'+
     '<div style="padding:28px 34px;color:#14213D;font-size:15px;line-height:1.6;">'+flyer+
@@ -137,8 +139,31 @@ function campaignEmail(c,contact){
     '<div style="margin-top:20px;">'+emailButton(cta,url,'orange')+'</div>'+
     '<p style="font-size:13px;margin-top:26px;">Kind regards,<br><strong>MySubbies</strong><br>1300 200 601</p>'+
     '</div></div>'+
-    '<p style="font-size:11px;color:#7B8494;text-align:center;line-height:1.5;margin:16px 20px 0;">Mysubbies Holdings Pty Ltd · Melbourne VIC · This is a business marketing message. <a href="'+escapeHtml(unsubscribe)+'" style="color:#7B8494;text-decoration:underline;">Unsubscribe</a></p></div>';
+    (testMode
+      ? '<p style="font-size:11px;color:#7B8494;text-align:center;line-height:1.5;margin:16px 20px 0;">Mysubbies Holdings Pty Ltd · Melbourne VIC · Test preview sent to accounts@mysubbies.com.au.</p>'
+      : '<p style="font-size:11px;color:#7B8494;text-align:center;line-height:1.5;margin:16px 20px 0;">Mysubbies Holdings Pty Ltd · Melbourne VIC · This is a business marketing message. <a href="'+escapeHtml(unsubscribe)+'" style="color:#7B8494;text-decoration:underline;">Unsubscribe</a></p>')+
+    '</div>';
 }
+async function sendTestCampaign(s,b,res){
+  const id=clean(b.id,80);
+  if(!id){res.status(400).json({error:'Campaign id is required.'});return;}
+  const q=await s.from('marketing_campaigns').select('*').eq('id',id).maybeSingle();
+  if(q.error)throw q.error;
+  const campaign=q.data;
+  if(!campaign){res.status(404).json({error:'Campaign not found.'});return;}
+  const subject='[TEST] '+(clean(campaign.email_subject,230)||clean(campaign.headline,230)||clean(campaign.name,170));
+  const result=await sendEmailWithResult({
+    to:'accounts@mysubbies.com.au',
+    subject,
+    html:campaignEmail(campaign,{business_name:'MySubbies Admin'}, {testMode:true})
+  });
+  if(!result.ok){
+    res.status(502).json({error:result.error||'Test email could not be sent.'});return;
+  }
+  await log(s,id,'campaign_test_email','Test email sent to accounts@mysubbies.com.au.');
+  res.status(200).json({sent:true,to:'accounts@mysubbies.com.au'});
+}
+
 async function sendCampaign(s,b,res){
   const id=clean(b.id,80);
   if(!id){res.status(400).json({error:'Campaign id is required.'});return;}
@@ -241,6 +266,7 @@ module.exports=async function handler(req,res){
       if(q.error)throw q.error;
       res.status(200).json({removed:true,archived:false});return;
     }
+    if(req.method==='POST'&&action==='send_test'){await sendTestCampaign(s,req.body||{},res);return;}
     if(req.method==='POST'&&action==='send'){await sendCampaign(s,req.body||{},res);return;}
     if(req.method==='POST'&&action==='save_regulation'){
       const b=req.body||{},id=clean(b.id,80);
