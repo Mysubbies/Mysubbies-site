@@ -10,7 +10,7 @@
 // window instead of staying valid forever.
 const crypto = require('crypto');
 
-const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour emergency hardening
+const TOKEN_TTL_MS = 8 * 60 * 60 * 1000; // 8-hour MFA-protected admin workday session
 const MFA_CHALLENGE_TTL_MS = 5 * 60 * 1000;
 const ADMIN_COOKIE = 'mysubbies_admin_session';
 const LEGACY_ADMIN_COOKIE = '__Host-mysubbies_admin_session';
