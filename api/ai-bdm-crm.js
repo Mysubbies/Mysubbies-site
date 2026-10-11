@@ -1,5 +1,6 @@
 const { requireAdmin }=require('./_lib/adminAuth');
 const { getSupabase }=require('./_lib/clients');
+const { outlookIntegrationReadiness }=require('../lib/ai-workforce/outlook-shared-mailbox-config');
 const statuses=new Set(['new','qualified','contacted','interested','quoted','won','lost','suppressed']);
 const clean=(v,max=500)=>typeof v==='string'?v.trim().slice(0,max):'';
 module.exports=async(req,res)=>{
@@ -11,7 +12,7 @@ module.exports=async(req,res)=>{
  if(req.method==='GET'){
  const [a,d]=await Promise.all([db.from('ai_bdm_accounts').select('id,business_name,suburb,category,service_interest,source_url,source_type,website,contact_email,contact_permission,status,notes,created_at').order('created_at',{ascending:false}).limit(100),db.from('ai_bdm_approvals').select('id,account_id,subject,message,status,created_at').eq('status','pending').order('created_at',{ascending:false}).limit(100)]);
  if(a.error||d.error)throw Error('CRM tables unavailable; apply reviewed migration');
- return res.status(200).json({accounts:a.data,approvals:d.data});
+ return res.status(200).json({accounts:a.data,approvals:d.data,outlook:outlookIntegrationReadiness()});
  }
  const b=typeof req.body==='string'?JSON.parse(req.body):req.body||{};
  if(b.action==='add_account'){
