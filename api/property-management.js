@@ -166,7 +166,7 @@ async function bootstrap(supabase, req, res) {
   if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
 
   const [{ data: properties, error: propertiesError }, { data: orders, error: ordersError }] = await Promise.all([
-    supabase.from('pm_properties').select('*').eq('organisation_id', auth.organisation.id).eq('active', true).order('address'),
+    supabase.from('pm_properties').select('*').eq('organisation_id', auth.organisation.id).order('active', { ascending: false }).order('address'),
     supabase.from('pm_work_orders').select('*').eq('organisation_id', auth.organisation.id).order('created_at', { ascending: false }).limit(1000),
   ]);
   if (propertiesError) throw propertiesError;
@@ -198,7 +198,7 @@ async function bootstrap(supabase, req, res) {
       id: auth.member.id, name: auth.member.name, email: auth.member.email, role: auth.member.role,
       canApprove: !!auth.member.can_approve || ['org_admin','approver'].includes(auth.member.role),
     },
-    properties: (properties || []).map(p => ({
+    properties: (properties || []).filter(p => p.active).map(p => ({
       id: p.id, name: p.name, address: p.address, suburb: p.suburb, state: p.state, postcode: p.postcode, accessNotes: p.access_notes,
       ownerName: p.owner_name || null, ownerEmail: p.owner_email || null, ownerPhone: p.owner_phone || null,
       preferredContractorId: p.preferred_contractor_id || null,
@@ -254,6 +254,22 @@ async function createProperty(supabase, auth, body, res) {
   if (error) throw error;
   res.status(201).json({ property: data });
 }
+async function deleteProperty(supabase, auth, body, res) {
+  if (!['org_admin','approver'].includes(auth.member.role)) {
+    res.status(403).json({ error: 'Property manager admin access is required.' }); return;
+  }
+  const property = await propertyForOrg(supabase, auth.organisation.id, body.propertyId);
+  if (!property) { res.status(404).json({ error: 'Property not found.' }); return; }
+  // Keep the property record for audit/history and preserve links from past
+  // work orders. "Remove" means archive from the PM's active property list.
+  const { data, error } = await supabase.from('pm_properties').update({
+    active: false,
+    updated_at: new Date().toISOString(),
+  }).eq('id', property.id).eq('organisation_id', auth.organisation.id).select('id, active').single();
+  if (error) throw error;
+  res.status(200).json({ removed: true, property: data });
+}
+
 async function updateProperty(supabase, auth, body, res) {
   if (!['org_admin','approver'].includes(auth.member.role)) {
     res.status(403).json({ error: 'Property manager admin access is required.' }); return;
@@ -1179,6 +1195,7 @@ module.exports = async (req, res) => {
     if (!auth.ok) { res.status(auth.status).json({ error: auth.error }); return; }
     if (action === 'create-property') { await createProperty(supabase, auth, req.body || {}, res); return; }
     if (action === 'update-property') { await updateProperty(supabase, auth, req.body || {}, res); return; }
+    if (action === 'delete-property') { await deleteProperty(supabase, auth, req.body || {}, res); return; }
     if (action === 'email-quote-to-owner') { await emailQuoteToOwner(supabase, auth, req.body || {}, res); return; }
     if (action === 'request-owner-approval') { await requestOwnerApproval(supabase, auth, req.body || {}, res); return; }
     if (action === 'submit-approved-job-to-mysubbies') { await submitApprovedJobToMysubbies(supabase, auth, req.body || {}, res); return; }
