@@ -467,6 +467,7 @@
       <button data-tab="overview" onclick="setAdminTab('overview')">□ &nbsp; Jobs</button>
       <button data-tab="projects" onclick="setAdminTab('projects')">◇ &nbsp; Projects</button>
       <button data-tab="contractor-crm" onclick="setAdminTab('contractor-crm')">✦ &nbsp; Contractor CRM</button>
+      <button data-tab="applications" onclick="setAdminTab('applications')">◉ &nbsp; Applications <span id="applicationsNavBadge" class="notif-badge" style="display:none;margin-left:auto;"></span></button>
       <button data-tab="property-crm" onclick="setAdminTab('property-crm')">▣ &nbsp; Property Managers</button>
       <button data-tab="active-pms" onclick="setAdminTab('active-pms')">✓ &nbsp; Active PMs</button>
       <button data-tab="contractors" onclick="setAdminTab('contractors')">◉ &nbsp; Contractors</button>
@@ -6581,7 +6582,11 @@ function openManualProspect(kind, seed) {
   }
 
 
-  function renderApplicationsTab(applications) {
+  function renderApplicationsWorkspace() {
+  const applications=getApplications();
+  return renderApplicationsTab(applications);
+}
+function renderApplicationsTab(applications) {
     if (applications.length === 0) return '<div class="empty">No contractor applications yet.</div>';
     // Defensive normalization -- Sep 2026 founder report: one record
     // missing an expected array field (e.g. a contractor from an older
