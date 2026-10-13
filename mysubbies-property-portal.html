@@ -324,7 +324,12 @@ function openDeepLinkedOrder(){
 }
 
 function counts(){
-  const w=state.data.workOrders||[];return {all:w.length,approval:w.filter(x=>x.approvalStatus==='pending').length,active:w.filter(x=>['released','assigned','in_progress'].includes(x.status)).length,done:w.filter(x=>x.status==='completed').length};
+  const w=state.data.workOrders||[];
+  // "Awaiting approval" is an actionable dashboard count, not simply a
+  // database flag. Older work orders can retain approval_status=pending even
+  // after their lifecycle status has moved past the approval gate.
+  const approval=w.filter(x=>x.approvalStatus==='pending' && ['awaiting_approval','quote_required'].includes(x.status)).length;
+  return {all:w.length,approval,active:w.filter(x=>['released','assigned','in_progress'].includes(x.status)).length,done:w.filter(x=>x.status==='completed').length};
 }
 function render(){
   if(!state.data)return renderAuth();
