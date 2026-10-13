@@ -360,6 +360,28 @@ async function createWorkOrder(supabase, auth, body, res) {
     }
     throw error;
   }
+  // Create an admin-visible job for quote requests without releasing it to a contractor.
+  if (serviceMode === 'project_quote') {
+    const jobId = 'pm_' + order.id.replace(/-/g, '');
+    const now = new Date().toISOString();
+    const record = {
+      id: jobId, source: 'property_management', category: category || 'Property Maintenance',
+      suburb: property.suburb || null, address: property.address, access: property.access_notes || null,
+      urgency: row.priority, basePrice: 0, items: [{ taskName: taskSummary, description: row.description, qty: 1, unit: 'job', base: 0 }],
+      customerName: auth.organisation.name, status: 'quote_required', operationalStage: 'quote_required',
+      propertyManagement: { workOrderId: order.id, organisationName: auth.organisation.name, propertyName: property.name || null },
+      createdAt: now, messages: [],
+    };
+    const { error: jobError } = await supabase.from('jobs').upsert({
+      id: jobId, category: record.category, suburb: property.suburb || null, address: property.address,
+      base_price_cents: 0, deposit_pct: 0, deposit_amount_cents: 0, status: 'pending_deposit',
+      stage: 'quote_required', source: 'property_management', full_record: record, updated_at: now,
+    }, { onConflict: 'id', ignoreDuplicates: true });
+    if (jobError) throw jobError;
+    const { error: linkError } = await supabase.from('pm_work_orders').update({ job_id: jobId }).eq('id', order.id).is('job_id', null);
+    if (linkError) throw linkError;
+    order.job_id = jobId;
+  }
   const attachments = await storeAttachments(supabase, auth.organisation.id, order.id, auth.member.id, body.attachments, 'request_photo');
   await event(supabase, order.id, 'member', auth.member.id, 'work_order_created', {
     serviceMode, priority: row.priority, quotedPriceCents, recurring: recur, recurrenceRule,
@@ -935,7 +957,7 @@ async function adminRelease(supabase, body, res) {
   const { data: order, error: orderError } = await supabase.from('pm_work_orders').select('*').eq('id', body.workOrderId).maybeSingle();
   if (orderError) throw orderError;
   if (!order) { res.status(404).json({ error: 'Work order not found.' }); return; }
-  if (order.job_id) { res.status(409).json({ error: 'This work order has already been released.' }); return; }
+  if (order.job_id && order.status === 'released') { res.status(409).json({ error: 'This work order has already been released.' }); return; }
   if (!order.quoted_price_cents || order.quoted_price_cents <= 0) { res.status(409).json({ error: 'Set a price before releasing the work order.' }); return; }
   let selectedContractorId = text(body.contractorId, 80);
   if (order.approval_required && order.approval_status !== 'approved') { res.status(409).json({ error: 'Required client approval has not been recorded.' }); return; }
@@ -970,7 +992,7 @@ async function adminRelease(supabase, body, res) {
     createdAt: now,
     messages: [],
   };
-  const { data: job, error: jobError } = await supabase.from('jobs').insert({
+  const { data: job, error: jobError } = await supabase.from('jobs').upsert({
     id: jobId,
     category: fullRecord.category,
     suburb: property.suburb || null,
@@ -983,7 +1005,7 @@ async function adminRelease(supabase, body, res) {
     source: 'property_management',
     full_record: fullRecord,
     updated_at: now,
-  }).select('id, job_number').single();
+  }, { onConflict: 'id' }).select('id, job_number').single();
   if (jobError) throw jobError;
 
   const { data: selectedContractor, error: contractorError } = await supabase.from('contractors')
