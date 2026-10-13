@@ -470,6 +470,7 @@
       <button data-tab="applications" onclick="setAdminTab('applications')">◉ &nbsp; Applications <span id="applicationsNavBadge" class="notif-badge" style="display:none;margin-left:auto;"></span></button>
       <button data-tab="property-crm" onclick="setAdminTab('property-crm')">▣ &nbsp; Property Managers</button>
       <button data-tab="active-pms" onclick="setAdminTab('active-pms')">✓ &nbsp; Active PMs</button>
+      <button data-tab="pm-work-orders" onclick="setAdminTab('pm-work-orders')">▣ &nbsp; PM Work Orders</button>
       <button data-tab="contractors" onclick="setAdminTab('contractors')">◉ &nbsp; Contractors</button>
       <button data-tab="coverage" onclick="setAdminTab('coverage')">⌖ &nbsp; Coverage map</button>
       <button data-tab="customers" onclick="setAdminTab('customers')">◎ &nbsp; Customers</button>
@@ -1968,7 +1969,7 @@
       propertyCrmData = { error:e.message || 'Property Manager CRM could not be loaded.' };
     }
     propertyCrmLoading = false;
-    if (tab === 'property-crm' || tab === 'active-pms') render();
+    if (tab === 'property-crm' || tab === 'active-pms' || tab === 'pm-work-orders') render();
     const deepId = new URLSearchParams(window.location.search).get('propertyWorkOrder');
     if (deepId && propertyCrmData && !propertyCrmData.error) {
       const order = (propertyCrmData.workOrders || []).find(o => o.id === deepId);
@@ -2040,7 +2041,18 @@
     const data=await res.json();if(!res.ok){alert(data.error||'Could not archive prospect.');return;}
     bdCrm[kind].prospects=null;await loadBdProspects(kind);
   }
-  function renderActivePropertyManagers() {
+  function renderPmWorkOrders() {
+  const data=propertyCrmData;
+  if(!data||data.error) return '<div class="detailcard" style="max-width:none;"><h1>PM Work Orders</h1><div class="error">'+escapeHtml((data&&data.error)||'Loading PM work orders…')+'</div></div>';
+  const orders=data.workOrders||[], orgs=data.organisations||[], props=data.properties||[];
+  const orgName=id=>{const x=orgs.find(o=>o.id===id);return x?x.name:'Property Manager';};
+  const propAddress=id=>{const x=props.find(p=>p.id===id);return x?x.address:'Property';};
+  const active=orders.filter(o=>!['completed','cancelled'].includes(String(o.status||'').toLowerCase()));
+  const rows=active.map(o=>'<div class="detailcard" style="max-width:none;margin:0 0 10px;"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;"><div><div style="font-size:15px;font-weight:800;">'+escapeHtml(o.task_summary||'Maintenance request')+'</div><div class="jobmeta">'+escapeHtml(orgName(o.organisation_id))+' · '+escapeHtml(propAddress(o.property_id))+'</div></div><span class="statusbadge">'+escapeHtml(String(o.status||'new').replace(/_/g,' '))+'</span></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--stone);"><span>Priority: <strong>'+escapeHtml(o.priority||'normal')+'</strong></span><span>Mode: <strong>'+escapeHtml(o.service_mode||'instant_price')+'</strong></span>'+(o.quoted_price_cents!=null?'<span>Price: <strong>'+fmtCents(o.quoted_price_cents)+'</strong></span>':'')+'</div><button class="btn btn-outline" style="margin-top:12px;" onclick="openPropertyWorkOrderModal(propertyCrmData.workOrders.find(x=>x.id===\''+o.id+'\'))">Open work order</button></div>').join('');
+  return '<div class="welcome-head"><div><div style="font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#E85A0A;margin-bottom:7px;">Property & Facilities</div><h1>PM Work Orders</h1><p>Maintenance requests submitted by Property Manager customers. These appear here before they become MySubbies contractor jobs.</p></div></div><div class="statgrid"><div class="statcard"><div class="num">'+active.length+'</div><div class="lab">Open PM work orders</div></div><div class="statcard"><div class="num">'+orders.filter(o=>o.status==='ready_to_release').length+'</div><div class="lab">Ready to release</div></div><div class="statcard"><div class="num">'+orders.filter(o=>o.job_id).length+'</div><div class="lab">Submitted to MySubbies</div></div><div class="statcard"><div class="num">'+orders.filter(o=>o.owner_approval_status==='pending').length+'</div><div class="lab">Awaiting owner approval</div></div></div><div style="margin-top:18px;">'+(rows||'<div class="detailcard" style="max-width:none;"><div class="empty">No open PM work orders.</div></div>')+'</div>';
+}
+
+function renderActivePropertyManagers() {
     const data = propertyCrmData;
     if (!data || data.error) return '<div class="detailcard" style="max-width:none;"><h2>Active Property Managers</h2><p class="empty">'+escapeHtml((data&&data.error)||'Loading active Property Manager accounts…')+'</p></div>';
     const orgs = (data.organisations || []).filter(o => String(o.status || '').toLowerCase() === 'active');
@@ -2969,7 +2981,7 @@ function openManualProspect(kind, seed) {
               : jobsTableHtml(filtered);
           })()}
         `}
-      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractor-crm' ? renderBusinessDevelopmentCrm('contractor') : tab === 'property-crm' ? renderBusinessDevelopmentCrm('property') : tab === 'active-pms' ? renderActivePropertyManagers() : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'invoices' ? renderInvoicesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'marketing' ? renderMarketingCentre() : tab === 'tenders' ? renderTenders() : tab === 'blog-seo' ? renderBlogSeo() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
+      ` : tab === 'ceo' ? renderCeoOverviewTab(jobs, applications, disputes, actionRequiredHtml) : tab === 'operations' ? renderOperationsTab(jobs, actionRequiredHtml) : tab === 'projects' ? renderProjectsTab(jobs) : tab === 'support' ? renderSupportHubTab(disputes, inquiries) : tab === 'applications' ? renderApplicationsTab(applications) : tab === 'contractor-crm' ? renderBusinessDevelopmentCrm('contractor') : tab === 'property-crm' ? renderBusinessDevelopmentCrm('property') : tab === 'active-pms' ? renderActivePropertyManagers() : tab === 'pm-work-orders' ? renderPmWorkOrders() : tab === 'contractors' ? renderContractorsTab(applications) : tab === 'coverage' ? renderContractorCoverageTab(applications) : tab === 'messages' ? renderMessagesTab(applications) : tab === 'customers' ? renderCustomersTab() : tab === 'leads' ? renderLeadsTab() : tab === 'quotes' ? renderQuotesTab() : tab === 'invoices' ? renderInvoicesTab() : tab === 'disputes' ? renderDisputesTab(disputes, jobs) : tab === 'inquiries' ? renderInquiriesTab(inquiries) : tab === 'payments' ? renderPaymentScheduleTab() : tab === 'marketing' ? renderMarketingCentre() : tab === 'tenders' ? renderTenders() : tab === 'blog-seo' ? renderBlogSeo() : tab === 'reports' ? renderReportsTab(jobs, applications, disputes) : renderRateCardTab();
     } catch (e) {
       console.error('Tab render error on tab=' + tab, e);
       tabContentHtml = `
