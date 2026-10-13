@@ -23,14 +23,14 @@ function adminRecord(existing, submitted) {
   // an authenticated browser cannot overwrite financial/payment evidence.
   const merged = { ...prior, ...submitted };
   for (const key of PROTECTED_FIELDS) merged[key] = prior[key];
-  // These two are explicit admin operations, rather than browser authority
-  // over pricing/payment state.
-  merged.contractor = submitted.contractor || null;
-  const adminOperationalStatuses = new Set(['feed', 'assigned', 'cancellation_requested', 'cancelled']);
-  merged.status = adminOperationalStatuses.has(submitted.status) ? submitted.status : prior.status;
+  // Assignment is authoritative through /api/admin-job-action. Never let a
+  // stale admin browser snapshot overwrite the assignee during a generic sync.
+  merged.contractor = prior.contractor || null;
+  merged.contractorEmail = existing.contractor_email || prior.contractorEmail || null;
+  merged.status = prior.status;
   return restoreStructuredFields(merged, {
     ...existing,
-    contractor_email: submitted.contractorEmail || null,
+    contractor_email: existing.contractor_email || null,
   });
 }
 
@@ -137,9 +137,14 @@ module.exports = async (req, res) => {
           body: `${auth.account.business_name || email} declined the ${existing.category} offer.`, jobId: existing.id });
         continue;
       }
-      const accepting = role === 'contractor' && !existing.contractor_email
-        && submitted.status === 'assigned' && !!submitted.contractorEmail;
-      if (accepting) {
+      const contractorIsAssignedToSameUser = role === 'contractor'
+        && !!existing.contractor_email
+        && String(existing.contractor_email).toLowerCase() === email;
+      const accepting = role === 'contractor'
+        && submitted.status === 'assigned'
+        && !!submitted.contractorEmail
+        && (!existing.contractor_email || contractorIsAssignedToSameUser);
+      if (accepting && !contractorIsAssignedToSameUser) {
         const { data: offer, error: offerError } = await supabase.from('job_offers').select('id').eq('job_id', existing.id)
           .eq('contractor_id', auth.account.id).eq('status', 'pending').maybeSingle();
         if (offerError) throw offerError;
@@ -157,9 +162,11 @@ module.exports = async (req, res) => {
         const previousContractorEmail = existing.contractor_email;
         const record = adminRecord(existing, submitted);
         storedRecord = record;
+        // Contractor assignment is authoritative through /api/admin-job-action.
+        // Do not let a stale admin browser snapshot clear or replace it.
         const { error } = await supabase.from('jobs').update({
           full_record: record,
-          contractor_email: submitted.contractorEmail || null,
+          contractor_email: existing.contractor_email || null,
           suburb: submitted.suburb || existing.suburb || null,
           updated_at: new Date().toISOString(),
         }).eq('id', existing.id);
@@ -190,10 +197,18 @@ module.exports = async (req, res) => {
         let record = mergePermittedMutation(prior, submitted, role);
         const update = { updated_at: new Date().toISOString() };
         if (accepting) {
-          update.contractor_email = email;
-          record = { ...record, contractorEmail: email, contractor: submitted.contractor || null, status: 'assigned' };
+          // Acceptance confirms the engagement; it must never clear or replace
+          // an assignee that Admin already selected.
+          const assignedEmail = existing.contractor_email || email;
+          update.contractor_email = assignedEmail;
+          record = {
+            ...record,
+            contractorEmail: assignedEmail,
+            contractor: (existing.full_record && existing.full_record.contractor) || submitted.contractor || null,
+            status: 'assigned',
+          };
         }
-        record = restoreStructuredFields(record, { ...existing, contractor_email: accepting ? email : existing.contractor_email });
+        record = restoreStructuredFields(record, { ...existing, contractor_email: existing.contractor_email || (accepting ? email : null) });
         storedRecord = record;
         update.full_record = record;
         let query = supabase.from('jobs').update(update).eq('id', existing.id);
