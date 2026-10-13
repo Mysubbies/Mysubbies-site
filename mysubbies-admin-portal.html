@@ -7182,6 +7182,7 @@ function renderApplicationsTab(applications) {
     j.contractorEmail = email;
     j.status = 'assigned';
     saveJobs(jobs);
+    adminFetch('/api/admin-job-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId:id,action:'assign',contractorEmail:email,contractorName:name})}).catch(()=>{});
     showToast('Job assigned to ' + name);
     render();
   }
@@ -7196,6 +7197,7 @@ function renderApplicationsTab(applications) {
     j.contractorEmail = email;
     j.status = 'assigned';
     saveJobs(jobs);
+    adminFetch('/api/admin-job-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId:id,action:'assign',contractorEmail:email,contractorName:name})}).then(async r=>{if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||'Could not save assignment.');}}).catch(e=>alert(e.message));
     render();
   }
 
@@ -7207,6 +7209,7 @@ function renderApplicationsTab(applications) {
     j.contractorEmail = null;
     j.status = 'feed';
     saveJobs(jobs);
+    adminFetch('/api/admin-job-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId:id,action:'unassign'})}).catch(()=>{});
     render();
   }
 
