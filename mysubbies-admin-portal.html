@@ -1933,7 +1933,14 @@
     loadBdProspects(kind);
   }
 
-  function openPropertyWorkOrderModal(order) {
+  function openLinkedMySubbiesJob(jobId){
+  if(!jobId)return;
+  closeCrmModal();
+  selectedJobId=jobId;
+  tab='overview';
+  render();
+}
+function openPropertyWorkOrderModal(order) {
     if (!order) return;
     const prop = (propertyCrmData && propertyCrmData.properties || []).find(p => p.id === order.property_id);
     const status = String(order.status || 'submitted').replaceAll('_',' ');
@@ -1953,7 +1960,7 @@
       '</div>' +
       '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);"><div class="jobmeta">Description</div><div style="white-space:pre-wrap;font-size:13px;margin-top:4px;">' + escapeHtml(order.description || 'No additional description provided.') + '</div></div>' +
       (order.quoted_price_cents != null ? '<div style="margin-top:14px;"><div class="jobmeta">Quoted price</div><div style="font-size:20px;font-weight:800;">' + fmtCents(order.quoted_price_cents) + '</div></div>' : '') +
-      (order.job_id ? '<div style="margin-top:14px;"><div class="jobmeta">Linked MySubbies job</div><div style="font-weight:700;">' + escapeHtml(order.job_id) + '</div></div>' : '') +
+      (order.job_id ? '<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);"><div class="jobmeta">Linked MySubbies job</div><div style="font-weight:700;margin-bottom:10px;">' + escapeHtml(order.job_id) + '</div><button class="btn btn-black" style="width:100%;" onclick="openLinkedMySubbiesJob(\''+escapeHtml(order.job_id)+'\')">Open job & allocate contractor →</button><div class="jobmeta" style="margin-top:7px;">Opens the normal MySubbies job workspace with contractor allocation, reassignment and job controls.</div></div>' : '') +
       '</div></div>'
     );
   }
