@@ -2374,10 +2374,16 @@ function openManualProspect(kind, seed) {
     if (tab === 'marketing') render();
   }
   function setMarketingView(view){marketingView=view;render();}
-  function setMarketingContactFilter(kind,value){
+  function setMarketingContactFilter(kind,value,el){
     if(kind==='segment')marketingContactSegmentFilter=value||'';
     if(kind==='area')marketingContactAreaFilter=String(value||'').trim();
     if(kind==='search')marketingContactSearchFilter=String(value||'').trim();
+    if(kind==='search'){
+      const cursor=el&&el.selectionStart!=null?el.selectionStart:String(value||'').length;
+      render();
+      requestAnimationFrame(()=>{const next=document.querySelector('[data-marketing-contact-search]');if(next){next.focus();const pos=Math.min(cursor,next.value.length);try{next.setSelectionRange(pos,pos);}catch(e){}}});
+      return;
+    }
     render();
   }
   function clearMarketingContactFilters(){
@@ -2793,7 +2799,7 @@ function openManualProspect(kind, seed) {
         '<div style="display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:8px;margin-top:12px;">'+
           '<select class="fieldinput" onchange="setMarketingContactFilter(\'segment\',this.value)"><option value="">All industries</option>'+MARKETING_SEGMENTS.map(function(s){return '<option value="'+s[0]+'" '+(marketingContactSegmentFilter===s[0]?'selected':'')+'>'+escapeHtml(s[1])+'</option>';}).join('')+'</select>'+
           '<select class="fieldinput" onchange="setMarketingContactFilter(\'area\',this.value)"><option value="">All areas</option>'+areaValues.map(function(a){return '<option value="'+escapeHtml(a)+'" '+(marketingContactAreaFilter===a?'selected':'')+'>'+escapeHtml(a)+'</option>';}).join('')+'</select>'+
-          '<input class="fieldinput" value="'+escapeHtml(marketingContactSearchFilter)+'" placeholder="Search business, email, phone or suburb" oninput="setMarketingContactFilter(\'search\',this.value)">'+
+          '<input class="fieldinput" value="'+escapeHtml(marketingContactSearchFilter)+'" placeholder="Search business, email, phone or suburb" data-marketing-contact-search oninput="setMarketingContactFilter(\'search\',this.value,this)">'+
         '</div></div>'+
         '<div class="detailcard" style="max-width:none;overflow:auto;"><table><thead><tr><th>Business</th><th>Contact</th><th>Consent basis</th><th>Marketing</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+(rows?'':'<div class="empty">No prospects match these filters.</div>')+'</div>';
     }
