@@ -85,7 +85,7 @@ function renderGuestBooking(message){
   const cats=(state.catalog&&state.catalog.categories)||[];
   app.innerHTML='<div class="loginwrap" style="max-width:760px;"><div class="panel"><div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#E85A0A;margin-bottom:7px;">MySubbies Property & Facilities</div><h2>Book a maintenance job</h2><p class="sub">Tell us what needs attention. You can create your free account when you are ready to submit the job. <strong>No payment is required.</strong></p>'+
   (message?'<div class="error">'+esc(message)+'</div>':'')+
-  '<div class="field"><label>Property address</label><div style="position:relative;"><input id="guestAddress" list="guestPropertyAddressList" autocomplete="street-address" placeholder="Select or start typing the property address"><datalist id="guestPropertyAddressList">'+((state.data&&state.data.properties)||[]).map(function(p){return '<option value="'+esc(p.address||p.name||'')+'">'+esc(p.name||'')+'</option>';}).join('')+'</datalist></div><div class="hint">Select an existing property or start typing a new address.</div></div>'+
+  '<div class="field"><label>Property address</label><div style="position:relative;"><input id="guestAddress" autocomplete="street-address" placeholder="Start typing the property address"><div id="guestAddressSuggestions"></div><datalist id="guestPropertyAddressList">'+((state.data&&state.data.properties)||[]).map(function(p){return '<option value="'+esc(p.address||p.name||'')+'">'+esc(p.name||'')+'</option>';}).join('')+'</datalist></div><div class="hint">Select an existing property or start typing a new address.</div></div>'+
   '<div class="grid2"><div class="field"><label>Service category</label><select id="guestCategory" onchange="guestCategoryChanged()"><option value="">Choose…</option>'+cats.map(c=>'<option value="'+esc(c.category)+'">'+esc(c.category)+'</option>').join('')+'</select></div><div class="field"><label>Service</label><select id="guestTask" onchange="guestEstimateNow()"><option value="">Choose category first</option></select></div></div>'+
   '<div class="field"><label>Quantity / size</label><input id="guestQty" type="number" min="0.01" step="0.01" value="1" oninput="guestEstimateNow()"><div class="hint" id="guestUnitHint"></div></div><div id="guestEstimateBox"></div>'+
   '<div class="field"><label>What needs to be done?</label><textarea id="guestDescription" placeholder="Describe the issue, access arrangements and anything the contractor should know."></textarea></div>'+
@@ -536,17 +536,30 @@ function loadPropertyPlaces(){
   })().catch(error=>{propertyAddressAutocompletePromise=null;throw error;});
   return propertyAddressAutocompletePromise;
 }
+let guestAddressSuggestTimer=null, guestAddressSuggestAbort=null;
+function guestAddressSuggestions(){
+  const input=document.getElementById('guestAddress'); if(!input)return;
+  clearTimeout(guestAddressSuggestTimer);
+  guestAddressSuggestTimer=setTimeout(async()=>{
+    const q=input.value.trim(), box=document.getElementById('guestAddressSuggestions');
+    if(!box||q.length<2){if(box)box.innerHTML='';return;}
+    try{
+      if(guestAddressSuggestAbort)guestAddressSuggestAbort.abort();
+      guestAddressSuggestAbort=new AbortController();
+      const res=await fetch('/api/geocode-distance?action=places-autocomplete&q='+encodeURIComponent(q),{credentials:'same-origin',signal:guestAddressSuggestAbort.signal});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok){box.innerHTML='';return;}
+      const items=data.suggestions||[];
+      box.innerHTML=items.length?items.map((s,i)=>'<button type="button" class="guest-address-option" data-index="'+i+'"><strong>'+esc(s.mainText||s.description)+'</strong><span>'+esc(s.secondaryText||'')+'</span></button>').join(''):'';
+      box.querySelectorAll('.guest-address-option').forEach((el,i)=>el.addEventListener('click',()=>{input.value=items[i].description;selectedPropertyPlace={placeId:items[i].placeId,formatted_address:items[i].description};box.innerHTML='';}));
+    }catch(e){if(e.name!=='AbortError')box.innerHTML='';}
+  },180);
+}
 async function initialiseGuestAddressAutocomplete(){
-  const input=document.getElementById('guestAddress'); if(!input) return;
+  const input=document.getElementById('guestAddress'); if(!input)return;
   selectedPropertyPlace=null;
-  loadPropertyPlaces().then(()=>{
-    if(!document.getElementById('guestAddress')) return;
-    const ac=new google.maps.places.Autocomplete(input,{componentRestrictions:{country:'au'},fields:['formatted_address','geometry','address_components','place_id'],types:['address']});
-    ac.addListener('place_changed',()=>{
-      const place=ac.getPlace(); selectedPropertyPlace=place;
-      if(place.formatted_address) input.value=place.formatted_address;
-    });
-  }).catch(()=>{});
+  input.addEventListener('input',guestAddressSuggestions);
+  input.addEventListener('focus',()=>{if(input.value.trim().length>=2)guestAddressSuggestions();});
 }
 async function initialisePropertyAddressAutocomplete(){
   const input=document.getElementById('pAddress'); if(!input) return;
