@@ -417,7 +417,8 @@ function renderDetail(){
     else if(o.ownerApprovalStatus==='pending') actions+='<button class="btn btn-outline" style="width:245px" disabled>Owner approval pending</button>';
     else actions+='<button class="btn btn-primary" style="width:245px" onclick="requestOwnerApproval()">Submit to owner for approval →</button>';
   }
-  if(canApprove) actions+='<button class="btn btn-primary" onclick="approve(\'approved\')">Approve work</button><button class="btn btn-danger" onclick="approve(\'rejected\')">Reject</button>';
+  const submittedToMySubbies=!!o.jobNumber || ['submitted_to_mysubbies','released','assigned','in_progress','completed'].includes(String(o.status||'').toLowerCase());
+  if(canApprove && !submittedToMySubbies && o.approvalStatus==='pending') actions+='<button class="btn btn-primary" onclick="approve(\'approved\')">Approve work</button><button class="btn btn-danger" onclick="approve(\'rejected\')">Reject</button>';
   if(canCancel) actions+='<button class="btn btn-outline" style="width:245px" onclick="cancelOrder()">Cancel work order</button>';
   actions+='</div>';
   app.innerHTML=`<button class="btn btn-outline" onclick="back()" style="margin-bottom:14px">← Work orders</button>
@@ -425,7 +426,7 @@ function renderDetail(){
   <div class="detail-row"><span>Work order</span><b>${o.jobNumber?'Job #'+esc(o.jobNumber):esc(o.id.slice(0,8).toUpperCase())}</b></div>
   <div class="detail-row"><span>Service route</span><b>${o.serviceMode==='project_quote'?'Project quote':'Instant price'}</b></div>
   <div class="detail-row"><span>Price</span><b>${money(o.quotedPriceCents)}</b></div>
-  <div class="detail-row"><span>Approval</span><b>${statusLabel(o.approvalStatus)}</b></div>
+  <div class="detail-row"><span>PM approval</span><b>${submittedToMySubbies?'Approved / released':statusLabel(o.approvalStatus)}</b></div>
   <div class="detail-row"><span>Owner quote approval</span><b>${statusLabel(o.ownerApprovalStatus||'not_requested')}</b></div>
   <div class="detail-row"><span>Contract / legal review</span><b>${statusLabel(o.legalReviewStatus||'not_required')}</b></div>
   <div class="detail-row"><span>Priority</span><b>${statusLabel(o.priority)}</b></div>
