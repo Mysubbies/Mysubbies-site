@@ -751,7 +751,7 @@
     const button = document.getElementById('mobileAdminMenu');
     if (button) button.setAttribute('aria-expanded', 'false');
   }
-  function setAdminTab(nextTab) { tab = nextTab; selectedJobId = null; selectedCustomerId = null; selectedCustomerEmail = null; closeMobileAdminNav(); render(); }
+  function setAdminTab(nextTab) { tab = nextTab; selectedJobId = null; selectedCustomerId = null; selectedCustomerEmail = null; closeMobileAdminNav(); render(); if (nextTab === 'property-crm' || nextTab === 'active-pms' || nextTab === 'pm-work-orders') { loadPropertyCrm(); } }
   function updateCrmNav() {
     document.querySelectorAll('#crmNav button').forEach(button => button.classList.toggle('active', button.dataset.tab === tab));
   }
