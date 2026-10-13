@@ -6839,6 +6839,16 @@ function renderApplicationsTab(applications) {
     const relative = days <= 0 ? 'Today' : days === 1 ? '1 day ago' : `${days} days ago`;
     return { date: ts.toLocaleDateString('en-AU'), relative };
   }
+  async function openPmQuoteFromJobs(workOrderId) {
+    tab = 'pm-work-orders';
+    selectedJobId = null;
+    if (!propertyCrmData || propertyCrmData.error) await loadPropertyCrm();
+    render();
+    const order = (propertyCrmData && propertyCrmData.workOrders || []).find(o => o.id === workOrderId);
+    if (order) openPropertyWorkOrderModal(order);
+    else alert('The PM work order could not be loaded. Please refresh PM Work Orders.');
+  }
+
   function jobsTableHtml(jobs) {
     const badgeClass = { feed: 'badge-feed', assigned: 'badge-assigned', completed: 'badge-completed', cancellation_requested: 'badge-rejected', cancelled: 'badge-rejected' };
     const badgeLabel = { quote_required: 'Quote required', feed: 'Awaiting contractor', assigned: 'Assigned', completed: 'Completed', cancellation_requested: 'Cancellation requested', cancelled: 'Cancelled' };
@@ -6849,7 +6859,7 @@ function renderApplicationsTab(applications) {
           ${jobs.map(j => {
             const submitted = jobSubmittedText(j);
             return `
-            <tr class="jobrow" onclick="selectedJobId='${j.id}'; render();">
+            <tr class="jobrow" onclick="${j.propertyManagement && j.status === 'quote_required' ? `openPmQuoteFromJobs('${j.propertyManagement.workOrderId}')` : `selectedJobId='${j.id}'; render();`}">
               <td>${j.jobNumber ? '#' + j.jobNumber : '—'}</td>
               <td><strong>${j.icon || ''} ${escapeHtml(j.category)}</strong><br><span style="color:var(--stone);font-size:12px;">${j.items && j.items.length > 1 ? j.items.length + ' items' : (j.qty || '') + ' ' + escapeHtml(j.unit || '')}</span></td>
               <td>${escapeHtml(j.suburb)}</td>
@@ -6865,7 +6875,480 @@ function renderApplicationsTab(applications) {
               </td>
               <td><span class="badge ${badgeClass[j.status] || 'badge-feed'}">${badgeLabel[j.status] || j.status}</span></td>
               <td>${submitted.date}<br><span style="color:var(--stone);font-size:11.5px;">${submitted.relative}</span></td>
-              <td>$${(j.basePrice || 0).toLocaleString()}</td>
+              <td>${j.status === 'quote_required' ? 'Quote required' : '
+              <td>${!['cancelled', 'completed'].includes(j.status) ? `<button class="btn btn-danger" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="adminCancelJob('${j.id}', event)">Cancel</button>` : ''}</td>
+            </tr>
+          `;
+          }).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  function renderDetail() {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === selectedJobId);
+    if (!j) { selectedJobId = null; render(); return; }
+    const commission = Math.round((j.basePrice || 0) * 0.18);
+    const payout = (j.basePrice || 0) - commission;
+
+    app.innerHTML = `
+      <button class="backbtn" onclick="selectedJobId=null; render();">← Back to jobs</button>
+      <div class="detailcard">
+        ${j.photoDataUrls && j.photoDataUrls.length > 1 ? `
+          <div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:16px;">
+            ${j.photoDataUrls.map(src => `<img src="${src}" style="width:90px;height:90px;border-radius:10px;object-fit:cover;flex-shrink:0;" />`).join('')}
+          </div>
+        ` : j.photoDataUrl ? `<img class="jobphoto" src="${j.photoDataUrl}">` : ''}
+        <h1 class="pagetitle" style="margin-bottom:2px;">${j.icon || ''} ${escapeHtml(j.category)}</h1>
+        <div style="color:var(--stone);font-size:13px;margin-bottom:16px;">${j.jobNumber ? `Job #${j.jobNumber} · ` : ''}${j.items && j.items.length > 1 ? j.items.length + ' items' : `${j.qty || ''} ${escapeHtml(j.unit || '')}`} · 📍 ${j.address ? escapeHtml(j.address) + ', ' : ''}${escapeHtml(j.suburb)}</div>
+
+        ${j.items && j.items.length ? `
+          <div style="border-top:1px solid var(--paper);border-bottom:1px solid var(--paper);padding:10px 0;margin-bottom:8px;">
+            ${j.items.map(i => `
+              <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;">
+                <span>${i.catIcon || ''} ${escapeHtml(i.taskName)} <span style="color:var(--stone);">(${i.qty} ${escapeHtml(i.unit)})</span></span>
+                <span style="font-weight:600;">${i.aiEstimated ? '~' : ''}$${i.base.toLocaleString()}</span>
+              </div>
+              ${i.aiEstimated ? `<div style="font-size:11.5px;font-weight:700;color:#D98E14;background:#FDF0D9;border-radius:6px;padding:4px 8px;margin-bottom:4px;">🤖 AI-estimated price — not from the rate card${i.typicalRange ? ' · range ' + escapeHtml(i.typicalRange) : ''} — confirm before dispatch</div>` : ''}
+              ${i.notes ? `<div style="font-size:11.5px;color:var(--stone);margin-bottom:4px;">${escapeHtml(i.notes)}</div>` : ''}
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <div class="row"><span class="l">Customer</span><span class="r">${escapeHtml(j.customerName || '—')}</span></div>
+        ${j.jobType === 'business' ? `<div class="row"><span class="l">Invoice to</span><span class="r">${escapeHtml(j.businessName || '—')} (business)</span></div>` : ''}
+        <div class="row"><span class="l">Phone</span><span class="r">${escapeHtml(j.customerPhone || '—')}</span></div>
+        <div class="row"><span class="l">Contractor</span><span class="r">${escapeHtml(j.contractor || 'Unassigned')}</span></div>
+        <div class="row"><span class="l">On site / access</span><span class="r">${escapeHtml(j.site || '—')} ${j.access ? '· ' + escapeHtml(j.access) : ''}</span></div>
+        ${j.urgency ? `<div class="row"><span class="l">Urgency</span><span class="r">${escapeHtml(j.urgency)}</span></div>` : ''}
+        <div class="row"><span class="l">Total job value</span><span class="r">$${(j.basePrice || 0).toLocaleString()}</span></div>
+        <div class="row commission"><span class="l">Platform commission (18%)</span><span class="r">$${commission.toLocaleString()}</span></div>
+        <div class="row payout"><span class="l">Contractor payout</span><span class="r">$${payout.toLocaleString()}</span></div>
+
+        ${j.status === 'cancellation_requested' ? `
+        <div style="background:#FFF6E5;border:1.5px solid #F0D89B;border-radius:12px;padding:14px;margin-top:14px;">
+          <div style="font-weight:700;font-size:13.5px;color:#8A6D2E;margin-bottom:4px;">⚠ ${j.cancellationRequestedBy === 'contractor' ? 'Contractor' : 'Customer'} requested to cancel this job</div>
+          ${j.cancellationReason ? `<div style="font-size:12.5px;color:var(--ink);margin-bottom:10px;">"${escapeHtml(j.cancellationReason)}"</div>` : ''}
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-black" style="flex:1;" onclick="approveCancellation('${j.id}')">Approve cancellation</button>
+            <button class="btn btn-outline" style="flex:1;" onclick="rejectCancellation('${j.id}')">Reject — keep job active</button>
+          </div>
+        </div>` : ''}
+
+        <div class="reassign">
+          <select id="reassignSelect" style="flex:1;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
+            <option value="">${j.contractor ? 'Reassign to…' : 'Assign to…'}</option>
+            ${approvedContractorOptions(j)}
+          </select>
+          <button class="btn btn-black" onclick="reassign('${j.id}')">${j.contractor ? 'Reassign' : 'Assign'}</button>
+          ${j.contractor ? `<button class="btn btn-outline" onclick="unassign('${j.id}')">Unassign</button>` : ''}
+        </div>
+        <button class="btn btn-outline" style="margin-top:10px;width:100%;" onclick="toggleEditJob()">Edit job details</button>
+        <div id="editJobWrap"></div>
+      </div>
+      ${(j.beforePhotos && j.beforePhotos.length) || (j.afterPhotos && j.afterPhotos.length) ? `
+        <div class="detailcard" style="margin-top:14px;">
+          <h3 style="font-size:15px;margin-bottom:10px;">Before / after photos</h3>
+          ${(j.beforePhotos && j.beforePhotos.length) ? `<div style="font-size:11px;color:var(--stone);margin-bottom:6px;">BEFORE</div><div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(72px, 1fr));gap:8px;margin-bottom:12px;">${j.beforePhotos.map(src => `<img src="${src}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--line);" />`).join('')}</div>` : ''}
+          ${(j.afterPhotos && j.afterPhotos.length) ? `<div style="font-size:11px;color:var(--stone);margin-bottom:6px;">AFTER</div><div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(72px, 1fr));gap:8px;">${j.afterPhotos.map(src => `<img src="${src}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--line);" />`).join('')}</div>` : ''}
+        </div>
+      ` : ''}
+      ${j.variations && j.variations.length ? `
+        <div class="detailcard" style="margin-top:14px;">
+          <h3 style="font-size:15px;margin-bottom:10px;">Variations</h3>
+          ${variationListHtml(j)}
+        </div>
+      ` : ''}
+      ${notifyBannerHtml()}
+      <div class="msgbox">
+        <h3>💬 Customer ↔ Contractor <span style="font-weight:400;color:var(--stone);">(visible to customer)</span></h3>
+        <div class="msglist" id="msgListPublic"></div>
+        <div class="msginput">
+          <input type="text" id="msgInputPublic" placeholder="Reply in this thread…" onkeydown="if(event.key==='Enter') sendMsg('messages')" />
+          <button class="btn btn-black" onclick="sendMsg('messages')">Send</button>
+        </div>
+      </div>
+      <div class="msgbox">
+        <h3>🔒 Admin ↔ Contractor <span style="font-weight:400;color:var(--stone);">(private — customer never sees this)</span></h3>
+        <div class="msglist" id="msgListPrivate"></div>
+        <div class="msginput">
+          <input type="text" id="msgInputPrivate" placeholder="e.g. request a document…" onkeydown="if(event.key==='Enter') sendMsg('internalMessages')" />
+          <button class="btn btn-black" onclick="sendMsg('internalMessages')">Send</button>
+        </div>
+      </div>
+    `;
+    renderThread(j, 'messages', 'msgListPublic');
+    renderThread(j, 'internalMessages', 'msgListPrivate');
+    wireNotifyButton();
+  }
+
+  function renderThread(j, key, listId) {
+    const list = document.getElementById(listId);
+    const msgs = j[key] || [];
+    if (msgs.length === 0) { list.innerHTML = '<div style="font-size:12px;color:var(--stone-light);">No messages yet.</div>'; return; }
+    list.innerHTML = msgs.map(m => `
+      <div class="msgbubble ${m.from === 'admin' ? 'mine' : 'theirs'}">
+        <div class="msgmeta">${m.from === 'admin' ? 'You (MySubbies)' : escapeHtml(m.authorName || m.from)}</div>
+        ${escapeHtml(m.text)}
+      </div>
+    `).join('');
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function sendMsg(key) {
+    const inputId = key === 'messages' ? 'msgInputPublic' : 'msgInputPrivate';
+    const input = document.getElementById(inputId);
+    const text = input.value.trim();
+    if (!text) return;
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === selectedJobId);
+    j[key] = j[key] || [];
+    j[key].push({ id: 'm_' + Date.now(), from: 'admin', authorName: 'MySubbies support', text, createdAt: new Date().toISOString() });
+    saveJobs(jobs);
+    input.value = '';
+    renderDetail();
+  }
+
+  function notifyBannerHtml() {
+    if (!('Notification' in window) || Notification.permission !== 'default') return '';
+    return `<div class="note" style="background:var(--paper);padding:10px 12px;border-radius:8px;margin-top:16px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--stone);"><span>Get a desktop alert on new messages (while this tab is open)</span><button id="notifyBtn" style="background:none;border:none;text-decoration:underline;font-size:12px;cursor:pointer;">Turn on</button></div>`;
+  }
+  function wireNotifyButton() {
+    const btn = document.getElementById('notifyBtn');
+    if (btn) btn.onclick = () => Notification.requestPermission().then(() => renderDetail());
+  }
+  function notify(text) {
+    if ('Notification' in window && Notification.permission === 'granted') new Notification('MySubbies admin', { body: text });
+  }
+  let lastAdminMsgCounts = {};
+  function checkForNewMessages() {
+    getJobs().forEach(j => {
+      ['messages', 'internalMessages'].forEach(key => {
+        const arr = j[key] || [];
+        const cacheKey = j.id + '_' + key;
+        const last = arr[arr.length - 1];
+        if (lastAdminMsgCounts[cacheKey] !== undefined && arr.length > lastAdminMsgCounts[cacheKey] && last && last.from !== 'admin') {
+          notify(`${j.category} — ${last.authorName || last.from}: ${last.text}`);
+        }
+        lastAdminMsgCounts[cacheKey] = arr.length;
+      });
+    });
+  }
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'mysubbies_jobs') {
+      checkForNewMessages();
+      // An unrelated job update from another tab must never replace the
+      // quote form while an admin is in the middle of typing.
+      if (!quoteBuilderOpen) render();
+    }
+  });
+  setInterval(checkForNewMessages, 3000);
+
+  // checkForNewMessages() above only ever sees what's already sitting in
+  // THIS browser's localStorage -- fine for job messages, since every
+  // portal syncs those on every save. It's blind to anything that
+  // originates purely server-side from a different device: a contractor's
+  // reply, a new application, a cancellation request, a disputed
+  // milestone. This is a real poll of the server every 25s, comparing the
+  // same "how many things need my attention" total the Action required
+  // panel already computes, and firing one real desktop notification when
+  // it goes up. Disputes/inquiries are still localStorage-only (no
+  // Supabase mirror -- a known, pre-existing gap) so they're read fresh
+  // from local storage same as always, not actually re-fetched here.
+  let lastKnownActionTotal = null;
+  async function pollForNewActivity() {
+    if (document.body.classList.contains('logged-out')) return; // not logged in yet -- nothing to poll for
+    if (quoteBuilderOpen) return; // never disturb a quote while the admin is typing
+    try {
+      await Promise.all([hydrateJobsFromServer(), hydrateApplicationsFromServer(), hydrateDisputesFromServer(), hydrateInquiriesFromServer()]);
+      const unreadRes = await adminFetch('/api/get-admin-list?type=unread-contractor-messages');
+      const unreadData = await unreadRes.json();
+      unreadContractorMessageCount = unreadData.contractorCount || 0;
+      messageThreadsData = null; // cheap to invalidate -- reloads next time that tab is opened
+
+      let milestoneCount = 0, scheduleCount = 0;
+      try {
+        const [mRes, sRes] = await Promise.all([
+          adminFetch('/api/get-admin-list?type=milestone-claims'),
+          adminFetch('/api/get-admin-list?type=pending-schedule-jobs'),
+        ]);
+        const [mData, sData] = await Promise.all([mRes.json(), sRes.json()]);
+        milestoneCount = (mData.milestones || []).length;
+        scheduleCount = (sData.schedules || []).length;
+        if (paymentTabData) { paymentTabData.disputedMilestones = mData.milestones || []; paymentTabData.pendingScheduleJobs = sData.schedules || []; }
+      } catch (e) { /* payment-schedule counts just won't update this cycle */ }
+
+      const freshJobs = getJobs();
+      const freshApps = getApplications();
+      const cancellationCount = freshJobs.filter(j => j.status === 'cancellation_requested').length;
+      const pendingAppCount = freshApps.filter(a => a.status === 'pending').length;
+      const openDisputeCount = getDisputes().filter(d => d.status === 'open').length;
+      const openInquiryCount = getInquiries().filter(i => i.status === 'open').length;
+      const freshTotal = cancellationCount + openDisputeCount + openInquiryCount + pendingAppCount + unreadContractorMessageCount + milestoneCount + scheduleCount;
+
+      if (lastKnownActionTotal !== null && freshTotal > lastKnownActionTotal) {
+        const delta = freshTotal - lastKnownActionTotal;
+        notify(`${delta} new item${delta === 1 ? '' : 's'} need${delta === 1 ? 's' : ''} your attention in MySubbies admin.`);
+      }
+      lastKnownActionTotal = freshTotal;
+      if (!quoteBuilderOpen) render();
+    } catch (e) { /* offline or transient -- next interval will catch up */ }
+  }
+  setInterval(pollForNewActivity, 25000);
+  pollForNewActivity();
+
+  // ---- Notification center (bell icon + panel, Sep 2026) ----
+  // See mysubbies-customer-portal.html for the matching implementation and
+  // comments (self-contained convention, no shared JS file). Separate from
+  // pollForNewActivity() above -- that one aggregates several existing
+  // localStorage/API sources into one "action required" count + desktop
+  // popup; this one is the real persistent inbox (api/notifications.js,
+  // supabase/schema_v13_notifications.sql) a bell icon reads. Admin's
+  // GET/markRead calls go through adminFetch since this role's feed is
+  // bearer-token gated (role=admin has no email to scope by).
+  let notifPanelOpen = false;
+  let notifItems = [];
+  let notifUnreadCount = 0;
+  async function pollNotifications() {
+    if (document.body.classList.contains('logged-out')) return;
+    try {
+      const res = await adminFetch('/api/notifications?role=admin');
+      if (!res.ok) return;
+      const data = await res.json();
+      notifItems = data.notifications || [];
+      notifUnreadCount = data.unreadCount || 0;
+      renderNotifBadge();
+      if (notifPanelOpen) renderNotifPanel();
+    } catch (e) { /* offline -- badge just stays as last known */ }
+  }
+  function renderNotifBadge() {
+    const badge = document.getElementById('notifBadge');
+    if (!badge) return;
+    if (notifUnreadCount > 0) { badge.textContent = notifUnreadCount > 9 ? '9+' : notifUnreadCount; badge.style.display = 'flex'; }
+    else { badge.style.display = 'none'; }
+  }
+  function toggleNotifPanel() {
+    notifPanelOpen = !notifPanelOpen;
+    const panel = document.getElementById('notifPanel');
+    if (!panel) return;
+    if (notifPanelOpen) { panel.style.display = 'block'; renderNotifPanel(); }
+    else { panel.style.display = 'none'; }
+  }
+  function renderNotifPanel() {
+    const panel = document.getElementById('notifPanel');
+    if (!panel) return;
+    panel.innerHTML = `
+      <div class="notif-panel-header">
+        <span>Notifications</span>
+        ${notifUnreadCount > 0 ? `<a onclick="markAllNotifsRead()">Mark all read</a>` : ''}
+      </div>
+      ${notifItems.length === 0 ? `<div class="notif-empty">No notifications yet.</div>` : notifItems.map(n => `
+        <button type="button" class="notif-item ${!n.readAt ? 'unread' : ''}" onclick="openNotif('${n.id}', '${n.eventType}', ${n.linkJobId ? `'${n.linkJobId}'` : 'null'})">
+          <div class="notif-item-title">${escapeHtml(n.title)}</div>
+          <div class="notif-item-body">${escapeHtml(n.body)}</div>
+          <div class="notif-item-time">${new Date(n.createdAt).toLocaleString('en-AU')}</div>
+        </button>
+      `).join('')}
+    `;
+  }
+  function markAllNotifsRead() {
+    adminFetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'markAllRead', role: 'admin' }) }).catch(() => {});
+    const now = new Date().toISOString();
+    notifItems.forEach(n => { n.readAt = n.readAt || now; });
+    notifUnreadCount = 0;
+    renderNotifBadge();
+    renderNotifPanel();
+  }
+  function openNotif(id, eventType, jobId) {
+    adminFetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'markRead', id, role: 'admin' }) }).catch(() => {});
+    const item = notifItems.find(n => n.id === id);
+    if (item && !item.readAt) { item.readAt = new Date().toISOString(); notifUnreadCount = Math.max(0, notifUnreadCount - 1); }
+    renderNotifBadge();
+    toggleNotifPanel();
+    if (jobId) { selectedJobId = jobId; render(); }
+    else if (eventType === 'contractor-application-submitted') { tab = 'applications'; render(); }
+  }
+  document.addEventListener('click', (e) => {
+    if (notifPanelOpen && !e.target.closest('.notif-panel') && !e.target.closest('.navlink-bell')) {
+      notifPanelOpen = false;
+      const p = document.getElementById('notifPanel');
+      if (p) p.style.display = 'none';
+    }
+  });
+  setInterval(pollNotifications, 25000);
+  pollNotifications();
+
+  // Approved contractors first (and ones covering this job's category
+  // floated to the top), so reassigning is a pick-from-list action instead
+  // of retyping a business name — which also fixes a real gap where the
+  // old free-text "Assign" never set contractorEmail, so the job never
+  // synced to that contractor's own device (see api/sync-jobs.js).
+  function approvedContractorOptions(j) {
+    const eligible = getApplications().filter(a => ['approved', 'preferred'].includes(a.status) && a.email !== (j.contractorEmail || ''));
+    eligible.sort((a, b) => {
+      const aMatch = toArr(a.trades).includes(j.category) ? 0 : 1;
+      const bMatch = toArr(b.trades).includes(j.category) ? 0 : 1;
+      return aMatch - bMatch || (a.business || '').localeCompare(b.business || '');
+    });
+    return eligible.map(a => `<option value="${escapeHtml(a.email)}" data-name="${escapeHtml(a.business)}">${escapeHtml(a.business)}${toArr(a.trades).includes(j.category) ? ' ✓ ' + escapeHtml(j.category) : ''}</option>`).join('');
+  }
+
+  function quickAssignJob(id, event) {
+    if (event) event.stopPropagation();
+    const select = document.getElementById('quickAssign-' + id);
+    const email = select && select.value;
+    if (!email) {
+      alert('Please select an approved contractor first.');
+      return;
+    }
+    const option = select.selectedOptions[0];
+    const name = option ? option.getAttribute('data-name') : '';
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === id);
+    if (!j) return;
+    j.contractor = name;
+    j.contractorEmail = email;
+    j.status = 'assigned';
+    saveJobs(jobs);
+    adminFetch('/api/admin-job-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId:id,action:'assign',contractorEmail:email,contractorName:name})}).catch(()=>{});
+    showToast('Job assigned to ' + name);
+    render();
+  }
+  function reassign(id) {
+    const select = document.getElementById('reassignSelect');
+    const email = select.value;
+    if (!email) return;
+    const name = select.selectedOptions[0].getAttribute('data-name');
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === id);
+    j.contractor = name;
+    j.contractorEmail = email;
+    j.status = 'assigned';
+    saveJobs(jobs);
+    adminFetch('/api/admin-job-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId:id,action:'assign',contractorEmail:email,contractorName:name})}).then(async r=>{if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||'Could not save assignment.');}}).catch(e=>alert(e.message));
+    render();
+  }
+
+  function unassign(id) {
+    if (!confirm('Unassign this job? It will go back to the open feed for matching contractors.')) return;
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === id);
+    j.contractor = null;
+    j.contractorEmail = null;
+    j.status = 'feed';
+    saveJobs(jobs);
+    adminFetch('/api/admin-job-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId:id,action:'unassign'})}).catch(()=>{});
+    render();
+  }
+
+  // A customer's cancellation request on an already-allocated job needs
+  // admin sign-off — the contractor is mid-engagement and shouldn't have
+  // work pulled out from under them by a self-service button.
+  // Real Stripe refund (Sept 2026) -- 90% of the deposit unless a later
+  // stage (materials onward) has already been paid, in which case the
+  // server takes no automated action and this just tells the admin to
+  // assess the actual cost manually. See api/process-cancellation-refund.js
+  // for the full policy and the server-side eligibility check (never
+  // trusts this client's payment-state read, only uses it to preview the
+  // outcome before confirming).
+  async function approveCancellation(id) {
+    if (!confirm('Approve this cancellation? If no stage beyond the deposit has been paid, 90% of the deposit will be refunded automatically (10% retained as a cancellation fee). The job will be marked cancelled and removed from the contractor\'s active jobs.')) return;
+    try {
+      const resp = await adminFetch('/api/process-cancellation-refund', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'admin-approve-cancellation', jobId: id, adminActorEmail: 'admin' }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) { alert(data.error || 'Could not process this cancellation.'); return; }
+      if (data.caseByCase) {
+        // The job is still cancelled either way (see api/process-cancellation-refund.js) --
+        // only the automatic refund itself didn't happen, for one of a few reasons.
+        if (data.reason === 'later_stage_paid') {
+          alert('Job cancelled. A later payment stage had already been paid, so no automatic refund was issued -- assess the actual cost incurred and process a manual refund via the Stripe dashboard.');
+        } else if (data.reason === 'refund_failed' || data.reason === 'no_payment_record') {
+          alert(`Job cancelled, but the deposit could not be refunded automatically (${data.refundError || 'unknown error'}). This can happen for a deposit paid before the site switched to live payments. Please check whether a manual refund is owed and process it via the Stripe dashboard.`);
+        } else {
+          alert('Job cancelled. No automatic refund was issued -- please check whether a manual refund is owed.');
+        }
+      } else {
+        alert(`Job cancelled and refunded $${(data.amountCents / 100).toFixed(2)} to the customer.`);
+      }
+    } catch (e) { alert('Could not reach the server to process this cancellation.'); return; }
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === id);
+    j.status = 'cancelled';
+    j.cancellationApprovedAt = new Date().toISOString();
+    saveJobs(jobs);
+    render();
+  }
+
+  function rejectCancellation(id) {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === id);
+    j.status = 'assigned';
+    j.cancellationRequestRejectedAt = new Date().toISOString();
+    saveJobs(jobs);
+    render();
+  }
+
+  // Direct admin cancel (Aug 2026) -- approveCancellation() above only
+  // fires once a customer or contractor has already requested one; this is
+  // for admin proactively cancelling a job on their own initiative (e.g.
+  // a job that's clearly gone stale), callable straight from the listing
+  // row rather than needing to open the job first. event.stopPropagation()
+  // keeps this from also triggering the row's own onclick (open job detail).
+  function adminCancelJob(id, event) {
+    if (event) event.stopPropagation();
+    if (!confirm('Cancel this job? This can\'t be undone.')) return;
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === id);
+    if (!j) return;
+    j.status = 'cancelled';
+    j.cancelledByAdminAt = new Date().toISOString();
+    saveJobs(jobs);
+    render();
+  }
+
+  function toggleEditJob() {
+    const wrap = document.getElementById('editJobWrap');
+    if (wrap.innerHTML) { wrap.innerHTML = ''; return; }
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === selectedJobId);
+    wrap.innerHTML = `
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--paper);">
+        <div style="font-size:12px;color:var(--stone);margin-bottom:2px;">Suburb</div>
+        <input type="text" id="editSuburb" value="${escapeHtml(j.suburb || '')}" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;" />
+        <div style="font-size:12px;color:var(--stone);margin-bottom:2px;">Address</div>
+        <input type="text" id="editAddress" value="${escapeHtml(j.address || '')}" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;" />
+        <div style="font-size:12px;color:var(--stone);margin-bottom:2px;">On site / access</div>
+        <input type="text" id="editSite" value="${escapeHtml(j.site || '')}" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;" />
+        <div style="font-size:12px;color:var(--stone);margin-bottom:2px;">Urgency</div>
+        <input type="text" id="editUrgency" value="${escapeHtml(j.urgency || '')}" style="width:100%;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:10px;" />
+        <button class="btn btn-black" onclick="saveEditJob('${j.id}')">Save changes</button>
+      </div>`;
+  }
+
+  function saveEditJob(id) {
+    const jobs = getJobs();
+    const j = jobs.find(x => x.id === id);
+    j.suburb = document.getElementById('editSuburb').value.trim();
+    j.address = document.getElementById('editAddress').value.trim();
+    j.site = document.getElementById('editSite').value.trim();
+    j.urgency = document.getElementById('editUrgency').value.trim();
+    saveJobs(jobs);
+    document.getElementById('editJobWrap').innerHTML = `<div style="font-size:12px;color:var(--good);margin-top:10px;">✓ Saved.</div>`;
+  }
+
+  checkAdminAuth();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
+ + (j.basePrice || 0).toLocaleString()}</td>
               <td>${!['cancelled', 'completed'].includes(j.status) ? `<button class="btn btn-danger" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="adminCancelJob('${j.id}', event)">Cancel</button>` : ''}</td>
             </tr>
           `;
