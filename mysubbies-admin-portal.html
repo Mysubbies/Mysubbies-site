@@ -6841,7 +6841,7 @@ function renderApplicationsTab(applications) {
   }
   function jobsTableHtml(jobs) {
     const badgeClass = { feed: 'badge-feed', assigned: 'badge-assigned', completed: 'badge-completed', cancellation_requested: 'badge-rejected', cancelled: 'badge-rejected' };
-    const badgeLabel = { feed: 'Awaiting contractor', assigned: 'Assigned', completed: 'Completed', cancellation_requested: 'Cancellation requested', cancelled: 'Cancelled' };
+    const badgeLabel = { quote_required: 'Quote required', feed: 'Awaiting contractor', assigned: 'Assigned', completed: 'Completed', cancellation_requested: 'Cancellation requested', cancelled: 'Cancelled' };
     return `
       <table>
         <thead><tr><th>#</th><th>Job</th><th>Suburb</th><th>Contractor</th><th>Status</th><th>Submitted</th><th>Value</th><th></th></tr></thead>
