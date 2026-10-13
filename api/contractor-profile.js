@@ -32,7 +32,7 @@ async function verifyContractorAuth(supabase, email, accessToken) {
   const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
   if (userErr || !userData || !userData.user) return { ok: false, error: 'Session expired — please log in again.' };
   const { data: contractor, error: cErr } = await supabase
-    .from('contractors').select('id, auth_user_id, email').eq('email', String(email).toLowerCase()).maybeSingle();
+    .from('contractors').select('id, auth_user_id, email, categories').eq('email', String(email).toLowerCase()).maybeSingle();
   if (cErr) throw cErr;
   if (!contractor) return { ok: false, error: 'No contractor account found for that email.' };
   if (!contractor.auth_user_id || contractor.auth_user_id !== userData.user.id) {
@@ -82,6 +82,7 @@ module.exports = async (req, res) => {
         // from his history, it reappears again"). Same jsonb-field pattern
         // as pausedNewOffers -- no schema migration needed.
         hiddenJobIds: Array.isArray(app.hiddenJobIds) ? app.hiddenJobIds : [],
+        additionalServiceRequest: app.additionalServiceRequest || '',
         payoutDetails: maskedPayoutDetails(contractor),
       });
     } catch (err) {
