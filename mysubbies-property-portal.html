@@ -365,21 +365,22 @@ function render(){
   </div>
   <div class="workbar">
     <div class="workbar-left"><div class="tabs"><button class="${state.view==='orders'?'active':''}" onclick="state.view='orders';render()">Work orders</button><button class="${state.view==='properties'?'active':''}" onclick="state.view='properties';render()">Properties</button></div></div>
-    ${state.view==='orders'?'<div class="workbar-tools"><input class="searchbox" value="'+esc(state.search)+'" placeholder="Search work orders…" oninput="state.search=this.value;render()"><select class="filterbox" onchange="state.statusFilter=this.value;render()"><option value="all" '+(state.statusFilter==='all'?'selected':'')+'>All status</option><option value="quote_required" '+(state.statusFilter==='quote_required'?'selected':'')+'>Quote required</option><option value="awaiting_approval" '+(state.statusFilter==='awaiting_approval'?'selected':'')+'>Awaiting approval</option><option value="ready_to_release" '+(state.statusFilter==='ready_to_release'?'selected':'')+'>Ready to release</option><option value="submitted_to_mysubbies" '+(state.statusFilter==='submitted_to_mysubbies'?'selected':'')+'>Submitted to MySubbies</option><option value="active" '+(state.statusFilter==='active'?'selected':'')+'>Active</option><option value="completed" '+(state.statusFilter==='completed'?'selected':'')+'>Completed</option><option value="cancelled" '+(state.statusFilter==='cancelled'?'selected':'')+'>Archived / cancelled</option></select></div>':'<div class="workbar-tools"><input class="searchbox property-search" value="'+esc(state.propertySearch||'')+'" placeholder="Search properties…" oninput="handlePropertySearch(this.value)"></div>'}  </div>
+    ${state.view==='orders'?'<div class="workbar-tools"><input class="searchbox" value="'+esc(state.search)+'" placeholder="Search work orders…" oninput="state.search=this.value;render()"><select class="filterbox" onchange="state.statusFilter=this.value;render()"><option value="all" '+(state.statusFilter==='all'?'selected':'')+'>All status</option><option value="quote_required" '+(state.statusFilter==='quote_required'?'selected':'')+'>Quote required</option><option value="awaiting_approval" '+(state.statusFilter==='awaiting_approval'?'selected':'')+'>Awaiting approval</option><option value="ready_to_release" '+(state.statusFilter==='ready_to_release'?'selected':'')+'>Ready to release</option><option value="submitted_to_mysubbies" '+(state.statusFilter==='submitted_to_mysubbies'?'selected':'')+'>Submitted to MySubbies</option><option value="active" '+(state.statusFilter==='active'?'selected':'')+'>Active</option><option value="completed" '+(state.statusFilter==='completed'?'selected':'')+'>Completed</option><option value="cancelled" '+(state.statusFilter==='cancelled'?'selected':'')+'>Archived / cancelled</option></select></div>':'<div class="workbar-tools"><input class="searchbox property-search" value="'+esc(state.propertySearch||'')+'" placeholder="Search properties…" oninput="handlePropertySearch(this.value,this)"></div>'}  </div>
   ${state.view==='properties'?propertiesHtml():ordersHtml()}`;
   updatePropertyNotifications();
 }
-function handlePropertySearch(value){
+function handlePropertySearch(value, input){
   state.propertySearch=value;
-  const input=document.querySelector('.property-search');
-  const cursor=input ? input.selectionStart : value.length;
+  const cursor=input && input.selectionStart != null ? input.selectionStart : value.length;
   render();
-  const next=document.querySelector('.property-search');
-  if(next){
-    next.focus();
-    const pos=Math.min(cursor==null?value.length:cursor,next.value.length);
-    try{next.setSelectionRange(pos,pos);}catch(e){}
-  }
+  requestAnimationFrame(() => {
+    const next=document.querySelector('.property-search');
+    if(next){
+      next.focus();
+      const pos=Math.min(cursor==null?value.length:cursor,next.value.length);
+      try{next.setSelectionRange(pos,pos);}catch(e){}
+    }
+  });
 }
 function propertiesHtml(){
   let rows=state.data.properties||[];
