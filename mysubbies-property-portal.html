@@ -153,10 +153,24 @@ async function finishGuestBooking(){
     state.view='orders';render();
   }catch(e){renderGuestBooking('Your account is ready, but the maintenance job could not be submitted yet. Please try again: '+e.message);}
 }
+function backToGuestBooking(){
+  const raw=localStorage.getItem('mysubbies_pm_guest_booking');
+  renderGuestBooking();
+  if(!raw)return;
+  try{
+    const d=JSON.parse(raw);
+    const set=(id,value)=>{const el=document.getElementById(id);if(el&&value!=null)el.value=value;};
+    set('guestAddress',d.address); set('guestCategory',d.category);
+    guestCategoryChanged(); set('guestTask',d.task); set('guestQty',d.qty||1);
+    set('guestDescription',d.description||''); set('guestPriority',d.priority||'normal'); set('guestDate',d.requestedCompletionDate||'');
+    guestEstimateNow();
+  }catch(e){}
+}
 function renderAuth(message){
   document.getElementById('logoutBtn').style.display='none';document.getElementById('navOrg').textContent='';
   const register=state.authMode==='register';
   app.innerHTML=`<div class="loginwrap"><div class="loginbox">
+    ${localStorage.getItem('mysubbies_pm_guest_booking') ? '<button class="btn btn-outline" style="width:100%;margin-bottom:14px;text-align:left;" onclick="backToGuestBooking()">← Back to booking</button>' : ''}
     <h1>Property & Facilities Portal</h1><p>Manage your properties and maintenance in one place.</p>
     <div class="auth-tabs">
       <button class="${state.authMode==='login'?'active':''}" onclick="state.authMode='login';renderAuth()">Log in</button>
