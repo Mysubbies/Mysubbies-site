@@ -111,10 +111,51 @@ async function resolveSide(address, lat, lon) {
   return geocode(address);
 }
 
+async function placesAutocomplete(query) {
+  const key = String(process.env.GOOGLE_PLACES_SERVER_API_KEY || '').trim();
+  if (!key) throw new Error('Google Places server key is not configured.');
+  const response = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask': 'suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat'
+    },
+    body: JSON.stringify({
+      input: String(query || '').trim(),
+      includedRegionCodes: ['au']
+    })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error && data.error.message ? data.error.message : 'Google Places autocomplete failed.');
+  return (data.suggestions || []).map(s => {
+    const p = s.placePrediction || {};
+    return {
+      placeId: p.placeId || '',
+      description: p.text && p.text.text ? p.text.text : '',
+      mainText: p.structuredFormat && p.structuredFormat.mainText ? p.structuredFormat.mainText.text : '',
+      secondaryText: p.structuredFormat && p.structuredFormat.secondaryText ? p.structuredFormat.secondaryText.text : ''
+    };
+  }).filter(x => x.description);
+}
+
 module.exports = async (req, res) => {
   // The Google Maps browser key is intentionally public, but it is supplied
   // from environment configuration so each Vercel environment can use a
   // separately domain-restricted key. Never put a server key here.
+  if (req.method === 'GET' && req.query && req.query.action === 'places-autocomplete') {
+    try {
+      const q = String(req.query.q || '').trim();
+      if (q.length < 2) { res.status(200).json({ suggestions: [] }); return; }
+      const suggestions = await placesAutocomplete(q);
+      res.setHeader('Cache-Control', 'private, max-age=30');
+      res.status(200).json({ suggestions });
+    } catch (e) {
+      console.error('places autocomplete error:', e);
+      res.status(502).json({ error: e.message || 'Google Places autocomplete failed.' });
+    }
+    return;
+  }
   if (req.method === 'GET' && req.query && req.query.config === 'places') {
     res.setHeader('Cache-Control', 'private, max-age=300');
     const browserKey = String(process.env.GOOGLE_MAPS_BROWSER_API_KEY || '').trim();
