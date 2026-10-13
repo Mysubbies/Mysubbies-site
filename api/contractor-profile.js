@@ -32,7 +32,7 @@ async function verifyContractorAuth(supabase, email, accessToken) {
   const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
   if (userErr || !userData || !userData.user) return { ok: false, error: 'Session expired — please log in again.' };
   const { data: contractor, error: cErr } = await supabase
-    .from('contractors').select('id, auth_user_id, email').eq('email', String(email).toLowerCase()).maybeSingle();
+    .from('contractors').select('id, auth_user_id, email, categories').eq('email', String(email).toLowerCase()).maybeSingle();
   if (cErr) throw cErr;
   if (!contractor) return { ok: false, error: 'No contractor account found for that email.' };
   if (!contractor.auth_user_id || contractor.auth_user_id !== userData.user.id) {
@@ -82,6 +82,7 @@ module.exports = async (req, res) => {
         // from his history, it reappears again"). Same jsonb-field pattern
         // as pausedNewOffers -- no schema migration needed.
         hiddenJobIds: Array.isArray(app.hiddenJobIds) ? app.hiddenJobIds : [],
+        additionalServiceRequest: app.additionalServiceRequest || '',
         payoutDetails: maskedPayoutDetails(contractor),
       });
     } catch (err) {
@@ -195,6 +196,13 @@ module.exports = async (req, res) => {
     const columnUpdate = { updated_at: new Date().toISOString() };
     if (typeof body.phone === 'string') columnUpdate.phone = body.phone.trim();
     if (typeof body.businessName === 'string' && body.businessName.trim()) columnUpdate.business_name = body.businessName.trim();
+    if (Array.isArray(body.categories)) {
+      // Contractors can manage which of their already-approved services they
+      // want to receive. They cannot self-approve a brand-new trade.
+      const approved = Array.isArray(auth.contractor.categories) ? auth.contractor.categories : [];
+      const requested = body.categories.filter(v => typeof v === 'string' && v.trim()).map(v => v.trim());
+      columnUpdate.categories = [...new Set(requested)].filter(v => approved.includes(v));
+    }
 
     const { data: currentRow } = await supabase.from('contractors').select('full_application').eq('id', auth.contractor.id).maybeSingle();
     const mergedApp = { ...(currentRow && currentRow.full_application) };
@@ -205,6 +213,11 @@ module.exports = async (req, res) => {
     if (Array.isArray(body.suburbs)) mergedApp.suburbs = [...(mergedApp.regions || []), ...body.suburbs.filter(v => typeof v === 'string' && v.trim()).map(v => v.trim()).slice(0, 100)];
     if (typeof body.profilePhoto === 'string') mergedApp.profilePhoto = body.profilePhoto;
     if (typeof body.pausedNewOffers === 'boolean') mergedApp.pausedNewOffers = body.pausedNewOffers;
+    if (Array.isArray(body.availability)) mergedApp.availability = body.availability.filter(v => typeof v === 'string' && v.trim()).map(v => v.trim()).slice(0, 20);
+    if (typeof body.additionalServiceRequest === 'string') {
+      const request = body.additionalServiceRequest.trim().slice(0, 1000);
+      if (request) mergedApp.additionalServiceRequest = request;
+    }
     if (Array.isArray(body.hiddenJobIds)) mergedApp.hiddenJobIds = body.hiddenJobIds.filter(id => typeof id === 'string');
     columnUpdate.full_application = mergedApp;
 
@@ -214,6 +227,9 @@ module.exports = async (req, res) => {
     const changedFields = [];
     if (typeof body.phone === 'string') changedFields.push('contact phone');
     if (typeof body.businessName === 'string') changedFields.push('business name');
+    if (Array.isArray(body.categories)) changedFields.push('service preferences');
+    if (Array.isArray(body.availability)) changedFields.push('availability');
+    if (typeof body.additionalServiceRequest === 'string' && body.additionalServiceRequest.trim()) changedFields.push('additional service request');
     if (typeof body.contactName === 'string') changedFields.push('contact name');
     if (typeof body.licence === 'string') changedFields.push('licence information');
     if (typeof body.insurer === 'string') changedFields.push('insurance information');
@@ -221,7 +237,7 @@ module.exports = async (req, res) => {
     if (changedFields.length) {
       await notifyContractor(supabase, { email: auth.contractor.email, eventType: 'contractor-profile-updated',
         title: 'Profile updated', body: `Your ${changedFields.join(', ')} ${changedFields.length === 1 ? 'was' : 'were'} updated.` });
-      const reviewFields = changedFields.filter(field => /licence|insurance|business name/.test(field));
+      const reviewFields = changedFields.filter(field => /licence|insurance|business name|additional service request/.test(field));
       if (reviewFields.length) await notifyAdmin(supabase, { eventType: 'contractor-sensitive-profile-updated',
         title: 'Contractor profile change requires review', body: `${auth.contractor.email} updated ${reviewFields.join(' and ')}.` });
     }
