@@ -35,8 +35,15 @@ module.exports=async function handler(req,res){
     const requestedService=clean(b.requestedService,180);
     if(!email||!requestedService){res.status(400).json({error:'Email and requested service are required.'});return;}
     try{
+      let campaignId = null;
+      const rawCampaignId = clean(b.campaignId,80);
+      if (rawCampaignId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rawCampaignId)) {
+        const campaignLookup = await s.from('marketing_campaigns').select('id').eq('id', rawCampaignId).maybeSingle();
+        if (campaignLookup.error) throw campaignLookup.error;
+        if (campaignLookup.data) campaignId = campaignLookup.data.id;
+      }
       const row={
-        campaign_id:clean(b.campaignId,80)||null,
+        campaign_id:campaignId,
         campaign_name:clean(b.campaignName,180)||null,
         requested_service:requestedService,
         business_name:clean(b.businessName,180)||null,
