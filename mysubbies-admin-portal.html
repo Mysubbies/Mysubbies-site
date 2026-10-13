@@ -1444,6 +1444,18 @@
   // rebuilds the table via innerHTML on every keystroke, same as everywhere
   // else in this codebase, which would normally drop focus/cursor out from
   // under the input -- restored manually here instead.
+  function liveSearchInput(variableName, value, el) {
+    const cursorPos = el && el.selectionStart != null ? el.selectionStart : value.length;
+    if (variableName === 'leadSearchQuery') leadSearchQuery = value;
+    else if (variableName === 'customerSearchQuery') customerSearchQuery = value;
+    else if (variableName === 'contractorSearchQuery') contractorSearchQuery = value;
+    render();
+    requestAnimationFrame(() => {
+      const next = document.querySelector('[data-live-search="' + variableName + '"]');
+      if (next) { next.focus(); try { next.setSelectionRange(cursorPos, cursorPos); } catch (e) {} }
+    });
+  }
+
   function onJobSearchInput(el) {
     const cursorPos = el.selectionStart;
     jobSearchQuery = el.value;
@@ -2362,10 +2374,16 @@ function openManualProspect(kind, seed) {
     if (tab === 'marketing') render();
   }
   function setMarketingView(view){marketingView=view;render();}
-  function setMarketingContactFilter(kind,value){
+  function setMarketingContactFilter(kind,value,el){
     if(kind==='segment')marketingContactSegmentFilter=value||'';
     if(kind==='area')marketingContactAreaFilter=String(value||'').trim();
     if(kind==='search')marketingContactSearchFilter=String(value||'').trim();
+    if(kind==='search'){
+      const cursor=el&&el.selectionStart!=null?el.selectionStart:String(value||'').length;
+      render();
+      requestAnimationFrame(()=>{const next=document.querySelector('[data-marketing-contact-search]');if(next){next.focus();const pos=Math.min(cursor,next.value.length);try{next.setSelectionRange(pos,pos);}catch(e){}}});
+      return;
+    }
     render();
   }
   function clearMarketingContactFilters(){
@@ -2781,7 +2799,7 @@ function openManualProspect(kind, seed) {
         '<div style="display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:8px;margin-top:12px;">'+
           '<select class="fieldinput" onchange="setMarketingContactFilter(\'segment\',this.value)"><option value="">All industries</option>'+MARKETING_SEGMENTS.map(function(s){return '<option value="'+s[0]+'" '+(marketingContactSegmentFilter===s[0]?'selected':'')+'>'+escapeHtml(s[1])+'</option>';}).join('')+'</select>'+
           '<select class="fieldinput" onchange="setMarketingContactFilter(\'area\',this.value)"><option value="">All areas</option>'+areaValues.map(function(a){return '<option value="'+escapeHtml(a)+'" '+(marketingContactAreaFilter===a?'selected':'')+'>'+escapeHtml(a)+'</option>';}).join('')+'</select>'+
-          '<input class="fieldinput" value="'+escapeHtml(marketingContactSearchFilter)+'" placeholder="Search business, email, phone or suburb" oninput="setMarketingContactFilter(\'search\',this.value)">'+
+          '<input class="fieldinput" value="'+escapeHtml(marketingContactSearchFilter)+'" placeholder="Search business, email, phone or suburb" data-marketing-contact-search oninput="setMarketingContactFilter(\'search\',this.value,this)">'+
         '</div></div>'+
         '<div class="detailcard" style="max-width:none;overflow:auto;"><table><thead><tr><th>Business</th><th>Contact</th><th>Consent basis</th><th>Marketing</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+(rows?'':'<div class="empty">No prospects match these filters.</div>')+'</div>';
     }
@@ -3945,7 +3963,7 @@ function openManualProspect(kind, seed) {
         const label = stage === 'all' ? 'All' : stage.replaceAll('_', ' ').toLowerCase().replace(/^./, c => c.toUpperCase());
         return `<button onclick="leadsStageFilter='${stage}';render();" style="padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;border:1.5px solid ${active ? 'var(--ink)' : 'var(--line)'};background:${active ? 'var(--ink)' : '#fff'};color:${active ? '#fff' : 'var(--ink)'};cursor:pointer;">${label} (${count})</button>`;
       }).join('')}</div>
-      <input class="searchbox" placeholder="Search name, contact, service, suburb or campaign…" value="${escapeHtml(leadSearchQuery)}" oninput="leadSearchQuery=this.value;render();">
+      <input class="searchbox" placeholder="Search name, contact, service, suburb or campaign…" value="${escapeHtml(leadSearchQuery)}" data-live-search="leadSearchQuery" oninput="liveSearchInput('leadSearchQuery',this.value,this);">
       ${rows.length === 0 ? '<div class="empty">No leads match these filters.</div>' : `<div class="tablewrap"><table><thead><tr><th>Customer</th><th>Service</th><th>Suburb</th><th>Source</th><th>Campaign</th><th>Stage</th><th>Created</th></tr></thead><tbody>${rows.map(lead => `<tr><td><strong>${escapeHtml(lead.name || '(no name)')}</strong><br><span style="font-size:11.5px;color:var(--stone);">${escapeHtml(lead.email || '')}${lead.mobile ? ' · ' + escapeHtml(lead.mobile) : ''}</span></td><td>${escapeHtml(lead.requested_service || '—')}</td><td>${escapeHtml(lead.suburb || '—')}</td><td>${escapeHtml(lead.utm_source || lead.source || 'direct')}</td><td>${escapeHtml(lead.utm_campaign || '—')}</td><td><span class="badge">${escapeHtml((lead.stage || 'NEW').replaceAll('_', ' '))}</span></td><td>${lead.created_at ? new Date(lead.created_at).toLocaleDateString('en-AU') : '—'}</td></tr>`).join('')}</tbody></table></div>`}
     `;
   }
@@ -3998,7 +4016,7 @@ function openManualProspect(kind, seed) {
       <h1 class="pagetitle">Customers</h1>
       <p class="pagesub">${all.length} account${all.length === 1 ? '' : 's'} total. Deactivating blocks login on this and any other device — it doesn't touch their job history.</p>
       ${customersStatusFilterChipsHtml(all)}
-      <input class="searchbox" placeholder="Search by name or email…" value="${escapeHtml(customerSearchQuery)}" oninput="customerSearchQuery=this.value; render();" />
+      <input class="searchbox" placeholder="Search by name or email…" value="${escapeHtml(customerSearchQuery)}" data-live-search="customerSearchQuery" oninput="liveSearchInput('customerSearchQuery',this.value,this);" />
       ${rows.length === 0 ? '<div class="empty">No customers match.</div>' : rows.map(c => `
         <div class="detailcard" style="max-width:640px;margin-bottom:14px;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
@@ -5486,7 +5504,7 @@ function openManualProspect(kind, seed) {
         <button type="button" class="btn btn-black" onclick="reviewContractorActivationBackfill()">Review welcome emails →</button>
       </div>` : ''}
       ${contractorsStatusFilterChipsHtml(all)}
-      <input class="searchbox" placeholder="Search by business, contact or email…" value="${escapeHtml(contractorSearchQuery)}" oninput="contractorSearchQuery=this.value; render();" />
+      <input class="searchbox" placeholder="Search by business, contact or email…" value="${escapeHtml(contractorSearchQuery)}" data-live-search="contractorSearchQuery" oninput="liveSearchInput('contractorSearchQuery',this.value,this);" />
       ${approvedCount > 0 ? `
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:14px 0;max-width:640px;">
           <div style="font-size:12.5px;color:var(--stone);">

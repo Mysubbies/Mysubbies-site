@@ -896,8 +896,10 @@
     const cursorPos = el.selectionStart;
     jobSearchQuery = el.value;
     render();
-    const newEl = document.getElementById('jobSearchInput');
-    if (newEl) { newEl.focus(); newEl.setSelectionRange(cursorPos, cursorPos); }
+    requestAnimationFrame(() => {
+      const newEl = document.getElementById('jobSearchInput');
+      if (newEl) { newEl.focus(); try { newEl.setSelectionRange(cursorPos, cursorPos); } catch (e) {} }
+    });
   }
   function jobMatchesSearch(j, rawQuery) {
     const q = rawQuery.trim().toLowerCase();
