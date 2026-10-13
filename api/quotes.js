@@ -413,6 +413,10 @@ async function handleSendInvoice(req, res, supabase) {
     .select('quote_line_key,quote_line_description,quoted_amount_cents,invoiced_amount_cents,progress_percentage')
     .eq('invoice_id', invoice.id).order('created_at');
   if (lineAllocationError && !['42P01','PGRST205'].includes(String(lineAllocationError.code || ''))) throw lineAllocationError;
+  const { data: invoicePayments, error: invoicePaymentsError } = await supabase.from('invoice_payments').select('amount_cents').eq('invoice_id', invoice.id);
+  if (invoicePaymentsError) throw invoicePaymentsError;
+  const paidCents = (invoicePayments || []).reduce((sum, payment) => sum + Number(payment.amount_cents || 0), 0);
+  const emailInvoice = { ...invoice, paid_cents: paidCents, balance_due_cents: Math.max(0, Number(invoice.total_inc_gst_cents || 0) - paidCents) };
   const now = new Date();
   await supabase.from('document_access_tokens').update({ revoked_at: now.toISOString() }).eq('document_type', 'invoice').eq('document_id', invoice.id).is('revoked_at', null);
   const rawToken = generateToken();
@@ -421,7 +425,7 @@ async function handleSendInvoice(req, res, supabase) {
   if (tokenError) throw tokenError;
   const url = `${invoiceBaseUrl()}?token=${encodeURIComponent(rawToken)}`;
   const { recommendations } = version ? await loadRecommendations(supabase, version) : { recommendations: [] };
-  const result = await sendEmailWithResult({ to: email, bcc: 'accounts@mysubbies.com.au', subject: `Tax invoice INV-${invoice.invoice_number} — MySubbies`, html: renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl: url, lineAllocations: lineAllocations || [], recommendations }) });
+  const result = await sendEmailWithResult({ to: email, bcc: 'accounts@mysubbies.com.au', subject: `Tax invoice INV-${invoice.invoice_number} — MySubbies`, html: renderInvoiceEmail({ invoice: emailInvoice, quote, version, secureInvoiceUrl: url, lineAllocations: lineAllocations || [], recommendations }) });
   if (!result.ok) { res.status(502).json({ error: result.error, url }); return; }
   const invoiceUpdate = { sent_at: now.toISOString(), updated_at: now.toISOString() };
   if (invoice.status === 'issued') invoiceUpdate.status = 'sent';
