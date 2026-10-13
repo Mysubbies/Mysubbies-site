@@ -128,7 +128,11 @@ async function runGuestEstimate(){
 async function continueGuestBooking(){
   const address=document.getElementById('guestAddress').value.trim(),category=document.getElementById('guestCategory').value,task=document.getElementById('guestTask').value,qty=Number(document.getElementById('guestQty').value),description=document.getElementById('guestDescription').value.trim();
   const err=document.getElementById('guestBookError');
-  if(!address||!category||!task||!qty||!description){if(err)err.innerHTML='<div class="error">Please complete the property address, service and description.</div>';return;}
+  const taskObj=(((state.catalog||{}).categories||[]).find(c=>c.category===category)?.tasks||[]).find(t=>t.name===task);
+  const isProjectQuote=taskObj && taskObj.serviceMode==='project_quote';
+  if(!address||!category||!task||!qty){if(err)err.innerHTML='<div class="error">Please complete the property address, service and quantity.</div>';return;}
+  if(isProjectQuote && !description){if(err)err.innerHTML='<div class="error">Please describe the project so MySubbies can prepare the quote.</div>';return;}
+  if(!description){document.getElementById('guestDescription').value=task;}
   const files=Array.from(document.getElementById('guestFiles').files||[]).slice(0,4);
   const attachments=[];
   for(const f of files){try{attachments.push(await fileToAttachment(f));}catch(e){if(err)err.innerHTML='<div class="error">One of the selected files could not be prepared.</div>';return;}}
