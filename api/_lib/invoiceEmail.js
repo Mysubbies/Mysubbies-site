@@ -112,6 +112,11 @@ function absoluteUrl(value, secureInvoiceUrl) {
 }
 
 function renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl, lineAllocations = [], recommendations = [] }) {
+  const totalCents = Number(invoice.total_inc_gst_cents || 0);
+  const paidCents = Math.max(0, Number(invoice.paid_cents ?? invoice.paid_amount_cents ?? 0));
+  const creditedCents = Math.max(0, Number(invoice.credited_cents ?? invoice.credit_applied_cents ?? 0));
+  const balanceCents = Math.max(0, Number(invoice.balance_due_cents ?? invoice.balance_remaining_cents ?? (totalCents - paidCents - creditedCents)));
+  const appliedCents = Math.max(0, totalCents - balanceCents);
   const customer = invoice.customer_snapshot || {};
   const firstName = String(customer.name || '').trim().split(/\s+/)[0] || 'there';
   const isProgressInvoice = Array.isArray(lineAllocations) && lineAllocations.length > 0;
@@ -149,12 +154,12 @@ function renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl, lineAll
             ${!isProgressInvoice && version && version.scope_text ? `<div style="margin-top:14px;font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Scope</div><div style="margin-top:5px;font-size:13px;line-height:20px;color:#14213D;">${escapeHtml(version.scope_text).replace(/\r\n?|\n/g, '<br>')}</div>` : ''}
             ${!isProgressInvoice && version && version.inclusions_text ? `<div style="margin-top:14px;font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Inclusions</div><div style="margin-top:5px;font-size:13px;line-height:20px;color:#14213D;">${escapeHtml(version.inclusions_text).replace(/\r\n?|\n/g, '<br>')}</div>` : ''}
             <div style="margin-top:18px;padding-top:15px;border-top:1px solid #D7D9DD;">
-              <div style="font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Amount due on this invoice</div>
+              <div style="font-size:12px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Balance remaining on this invoice</div>
               <div style="margin-top:6px;font-size:28px;line-height:34px;font-weight:800;color:#14213D;">${money(invoice.total_inc_gst_cents)}</div>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
                 <tr><td style="padding:3px 0;font-size:12px;color:#6B7280;">Subtotal (ex. GST)</td><td align="right" style="padding:3px 0;font-size:12px;color:#4B5563;">${money(invoice.subtotal_ex_gst_cents)}</td></tr>
                 <tr><td style="padding:3px 0;font-size:12px;color:#6B7280;">GST (10%)</td><td align="right" style="padding:3px 0;font-size:12px;color:#4B5563;">${money(invoice.gst_cents)}</td></tr>
-                <tr><td style="padding:9px 0 2px;border-top:1px solid #D7D9DD;font-size:14px;font-weight:800;color:#14213D;">Total (inc. GST)</td><td align="right" style="padding:9px 0 2px;border-top:1px solid #D7D9DD;font-size:20px;line-height:25px;font-weight:800;color:#14213D;">${money(invoice.total_inc_gst_cents)}</td></tr>
+                <tr><td style="padding:9px 0 2px;border-top:1px solid #D7D9DD;font-size:14px;font-weight:800;color:#14213D;">Invoice total (inc. GST)</td><td align="right" style="padding:9px 0 2px;border-top:1px solid #D7D9DD;font-size:20px;line-height:25px;font-weight:800;color:#14213D;">${money(totalCents)}</td></tr>\n                <tr><td>Payments and credits applied</td><td align="right">${money(appliedCents)}</td></tr>\n                <tr><td><strong>Balance remaining</strong></td><td align="right"><strong>${money(balanceCents)}</strong></td></tr>
               </table>
             </div>
           </td></tr>
@@ -170,7 +175,7 @@ function renderInvoiceEmail({ invoice, quote, version, secureInvoiceUrl, lineAll
               Reference: INV-${escapeHtml(invoice.invoice_number)}
             </div>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:13px;">
-              <tr><td style="padding:3px 0;font-size:12px;color:#6B7280;">Amount due</td><td align="right" style="padding:3px 0;font-size:14px;font-weight:800;color:#14213D;">${money(invoice.total_inc_gst_cents)}</td></tr>
+              <tr><td style="padding:3px 0;font-size:12px;color:#6B7280;">Balance due</td><td align="right" style="padding:3px 0;font-size:14px;font-weight:800;color:#14213D;">${money(balanceCents)}</td></tr>
               <tr><td style="padding:3px 0;font-size:12px;color:#6B7280;">Due date</td><td align="right" style="padding:3px 0;font-size:12px;font-weight:700;color:#14213D;">${new Date(invoice.due_at).toLocaleDateString('en-AU')}</td></tr>
             </table>
             <div style="margin-top:12px;padding-top:11px;border-top:1px solid #E7D8B8;font-size:11px;line-height:17px;color:#6B7280;">For security, use the bank details shown in this email or your secure MySubbies invoice. If you ever receive changed bank details, verify them with MySubbies before making payment.</div>
