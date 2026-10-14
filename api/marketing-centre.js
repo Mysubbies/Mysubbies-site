@@ -3,6 +3,7 @@ const { requireAdmin } = require('./_lib/adminAuth');
 const { sendEmailWithResult, escapeHtml, emailButton } = require('./_lib/email');
 const { runRegulationWatch } = require('./_lib/regulationWatch');
 const { generateDailyMarketingSuggestions } = require('./_lib/dailyMarketingSuggestions');
+const { generateCampaignHero } = require('./_lib/campaignHero');
 
 function clean(v,n){return String(v||'').trim().slice(0,n||5000);}
 function validEmail(v){const x=clean(v,254).toLowerCase();return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)?x:'';}
@@ -218,6 +219,18 @@ module.exports=async function handler(req,res){
     if(req.method==='POST'&&action==='scan_regulations'){
       const result=await runRegulationWatch(s);
       res.status(200).json(result);return;
+    }
+    if(req.method==='POST'&&action==='generate_campaign_image'){
+      const id=clean(req.body&&req.body.id,80);
+      if(!id){res.status(400).json({error:'Campaign id required'});return;}
+      const found=await s.from('marketing_campaigns').select('*').eq('id',id).maybeSingle();
+      if(found.error)throw found.error;
+      if(!found.data){res.status(404).json({error:'Campaign not found'});return;}
+      if(['sent','archived'].includes(found.data.status)){res.status(409).json({error:'Campaign cannot be edited'});return;}
+      const url=await generateCampaignHero(s,found.data);
+      const updated=await s.from('marketing_campaigns').update({image_url:url,updated_at:new Date().toISOString()}).eq('id',id).select('*').single();
+      if(updated.error)throw updated.error;
+      res.status(200).json({campaign:updated.data});return;
     }
     if(req.method==='POST'&&action==='generate_daily_suggestions'){
       const result=await generateDailyMarketingSuggestions(s,{force:!!(req.body&&req.body.force)});
