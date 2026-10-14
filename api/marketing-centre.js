@@ -306,6 +306,12 @@ module.exports=async function handler(req,res){
     res.status(400).json({error:'Unsupported Marketing Centre action.'});
   }catch(e){
     console.error('marketing centre error',e);
-    res.status(500).json({error:'Marketing Centre request failed. The Growth Marketing schema may still need to be applied in Supabase.'});
+    const heroAction=String(req.query&&req.query.action||'')==='generate_campaign_image';
+    const message=String(e&&e.message||'');
+    const heroError=message.includes('OPENAI_API_KEY')?'Image generation is not configured: add OPENAI_API_KEY to Vercel.':
+      message.includes('Image storage failed')?'Image storage is not configured. Create the public marketing-images Supabase Storage bucket.':
+      message.includes('Image generation failed')?'AI image generation failed. Check the OpenAI API key, account access and billing.':
+      'Campaign image could not be generated. Check Vercel function logs.';
+    res.status(500).json({error:heroAction?heroError:'Marketing Centre request failed. The Growth Marketing schema may still need to be applied in Supabase.'});
   }
 };
