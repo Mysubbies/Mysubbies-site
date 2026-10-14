@@ -2532,6 +2532,16 @@ function openManualProspect(kind, seed) {
     const d=await r.json();if(!r.ok){alert(d.error||'Contact could not be updated.');return;}
     closeCrmModal();await refreshMarketing();
   }
+  async function generateMarketingHero(id) {
+    if (!id) return;
+    const r = await adminFetch('/api/marketing-centre?action=generate_campaign_image', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})
+    });
+    const d = await r.json();
+    if (!r.ok) { alert(d.error || 'Image generation failed'); return; }
+    await refreshMarketing();
+    openMarketingCampaign(id);
+  }
   function openMarketingCampaign(id,seed){
     const existing=id?((marketingData&&marketingData.campaigns)||[]).find(function(x){return x.id===id;}):null;
     const x=existing||seed||{};
@@ -2550,6 +2560,7 @@ function openManualProspect(kind, seed) {
       '<label>CTA / booking URL<input id="mktCampaignUrl" value="'+escapeHtml(x.booking_url||'https://www.mysubbies.com.au/mysubbies-property-managers.html')+'"></label>'+
       '<label>Service category<input id="mktCampaignService" value="'+escapeHtml(x.service_category||'Property Maintenance')+'"></label>'+
       '<label class="full">Hero image URL <span style="font-weight:400;color:var(--stone);">(optional, shown inside email)</span><input id="mktCampaignImage" value="'+escapeHtml(x.image_url||'')+'" placeholder="Optional image shown inside the email"></label>'+
+      (existing ? '<div class="full"><button class="btn btn-outline" onclick="generateMarketingHero(\'' + existing.id + '\')">Generate AI hero photo</button></div>' : '') +
       '</div>'+
       '<div style="margin-top:12px;padding:10px 12px;border-radius:9px;background:#F5F7FA;font-size:12px;color:var(--stone);"><strong style="color:var(--ink);">Email campaign:</strong> prospects receive the message directly in the email with a clickable CTA button. New campaigns save as <strong>Ready for review</strong> before one-click sending.</div>'+
       '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;"><button class="btn btn-outline" onclick="closeCrmModal()">Cancel</button><button class="btn btn-black" onclick="saveMarketingCampaign(\''+(existing?existing.id:'')+'\',\''+(x.regulation_id||'')+'\')">Save campaign</button></div>');
@@ -2808,9 +2819,9 @@ function openManualProspect(kind, seed) {
       const todayIdeas=campaigns.filter(function(x){return x.status!=='archived'&&x.ai_generated&&x.suggestion_date===todayMelbourne;}).sort(function(a,b){return Number(a.ai_rank||99)-Number(b.ai_rank||99);});
       const ideaCards=todayIdeas.map(function(x){
         const audience=(x.audience_segments||[]).map(marketingSegmentLabel).join(', ')||'All eligible contacts';
-        return '<div style="border:1px solid var(--line);border-radius:14px;padding:16px;background:#fff;position:relative;">'+
-          '<label style="position:absolute;right:12px;top:12px;display:flex;align-items:center;gap:5px;font-size:11px;color:var(--stone);"><input type="checkbox" '+(marketingSelectedCampaignIds.has(x.id)?'checked':'')+' onchange="toggleMarketingCampaignSelection(\''+x.id+'\',this.checked)"> Select</label>'+
-          '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;"><div><div style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#FF6A1A;">AI suggestion #'+escapeHtml(x.ai_rank||'')+'</div><h3 style="font-size:16px;margin-top:4px;">'+escapeHtml(x.name||'Campaign idea')+'</h3></div><span class="statusbadge">'+escapeHtml(x.status||'ready_for_review')+'</span></div>'+
+        return '<div style="border:1px solid #E2E8F0;border-radius:16px;padding:20px;background:#fff;position:relative;min-width:0;box-shadow:0 3px 12px rgba(20,33,61,.04);">'+
+          '<label style="display:flex;align-items:center;justify-content:flex-end;gap:5px;font-size:11px;margin-bottom:10px;color:var(--stone);"><input type="checkbox" '+(marketingSelectedCampaignIds.has(x.id)?'checked':'')+' onchange="toggleMarketingCampaignSelection(\''+x.id+'\',this.checked)"> Select</label>'+
+          '<div style="padding-right:0;"><div style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#FF6A1A;">AI suggestion #'+escapeHtml(x.ai_rank||'')+'</div><h3 style="font-size:16px;margin-top:4px;">'+escapeHtml(x.name||'Campaign idea')+'</h3></div><div style="margin-top:9px;"><span class="statusbadge">'+escapeHtml((x.status||'ready_for_review').replaceAll('_',' '))+'</span></div>'+
           '<div class="jobmeta" style="margin-top:7px;"><strong>Audience:</strong> '+escapeHtml(audience)+'</div>'+
           '<div style="font-size:13px;margin-top:8px;"><strong>'+escapeHtml(x.headline||x.email_subject||'')+'</strong></div>'+
           (x.ai_rationale?'<div style="font-size:12px;color:var(--stone);margin-top:7px;line-height:1.5;">'+escapeHtml(x.ai_rationale)+'</div>':'')+
@@ -2837,7 +2848,7 @@ function openManualProspect(kind, seed) {
         (serviceRequests.length?'<div class="detailcard" style="max-width:none;margin-bottom:12px;"><div><h2 style="font-size:16px;">Campaign service requests</h2><p class="jobmeta">Prospects who clicked a campaign for a service that is not in the fixed-price catalogue.</p></div><div style="overflow:auto;margin-top:10px;"><table><thead><tr><th>Requested service</th><th>Prospect</th><th>Suburb</th><th>Status</th><th>Scope</th></tr></thead><tbody>'+requestRows+'</tbody></table></div></div>':'')+
         '<div class="detailcard" style="max-width:none;margin-bottom:12px;"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;"><label style="display:flex;gap:8px;align-items:center;font-size:12px;font-weight:700;"><input type="checkbox" onchange="selectAllMarketingCampaigns(this.checked)"> Select all campaigns <span style="color:var(--stone);font-weight:500;">('+marketingSelectedCampaignIds.size+' selected)</span></label><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-outline" '+(marketingSelectedCampaignIds.size?'':'disabled')+' onclick="bulkTestMarketingCampaigns()">Send test emails</button><button class="btn btn-outline" style="color:#9B1C24;border-color:#E9C7C4;" '+(marketingSelectedCampaignIds.size?'':'disabled')+' onclick="bulkRemoveMarketingCampaigns()">Remove selected</button></div></div></div>'+
         '<div class="detailcard" style="max-width:none;margin-bottom:16px;background:#FFF8ED;border-color:#F3D39D;"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;"><div><div style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#B65B13;">Daily AI marketing planner</div><h2 style="font-size:18px;margin-top:4px;">Today\'s recommended campaigns</h2><p class="jobmeta">Every morning AI reviews your CRM audience, regulation opportunities and recent campaigns, then prepares three campaigns for you to review. Nothing is sent until you approve it.</p></div><button id="mktDailyIdeasBtn" class="btn btn-black" '+(marketingSuggestionGenerating?'disabled':'')+' onclick="generateDailyMarketingSuggestions(false)">'+(marketingSuggestionGenerating?'AI is preparing ideas…':'Generate today\'s AI suggestions')+'</button></div>'+
-        (ideaCards?'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px;margin-top:15px;">'+ideaCards+'</div>':'<div class="empty" style="padding:24px 0 8px;">No AI suggestions have been generated for today yet.</div>')+
+        (ideaCards?'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:18px;">'+ideaCards+'</div>':'<div class="empty" style="padding:24px 0 8px;">No AI suggestions have been generated for today yet.</div>')+
         '</div>'+
         '<div class="detailcard" style="max-width:none;"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;"><div><h2 style="font-size:17px;">All campaigns</h2><p class="jobmeta">Create the email, send a test copy, approve it, then send to the matching eligible CRM segment.</p></div><button class="btn btn-black" onclick="openMarketingCampaign()">+ New campaign</button></div>'+ (list||'<div class="empty">No campaigns yet.</div>')+'</div>';
     }
