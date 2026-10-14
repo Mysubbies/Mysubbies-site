@@ -38,7 +38,7 @@ function suggestedHeroImage(serviceCategory,segments){
 }
 async function generateDailyMarketingSuggestions(supabase,{force=false}={}){
   const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Australia/Melbourne',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-  if(!force){
+  {
     const existing=await supabase.from('marketing_campaigns').select('*').eq('ai_generated',true).eq('suggestion_date',today).order('ai_rank',{ascending:true});
     if(!existing.error&&(existing.data||[]).length)return {date:today,created:0,suggestions:existing.data,alreadyExists:true};
   }
@@ -77,7 +77,7 @@ async function generateDailyMarketingSuggestions(supabase,{force=false}={}){
   const anthropic=new Anthropic({apiKey:process.env.ANTHROPIC_API_KEY});
   const prompt=`You are the daily growth-marketing strategist for MySubbies, a Melbourne facilities-maintenance, landscaping, outdoor construction and property-maintenance business.
 
-Create exactly 3 practical campaign suggestions for today. They must be useful for generating real enquiries, not generic social posts.
+Create exactly 1 practical campaign suggestion for today. They must be useful for generating real enquiries, not generic social posts.
 
 Use these inputs:
 TODAY: ${today}
@@ -102,7 +102,7 @@ Rules:
 - Audience segments must only use these keys: real_estate, childcare, medical_clinic, dental_clinic, physio, aged_care, body_corporate, school, gym, warehouse, retail, hospitality.
 - Rank 1 is the strongest recommendation.
 
-Return ONLY a JSON array with exactly 3 objects:
+Return ONLY a JSON array with exactly 1 object:
 [
  {
    "rank":1,
@@ -121,12 +121,12 @@ Return ONLY a JSON array with exactly 3 objects:
 ]`;
 
   const message=await anthropic.messages.create({
-    model:'claude-sonnet-4-5',max_tokens:4200,
+    model:'claude-sonnet-4-5',max_tokens:1700,
     messages:[{role:'user',content:prompt}]
   });
   const raw=(message.content||[]).find(x=>x.type==='text');
-  const ideas=parseJsonArray(raw&&raw.text).slice(0,3);
-  if(ideas.length!==3)throw new Error('AI did not return three campaign suggestions.');
+  const ideas=parseJsonArray(raw&&raw.text).slice(0,1);
+  if(ideas.length!==1)throw new Error('AI did not return one campaign suggestion.');
 
   const inserted=[];
   for(let i=0;i<ideas.length;i++){
