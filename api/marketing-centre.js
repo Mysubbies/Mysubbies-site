@@ -173,14 +173,29 @@ async function sendCampaign(s,b,res){
   if(q.error)throw q.error;const c=q.data;
   if(!c){res.status(404).json({error:'Campaign not found.'});return;}
   if(c.status!=='approved'){res.status(409).json({error:'Approve the campaign before sending.'});return;}
+  // Hard cap: at most two distinct campaigns can begin sending in a rolling seven-day window.
+  const weekAgo=new Date(Date.now()-7*86400000).toISOString();
+  const recentCampaigns=await s.from('marketing_campaigns').select('id').gte('sent_at',weekAgo).neq('id',id).limit(3);
+  if(recentCampaigns.error)throw recentCampaigns.error;
+  if((recentCampaigns.data||[]).length>=2){res.status(409).json({error:'Weekly campaign limit reached: maximum two campaigns in seven days.'});return;}
   const segments=arr(c.audience_segments,30);
   let contactsQuery=s.from('marketing_contacts').select('*').eq('marketing_eligible',true).neq('consent_status','opted_out').not('email','is',null).limit(500);
   if(segments.length)contactsQuery=contactsQuery.in('segment',segments);
   const cr=await contactsQuery;if(cr.error)throw cr.error;
   const contacts=cr.data||[];
   if(!contacts.length){res.status(409).json({error:'No eligible contacts match this campaign audience.'});return;}
-  const results=[];let sent=0,failed=0;
+  // Check the actual delivery log by email, not only contact id, to prevent duplicates across CRM records.
+  const history=await s.from('marketing_campaign_recipients').select('email,sent_at').eq('delivery_status','sent').gte('sent_at',weekAgo).limit(10000);
+  if(history.error)throw history.error;
+  const recentlyEmailed=new Set((history.data||[]).map(r=>String(r.email||'').trim().toLowerCase()).filter(Boolean));
+  const seenThisSend=new Set();
+  const results=[];let sent=0,failed=0,frequencySkipped=0;
   for(const contact of contacts.slice(0,100)){
+    const emailKey=String(contact.email||'').trim().toLowerCase();
+    if(!emailKey||recentlyEmailed.has(emailKey)||seenThisSend.has(emailKey)){
+      frequencySkipped++;results.push({id:contact.id,ok:true,skipped:true,reason:'Seven-day recipient frequency cap or duplicate email'});continue;
+    }
+    seenThisSend.add(emailKey);
     const exists=await s.from('marketing_campaign_recipients').select('id,delivery_status').eq('campaign_id',id).eq('contact_id',contact.id).maybeSingle();
     if(exists.error)throw exists.error;
     if(exists.data&&exists.data.delivery_status==='sent'){results.push({id:contact.id,ok:true,skipped:true});continue;}
@@ -196,7 +211,7 @@ async function sendCampaign(s,b,res){
     await s.from('marketing_campaigns').update({status:'published',sent_at:new Date().toISOString(),published_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',id);
   }
   await log(s,id,'campaign_send','Sent '+sent+'; failed '+failed+'; eligible audience '+contacts.length+'.');
-  res.status(200).json({sent,failed,eligible:contacts.length,results});
+  res.status(200).json({sent,failed,frequencySkipped,eligible:contacts.length,results});
 }
 
 module.exports=async function handler(req,res){
