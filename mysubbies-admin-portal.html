@@ -2532,6 +2532,16 @@ function openManualProspect(kind, seed) {
     const d=await r.json();if(!r.ok){alert(d.error||'Contact could not be updated.');return;}
     closeCrmModal();await refreshMarketing();
   }
+  async function generateMarketingHero(id) {
+    if (!id) return;
+    const r = await adminFetch('/api/marketing-centre?action=generate_campaign_image', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})
+    });
+    const d = await r.json();
+    if (!r.ok) { alert(d.error || 'Image generation failed'); return; }
+    await refreshMarketing();
+    openMarketingCampaign(id);
+  }
   function openMarketingCampaign(id,seed){
     const existing=id?((marketingData&&marketingData.campaigns)||[]).find(function(x){return x.id===id;}):null;
     const x=existing||seed||{};
@@ -2550,6 +2560,7 @@ function openManualProspect(kind, seed) {
       '<label>CTA / booking URL<input id="mktCampaignUrl" value="'+escapeHtml(x.booking_url||'https://www.mysubbies.com.au/mysubbies-property-managers.html')+'"></label>'+
       '<label>Service category<input id="mktCampaignService" value="'+escapeHtml(x.service_category||'Property Maintenance')+'"></label>'+
       '<label class="full">Hero image URL <span style="font-weight:400;color:var(--stone);">(optional, shown inside email)</span><input id="mktCampaignImage" value="'+escapeHtml(x.image_url||'')+'" placeholder="Optional image shown inside the email"></label>'+
+      (existing ? '<div class="full"><button class="btn btn-outline" onclick="generateMarketingHero(\'' + existing.id + '\')">Generate AI hero photo</button></div>' : '') +
       '</div>'+
       '<div style="margin-top:12px;padding:10px 12px;border-radius:9px;background:#F5F7FA;font-size:12px;color:var(--stone);"><strong style="color:var(--ink);">Email campaign:</strong> prospects receive the message directly in the email with a clickable CTA button. New campaigns save as <strong>Ready for review</strong> before one-click sending.</div>'+
       '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;"><button class="btn btn-outline" onclick="closeCrmModal()">Cancel</button><button class="btn btn-black" onclick="saveMarketingCampaign(\''+(existing?existing.id:'')+'\',\''+(x.regulation_id||'')+'\')">Save campaign</button></div>');
