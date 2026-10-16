@@ -71,6 +71,71 @@
   .confirm h1 { margin-bottom:10px; }
   .confirm p { color:var(--stone); margin-bottom:28px; }
   .divider { border-top:1px solid var(--line); margin:24px 0; }
+
+  .wrap { max-width:720px; padding:32px 24px 64px; }
+  .booking-page-heading { margin-bottom:24px; }
+  .booking-step { font-size:12px; font-weight:700; color:var(--stone); letter-spacing:.04em; margin-bottom:10px; }
+  .booking-progress { display:flex; gap:6px; max-width:120px; margin-bottom:20px; }
+  .booking-progress span { height:4px; flex:1; border-radius:4px; background:var(--black); }
+  .booking-progress span:last-child { background:#FF6A1A; }
+  h1.pagetitle { font-size:28px; line-height:1.2; letter-spacing:-.035em; margin-bottom:8px; }
+  .booking-page-heading .pagesub { margin:0; }
+  .quote-summary.booking-summary-card { display:block; padding:24px; border-color:#E4E7EC; border-radius:16px; margin-bottom:20px; box-shadow:0 3px 12px rgba(20,33,61,.025); }
+  .cart-section-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; padding-bottom:16px; border-bottom:1px solid var(--line); }
+  .cart-section-heading h2 { font-size:16px; font-weight:750; letter-spacing:-.02em; }
+  .cart-section-heading > span { font-size:12px; font-weight:600; color:var(--stone); background:#F2F4F7; border-radius:20px; padding:4px 10px; white-space:nowrap; }
+  .booking-cart-item { padding:16px 0; border-bottom:1px solid var(--line); }
+  .booking-item-heading { display:flex; align-items:flex-start; gap:12px; justify-content:space-between; }
+  .booking-item-heading h3 { font-size:15px; font-weight:650; line-height:1.5; margin:0; min-width:0; }
+  .booking-item-remove { flex:0 0 40px; width:40px; height:40px; margin:-7px -8px 0 0; border:0; border-radius:8px; background:transparent; color:var(--stone); font-size:23px; cursor:pointer; }
+  .booking-item-remove:hover { background:#FDF0EE; color:#B4232C; }
+  .booking-item-body { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:12px; }
+  .booking-quantity { display:flex; align-items:center; gap:8px; color:var(--stone); font-size:12px; font-weight:500; margin:0; flex-wrap:wrap; }
+  .booking-quantity input { width:64px; min-height:38px; padding:6px 8px; font:600 14px 'Plus Jakarta Sans',sans-serif; color:var(--ink); border:1px solid #D0D5DD; border-radius:8px; background:white; text-align:center; }
+  .booking-unit { color:var(--stone); font-size:13px; }
+  .booking-item-price { flex-shrink:0; font-size:17px; letter-spacing:-.02em; }
+  .booking-inclusions { font-size:12px; color:var(--stone); margin-top:12px; }
+  .booking-inclusions summary { cursor:pointer; padding:4px 0; font-weight:500; }
+  .booking-inclusions p { font-size:13px; line-height:1.65; margin-top:8px; color:#475467; white-space:pre-line; }
+  .booking-totals { padding:16px 0; }
+  .booking-total-row, .booking-due-row { display:flex; justify-content:space-between; align-items:center; gap:16px; }
+  .booking-total-row { font-size:14px; font-weight:600; }
+  .booking-total-row strong { font-size:20px; letter-spacing:-.025em; }
+  .booking-due-row { margin-top:10px; font-size:13px; color:var(--stone); }
+  .booking-due-row strong { color:var(--ink); font-size:15px; }
+  .booking-fee-note { font-size:12px; color:var(--good); margin-top:10px; display:flex; gap:6px; align-items:center; }
+  .booking-cart-actions { border-top:1px solid var(--line); padding-top:16px; display:flex; flex-direction:column; gap:14px; }
+  .booking-add-task { align-self:flex-start; display:inline-flex; align-items:center; gap:8px; background:white; border:1px solid #D0D5DD; border-radius:9px; padding:10px 14px; min-height:42px; color:var(--black); font:600 13px 'Plus Jakarta Sans',sans-serif; cursor:pointer; }
+  .booking-add-task:hover { background:#F8FAFC; }
+  .booking-request-quote { text-align:left; width:fit-content; background:none; border:0; padding:4px 0; color:var(--stone); font:400 12px/1.7 'Plus Jakarta Sans',sans-serif; cursor:pointer; }
+  .booking-request-quote span { color:var(--black); font-weight:600; text-decoration:underline; text-underline-offset:3px; }
+  .booking-cart-add:not(:empty) { margin-top:16px; padding:16px; border:1px solid var(--line); border-radius:10px; background:#F8FAFC; }
+  .booking-cart-add .btn { border-radius:9px; font:600 13px 'Plus Jakarta Sans',sans-serif; margin-top:8px; }
+  .btn-outline { border:1px solid #D0D5DD; background:white; color:var(--black); }
+  .booking-cart-empty { padding:16px 0; font-size:13px; color:var(--stone); }
+  .booking-details-card { display:block; background:white; border:1px solid #E4E7EC; border-radius:16px; padding:24px; }
+  .booking-card-title { font-size:19px; font-weight:750; margin-bottom:6px; }
+  .booking-details-card .pagesub { font-size:13px; line-height:1.65; margin-bottom:18px; }
+  .booking-details-card label { font-size:12px; font-weight:600; }
+  .booking-details-card input:not([type=checkbox]) { font-size:16px; border-width:1px; border-color:#D0D5DD; border-radius:9px; padding:11px 12px; }
+  .booking-details-card input:focus-visible, .booking-quantity input:focus-visible { outline:3px solid rgba(255,106,26,.18); border-color:#FF6A1A; }
+  .booking-details-card .btn { font-family:inherit; border-radius:10px; font-size:14px; }
+  .booking-details-card .row2 { gap:12px; }
+  .booking-details-card .field-note { font-size:12px; color:var(--stone); margin-top:6px; line-height:1.5; }
+  .booking-details-card .toggle-mode { font-size:12px; }
+  .booking-details-card .terms { font-size:12px; line-height:1.65; font-weight:400; }
+  .booking-review-note { padding:12px 14px; background:#F8FAFC; border-radius:9px; font-size:12px; line-height:1.65; color:var(--stone); margin:16px 0; }
+  button:focus-visible, summary:focus-visible { outline:3px solid rgba(255,106,26,.45); outline-offset:3px; }
+  @media (max-width:520px) {
+    .wrap { padding:24px 16px 40px; }
+    .navwrap { padding:0 16px; height:60px; }
+    h1.pagetitle { font-size:25px; }
+    .booking-page-heading { margin-bottom:20px; }
+    .quote-summary.booking-summary-card, .booking-details-card { padding:18px; border-radius:14px; }
+    .booking-item-heading h3 { font-size:14px; }
+    .booking-request-quote { max-width:100%; }
+    .booking-cart-add:not(:empty) { padding:12px; }
+  }
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
@@ -199,16 +264,8 @@
     }
 
     app.innerHTML = `
-      <p class="pagesub">Step 3 of 3 · Booking details</p>
-      <div class="quote-summary" style="flex-direction:column;align-items:stretch;">
-        <div style="display:flex;gap:14px;align-items:center;margin-bottom:${quote.items && quote.items.length ? '14px' : '0'};">
-          ${quote.photoDataUrl && (!quote.photoDataUrls || quote.photoDataUrls.length <= 1) ? `<img src="${quote.photoDataUrl}" />` : `<div class="qicon">${quote.icon}</div>`}
-          <div>
-            <div class="qcat">${quote.category}</div>
-            <div class="qsub">${quote.items ? quote.items.length + ' item' + (quote.items.length===1?'':'s') : ''}${quote.suburb ? ' · ' + quote.suburb : ''}</div>
-          </div>
-          <div class="qprice">$${quote.low.toLocaleString()}</div>
-        </div>
+      <div class="booking-page-heading"><p class="booking-step">Step 3 of 3 · Booking details</p><div class="booking-progress" aria-hidden="true"><span></span><span></span><span></span></div><h1 class="pagetitle">Complete your booking</h1><p class="pagesub">Review your job and confirm your details below.</p></div>
+      <div class="quote-summary booking-summary-card">
         ${renderGroupedItems(quote.items || [])}
         ${quote.photoDataUrls && quote.photoDataUrls.length > 1 ? `
           <div style="display:flex;gap:8px;overflow-x:auto;padding-top:12px;margin-top:12px;border-top:1px solid var(--line);">
@@ -217,8 +274,8 @@
         ` : ''}
       </div>
 
-      <p class="pagesub">No booking fee. $0 due at booking.</p>
-      <h1 class="pagetitle">${mode !== 'login'  ? 'Your booking details' : 'Welcome back'}</h1>
+      <section class="booking-details-card">
+      <h2 class="booking-card-title">${mode !== 'login' ? 'Contact & booking details' : 'Welcome back'}</h2>
       <p class="pagesub">${mode !== 'login' ? 'Add your contact details and preferred timing to confirm your job.' : 'Log in to continue and track this job under your existing account.'}</p>
       <div class="toggle-mode" style="margin:4px 0 16px;${sessionCustomer ? 'display:none;' : ''}">
         ${mode !== 'login' ? `Already registered? <a href="#" onclick="saveBookingDetails(); mode='login'; render(); return false;">Log in</a>` : `New here? <a href="#" onclick="saveBookingDetails(); mode='register'; render(); return false;">Create an account</a>`}
@@ -256,13 +313,14 @@
         <label class="terms"><input type="checkbox" id="fTerms" /> I have read and accept the MySubbies <a href="mysubbies-terms.html" target="_blank" style="text-decoration:underline;">Terms &amp; Conditions</a> and <a href="mysubbies-privacy-policy.html" target="_blank" style="text-decoration:underline;">Privacy Policy</a>, including how payment stages are tracked.</label>
       ` : '<div class="divider"></div>'}
 
-      <div class="field"><label>Preferred timing</label><input id="fTiming" placeholder="e.g. next Tuesday morning, ASAP, or flexible" /><div class="field-note">Your contractor will confirm availability with you.</div></div>
-      <p class="pagesub">Your job will be held for MySubbies review before release to contractors. No booking fee. $0 due today.</p>
+      <div class="field"><label>Preferred timing</label><input type="text" id="fTiming" placeholder="e.g. next Tuesday morning, ASAP, or flexible" /><div class="field-note">Your contractor will confirm availability with you.</div></div>
+      <p class="booking-review-note">We’ll review your booking before assigning a contractor. Nothing is payable now.</p>
       <div id="bookingError" role="alert"></div>
       <button class="btn btn-black" id="confirmFreeBooking" onclick="submitBooking()">Confirm booking — $0 due today</button>
       <div class="toggle-mode" style="${sessionCustomer ? 'display:none;' : ''}">
         ${mode !== 'login' ? `Already registered? <a href="#" onclick="saveBookingDetails(); mode='login'; render(); return false;">Log in</a>` : `New here? <a href="#" onclick="saveBookingDetails(); mode='register'; render(); return false;">Create an account</a>`}
       </div>
+      </section>
     `;
     restoreBookingDetails();
     if (mode !== 'login') setTimeout(initBookingAddressAutocomplete, 0);

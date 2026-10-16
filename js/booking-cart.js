@@ -6,18 +6,19 @@ function cartEscape(value) {
   return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 function bookingCartMarkup(items) {
-  return `<section id="bookingCart"><h2 style="font-size:17px;">Your cart</h2>
-    ${items.length ? items.map((item, index) => `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);">
-      <div style="flex:1;">${cartEscape(item.taskName)}<div style="font-size:12px;color:var(--stone);">${cartEscape(item.catLabel)} · ${cartEscape(item.qty)} ${cartEscape(item.unit)}</div>
-      ${!item.aiEstimated && item.catLabel !== 'Courier Services' ? `<label style="font-size:12px;">Quantity <input type="number" aria-label="Quantity for ${cartEscape(item.taskName)}" min="0.01" max="100000" step="any" value="${Number(item.qty)}" onchange="updateBookingCartQuantity(${index}, this.value)" style="width:75px;padding:7px;"></label>` : ''}
-      ${item.notes ? `<details style="font-size:12px;"><summary>What’s included</summary>${cartEscape(item.notes)}</details>` : ''}</div>
-      <strong>$${Number(item.base).toLocaleString()}</strong>
-      <button type="button" aria-label="Remove ${cartEscape(item.taskName)}" onclick="removeBookingCartItem(${index})" style="min-width:44px;min-height:44px;border:0;background:transparent;font-size:24px;cursor:pointer;">×</button>
-    </div>`).join('') : '<p>Your cart is empty. Add a task to continue. Your details are still saved on this page.</p>'}
-    <p><strong>Job total: $${items.reduce((sum, i) => sum + Number(i.base), 0).toLocaleString()}</strong> · $0 due at booking</p>
-    <button type="button" class="btn btn-outline" onclick="openBookingCartAdd()">+ Add another job / task</button>
-    <button type="button" class="btn btn-outline" onclick="requestQuoteForBookingCart()">Complex or unlisted job? Submit for a quote</button>
-    <div id="bookingCartAdd" style="margin-top:12px;"></div>
+  const total = items.reduce((sum, item) => sum + Number(item.base), 0);
+  return `<section id="bookingCart" aria-label="Job summary">
+    <div class="cart-section-heading"><h2>Your job</h2><span>${items.length} task${items.length === 1 ? '' : 's'}</span></div>
+    ${items.length ? items.map((item, index) => `<article class="booking-cart-item">
+      <div class="booking-item-heading"><h3>${cartEscape(item.taskName)}</h3><button type="button" class="booking-item-remove" aria-label="Remove ${cartEscape(item.taskName)}" onclick="removeBookingCartItem(${index})">×</button></div>
+      <div class="booking-item-body"><div class="booking-item-controls">
+        ${!item.aiEstimated && item.catLabel !== 'Courier Services' ? `<label class="booking-quantity">Quantity <input type="number" aria-label="Quantity for ${cartEscape(item.taskName)}" min="0.01" max="100000" step="any" value="${Number(item.qty)}" onchange="updateBookingCartQuantity(${index}, this.value)"><span>${cartEscape(String(item.unit || '').replace(/^per\s+/i, ''))}</span></label>` : `<span class="booking-unit">${cartEscape(item.qty)} ${cartEscape(item.unit)}</span>`}
+      </div><strong class="booking-item-price">$${Number(item.base).toLocaleString()}</strong></div>
+      ${item.notes ? `<details class="booking-inclusions"><summary>What’s included</summary><p>${cartEscape(item.notes)}</p></details>` : ''}
+    </article>`).join('') : '<p class="booking-cart-empty">Your cart is empty. Add a task to continue. Your details are still saved on this page.</p>'}
+    <div class="booking-totals"><div class="booking-total-row"><span>Job total</span><strong>$${total.toLocaleString()}</strong></div><div class="booking-due-row"><span>Due at booking</span><strong>$0</strong></div><p class="booking-fee-note"><span aria-hidden="true">✓</span> No booking fee</p></div>
+    <div class="booking-cart-actions"><button type="button" class="booking-add-task" onclick="openBookingCartAdd()"><span aria-hidden="true">+</span> Add another task</button><button type="button" class="booking-request-quote" onclick="requestQuoteForBookingCart()">Need a custom quote? <span>Submit your job →</span></button></div>
+    <div id="bookingCartAdd" class="booking-cart-add"></div>
   </section>`;
 }
 function saveBookingCart() {
