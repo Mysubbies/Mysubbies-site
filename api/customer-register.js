@@ -4,13 +4,24 @@
 // comes from Supabase Auth, never from request fields.
 const { getSupabase } = require('./_lib/clients');
 const { bearerToken } = require('./_lib/userAuth');
+const { requestBookingCode } = require('./_lib/bookingEmailAuth');
 
 function clean(value) { return String(value || '').trim(); }
 
 module.exports = async (req, res) => {
+  if (req.method === 'GET' && req.query?.action === 'booking-auth-options') {
+    res.setHeader('Cache-Control','no-store');
+    let emailCodeEnabled = !!process.env.RESEND_API_KEY;
+    if (emailCodeEnabled) {
+      try { const { error } = await getSupabase().from('contractor_signup_attempts').select('id', {head:true}).limit(1); emailCodeEnabled = !error; }
+      catch (_) { emailCodeEnabled = false; }
+    }
+    res.status(200).json({ emailCodeEnabled }); return;
+  }
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
   try {
     const supabase = getSupabase();
+    if (req.body?.action === 'request_booking_code') { await requestBookingCode(supabase, req, res); return; }
     const token = bearerToken(req);
     if (!token) { res.status(401).json({ error: 'Authentication required.' }); return; }
     const { data: authData, error: authError } = await supabase.auth.getUser(token);
@@ -67,7 +78,7 @@ module.exports = async (req, res) => {
     }
 
     const { data: created, error: createError } = await supabase.from('customers')
-      .insert({ auth_user_id: user.id, email, name: suppliedName, phone: suppliedPhone }).select('id, email, name, phone').single();
+      .insert({ auth_user_id: user.id, email, name: suppliedName, phone: suppliedPhone, ...(clean(req.body?.referralCode) ? { referred_by:clean(req.body.referralCode).slice(0,40) } : {}) }).select('id, email, name, phone').single();
     if (createError) throw createError;
     res.status(201).json({ customer: created, linked: true });
   } catch (error) {

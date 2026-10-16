@@ -13,6 +13,9 @@ for (const file of ['index.html', 'mysubbies-website.html']) {
     context.updateCartQuantity(0, -3); assert.equal(context.cart[0].qty, 8);
     context.updateCartQuantity(0, 'bad'); assert.equal(context.cart[0].qty, 8);
     context.updateCartQuantity(0, Infinity); assert.equal(context.cart[0].qty, 8);
-    assert.match(html, /onchange="updateCartQuantity/);
+    assert.match(html, /bookingCartMarkup\(cart, \{ estimator: true \}\)/);
+    const markupContext = {}; vm.createContext(markupContext);
+    vm.runInContext(readFileSync('js/booking-cart.js','utf8'), markupContext);
+    assert.match(markupContext.bookingCartMarkup([{taskName:'Clean',qty:1,base:100}], {estimator:true}), /onchange="updateCartQuantity/);
   });
 }

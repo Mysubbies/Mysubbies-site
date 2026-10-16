@@ -81,38 +81,7 @@
   h1.pagetitle { font-size:28px; line-height:1.2; letter-spacing:-.035em; margin-bottom:8px; }
   .booking-page-heading .pagesub { margin:0; }
   .quote-summary.booking-summary-card { display:block; padding:24px; border-color:#E4E7EC; border-radius:16px; margin-bottom:20px; box-shadow:0 3px 12px rgba(20,33,61,.025); }
-  .cart-section-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; padding-bottom:16px; border-bottom:1px solid var(--line); }
-  .cart-section-heading h2 { font-size:16px; font-weight:750; letter-spacing:-.02em; }
-  .cart-section-heading > span { font-size:12px; font-weight:600; color:var(--stone); background:#F2F4F7; border-radius:20px; padding:4px 10px; white-space:nowrap; }
-  .booking-cart-item { padding:16px 0; border-bottom:1px solid var(--line); }
-  .booking-item-heading { display:flex; align-items:flex-start; gap:12px; justify-content:space-between; }
-  .booking-item-heading h3 { font-size:15px; font-weight:650; line-height:1.5; margin:0; min-width:0; }
-  .booking-item-remove { flex:0 0 40px; width:40px; height:40px; margin:-7px -8px 0 0; border:0; border-radius:8px; background:transparent; color:var(--stone); font-size:23px; cursor:pointer; }
-  .booking-item-remove:hover { background:#FDF0EE; color:#B4232C; }
-  .booking-item-body { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:12px; }
-  .booking-quantity { display:flex; align-items:center; gap:8px; color:var(--stone); font-size:12px; font-weight:500; margin:0; flex-wrap:wrap; }
-  .booking-quantity input { width:64px; min-height:38px; padding:6px 8px; font:600 14px 'Plus Jakarta Sans',sans-serif; color:var(--ink); border:1px solid #D0D5DD; border-radius:8px; background:white; text-align:center; }
-  .booking-unit { color:var(--stone); font-size:13px; }
-  .booking-item-price { flex-shrink:0; font-size:17px; letter-spacing:-.02em; }
-  .booking-inclusions { font-size:12px; color:var(--stone); margin-top:12px; }
-  .booking-inclusions summary { cursor:pointer; padding:4px 0; font-weight:500; }
-  .booking-inclusions p { font-size:13px; line-height:1.65; margin-top:8px; color:#475467; white-space:pre-line; }
-  .booking-totals { padding:16px 0; }
-  .booking-total-row, .booking-due-row { display:flex; justify-content:space-between; align-items:center; gap:16px; }
-  .booking-total-row { font-size:14px; font-weight:600; }
-  .booking-total-row strong { font-size:20px; letter-spacing:-.025em; }
-  .booking-due-row { margin-top:10px; font-size:13px; color:var(--stone); }
-  .booking-due-row strong { color:var(--ink); font-size:15px; }
-  .booking-fee-note { font-size:12px; color:var(--good); margin-top:10px; display:flex; gap:6px; align-items:center; }
-  .booking-cart-actions { border-top:1px solid var(--line); padding-top:16px; display:flex; flex-direction:column; gap:14px; }
-  .booking-add-task { align-self:flex-start; display:inline-flex; align-items:center; gap:8px; background:white; border:1px solid #D0D5DD; border-radius:9px; padding:10px 14px; min-height:42px; color:var(--black); font:600 13px 'Plus Jakarta Sans',sans-serif; cursor:pointer; }
-  .booking-add-task:hover { background:#F8FAFC; }
-  .booking-request-quote { text-align:left; width:fit-content; background:none; border:0; padding:4px 0; color:var(--stone); font:400 12px/1.7 'Plus Jakarta Sans',sans-serif; cursor:pointer; }
-  .booking-request-quote span { color:var(--black); font-weight:600; text-decoration:underline; text-underline-offset:3px; }
-  .booking-cart-add:not(:empty) { margin-top:16px; padding:16px; border:1px solid var(--line); border-radius:10px; background:#F8FAFC; }
-  .booking-cart-add .btn { border-radius:9px; font:600 13px 'Plus Jakarta Sans',sans-serif; margin-top:8px; }
   .btn-outline { border:1px solid #D0D5DD; background:white; color:var(--black); }
-  .booking-cart-empty { padding:16px 0; font-size:13px; color:var(--stone); }
   .booking-details-card { display:block; background:white; border:1px solid #E4E7EC; border-radius:16px; padding:24px; }
   .booking-card-title { font-size:19px; font-weight:750; margin-bottom:6px; }
   .booking-details-card .pagesub { font-size:13px; line-height:1.65; margin-bottom:18px; }
@@ -136,6 +105,18 @@
     .booking-request-quote { max-width:100%; }
     .booking-cart-add:not(:empty) { padding:12px; }
   }
+
+  .booking-optional-fields { margin:6px 0 18px; padding:12px; border:1px solid var(--line); border-radius:10px; }
+  .booking-optional-fields > summary { font-size:12px; font-weight:600; cursor:pointer; }
+  .booking-optional-fields[open] > summary { margin-bottom:16px; }
+  .booking-timing-options { display:flex; gap:8px; margin-bottom:12px; }
+  .booking-timing-options button { flex:1; padding:11px 8px; border:1px solid #D0D5DD; border-radius:9px; background:white; color:var(--black); font:600 12px 'Plus Jakarta Sans',sans-serif; cursor:pointer; }
+  .booking-timing-options button[aria-pressed=true] { border-color:var(--black); background:#E7EAF1; }
+  #bookingDateFields[hidden], #bookingCodeFields[hidden] { display:none; }
+  .booking-details-card input[type=date], .booking-details-card select { width:100%; font:inherit; padding:11px; border:1px solid #D0D5DD; border-radius:9px; background:white; }
+  .booking-email-code { background:#F8FAFC; border-radius:10px; padding:14px; margin-bottom:16px; font-size:12px; color:var(--stone); line-height:1.6; }
+  .booking-email-code input { margin:8px 0; }
+  .booking-code-resend { border:0; background:none; text-decoration:underline; color:var(--black); font:inherit; cursor:pointer; padding:8px 0; }
 </style>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="icons/favicon-32.png">
@@ -144,6 +125,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MySubbies">
+<link rel="stylesheet" href="css/booking-cart.css">
 </head>
 <body>
 
@@ -225,8 +207,11 @@
   const sb = (typeof window.supabase !== 'undefined')
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
 
-  let mode = 'register'; // register, login or an existing authenticated session
+  let mode = 'code'; // register, login or an existing authenticated session
   let sessionCustomer = null;
+  let bookingCodeEmail = '';
+  let bookingCodeRequestedAt = 0;
+  let bookingAuthBusy = false;
   let jobType = 'private'; // or 'business'
   let bookingAddressAutocompleteAvailable = false;
   let bookingAddressSelection = null;
@@ -278,7 +263,7 @@
       <h2 class="booking-card-title">${mode !== 'login' ? 'Contact & booking details' : 'Welcome back'}</h2>
       <p class="pagesub">${mode !== 'login' ? 'Add your contact details and preferred timing to confirm your job.' : 'Log in to continue and track this job under your existing account.'}</p>
       <div class="toggle-mode" style="margin:4px 0 16px;${sessionCustomer ? 'display:none;' : ''}">
-        ${mode !== 'login' ? `Already registered? <a href="#" onclick="saveBookingDetails(); mode='login'; render(); return false;">Log in</a>` : `New here? <a href="#" onclick="saveBookingDetails(); mode='register'; render(); return false;">Create an account</a>`}
+        ${mode !== 'login' ? `Have a password? <a href="#" onclick="saveBookingDetails(); mode='login'; render(); return false;">Log in</a>` : `<a href="#" onclick="saveBookingDetails(); mode='code'; render(); return false;">Use an email code instead</a>`}
       </div>
 
       <div id="errorBox"></div>
@@ -291,6 +276,7 @@
         </div>
         <div class="field"><label>Address</label><input type="text" id="fAddress" placeholder="Start typing your street address" /><div class="field-note" id="fAddressStatus" style="font-size:11.5px;margin-top:6px;color:var(--stone);"></div></div>
 
+        <details class="booking-optional-fields"><summary>Business details or referral code (optional)</summary>
         <div class="field">
           <label>Is this a business or private job?</label>
           <div style="display:flex;gap:8px;">
@@ -301,11 +287,20 @@
         <div class="field" id="businessNameField" style="${jobType === 'business' ? '' : 'display:none;'}"><label>Business name <span style="color:var(--stone-light);font-weight:400;">(for your invoice)</span></label><input type="text" id="fBusinessName" placeholder="e.g. Nguyen Property Co" /></div>
 
         <div class="field"><label>Referral code <span style="color:var(--stone-light);font-weight:400;">(optional)</span></label><input type="text" id="fReferral" placeholder="Got a code from a friend?" /></div>
+        </details>
       ` : ''}
 
       <div class="field"><label>Email</label><input type="email" id="fEmail" placeholder="you@example.com" /></div>
-      ${sessionCustomer ? '' : `<div class="field"><label>${mode === 'register' ? 'Create a password to track your job' : 'Password'}</label><input type="password" id="fPassword" autocomplete="${mode === 'register' ? 'new-password' : 'current-password'}" placeholder="${mode === 'register' ? 'Choose a password' : 'Your password'}" /></div>`}
+      ${sessionCustomer || mode === 'code' ? '' : `<div class="field"><label>${mode === 'register' ? 'Create a password to track your job' : 'Password'}</label><input type="password" id="fPassword" autocomplete="${mode === 'register' ? 'new-password' : 'current-password'}" placeholder="${mode === 'register' ? 'Choose a password' : 'Your password'}" /></div>`}
 
+      <div class="field booking-timing"><label>When would you prefer?</label>
+        <div class="booking-timing-options" role="group" aria-label="Preferred timing">
+          <button type="button" data-timing="ASAP" onclick="chooseBookingTiming('ASAP')">ASAP</button><button type="button" data-timing="date" onclick="chooseBookingTiming('date')">Choose a date</button><button type="button" data-timing="Flexible" onclick="chooseBookingTiming('Flexible')">Flexible</button>
+        </div>
+        <div id="bookingDateFields" class="row2" hidden><div><label for="fPreferredDate">Preferred date</label><input type="date" id="fPreferredDate" onchange="updateBookingTiming()"></div><div><label for="fPreferredWindow">Time of day</label><select id="fPreferredWindow" onchange="updateBookingTiming()"><option>Any time</option><option>Morning</option><option>Afternoon</option></select></div></div>
+        <input type="hidden" id="fTiming"><div class="field-note">This is your preference. Your contractor will confirm availability with you.</div>
+      </div>
+      ${mode === 'code' && !sessionCustomer ? `<div class="booking-email-code"><p>No password needed. We’ll email you a single-use code to verify your booking details.</p><div id="bookingCodeFields" hidden><label for="fBookingCode">Email verification code</label><input id="fBookingCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Enter the code from your email"><button type="button" class="booking-code-resend" onclick="requestBookingEmailCode()">Send a new code</button></div><p id="bookingCodeStatus" role="status"></p></div>` : ''}
       ${mode !== 'login' ? `
         <div style="background:var(--paper);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:var(--stone);line-height:1.5;">
           <strong style="color:var(--ink);">Cancellation:</strong> free if no contractor has accepted yet. Once accepted, cancelling may incur a fee reflecting work or materials already committed. <a href="mysubbies-faq.html" target="_blank" style="text-decoration:underline;">Read more</a>
@@ -313,16 +308,15 @@
         <label class="terms"><input type="checkbox" id="fTerms" /> I have read and accept the MySubbies <a href="mysubbies-terms.html" target="_blank" style="text-decoration:underline;">Terms &amp; Conditions</a> and <a href="mysubbies-privacy-policy.html" target="_blank" style="text-decoration:underline;">Privacy Policy</a>, including how payment stages are tracked.</label>
       ` : '<div class="divider"></div>'}
 
-      <div class="field"><label>Preferred timing</label><input type="text" id="fTiming" placeholder="e.g. next Tuesday morning, ASAP, or flexible" /><div class="field-note">Your contractor will confirm availability with you.</div></div>
+
       <p class="booking-review-note">We’ll review your booking before assigning a contractor. Nothing is payable now.</p>
       <div id="bookingError" role="alert"></div>
-      <button class="btn btn-black" id="confirmFreeBooking" onclick="submitBooking()">Confirm booking — $0 due today</button>
-      <div class="toggle-mode" style="${sessionCustomer ? 'display:none;' : ''}">
-        ${mode !== 'login' ? `Already registered? <a href="#" onclick="saveBookingDetails(); mode='login'; render(); return false;">Log in</a>` : `New here? <a href="#" onclick="saveBookingDetails(); mode='register'; render(); return false;">Create an account</a>`}
-      </div>
+      <button class="btn btn-black" id="confirmFreeBooking" onclick="submitBooking()">${mode === 'code' && !sessionCustomer ? 'Continue with email code' : 'Confirm booking — $0 due today'}</button>
+
       </section>
     `;
     restoreBookingDetails();
+    restoreBookingTiming();
     if (mode !== 'login') setTimeout(initBookingAddressAutocomplete, 0);
   }
 
@@ -347,6 +341,7 @@
   async function submitBooking() {
     if (!quote?.items?.length) { showError("Add a task to your cart before continuing."); return; }
     if (bookingCartPricingPending) { showError('Please wait for the updated price before confirming.'); return; }
+    if (bookingTimingChoice === 'date' && (!document.getElementById('fPreferredDate').value || document.getElementById('fPreferredDate').value < document.getElementById('fPreferredDate').min)) { showError('Choose a preferred date today or later.'); return; }
     saveBookingDetails();
     if (quote.items.some(item => item.aiEstimated || item.needsSiteVisit)) { showError('This job needs review before quoting. Please submit it for a quote.'); return; }
     quote.urgency = document.getElementById('fTiming').value.trim() || quote.urgency || 'Flexible';
@@ -364,6 +359,7 @@
         addressLocation:bookingAddressSelection || { formattedAddress:value('fAddress'), suburb:value('fSuburb'), verified:false }, jobType, businessName:value('fBusinessName') });
       return;
     }
+    if (mode === 'code') { await submitEmailCodeBooking(); return; }
     const email = document.getElementById('fEmail').value.trim().toLowerCase();
     const password = document.getElementById('fPassword').value;
     if (!email || !password) { showError('Enter your email and password.'); highlightMissingFields(['fEmail', 'fPassword']); return; }
@@ -408,7 +404,6 @@
         localStorage.setItem('mysubbies_customer_email', email);
         sessionCustomer = merged; mode = 'session';
         render();
-        return;
         return;
       }
 
@@ -458,7 +453,7 @@
         }
       }
 
-      const account = { name, phone, email, password, referralCode, referredBy, createdAt: new Date().toISOString(), customerDbId,
+      const account = { name, phone, email, referralCode, referredBy, createdAt: new Date().toISOString(), customerDbId,
         addressLocation: bookingAddressSelection || { formattedAddress: address, suburb, verified: false } };
       customers[email] = account;
       saveCustomers(customers);
@@ -837,9 +832,9 @@
     app.innerHTML = `
       <div class="confirm">
         <div class="tick">✓</div>
-        <h1>${createdJobs[0].status === 'pending_contract_review' ? 'Booking received!' : (isBundle ? createdJobs.length + ' jobs sent!' : 'Job sent!')}</h1>
+        <h1>${createdJobs[0].status === 'pending_contract_review' ? 'Booking received!' : 'Finding your contractor'}</h1>
         <p>${createdJobs[0].status === 'pending_contract_review'
-          ? `Your ${createdJobs[0].category} booking in ${createdJobs[0].suburb} has been recorded with $0 due today. MySubbies will review the contract and compliance requirements before the job is released to contractors or any payment is requested.`
+          ? `We’ve received your ${createdJobs[0].category} booking in ${createdJobs[0].suburb}. We’ll check the details before arranging your contractor and keep you updated. No payment is due today.`
           : (isBundle
             ? `Your renovation in ${createdJobs[0].suburb} is now live on the contractor board \u2014 ${uniqueCats.join(', ')}, dispatched separately to the right trade for each.`
             : `${createdJobs[0].category} in ${createdJobs[0].suburb} is now live on the contractor board.`)}</p>
@@ -848,10 +843,95 @@
       </div>`;
   }
 
+  let bookingTimingChoice = 'Flexible';
+  function chooseBookingTiming(choice) {
+    bookingTimingChoice = choice;
+    document.querySelectorAll('[data-timing]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.timing === choice)));
+    document.getElementById('bookingDateFields').hidden = choice !== 'date';
+    updateBookingTiming();
+  }
+  function updateBookingTiming() {
+    const date = document.getElementById('fPreferredDate').value;
+    const window = document.getElementById('fPreferredWindow').value;
+    document.getElementById('fTiming').value = bookingTimingChoice === 'date' ? (date ? `${date} — ${window}` : '') : bookingTimingChoice;
+    saveBookingDetails();
+  }
+  function restoreBookingTiming() {
+    const timing = document.getElementById('fTiming').value || 'Flexible';
+    const match = timing.match(/^(\d{4}-\d{2}-\d{2})/);
+    const local = new Date(); local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
+    document.getElementById('fPreferredDate').min = local.toISOString().slice(0,10);
+    if (match) document.getElementById('fPreferredDate').value = match[1];
+    chooseBookingTiming(match ? 'date' : timing === 'ASAP' ? 'ASAP' : 'Flexible');
+  }
+  function validateEmailBookingDetails() {
+    const value = id => document.getElementById(id).value.trim();
+    if (highlightMissingFields(['fName','fPhone','fSuburb','fAddress','fEmail'])) { showError('Please complete the highlighted details.'); return null; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value('fEmail'))) { showError('Enter a valid email address.'); return null; }
+    if (bookingTimingChoice === 'date' && (!value('fPreferredDate') || value('fPreferredDate') < document.getElementById('fPreferredDate').min)) { showError('Choose a preferred date today or later.'); return null; }
+    if (!document.getElementById('fTerms').checked) { showError('Please accept the Terms & Conditions to continue.'); return null; }
+    if (jobType === 'business' && !value('fBusinessName')) { showError('Enter your business name for the invoice.'); return null; }
+    bookingAddressSelection = window.MySubbiesAddress && window.MySubbiesAddress.getSelection('fAddress');
+    if (bookingAddressAutocompleteAvailable && !bookingAddressSelection) { showError('Please select your address from the suggestions.'); return null; }
+    return {name:value('fName'),phone:value('fPhone'),email:value('fEmail').toLowerCase(),suburb:value('fSuburb'),address:value('fAddress'),jobType,businessName:value('fBusinessName')};
+  }
+  async function requestBookingEmailCode() {
+    if (bookingAuthBusy) return;
+    const details = validateEmailBookingDetails(); if (!details) return;
+    if (bookingCodeEmail === details.email && Date.now() - bookingCodeRequestedAt < 60000) { showError('Please wait a minute before requesting another code.'); return; }
+    const button = document.getElementById('confirmFreeBooking');
+    bookingAuthBusy = true; button.disabled = true;
+    try {
+      const response = await fetch('/api/customer-register', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'request_booking_code',email:details.email})});
+      const result = await response.json();
+      if (!response.ok || !result.sent) throw new Error(result.error || 'Could not send your email code.');
+      bookingCodeEmail = details.email; bookingCodeRequestedAt = Date.now();
+      document.getElementById('bookingCodeFields').hidden = false;
+      document.getElementById('bookingCodeStatus').textContent = 'Code sent. Check your inbox and spam folder.';
+      button.textContent = 'Verify & confirm booking — $0 due today';
+      document.getElementById('fBookingCode').focus();
+    } catch (error) { showError(error.message); }
+    finally { bookingAuthBusy = false; button.disabled = false; }
+  }
+  async function submitEmailCodeBooking() {
+    if (bookingAuthBusy) return;
+    const details = validateEmailBookingDetails(); if (!details) return;
+    if (!sb) { showError('Email verification is temporarily unavailable. Please try again shortly.'); return; }
+    if (bookingCodeEmail !== details.email) { await requestBookingEmailCode(); return; }
+    const code = document.getElementById('fBookingCode').value.trim();
+    if (!/^\d{6,10}$/.test(code)) { showError('Enter the verification code from your email.'); return; }
+    const button = document.getElementById('confirmFreeBooking');
+    bookingAuthBusy = true; button.disabled = true;
+    try {
+      const { data, error } = await sb.auth.verifyOtp({email:details.email,token:code,type:'email'});
+      if (error || !data?.session) throw new Error('That code is invalid or expired. Please try again or request a new code.');
+      const response = await fetch('/api/customer-register', {method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+data.session.access_token},body:JSON.stringify({firstName:details.name,phone:details.phone,referralCode:document.getElementById('fReferral').value.trim()})});
+      const profile = await response.json();
+      if (!response.ok || !profile.customer) throw new Error(profile.error || 'Could not save your customer details.');
+      sessionCustomer = {...details,customerDbId:profile.customer.id,addressLocation:bookingAddressSelection || {formattedAddress:details.address,suburb:details.suburb,verified:false}};
+      const customers = getCustomers(); customers[details.email] = {...customers[details.email],...sessionCustomer}; saveCustomers(customers);
+      localStorage.setItem('mysubbies_customer_email',details.email);
+      mode = 'session';
+      document.getElementById('fEmail').readOnly = true;
+      document.querySelector('.booking-email-code').hidden = true;
+      button.textContent = 'Confirm booking — $0 due today';
+      await beginBookingFlow(sessionCustomer);
+    } catch (error) { showError(error.message); }
+    finally { bookingAuthBusy = false; if (document.getElementById('confirmFreeBooking')) button.disabled = false; }
+  }
+  async function checkBookingAuthOptions() {
+    if (sessionCustomer || mode !== 'code') return;
+    try {
+      const response = await fetch('/api/customer-register?action=booking-auth-options');
+      const options = await response.json();
+      if (response.ok && options.emailCodeEnabled === false && mode === 'code') { saveBookingDetails(); mode='register'; render(); }
+    } catch (_) { /* Explicit request-code errors keep password login available. */ }
+  }
+
   const BOOKING_DETAILS_KEY = 'mysubbies_booking_details_v1';
   function saveBookingDetails() {
     const details = {};
-    for (const id of ['fName','fPhone','fSuburb','fAddress','fEmail','fBusinessName','fReferral','fTiming']) {
+    for (const id of ['fName','fPhone','fSuburb','fAddress','fEmail','fBusinessName','fReferral','fTiming','fPreferredDate','fPreferredWindow']) {
       const input = document.getElementById(id); if (input) details[id] = input.value;
     }
     details.jobType = jobType;
@@ -862,7 +942,7 @@
     try { details = JSON.parse(sessionStorage.getItem(BOOKING_DETAILS_KEY) || '{}'); } catch (_) {}
     const account = sessionCustomer || {};
     const initial = { fName:account.name, fPhone:account.phone, fEmail:account.email, fSuburb:quote?.suburb || account.suburb, fAddress:account.address, fTiming:quote?.urgency };
-    for (const id of ['fName','fPhone','fSuburb','fAddress','fEmail','fBusinessName','fReferral','fTiming']) {
+    for (const id of ['fName','fPhone','fSuburb','fAddress','fEmail','fBusinessName','fReferral','fTiming','fPreferredDate','fPreferredWindow']) {
       const input = document.getElementById(id);
       if (input) input.value = (sessionCustomer && id === 'fEmail' ? account.email : details[id] || initial[id]) || '';
       if (input && sessionCustomer && id === 'fEmail') input.readOnly = true;
@@ -888,6 +968,7 @@
   }
   render();
   hydrateBookingSession();
+  checkBookingAuthOptions();
   if (quote && quote.items.length === 0) openBookingCartAdd();
 </script>
 <script>

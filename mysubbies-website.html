@@ -723,6 +723,7 @@
 #complexJobRequest input, #complexJobRequest textarea { width:100%; margin:5px 0 14px; padding:12px; border:1px solid var(--line); border-radius:10px; font:inherit; }
 #complexJobRequest label { display:block; font-size:14px; font-weight:600; }
 </style>
+<link rel="stylesheet" href="css/booking-cart.css">
 </head>
 <body>
 
@@ -737,6 +738,7 @@
   </div>
 </div>
 <script src="js/address-autocomplete.js"></script>
+<script src="js/booking-cart.js"></script>
 <script>
   // No native install prompt is reliable on its own: Android Chrome only
   // shows its own mini-infobar after unpredictable engagement heuristics
@@ -2167,6 +2169,10 @@
     // qty field starts empty; the customer fills it in on Step 2 and
     // onPrimaryQtyInput() links it back to this pre-selected task.
     selectedTierSet.set(task.name, task);
+    if (estPrimaryGroup?.tasks.some(t => t.name === task.name)) {
+      const raw = document.getElementById('estPrimaryQty').value.trim();
+      if (raw) qtyValues.set(task.name, raw);
+    }
     renderQtyRows();
     renderSelectedPills();
     if (estPrimaryGroup && estPrimaryGroup.tasks.some(t => t.name === task.name)) {
@@ -2771,7 +2777,7 @@
       return { kind:'number', question:`What is the approximate ${subject} length?`, label:'linear metres', placeholder:'e.g. 12', hint:'Enter the length in metres. An exact number is needed for an instant estimated price.' };
     }
     if (unit === 'hour') return { kind:'number', question:'How many hours should we allow?', label:'hours', placeholder:'e.g. 2', hint:'Enter the number of hours to price. If you are unsure, photos and job details can help us review the scope.' };
-    if (unit.includes('visit')) return { kind:'number', question:'How many visits would you like to book?', label:'visits', placeholder:'e.g. 1', hint:'Enter 1 for a one-off visit. A visit count is needed for an instant estimated price.' };
+    if (unit.includes('visit')) return { kind:'number', defaultQuantity:1, question:'How many visits would you like to book?', label:'visits', placeholder:'e.g. 1', hint:'Enter 1 for a one-off visit. A visit count is needed for an instant estimated price.' };
     if (unit.includes('clean')) return { kind:'number', question:'How many properties need this clean?', label:'cleans', placeholder:'e.g. 1', hint:'Enter 1 for one property. A count is needed for an instant estimated price.' };
     if (unit.includes('load')) return { kind:'number', question:'How many loads need to be removed?', label:task.unit, placeholder:'e.g. 1', hint:'Enter the estimated number of loads. An exact number is needed for an instant estimated price.' };
     const labels = {
@@ -3919,33 +3925,7 @@
       g.items.push({ ...item, idx });
     });
 
-    list.innerHTML = groups.map(g => {
-      const groupSubtotal = g.items.reduce((s, i) => s + i.base, 0);
-      return `
-        <div class="cart-group">
-          ${groups.length > 1 ? `<div class="cart-group-label">${g.catIcon} ${g.catLabel} \u00b7 $${groupSubtotal.toLocaleString()}</div>` : ''}
-          ${g.items.map(item => `
-            <div class="cart-item">
-              <div class="cart-item-top">
-                <div>
-                  <div class="cart-item-name">${groups.length > 1 ? '' : item.catIcon + ' '}${escapeHtml(item.taskName)} ${item.aiEstimated ? '<span class="ai-estimate-tag">\ud83e\udd16 AI estimate</span>' : ''}</div>
-                  <div class="cart-item-meta">${item.qty.toLocaleString()} ${item.unit}${item.needsSiteVisit ? ' \u00b7 needs site visit' : ''}</div>
-                  ${!item.aiEstimated && item.catLabel !== 'Courier Services' ? `<label class="cart-item-meta">Quantity <input aria-label="Quantity for ${escapeHtml(item.taskName)}" type="number" min="0.01" max="100000" step="any" value="${Number(item.qty)}" onchange="updateCartQuantity(${item.idx}, this.value)" style="width:90px;padding:7px;border:1px solid var(--line);border-radius:6px;"> ${escapeHtml(item.unit || '')}</label>` : ''}
-                </div>
-                <div style="display:flex;align-items:center;">
-                  <div class="cart-item-price">${item.aiEstimated ? '~$' + item.base.toLocaleString() : '$' + item.base.toLocaleString()}</div>
-                  <button class="cart-item-remove" onclick="removeFromCart(${item.idx})" title="Remove">\u2715</button>
-                </div>
-              </div>
-              ${item.notes ? `
-                <button class="cart-item-notes-toggle" onclick="toggleCartNotes(${item.idx})">What's included \u25be</button>
-                <div class="cart-item-notes" id="cartNotes_${item.idx}">${escapeHtml(item.notes)}</div>
-              ` : ''}
-            </div>
-          `).join('')}
-        </div>
-      `;
-    }).join('');
+    list.innerHTML = bookingCartMarkup(cart, { estimator: true });
 
     const total = cart.reduce((s, i) => s + i.base, 0);
     const catCount = groups.length;
