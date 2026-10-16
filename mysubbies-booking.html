@@ -861,7 +861,11 @@
     const match = timing.match(/^(\d{4}-\d{2}-\d{2})/);
     const local = new Date(); local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
     document.getElementById('fPreferredDate').min = local.toISOString().slice(0,10);
-    if (match) document.getElementById('fPreferredDate').value = match[1];
+    if (match) {
+      document.getElementById('fPreferredDate').value = match[1];
+      const timeWindow = timing.split(' — ')[1];
+      if (['Any time','Morning','Afternoon'].includes(timeWindow)) document.getElementById('fPreferredWindow').value = timeWindow;
+    }
     chooseBookingTiming(match ? 'date' : timing === 'ASAP' ? 'ASAP' : 'Flexible');
   }
   function validateEmailBookingDetails() {
@@ -941,7 +945,7 @@
     let details = {};
     try { details = JSON.parse(sessionStorage.getItem(BOOKING_DETAILS_KEY) || '{}'); } catch (_) {}
     const account = sessionCustomer || {};
-    const initial = { fName:account.name, fPhone:account.phone, fEmail:account.email, fSuburb:quote?.suburb || account.suburb, fAddress:account.address, fTiming:quote?.urgency };
+    const initial = { fName:account.name, fPhone:account.phone, fEmail:account.email, fSuburb:quote?.suburb || account.suburb, fAddress:account.address, fTiming:quote?.urgency, fPreferredWindow:'Any time' };
     for (const id of ['fName','fPhone','fSuburb','fAddress','fEmail','fBusinessName','fReferral','fTiming','fPreferredDate','fPreferredWindow']) {
       const input = document.getElementById(id);
       if (input) input.value = (sessionCustomer && id === 'fEmail' ? account.email : details[id] || initial[id]) || '';
