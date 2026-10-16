@@ -89,9 +89,8 @@ test('checkout resolves every job value to zero due without changing later stage
 
 test('single and multi-trade bookings use final review and never mark unpaid deposits paid', () => {
   const flow = bookingHtml.slice(bookingHtml.indexOf('function beginBookingFlow'), bookingHtml.indexOf('const PAYMENT_TERMS_VERSION'));
-  assert.match(flow, /Edit cart/);
-  assert.match(flow, /Remove job/);
-  assert.match(flow, /Confirm booking — \$0 due today/);
+  assert.match(flow, /await confirmFreeBooking\(\)/);
+  assert.match(bookingHtml, /Confirm booking — \$0 due today/);
   assert.match(flow, /for \(const category of categories\)/);
   assert.doesNotMatch(flow, /stripe\.confirmCardPayment/);
   assert.match(bookingHtml, /deposit: useRealPayment \? !!paymentInfo.depositPaid : false/);

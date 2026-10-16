@@ -1,17 +1,22 @@
 // Inline checkout cart. Updating this region never recreates account/address inputs.
 let bookingCartCatalogue = [];
+let bookingCartPricingPending = 0;
+const bookingCartPriceRequests = new WeakMap();
 function cartEscape(value) {
   return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 function bookingCartMarkup(items) {
   return `<section id="bookingCart"><h2 style="font-size:17px;">Your cart</h2>
     ${items.length ? items.map((item, index) => `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);">
-      <div style="flex:1;">${cartEscape(item.taskName)}<div style="font-size:12px;color:var(--stone);">${cartEscape(item.catLabel)} · ${cartEscape(item.qty)} ${cartEscape(item.unit)}</div></div>
+      <div style="flex:1;">${cartEscape(item.taskName)}<div style="font-size:12px;color:var(--stone);">${cartEscape(item.catLabel)} · ${cartEscape(item.qty)} ${cartEscape(item.unit)}</div>
+      ${!item.aiEstimated && item.catLabel !== 'Courier Services' ? `<label style="font-size:12px;">Quantity <input type="number" aria-label="Quantity for ${cartEscape(item.taskName)}" min="0.01" max="100000" step="any" value="${Number(item.qty)}" onchange="updateBookingCartQuantity(${index}, this.value)" style="width:75px;padding:7px;"></label>` : ''}
+      ${item.notes ? `<details style="font-size:12px;"><summary>What’s included</summary>${cartEscape(item.notes)}</details>` : ''}</div>
       <strong>$${Number(item.base).toLocaleString()}</strong>
       <button type="button" aria-label="Remove ${cartEscape(item.taskName)}" onclick="removeBookingCartItem(${index})" style="min-width:44px;min-height:44px;border:0;background:transparent;font-size:24px;cursor:pointer;">×</button>
     </div>`).join('') : '<p>Your cart is empty. Add a task to continue. Your details are still saved on this page.</p>'}
     <p><strong>Job total: $${items.reduce((sum, i) => sum + Number(i.base), 0).toLocaleString()}</strong> · $0 due at booking</p>
     <button type="button" class="btn btn-outline" onclick="openBookingCartAdd()">+ Add another job / task</button>
+    <button type="button" class="btn btn-outline" onclick="requestQuoteForBookingCart()">Complex or unlisted job? Submit for a quote</button>
     <div id="bookingCartAdd" style="margin-top:12px;"></div>
   </section>`;
 }
@@ -48,7 +53,7 @@ async function openBookingCartAdd() {
     if (!response.ok) throw new Error();
     const data = await response.json();
     bookingCartCatalogue = (data.categories || []).flatMap(category =>
-      category.disabled || category.unavailable ? [] : (category.tasks || []).filter(task => !task.disabled && !task.unavailable && Number.isFinite(task.rate) && task.rate > 0).map(task => ({ category, task })));
+      category.disabled || category.unavailable ? [] : (category.tasks || []).filter(task => !task.disabled && !task.unavailable && !task.needsSiteVisit && Number.isFinite(task.rate) && task.rate > 0).map(task => ({ category, task })));
     if (!bookingCartCatalogue.length) throw new Error();
     if (!region.isConnected) return;
     region.innerHTML = `<label>Choose a task<select id="bookingCartTask" style="display:block;width:100%;padding:10px;margin:8px 0;">${bookingCartCatalogue.map(({category,task},index) => `<option value="${index}">${cartEscape(category.label)} — ${cartEscape(task.name)} ($${task.rate.toLocaleString()} / ${cartEscape(task.unit)})</option>`).join('')}</select></label>
@@ -72,4 +77,37 @@ function addBookingCartItem() {
     minApplied:base > rawBase,minJobPrice:task.minJobPrice,needsSiteVisit:!!task.needsSiteVisit,notes:task.notes || ''});
   quote.needsSiteVisit = quote.items.some(item => item.needsSiteVisit);
   saveBookingCart();
+}
+
+async function updateBookingCartQuantity(index, value) {
+  if (bookingSubmitting || !quote?.items[index]) return;
+  const item = quote.items[index];
+  const qty = Number(value);
+  if (item.catLabel === 'Courier Services' || item.aiEstimated || !Number.isFinite(qty) || qty <= 0 || qty > 100000) { saveBookingCart(); return; }
+  const token = (bookingCartPriceRequests.get(item) || 0) + 1;
+  bookingCartPriceRequests.set(item, token);
+  bookingCartPricingPending++;
+  try {
+    const response = await fetch('/api/rate-card', { cache: 'no-store' });
+    if (!response.ok) throw new Error('Could not load current prices.');
+    const data = await response.json();
+    const category = (data.categories || []).find(c => c.label === item.catLabel && !c.disabled && !c.unavailable);
+    const task = category && category.tasks.find(t => t.name === item.taskName && !t.disabled && !t.unavailable && Number.isFinite(t.rate) && t.rate > 0);
+    if (!task || task.needsSiteVisit) throw new Error('This task requires review before its price can be updated.');
+    // The customer may have removed a row while its price was loading.
+    if (bookingSubmitting || !quote.items.includes(item) || bookingCartPriceRequests.get(item) !== token) return;
+    const raw = Math.round(qty * task.rate);
+    Object.assign(item, { qty, base: Math.max(raw, Number(task.minJobPrice) || 0), minApplied: raw < (Number(task.minJobPrice) || 0), notes: task.notes || '' });
+    saveBookingCart();
+  } catch (error) {
+    const region = document.getElementById('bookingCartAdd');
+    if (region) region.textContent = error.message + ' Your original quantity and price are unchanged.';
+  } finally { bookingCartPricingPending--; }
+}
+
+function requestQuoteForBookingCart() {
+  if (bookingSubmitting) return;
+  saveBookingDetails();
+  try { sessionStorage.setItem('mysubbies_estimator_draft_v1', JSON.stringify({ cart:quote.items, site:quote.site, access:quote.access, urgency:quote.urgency, suburb:quote.suburb, photos:quote.photoDataUrls || [], savedAt:Date.now() })); } catch (_) {}
+  window.location.href = '/?quote-request=1#estimate';
 }

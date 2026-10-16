@@ -132,12 +132,7 @@
   }
   function getPendingQuote() { return JSON.parse(localStorage.getItem('mysubbies_pending_quote') || 'null'); }
 
-  // New Job opens a usable cart even without a prior estimator quote.
   let quote = getPendingQuote();
-  if (!quote && new URLSearchParams(location.search).get('new') === '1') {
-    quote = { category: 'Book a job', icon: '+', items: [], base: 0, low: 0, high: 0,
-      suburb: '', site: '', access: '', urgency: '', photoDataUrls: [] };
-  }
   const app = document.getElementById('app');
 
   async function getBookingAccessToken() {
@@ -165,7 +160,8 @@
   const sb = (typeof window.supabase !== 'undefined')
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
 
-  let mode = 'register'; // or 'login'
+  let mode = 'register'; // register, login or an existing authenticated session
+  let sessionCustomer = null;
   let jobType = 'private'; // or 'business'
   let bookingAddressAutocompleteAvailable = false;
   let bookingAddressSelection = null;
@@ -203,6 +199,7 @@
     }
 
     app.innerHTML = `
+      <p class="pagesub">Step 3 of 3 · Booking details</p>
       <div class="quote-summary" style="flex-direction:column;align-items:stretch;">
         <div style="display:flex;gap:14px;align-items:center;margin-bottom:${quote.items && quote.items.length ? '14px' : '0'};">
           ${quote.photoDataUrl && (!quote.photoDataUrls || quote.photoDataUrls.length <= 1) ? `<img src="${quote.photoDataUrl}" />` : `<div class="qicon">${quote.icon}</div>`}
@@ -221,17 +218,15 @@
       </div>
 
       <p class="pagesub">No booking fee. $0 due at booking.</p>
-      <button class="btn btn-outline" onclick="editPendingJob()">Edit cart</button>
-      <button class="btn btn-outline" onclick="removePendingJob()">Remove job</button>
-      <h1 class="pagetitle">${mode === 'register'  ? 'Your booking details' : 'Welcome back'}</h1>
-      <p class="pagesub">${mode === 'register' ? 'This creates your MySubbies account so you can track the job — separate from contractor logins.' : 'Log in to continue and track this job under your existing account.'}</p>
-      <div class="toggle-mode" style="margin:4px 0 16px;">
-        ${mode === 'register' ? `Already registered? <a href="#" onclick="mode='login'; render(); return false;">Log in</a>` : `New here? <a href="#" onclick="mode='register'; render(); return false;">Create an account</a>`}
+      <h1 class="pagetitle">${mode !== 'login'  ? 'Your booking details' : 'Welcome back'}</h1>
+      <p class="pagesub">${mode !== 'login' ? 'Add your contact details and preferred timing to confirm your job.' : 'Log in to continue and track this job under your existing account.'}</p>
+      <div class="toggle-mode" style="margin:4px 0 16px;${sessionCustomer ? 'display:none;' : ''}">
+        ${mode !== 'login' ? `Already registered? <a href="#" onclick="saveBookingDetails(); mode='login'; render(); return false;">Log in</a>` : `New here? <a href="#" onclick="saveBookingDetails(); mode='register'; render(); return false;">Create an account</a>`}
       </div>
 
       <div id="errorBox"></div>
 
-      ${mode === 'register' ? `
+      ${mode !== 'login' ? `
         <div class="field"><label>Your name</label><input type="text" id="fName" placeholder="e.g. Sarah Nguyen" /></div>
         <div class="row2">
           <div class="field"><label>Phone</label><input type="tel" id="fPhone" placeholder="04xx xxx xxx" /></div>
@@ -252,21 +247,25 @@
       ` : ''}
 
       <div class="field"><label>Email</label><input type="email" id="fEmail" placeholder="you@example.com" /></div>
-      <div class="field"><label>Password</label><input type="password" id="fPassword" placeholder="${mode === 'register' ? 'Choose a password' : 'Your password'}" /></div>
+      ${sessionCustomer ? '' : `<div class="field"><label>${mode === 'register' ? 'Create a password to track your job' : 'Password'}</label><input type="password" id="fPassword" autocomplete="${mode === 'register' ? 'new-password' : 'current-password'}" placeholder="${mode === 'register' ? 'Choose a password' : 'Your password'}" /></div>`}
 
-      ${mode === 'register' ? `
+      ${mode !== 'login' ? `
         <div style="background:var(--paper);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:var(--stone);line-height:1.5;">
           <strong style="color:var(--ink);">Cancellation:</strong> free if no contractor has accepted yet. Once accepted, cancelling may incur a fee reflecting work or materials already committed. <a href="mysubbies-faq.html" target="_blank" style="text-decoration:underline;">Read more</a>
         </div>
         <label class="terms"><input type="checkbox" id="fTerms" /> I have read and accept the MySubbies <a href="mysubbies-terms.html" target="_blank" style="text-decoration:underline;">Terms &amp; Conditions</a> and <a href="mysubbies-privacy-policy.html" target="_blank" style="text-decoration:underline;">Privacy Policy</a>, including how payment stages are tracked.</label>
       ` : '<div class="divider"></div>'}
 
-      <button class="btn btn-black" onclick="submitBooking()">${mode === 'register' ? 'Continue to review booking' : 'Log in & continue'}</button>
-      <div class="toggle-mode">
-        ${mode === 'register' ? `Already registered? <a href="#" onclick="mode='login'; render(); return false;">Log in</a>` : `New here? <a href="#" onclick="mode='register'; render(); return false;">Create an account</a>`}
+      <div class="field"><label>Preferred timing</label><input id="fTiming" placeholder="e.g. next Tuesday morning, ASAP, or flexible" /><div class="field-note">Your contractor will confirm availability with you.</div></div>
+      <p class="pagesub">Your job will be held for MySubbies review before release to contractors. No booking fee. $0 due today.</p>
+      <div id="bookingError" role="alert"></div>
+      <button class="btn btn-black" id="confirmFreeBooking" onclick="submitBooking()">Confirm booking — $0 due today</button>
+      <div class="toggle-mode" style="${sessionCustomer ? 'display:none;' : ''}">
+        ${mode !== 'login' ? `Already registered? <a href="#" onclick="saveBookingDetails(); mode='login'; render(); return false;">Log in</a>` : `New here? <a href="#" onclick="saveBookingDetails(); mode='register'; render(); return false;">Create an account</a>`}
       </div>
     `;
-    if (mode === 'register') setTimeout(initBookingAddressAutocomplete, 0);
+    restoreBookingDetails();
+    if (mode !== 'login') setTimeout(initBookingAddressAutocomplete, 0);
   }
 
   function showError(msg) {
@@ -289,12 +288,30 @@
 
   async function submitBooking() {
     if (!quote?.items?.length) { showError("Add a task to your cart before continuing."); return; }
+    if (bookingCartPricingPending) { showError('Please wait for the updated price before confirming.'); return; }
+    saveBookingDetails();
+    if (quote.items.some(item => item.aiEstimated || item.needsSiteVisit)) { showError('This job needs review before quoting. Please submit it for a quote.'); return; }
+    quote.urgency = document.getElementById('fTiming').value.trim() || quote.urgency || 'Flexible';
+    localStorage.setItem('mysubbies_pending_quote', JSON.stringify(quote));
+    if (sessionCustomer) {
+      const value = id => document.getElementById(id).value.trim();
+      if (!value('fName') || !value('fPhone') || !value('fSuburb') || !value('fAddress')) {
+        showError('Please fill in the highlighted fields.'); highlightMissingFields(['fName','fPhone','fSuburb','fAddress']); return;
+      }
+      if (!document.getElementById('fTerms').checked) { showError('Please accept the Terms & Conditions to continue.'); return; }
+      bookingAddressSelection = window.MySubbiesAddress && window.MySubbiesAddress.getSelection('fAddress');
+      if (bookingAddressAutocompleteAvailable && !bookingAddressSelection) { showError('Please select your address from the suggestions.'); return; }
+      if (jobType === 'business' && !value('fBusinessName')) { showError('Enter the business name for your invoice.'); return; }
+      await beginBookingFlow({ ...sessionCustomer, name:value('fName'), phone:value('fPhone'), suburb:value('fSuburb'), address:value('fAddress'),
+        addressLocation:bookingAddressSelection || { formattedAddress:value('fAddress'), suburb:value('fSuburb'), verified:false }, jobType, businessName:value('fBusinessName') });
+      return;
+    }
     const email = document.getElementById('fEmail').value.trim().toLowerCase();
     const password = document.getElementById('fPassword').value;
     if (!email || !password) { showError('Enter your email and password.'); highlightMissingFields(['fEmail', 'fPassword']); return; }
 
     const customers = getCustomers();
-    const btn = document.querySelector('.btn-black');
+    const btn = document.getElementById('confirmFreeBooking');
     const btnLabel = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Please wait…'; }
 
@@ -322,7 +339,7 @@
           return;
         }
         const existing = customers[email] || {};
-        const merged = { ...existing, name: profile.name || existing.name, phone: profile.phone || existing.phone, email, password, customerDbId: profile.id };
+        const merged = { ...existing, name: profile.name || existing.name, phone: profile.phone || existing.phone, email, customerDbId: profile.id, address:profile.address || existing.address, suburb:profile.suburb || existing.suburb || quote.suburb, addressLocation:profile.addressLocation || existing.addressLocation };
         customers[email] = merged;
         saveCustomers(customers);
         // My Jobs (customer-portal.html) checks this exact key to decide
@@ -331,7 +348,9 @@
         // their account and job both exist (real bug, Aug 2026: this was
         // never wired up when registration/login moved to Supabase Auth).
         localStorage.setItem('mysubbies_customer_email', email);
-        beginBookingFlow(merged);
+        sessionCustomer = merged; mode = 'session';
+        render();
+        return;
         return;
       }
 
@@ -397,7 +416,7 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'customer-registered', name, email, phone, suburb }),
       }).catch(() => {});
-      beginBookingFlow({ ...account, address, suburb, jobType, businessName });
+      await beginBookingFlow({ ...account, address, suburb, jobType, businessName });
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
     }
@@ -437,23 +456,17 @@
   function removePendingJob() {
     if (bookingSubmitting) return;
     localStorage.removeItem('mysubbies_pending_quote');
+    sessionStorage.removeItem('mysubbies_estimator_draft_v1');
     quote = null;
     reviewCustomer = null;
     window.__mysubbiesPendingBooking = null;
     render();
   }
-  function beginBookingFlow(customer) {
+  async function beginBookingFlow(customer) {
+    // The customer has already reviewed the editable cart on this screen.
+    // Confirm in place, keeping contact fields intact if the server rejects it.
     reviewCustomer = customer;
-    app.innerHTML = `
-      <h1 class="pagetitle">Review your booking</h1>
-      <p class="pagesub">No booking fee. $0 due today. Job payments will be reviewed separately before any payment is requested.</p>
-      ${renderGroupedItems(quote.items || [])}
-
-      <button class="btn btn-outline" onclick="editPendingJob()">Edit cart</button>
-      <button class="btn btn-outline" onclick="removePendingJob()">Remove job</button>
-      <p class="pagesub">Your job will be held for MySubbies review before release to contractors.</p>
-      <div id="bookingError" role="alert"></div>
-      <button class="btn btn-black" id="confirmFreeBooking" onclick="confirmFreeBooking()">Confirm booking — $0 due today</button>`;
+    await confirmFreeBooking();
   }
   async function confirmFreeBooking() {
     if (bookingSubmitting || !reviewCustomer || !quote) return;
@@ -736,6 +749,8 @@
     });
 
     saveJobs(jobs, createdJobs);
+    sessionStorage.removeItem('mysubbies_estimator_draft_v1');
+    sessionStorage.removeItem(BOOKING_DETAILS_KEY);
     localStorage.removeItem('mysubbies_pending_quote');
 
     // Fire-and-forget, one per created job (a bundle notifies each trade's
@@ -775,7 +790,46 @@
       </div>`;
   }
 
+  const BOOKING_DETAILS_KEY = 'mysubbies_booking_details_v1';
+  function saveBookingDetails() {
+    const details = {};
+    for (const id of ['fName','fPhone','fSuburb','fAddress','fEmail','fBusinessName','fReferral','fTiming']) {
+      const input = document.getElementById(id); if (input) details[id] = input.value;
+    }
+    details.jobType = jobType;
+    try { sessionStorage.setItem(BOOKING_DETAILS_KEY, JSON.stringify(details)); } catch (_) {}
+  }
+  function restoreBookingDetails() {
+    let details = {};
+    try { details = JSON.parse(sessionStorage.getItem(BOOKING_DETAILS_KEY) || '{}'); } catch (_) {}
+    const account = sessionCustomer || {};
+    const initial = { fName:account.name, fPhone:account.phone, fEmail:account.email, fSuburb:quote?.suburb || account.suburb, fAddress:account.address, fTiming:quote?.urgency };
+    for (const id of ['fName','fPhone','fSuburb','fAddress','fEmail','fBusinessName','fReferral','fTiming']) {
+      const input = document.getElementById(id);
+      if (input) input.value = (sessionCustomer && id === 'fEmail' ? account.email : details[id] || initial[id]) || '';
+      if (input && sessionCustomer && id === 'fEmail') input.readOnly = true;
+    }
+    if (details.jobType && document.getElementById('jobTypePrivateBtn')) setJobType(details.jobType);
+  }
+  app.addEventListener('input', saveBookingDetails);
+  app.addEventListener('change', saveBookingDetails);
+  async function hydrateBookingSession() {
+    if (!sb || !quote) return;
+    try {
+      const { data } = await sb.auth.getSession();
+      if (!data?.session) return;
+      const { data: profile } = await sb.from('customers').select('*').eq('auth_user_id', data.session.user.id).maybeSingle();
+      if (!profile || profile.status === 'deactivated') return;
+      // Do not replace a form the customer has already started filling in.
+      const password = document.getElementById('fPassword');
+      if (password && password.value) return;
+      saveBookingDetails();
+      sessionCustomer = profile; mode = 'session';
+      render();
+    } catch (_) { /* Login/registration remains available. */ }
+  }
   render();
+  hydrateBookingSession();
   if (quote && quote.items.length === 0) openBookingCartAdd();
 </script>
 <script>

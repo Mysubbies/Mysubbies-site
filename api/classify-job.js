@@ -28,18 +28,8 @@
 // actually describe one of `taskNames`? If yes, we still price it off the
 // real rate card exactly as before — this mode never touches pricing for a
 // genuine match.
-// Only if it genuinely doesn't map to any listed task does this fall through
-// to a real, deliberate exception to "never invent a price": an AI-estimated
-// Melbourne market range for that specific job. This is explicitly requested
-// by the founder (Aug 2026) to stop "service not found" dead-ending the
-// booking flow for legitimate jobs the rate card just doesn't happen to
-// list yet. To keep this safe: the estimate is never shown or stored as a
-// real rate-card price — the client must label it "AI-estimated" distinctly,
-// flag the resulting cart item `aiEstimated:true`, and force
-// `needsSiteVisit:true` (the existing "tentative, contractor confirms on
-// site" mechanism) so nothing is auto-dispatched against an unconfirmed
-// number. See mysubbies-admin-portal.html / mysubbies-contractor-portal.html
-// job-item rendering for the "AI-estimated price" badge this drives.
+// Unlisted or complex work is submitted for MySubbies review. AI may match
+// a listed task but must never invent a price outside the rate card.
 const Anthropic = require('@anthropic-ai/sdk');
 
 const MANUAL_REVIEW_REASON_NO_AI = 'AI photo assessment is not yet turned on for this account — a MySubbies team member will review your request and follow up with a price.';
@@ -199,7 +189,7 @@ async function handleTaskMatch(req, res) {
     const anthropic = getAnthropic();
     if (!anthropic) {
       res.status(200).json({ matched: false, aiEstimate: null, confidence: null,
-        reason: 'AI matching is not yet turned on for this account.' });
+        manualReviewRequired: true, reason: 'Submit your job for MySubbies review before quoting.' });
       return;
     }
 
@@ -215,15 +205,9 @@ ${JSON.stringify(taskNames)}
 
 Step 1: Does the customer's description describe the SAME physical job as one of the exact task names above — just worded differently (synonyms, typos, more/less detail)? Match ONLY if a tradie reading both would agree they're quoting the exact same scope of work. Being in the same category, needing the same trade, or sharing a keyword is NOT enough — e.g. "install a rainwater tank pump" must NOT match "Water filter installation" even though both are Plumbing and both involve water fittings, because they are different jobs. If you are choosing the closest of several unrelated options rather than a genuine match, that is not a match. When genuinely unsure, prefer null over a wrong guess.
 
-Step 2: Only if nothing in the list is a genuine match, but this is still a plausible, well-defined ${category} job an Australian licensed tradie would quote for: estimate a typical Melbourne market price range for it (AUD, GST inclusive), based on general knowledge of Australian trade pricing. Be conservative — a wide, honest range beats a falsely precise number.
-
-Respond with ONLY a JSON object (no other text) in this exact shape:
-{
-  "matchedTaskName": "<one of the exact strings from the list above, or null>",
-  "confidence": <0-100, how confident you are in whichever answer you gave>,
-  "aiEstimate": null OR { "low": <number>, "high": <number>, "reasoning": "<one short sentence on what's included/assumed>" }
-}
-Only one of matchedTaskName / aiEstimate should be non-null. If the description is too vague, nonsensical, or not a real job, set both to null and confidence to 0.`,
+If nothing is a genuine match, return null. Never generate a price or market estimate. Complex or unlisted jobs are reviewed by MySubbies before quoting.
+Respond with ONLY a JSON object:
+{"matchedTaskName": "<exact name from list, or null>", "confidence": <0-100>}.`,
       }],
     });
 
@@ -240,18 +224,8 @@ Only one of matchedTaskName / aiEstimate should be non-null. If the description 
       return;
     }
 
-    const est = parsed.aiEstimate;
-    const validEstimate = est && typeof est.low === 'number' && typeof est.high === 'number' && est.low > 0 && est.high >= est.low;
-    if (validEstimate && confidence >= TASKMATCH_CONFIDENCE_MIN) {
-      res.status(200).json({
-        matched: false, taskName: null, confidence,
-        aiEstimate: { low: Math.round(est.low), high: Math.round(est.high), reasoning: est.reasoning || null },
-      });
-      return;
-    }
-
     res.status(200).json({ matched: false, taskName: null, aiEstimate: null, confidence,
-      reason: "We couldn't confidently price that — try describing it differently, or browse the full task list." });
+      manualReviewRequired: true, reason: 'Some jobs need a closer look. Submit for a quote.' });
   } catch (err) {
     console.error('classify-job task-match error:', err);
     res.status(200).json({ matched: false, taskName: null, aiEstimate: null, confidence: null,

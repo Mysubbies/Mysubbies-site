@@ -1084,6 +1084,15 @@
   }
 </style>
 
+<style>
+#estimate #estCalculatePriceBtn, #estimate #estItemPreview .btn { display:none; }
+#estOptionalDetails { margin:18px 0; padding:14px; border:1px solid var(--line); border-radius:12px; }
+#estOptionalDetails summary { cursor:pointer; font-weight:700; }
+#estimate.quote-request-mode > .est-step, #estimate.quote-request-mode > .est-progress { display:none; }
+#complexJobRequest { padding-top:16px; }
+#complexJobRequest input, #complexJobRequest textarea { width:100%; margin:5px 0 14px; padding:12px; border:1px solid var(--line); border-radius:10px; font:inherit; }
+#complexJobRequest label { display:block; font-size:14px; font-weight:600; }
+</style>
 </head>
 <body>
 
@@ -1350,14 +1359,14 @@
           <div class="estimator-label">Get an estimated price instantly</div>
 
           <div class="est-progress">
-            <div class="est-progress-bar"><div class="est-progress-bar-fill" id="estProgressFill" style="width:50%;"></div></div>
-            <div class="est-progress-label" id="estProgressLabel">Step 1 of 2</div>
+            <div class="est-progress-bar"><div class="est-progress-bar-fill" id="estProgressFill" style="width:33%;"></div></div>
+            <div class="est-progress-label" id="estProgressLabel">Step 1 of 3</div>
           </div>
 
           <!-- STEP 1 — What needs doing? -->
           <div class="est-step active" data-step="1">
             <div class="est-step-title">What needs doing?</div>
-            <div class="est-step-sub">Select a service, or describe the job / upload a photo above and we'll match it.</div>
+            <div class="est-step-sub">Choose a service and answer the questions needed to price your job.</div>
 
               <label class="est-field-label">What do you need done?</label>
               <div class="estimator-search-wrap">
@@ -1376,20 +1385,6 @@
               </div>
 
               <div id="estRefImage" style="display:none;margin-bottom:14px;"></div>
-
-            <div class="est-field-error" id="estStep1Error"></div>
-            <div class="est-step-nav"><button class="btn btn-black" onclick="estStep1Continue()">Continue →</button></div>
-          </div>
-
-          <!-- STEP 2 — Tell us about the job, then get your price. Merged Aug 2026 -->
-          <!-- from 3 steps down to 2: the old separate "Review & get your price" step's -->
-          <!-- reveal click just re-showed a total the customer could already see live in -->
-          <!-- the cart above it, after a fake "calculating" delay -- founder feedback was -->
-          <!-- that this read as broken/redundant, not reassuring. The price now appears -->
-          <!-- instantly on this same step once required fields are filled in. -->
-          <div class="est-step" data-step="2">
-            <div class="est-step-title">Tell us about the job</div>
-            <div class="est-step-sub">Suburb, size or quantity, site conditions, access, timing and photos.</div>
 
               <!-- Primary priced comparison (Sep 2026) -- enter a size once,
                    see every option that shares this category's most common
@@ -1458,19 +1453,7 @@
 
               <div id="estItemPreview" style="display:none;"></div>
 
-              <div id="estCartWrap" style="display:none;">
-                <label class="est-field-label">Your job so far</label>
-                <div id="estCartList"></div>
-                <div class="est-cart-total" id="estCartTotal"></div>
-                <div class="est-bundle-note" id="estBundleNote" style="display:none;"></div>
-                <button class="btn btn-outline btn-full" onclick="estAddAnotherService()" style="margin-top:10px;">+ Add another service</button>
-              </div>
-
-              <label class="est-field-label">Suburb</label>
-              <input type="text" id="estSuburb" placeholder="e.g. Brunswick" />
-              <div class="est-hint">MySubbies currently operates in Melbourne, Victoria only — we'll be launching in other states as we grow.</div>
-
-              <div id="estQuestionsWrap"></div>
+<details id="estOptionalDetails"><summary>Photos and extra job details (optional)</summary>              <div id="estQuestionsWrap"></div>
 
               <div id="estSiteFieldsWrap">
                 <label class="est-field-label">What's currently on the site?</label>
@@ -1479,16 +1462,6 @@
                 <label class="est-field-label">Site access</label>
                 <div class="chiprow-est" id="estAccessChips"></div>
               </div>
-
-              <label class="est-field-label">When do you need this done?</label>
-              <div class="chiprow-est" id="estUrgencyChips">
-                <button type="button" class="chip-est" onclick="selectUrgency('ASAP', this)">ASAP</button>
-                <button type="button" class="chip-est" onclick="selectUrgency('Within a week', this)">Within a week</button>
-                <button type="button" class="chip-est" onclick="selectUrgency('Within 2 weeks', this)">Within 2 weeks</button>
-                <button type="button" class="chip-est" onclick="selectUrgency('Flexible', this)">Flexible</button>
-              </div>
-              <input type="text" id="estUrgencyText" placeholder="Optional timing details" oninput="onUrgencyDetailInput(this.value)" />
-              <div class="est-hint">Timing helps us match the job and does not change the estimated price.</div>
 
               <label class="est-field-label">Add photos (optional)</label>
               <p class="est-photo-note">Uploading photos helps us confirm that the selected service and assumptions match your property. Your displayed price remains subject to the stated scope, exclusions and site assumptions. No variation can be charged without your approval.</p>
@@ -1505,6 +1478,30 @@
               <div class="est-photo-count" id="estPhotoCount"></div>
               <div class="est-photo-grid" id="estPhotoGrid"></div>
 
+</details>
+            <div class="est-field-error" id="estStep1Error"></div>
+            <div class="est-step-nav"><button class="btn btn-black" onclick="estStep1Continue()">See your price →</button></div>
+          </div>
+
+          <!-- STEP 2 — Tell us about the job, then get your price. Merged Aug 2026 -->
+          <!-- from 3 steps down to 2: the old separate "Review & get your price" step's -->
+          <!-- reveal click just re-showed a total the customer could already see live in -->
+          <!-- the cart above it, after a fake "calculating" delay -- founder feedback was -->
+          <!-- that this read as broken/redundant, not reassuring. The price now appears -->
+          <!-- instantly on this same step once required fields are filled in. -->
+          <div class="est-step" data-step="2">
+            <div class="est-step-title">Your price</div>
+            <div class="est-step-sub">Check your tasks, quantities and inclusions. No booking fee · $0 payable now.</div>
+
+              <div id="estCartWrap" style="display:none;">
+                <label class="est-field-label">Your job and price</label>
+                <div id="estCartList"></div>
+                <div class="est-cart-total" id="estCartTotal"></div>
+                <div class="est-bundle-note" id="estBundleNote" style="display:none;"></div>
+                <button class="btn btn-outline btn-full" onclick="estAddAnotherService()" style="margin-top:10px;">+ Add another task</button>
+              </div>
+
+              <input type="hidden" id="estSuburb" />
             <div class="est-field-error" id="estStep2Error"></div>
 
             <div id="estReviewSummary" style="display:none;"></div>
@@ -1519,7 +1516,7 @@
 
             <div class="est-step-nav">
               <button class="btn btn-back" onclick="estGoBack()">← Back</button>
-              <button class="btn btn-black" onclick="estContinueBooking()">Continue booking →</button>
+              <button class="btn btn-black" onclick="estContinueBooking()">Booking details →</button>
             </div>
           </div>
         </div>
@@ -1554,7 +1551,7 @@
     <aside class="project-quote-card reveal" aria-labelledby="project-quote-title">
       <h2 id="project-quote-title">Need a larger job quoted?</h2>
       <p>Planning fencing, decking, landscaping, renovations or another larger property project? Tell us what you need and we'll review the project and prepare a quote.</p>
-      <a class="btn btn-white btn-lg" href="https://app.mysubbies.com.au/mysubbies-customer-portal.html?project-enquiry=1">Request a project quote →</a>
+      <a class="btn btn-white btn-lg" href="#estimate" onclick="openComplexJobRequest(); return false;">Request a project quote →</a>
     </aside>
   </div>
 </section>
@@ -1720,7 +1717,7 @@
   </a>
   <button class="tab-item tab-fab" onclick="openBookingPortal()">
     <span class="fab-circle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>
-    New Job
+    Book a job
   </button>
   <button class="tab-item" onclick="openHouseHealth()">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="m9 15 2 2 4-5"/></svg>
@@ -2347,6 +2344,7 @@
 
 
   let selectedCat = null;
+  let photoUploadsPending = 0;
   let uploadedPhotos = []; // array of data URLs, kept client-side only for this demo
 
   // Sep 2026 (founder report: "Continue booking" appears stuck once a
@@ -2364,17 +2362,20 @@
   // once) stay comfortably under quota. See runEstimate() below for the
   // remaining safety net in case a customer still hits the limit somehow.
   function onPhotoSelected(e) {
-    const files = Array.from(e.target.files || []);
+    const files = Array.from(e.target.files || []).slice(0, Math.max(0, 5 - uploadedPhotos.length - photoUploadsPending));
     if (files.length === 0) return;
     files.forEach(file => {
+      photoUploadsPending++;
       resizeImageFile(file, 1600, 0.75).then(dataUrl => {
         uploadedPhotos.push(dataUrl);
+        photoUploadsPending--;
         renderPhotoGrid();
       }).catch(() => {
         // Fall back to the original file rather than silently dropping the
         // photo -- worst case it's the same size-risk as before, not worse.
         const reader = new FileReader();
-        reader.onload = () => { uploadedPhotos.push(reader.result); renderPhotoGrid(); };
+        reader.onload = () => { uploadedPhotos.push(reader.result); photoUploadsPending--; renderPhotoGrid(); };
+        reader.onerror = () => { photoUploadsPending--; };
         reader.readAsDataURL(file);
       });
     });
@@ -2420,7 +2421,7 @@
     const matches = CATEGORIES.filter(c => c.tasks.some(t => !t.disabled) && estCategoryMatchesQuery(c, q));
     box.innerHTML = '';
     if (matches.length === 0) {
-      box.innerHTML = '<div style="padding:11px 16px;font-size:13px;color:var(--stone-light);">No match \u2014 try a different word.</div>';
+      box.innerHTML = '<button type="button" class="estimator-search-result" onclick="openComplexJobRequest()">Can’t find your task? Submit for a quote →</button>';
     } else {
       matches.forEach(c => {
         const btn = document.createElement('button');
@@ -2456,7 +2457,7 @@
   // the cart, so multi-select needed no changes to pricing or booking logic.
   // ============================================================
   let currentEstStep = 1;
-  const TOTAL_EST_STEPS = 2;
+  const TOTAL_EST_STEPS = 3;
   function showEstStep(n) {
     currentEstStep = n;
     document.querySelectorAll('#estimate .est-step').forEach(el => el.classList.toggle('active', Number(el.dataset.step) === n));
@@ -2492,12 +2493,29 @@
   // knowing what anything costs.
   function estStep1Continue() {
     const err = document.getElementById('estStep1Error');
-    if (!selectedCat) {
-      err.textContent = 'Please choose a service to continue.';
+    if (photoUploadsPending) { err.textContent = 'Please wait for your photos to finish uploading.'; err.classList.add('show'); return; }
+    if (selectedTierSet.size) {
+      pendingItems = [];
+      calculateSelectedItems();
+      if (!pendingItems.length) {
+        err.textContent = 'Choose a task and enter its size or quantity.';
+        err.classList.add('show');
+        return;
+      }
+      confirmAddItemsToCart();
+    }
+    if (!cart.length) {
+      err.textContent = 'Choose a service and task, or submit your job for a quote.';
       err.classList.add('show');
       return;
     }
     err.classList.remove('show');
+    renderCart();
+    saveEstimatorDraft();
+    if (estimatorRequiresReview()) {
+      openComplexJobRequest(cart.map(i => `${i.taskName}: ${i.qty} ${i.unit}`).join('\n'));
+      return;
+    }
     showEstStep(2);
   }
 
@@ -2518,20 +2536,15 @@
       err.classList.add('show');
       return;
     }
-    const suburb = document.getElementById('estSuburb').value.trim();
-    if (!suburb) {
-      err.textContent = 'Please enter your suburb.';
-      err.classList.add('show');
-      document.getElementById('estSuburb').focus();
-      return;
-    }
     err.classList.remove('show');
+    if (estimatorRequiresReview()) { openComplexJobRequest(cart.map(i => `${i.taskName}: ${i.qty} ${i.unit}`).join('\n')); return; }
     renderReviewStep();
     runEstimate();
     if (lastQuotePhotosDropped) {
       alert("Your photos were too large to attach, so we've continued your booking without them — everything else has been kept. Contact us if you'd still like to share photos for this job.");
     }
-    window.location.href = 'https://app.mysubbies.com.au/mysubbies-booking.html';
+    saveEstimatorDraft();
+    window.location.href = '/mysubbies-booking.html';
   }
 
   // Read-only recap built from the SAME state (cart, selectedSite,
@@ -2649,7 +2662,7 @@
       const chipBtn = Array.from(document.querySelectorAll('#estTierChips .chip-est')).find(b => b.dataset.taskName === task.name);
       if (chipBtn) chipBtn.classList.add('selected');
     }
-    showEstStep(2);
+    showEstStep(1);
   }
 
   // heroUploadPhoto() (the hero's own dedicated "Upload a photo" tile) was
@@ -2670,7 +2683,7 @@
       }
     }
     selectCat(cat);
-    showEstStep(2);
+    showEstStep(1);
   }
 
   function heroBrowseServices() {
@@ -3121,7 +3134,7 @@
         selectCat(targetCat);
         const task = targetCat.tasks.find(t => t.name === matchedTaskName);
         if (task) estAddMatchedTask(task);
-        showEstStep(2);
+        showEstStep(1);
       }, 350);
     } else {
       // No single confident task match — land on the category and carry the
@@ -3845,7 +3858,7 @@
       if (query.length >= 4) {
         estRequestAiTaskMatch(query);
       } else {
-        matchLine.textContent = 'No exact match yet — keep typing, or Continue and we’ll help refine it.';
+        renderComplexJobOffer(query);
         matchLine.className = 'est-match-line none';
       }
     }, 300);
@@ -3971,55 +3984,13 @@
         if (task) { estSetQuickMatchAutoTask(task, parseTaskSpecificQuantity(query, pricingUnitForTask(selectedCat, task))); return; }
       }
 
-      if (data.aiEstimate) {
-        renderAiEstimateOffer(query, data.aiEstimate);
-        return;
-      }
+      renderComplexJobOffer(query);
 
-      matchLine.textContent = 'No exact match yet — keep typing, or Continue and we’ll help refine it.';
-      matchLine.className = 'est-match-line none';
     } catch (err) {
       if (myToken !== estAiTaskMatchToken) return;
-      matchLine.textContent = 'No exact match yet — keep typing, or Continue and we’ll help refine it.';
+      renderComplexJobOffer(query);
       matchLine.className = 'est-match-line none';
     }
-  }
-
-  // Stashed rather than round-tripped through the onclick attribute below —
-  // query/reasoning are raw customer-typed text, and embedding that inside
-  // an HTML attribute (even via JSON.stringify) is both fragile the moment
-  // it contains a double-quote and a real injection risk otherwise.
-  let estPendingAiEstimate = null;
-  function renderAiEstimateOffer(query, estimate) {
-    estPendingAiEstimate = { query, low: estimate.low, high: estimate.high, reasoning: estimate.reasoning || '' };
-    const matchLine = document.getElementById('estTierMatchLine');
-    matchLine.className = 'est-match-line ai-estimate';
-    matchLine.innerHTML = `
-      <div class="est-ai-estimate-card">
-        <div class="est-ai-estimate-badge">🤖 AI-estimated price</div>
-        <div class="est-ai-estimate-range">$${estimate.low.toLocaleString()}–$${estimate.high.toLocaleString()}</div>
-        ${estimate.reasoning ? `<div class="est-ai-estimate-reason">${escapeHtml(estimate.reasoning)}</div>` : ''}
-        <div class="est-ai-estimate-caveat">Not from our standard rate card — this is a market estimate only. MySubbies will confirm the final price before work begins.</div>
-        <button class="btn btn-outline" style="margin-top:8px;padding:8px 16px;font-size:13px;" onclick="estAcceptAiEstimate()">Add this estimate →</button>
-      </div>
-    `;
-  }
-
-  function estAcceptAiEstimate() {
-    if (!estPendingAiEstimate) return;
-    const { query, low, high, reasoning } = estPendingAiEstimate;
-    const mid = Math.round((low + high) / 2);
-    const task = {
-      name: query,
-      unit: 'job',
-      rate: mid,
-      needsSiteVisit: true,
-      aiEstimated: true,
-      typicalRange: `$${low.toLocaleString()}–$${high.toLocaleString()}`,
-      notes: reasoning || '',
-    };
-    estPendingAiEstimate = null;
-    estAddMatchedTask(task);
   }
 
   // Strips a leading/trailing quantity phrase (e.g. "30sqm", "12 lm", "2x3m")
@@ -4399,7 +4370,7 @@
     if (!item || !Number.isFinite(qty) || qty <= 0 || qty > 100000) { renderCart(); return; }
     const cat = CATEGORIES.find(c => c.label === item.catLabel);
     const task = cat && cat.tasks.find(t => t.name === item.taskName && !t.unavailable && !t.disabled);
-    if (!task || item.aiEstimated) { renderCart(); return; }
+    if (!task || item.aiEstimated || item.catLabel === 'Courier Services') { renderCart(); return; }
     const rawBase = Math.round(qty * task.rate);
     item.qty = qty;
     item.minApplied = !!(task.minJobPrice && rawBase < task.minJobPrice);
@@ -4445,7 +4416,7 @@
                 <div>
                   <div class="cart-item-name">${groups.length > 1 ? '' : item.catIcon + ' '}${escapeHtml(item.taskName)} ${item.aiEstimated ? '<span class="ai-estimate-tag">\ud83e\udd16 AI estimate</span>' : ''}</div>
                   <div class="cart-item-meta">${item.qty.toLocaleString()} ${item.unit}${item.needsSiteVisit ? ' \u00b7 needs site visit' : ''}</div>
-                  ${!item.aiEstimated ? `<label class="cart-item-meta">Quantity <input aria-label="Quantity for ${escapeHtml(item.taskName)}" type="number" min="0.01" max="100000" step="any" value="${Number(item.qty)}" onchange="updateCartQuantity(${item.idx}, this.value)" style="width:90px;padding:7px;border:1px solid var(--line);border-radius:6px;"> ${escapeHtml(item.unit || '')}</label>` : ''}
+                  ${!item.aiEstimated && item.catLabel !== 'Courier Services' ? `<label class="cart-item-meta">Quantity <input aria-label="Quantity for ${escapeHtml(item.taskName)}" type="number" min="0.01" max="100000" step="any" value="${Number(item.qty)}" onchange="updateCartQuantity(${item.idx}, this.value)" style="width:90px;padding:7px;border:1px solid var(--line);border-radius:6px;"> ${escapeHtml(item.unit || '')}</label>` : ''}
                 </div>
                 <div style="display:flex;align-items:center;">
                   <div class="cart-item-price">${item.aiEstimated ? '~$' + item.base.toLocaleString() : '$' + item.base.toLocaleString()}</div>
@@ -4454,7 +4425,7 @@
               </div>
               ${item.notes ? `
                 <button class="cart-item-notes-toggle" onclick="toggleCartNotes(${item.idx})">What's included \u25be</button>
-                <div class="cart-item-notes" id="cartNotes_${item.idx}">${item.notes}</div>
+                <div class="cart-item-notes" id="cartNotes_${item.idx}">${escapeHtml(item.notes)}</div>
               ` : ''}
             </div>
           `).join('')}
@@ -4808,5 +4779,6 @@ if ('serviceWorker' in navigator) {
   })();
 </script>
 
+<script src="js/booking-flow.js"></script>
 </body>
 </html>

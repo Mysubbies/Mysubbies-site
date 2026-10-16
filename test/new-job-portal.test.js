@@ -7,18 +7,13 @@ for(const filename of ['index.html','mysubbies-website.html']) test(`${filename}
  assert.match(html,/class="tab-item tab-fab" onclick="openBookingPortal\(\)"/);
  assert.doesNotMatch(html,/id="fsModalOverlay"|<h3>Fix Something<\/h3>|function openFixSomething/);
  const source=html.slice(html.indexOf('  function openBookingPortal()'),html.indexOf('  function closeFixSomething()'));
- const context={window:{location:{}}};vm.createContext(context);vm.runInContext(source,context);context.openBookingPortal();
- assert.equal(context.window.location.href,'/mysubbies-booking.html?new=1');
+ let step, scrolled=false; const context={showEstStep:n=>step=n,document:{getElementById:()=>({scrollIntoView(){scrolled=true;}})}};vm.createContext(context);vm.runInContext(source,context);context.openBookingPortal();
+ assert.equal(step,1); assert.equal(scrolled,true);
 });
-test('New Job starts with an empty usable cart or keeps the pending cart',()=>{
+test('legacy new-job links redirect to the estimator and portal links preserve the property handoff',()=>{
  const html=fs.readFileSync('mysubbies-booking.html','utf8');
- const source=html.slice(html.indexOf('  let quote = getPendingQuote();'),html.indexOf("  const app = document.getElementById('app');"));
- for(const pending of [null,{items:[{taskName:'Existing task'}]}]){
-  const c={getPendingQuote:()=>pending,URLSearchParams,location:{search:'?new=1'}};vm.createContext(c);vm.runInContext(source+'\nthis.result=quote;',c);
-  assert.ok(Array.isArray(c.result.items));assert.equal(c.result.items.length,pending?1:0);
- }
- assert.match(html,/quote.items.length === 0\) openBookingCartAdd\(\)/);
+ assert.match(html,/location.replace\('\/#estimate'\)/);
  const portal=fs.readFileSync('mysubbies-customer-portal.html','utf8');
  const trigger=portal.slice(portal.indexOf('  function triggerFixSomething()'),portal.indexOf('  function bookMaintenanceTask('));
- assert.match(trigger,/stashPropertyForNewJob\(\)/);assert.match(trigger,/mysubbies-booking.html\?new=1/);
+ assert.match(trigger,/stashPropertyForNewJob\(\)/);assert.match(trigger,/\/#estimate/);
 });
