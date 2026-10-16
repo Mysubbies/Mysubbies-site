@@ -158,3 +158,148 @@ async function submitComplexJobRequest(event) {
     if (cart.length) showEstStep(2);
   } catch (_) { /* A missing or malformed draft must not block a new booking. */ }
 })();
+
+// Keep the chosen job distinct from optional extras. These controls only
+// change selection/presentation; the existing calculator still prices it.
+function selectionTaskFamily(name) {
+  return String(name || '').split(/\s+[—–]\s*/)[0].trim().toLowerCase();
+}
+function removeSelectedJob(taskName, changing = false) {
+  selectedTierSet.delete(taskName);
+  qtyValues.delete(taskName);
+  pendingItems = [];
+  selectedTier = Array.from(selectedTierSet.values()).at(-1) || null;
+  renderQtyRows(); renderSelectedPills();
+  const raw = document.getElementById('estPrimaryQty').value.trim();
+  renderPrimaryOptionCards(estPrimaryGroup && raw ? parseQuantity(raw, estPrimaryGroup.unit) : null);
+  syncSelectedJobPresentation();
+  if (changing) {
+    document.getElementById('estOptionalTasks').open = true;
+    document.getElementById('estPrimaryCompareWrap').scrollIntoView({ behavior:'smooth', block:'center' });
+  }
+}
+function addOptionalSelectedJob(taskName) {
+  const task = selectedCat?.tasks.find(t => t.name === taskName && !t.disabled && !t.unavailable);
+  if (!task) return;
+  estAddMatchedTask(task);
+  if (estPrimaryGroup?.tasks.some(t => t.name === task.name)) {
+    const raw = document.getElementById('estPrimaryQty').value.trim();
+    if (raw) qtyValues.set(task.name, raw);
+  }
+  renderQtyRows(); renderSelectedPills();
+  syncSelectedJobPresentation();
+}
+function syncSelectedJobPresentation() {
+  const summary = document.getElementById('estSelectedJobs');
+  const extras = document.getElementById('estOptionalTasks');
+  if (!summary || !extras) return;
+  const selected = Array.from(selectedTierSet.values());
+  const names = new Set(selected.map(t => t.name));
+  const families = new Set(selected.map(t => selectionTaskFamily(t.name)));
+  const primarySelected = !!estPrimaryGroup?.tasks.some(t => names.has(t.name));
+  document.getElementById('estPrimaryOptions').hidden = selected.length > 0;
+  document.getElementById('estSelectedPills').hidden = true;
+  document.getElementById('estItemPreview').hidden = true;
+  summary.hidden = selected.length === 0;
+  summary.replaceChildren();
+  for (const task of selected) {
+    const card = document.createElement('article'); card.className = 'selected-job-card';
+    const title = document.createElement('strong'); title.textContent = task.name;
+    const unit = pricingUnitForTask(selectedCat, task);
+    const raw = qtyValues.get(task.name);
+    const qty = raw ? parseQuantity(raw, unit) : null;
+    const price = document.createElement('strong');
+    const pending = pendingItems.find(i => i.taskName === task.name);
+    if (task.needsSiteVisit) price.textContent = 'Requires review';
+    else if (selectedCat.label === 'Courier Services') price.textContent = pending ? '$' + pending.base.toLocaleString() : 'Complete delivery details';
+    else if (Number.isFinite(Number(task.rate)) && qty > 0) price.textContent = '$' + Math.max(Math.round(qty * Number(task.rate)), Number(task.minJobPrice) || 0).toLocaleString();
+    else price.textContent = task.needsSiteVisit ? 'Requires review' : 'Enter size / quantity';
+    const top = document.createElement('div'); top.className = 'selected-job-heading'; top.append(title, price); card.appendChild(top);
+    const amount = document.createElement('div'); amount.className = 'selected-job-meta';
+    amount.textContent = qty > 0 ? `${qty.toLocaleString()} ${unit}${unit === 'visit' && qty === 1 ? ' · per visit' : ''}` : 'Complete the measurements below';
+    card.appendChild(amount);
+    if (qty > 0 && Number(task.minJobPrice) > Math.round(qty * Number(task.rate))) {
+      const minimum = document.createElement('div'); minimum.className = 'selected-job-meta'; minimum.textContent = 'Minimum job price applies.'; card.appendChild(minimum);
+    }
+    if (task.notes) {
+      const details = document.createElement('details'); const label = document.createElement('summary'); label.textContent = 'What’s included';
+      const notes = document.createElement('p'); notes.textContent = task.notes; details.append(label, notes); card.appendChild(details);
+    }
+    const actions = document.createElement('div'); actions.className = 'selected-job-actions';
+    for (const [label, changing] of [['Change', true], ['Remove', false]]) {
+      const button = document.createElement('button'); button.type = 'button'; button.textContent = label;
+      button.setAttribute('aria-label', label + ' ' + task.name);
+      button.onclick = () => removeSelectedJob(task.name, changing); actions.appendChild(button);
+    }
+    card.appendChild(actions); summary.appendChild(card);
+  }
+  // The existing secondary picker remains the source of selectable extras.
+  // Selected jobs and alternative sizes are hidden until Change is tapped.
+  let visibleExtras = 0;
+  document.querySelectorAll('#estTierChips .chip-est').forEach(button => {
+    const name = button.dataset.taskName;
+    const hide = names.has(name) || (selected.length > 0 && families.has(selectionTaskFamily(name)));
+    button.hidden = hide;
+    if (!hide) {
+      visibleExtras++;
+      if (!button.disabled && !button.querySelector('.optional-add-label')) {
+        const label = document.createElement('span'); label.className = 'optional-add-label'; label.textContent = '+ Add ';
+        button.prepend(label);
+      }
+    }
+  });
+  // Edging shares mowing's per-visit comparison group, but is an optional
+  // extra rather than a competing lawn size. Keep it available on request.
+  const additional = document.getElementById('estPrimaryExtras'); additional.replaceChildren();
+  if (selected.length) {
+    for (const task of estPrimaryGroup?.tasks || []) {
+      if (names.has(task.name) || families.has(selectionTaskFamily(task.name)) || task.disabled || task.unavailable) continue;
+      if (primarySelected && selectedCat.label !== 'Gardening & Lawn Mowing') continue;
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'chip-est';
+      button.textContent = `+ Add ${task.name} · $${Number(task.rate).toLocaleString()} / ${task.unit}`;
+      button.onclick = () => addOptionalSelectedJob(task.name); additional.appendChild(button); visibleExtras++;
+    }
+  }
+  const firstSelection = extras.dataset.selectionCount === '0' && selected.length > 0;
+  if (firstSelection) extras.open = false;
+  if (!selected.length) extras.open = true;
+  extras.dataset.selectionCount = String(selected.length);
+  extras.querySelector('summary').textContent = selected.length ? '+ Add another task (optional)' : (estPrimaryGroup ? 'Other task options' : 'Choose a task');
+  extras.hidden = !visibleExtras && !document.getElementById('estRemovalPrompt').textContent.trim() && !selected.length;
+  document.getElementById('estTierWrapLabel').textContent = 'Optional extras';
+}
+(function initSelectedJobPresentation() {
+  const step = document.querySelector('#estimate .est-step[data-step="1"]');
+  const summary = document.createElement('section'); summary.id = 'estSelectedJobs'; summary.hidden = true;
+  step.insertBefore(summary, document.getElementById('estPrimaryCompareWrap'));
+  const extras = document.createElement('details'); extras.id = 'estOptionalTasks'; extras.dataset.selectionCount = '0';
+  const label = document.createElement('summary'); label.textContent = '+ Add another task (optional)'; extras.appendChild(label);
+  step.insertBefore(extras, document.getElementById('estTierWrap'));
+  extras.appendChild(document.getElementById('estTierWrap'));
+  const primaryExtras = document.createElement('div'); primaryExtras.id = 'estPrimaryExtras'; extras.appendChild(primaryExtras);
+  extras.appendChild(document.getElementById('estRemovalPrompt'));
+  const style = document.createElement('style');
+  style.textContent = `
+    #estimate [hidden] { display:none !important; }
+    #estSelectedJobs { margin:16px 0; }
+    .selected-job-card { border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:10px; background:white; }
+    .selected-job-heading { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
+    .selected-job-meta { font-size:13px; color:var(--stone); margin:8px 0; }
+    .selected-job-actions { display:flex; gap:20px; margin-top:12px; }
+    .selected-job-actions button { background:none; border:0; text-decoration:underline; padding:6px 0; font:inherit; cursor:pointer; }
+    .selected-job-card details { font-size:13px; margin:10px 0; }
+    #estOptionalTasks { margin:16px 0; padding:14px; border:1px solid var(--line); border-radius:12px; }
+    #estOptionalTasks > summary { font-weight:700; cursor:pointer; }
+    #estOptionalTasks[open] > summary { margin-bottom:14px; }
+    .optional-add-label { font-weight:700; margin-right:4px; }
+  `;
+  document.head.appendChild(style);
+  // Hook the existing render boundaries so pricing, gallery handoffs and
+  // quantity changes all refresh the same single selected-job card.
+  for (const name of ['selectCat','renderQtyRows','renderSelectedPills','renderPrimaryOptionCards','renderItemsPreview','confirmAddItemsToCart']) {
+    const original = window[name];
+    window[name] = function(...args) { const result = original.apply(this, args); syncSelectedJobPresentation(); return result; };
+  }
+  step.addEventListener('input', () => queueMicrotask(syncSelectedJobPresentation));
+  syncSelectedJobPresentation();
+})();
