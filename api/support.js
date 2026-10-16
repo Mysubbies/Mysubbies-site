@@ -102,14 +102,23 @@ module.exports = async (req, res) => {
 
       // inquiries
       if (action === 'create') {
-        const { role, name, email, text, attachments } = req.body || {};
+        const { role, name, email, text, attachments, purpose } = req.body || {};
         if (!role || !['customer', 'contractor'].includes(role) || !email || !text) { res.status(400).json({ error: 'role, email and text are required.' }); return; }
+        if (purpose === 'quote_request') {
+          if (role !== 'customer' || !String(name || '').trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email)) || String(text).length > 12000) {
+            res.status(400).json({ error: 'Valid customer contact and job details are required.' }); return;
+          }
+          if (!Array.isArray(attachments) || attachments.length > 5 || Buffer.byteLength(JSON.stringify(attachments)) > 3500000 ||
+              attachments.some(a => !a || typeof a.dataUrl !== 'string' || !/^data:image\/(jpeg|png|webp);base64,/.test(a.dataUrl))) {
+            res.status(400).json({ error: 'Please attach up to five JPG, PNG or WebP photos under 3.5 MB in total.' }); return;
+          }
+        }
         const { data, error } = await supabase.from('inquiries').insert({
           role, name: name || null, email, messages: [{ from: role, text, attachments: attachments || [], createdAt: new Date().toISOString() }],
         }).select().single();
         if (error) throw error;
         await notifyAdmin({
-          eventType: 'inquiry-created', title: 'New "Contact MySubbies" message',
+          eventType: 'inquiry-created', title: purpose === 'quote_request' ? 'New job quote request — review required' : 'New "Contact MySubbies" message',
           body: `${escapeHtml(name || email)} (${role}) sent: "${escapeHtml(String(text).slice(0, 200))}"`,
         });
         res.status(200).json({ id: data.id });

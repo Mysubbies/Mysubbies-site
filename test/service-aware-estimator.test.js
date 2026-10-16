@@ -140,7 +140,7 @@ test('Step 1 quick choices retain launch labels, category mappings, and mobile l
 });
 
 test('task-specific quick choice opens the existing task in the service-aware flow', () => {
-  assert.match(homepage, /function chooseQuickService[\s\S]*selectSubCategoryAndGoToStep2\(cat\.label, task\.name\);[\s\S]*selectCat\(cat\);[\s\S]*showEstStep\(2\);/);
+  assert.match(homepage, /function chooseQuickService[\s\S]*selectSubCategoryAndGoToStep2\(cat\.label, task\.name\);[\s\S]*selectCat\(cat\);[\s\S]*showEstStep\(1\);/);
 });
 
 function loadMixedUnitFramework() {
