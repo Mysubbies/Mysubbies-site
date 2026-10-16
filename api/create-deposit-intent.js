@@ -120,9 +120,9 @@ module.exports = async (req, res) => {
             { label: 'Suburb', value: suburb ? escapeHtml(suburb) : '' },
             { label: 'Total', value: escapeHtml(total) },
             { label: 'Due today', value: '<strong>$0.00</strong>' },
-            { label: 'Status', value: 'Pending contract review' },
+            { label: 'Status', value: 'Booking received' },
           ])}
-          <p>MySubbies will review the contract and compliance requirements before the job is released to contractors or any payment is requested.</p>
+          <p>We’ve received your booking and will check the details before arranging your contractor. We’ll keep you updated. No payment is due today.</p>
           ${emailButton('Track in My Jobs →', customerPortalUrl)}
         `);
 

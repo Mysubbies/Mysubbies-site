@@ -382,7 +382,7 @@
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
     Bookings
   </button>
-  <a class="tab-item tab-fab" href="https://www.mysubbies.com.au/#estimate" aria-label="Book a job">
+  <a class="tab-item tab-fab" href="/#estimate" aria-label="Book a job">
     <span class="fab-circle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>
     Book a job
   </a>
@@ -1447,7 +1447,7 @@
   function bookMaintenanceTask(catLabel, taskName, suburb) {
     stashPropertyForNewJob();
     localStorage.setItem('mysubbies_rebook_request', JSON.stringify({ items: [{ catLabel, taskName, qty: 1 }], suburb: suburb || '' }));
-    window.location.href = 'https://www.mysubbies.com.au/#estimate';
+    window.location.href = '/#estimate';
   }
 
   function uploadPropertyPhoto(propertyId, inputEl) {
@@ -1649,7 +1649,7 @@
         </div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:14px;margin:-10px 26px 16px;font-size:12px;position:relative;z-index:4;">
-        <a onclick="stashPropertyForNewJob(); window.location.href='https://www.mysubbies.com.au/#estimate';" style="text-decoration:underline;color:var(--stone);cursor:pointer;">+ Book another job here</a>
+        <a onclick="stashPropertyForNewJob(); window.location.href='/#estimate';" style="text-decoration:underline;color:var(--stone);cursor:pointer;">+ Book another job here</a>
         <a onclick="hideProperty('${p.propertyId}', '${p.address.replace(/'/g, "\\'")}')" style="text-decoration:underline;color:var(--stone);cursor:pointer;">Remove this property</a>
       </div>
       <button class="prop-fix-cta" onclick="triggerFixSomething()">
@@ -1685,7 +1685,7 @@
     lastPropertyProfiles = properties;
 
     if (properties.length === 0) {
-      wrap.innerHTML = `<h1 class="pagetitle" style="margin-bottom:10px;">Home Maintenance</h1><div class="empty">Your Home Maintenance record will build automatically as soon as you book your first job. <a href="https://www.mysubbies.com.au/#estimate" style="text-decoration:underline;">Get an estimated price instantly</a> to get started.</div>`;
+      wrap.innerHTML = `<h1 class="pagetitle" style="margin-bottom:10px;">Home Maintenance</h1><div class="empty">Your Home Maintenance record will build automatically as soon as you book your first job. <a href="/#estimate" style="text-decoration:underline;">Get an estimated price instantly</a> to get started.</div>`;
       return;
     }
 
@@ -1723,8 +1723,8 @@
   // job list reads identically across all three portals. Only real
   // difference is the columns shown: customers see their own price, not a
   // contractor payout split.
-  const JOB_BADGE_CLASS = { feed: 'badge-feed', assigned: 'badge-assigned', completed: 'badge-completed', cancellation_requested: 'badge-rejected', cancelled: 'badge-rejected' };
-  const JOB_BADGE_LABEL = { feed: 'Awaiting contractor', assigned: 'Assigned', completed: 'Completed', cancellation_requested: 'Cancellation requested', cancelled: 'Cancelled' };
+  const JOB_BADGE_CLASS = { pending_contract_review: 'badge-feed', feed: 'badge-feed', assigned: 'badge-assigned', completed: 'badge-completed', cancellation_requested: 'badge-rejected', cancelled: 'badge-rejected' };
+  const JOB_BADGE_LABEL = { pending_contract_review: 'Booking received', feed: 'Finding your contractor', assigned: 'Assigned', completed: 'Completed', cancellation_requested: 'Cancellation requested', cancelled: 'Cancelled' };
   function customerJobsTableHtml(jobs) {
     return `
       <table class="jobstable">
@@ -1857,7 +1857,7 @@
       items: j.items.map(i => ({ catLabel: i.catLabel, taskName: i.taskName, qty: i.qty })),
       suburb: j.suburb || '',
     }));
-    window.location.href = 'https://www.mysubbies.com.au/#estimate';
+    window.location.href = '/#estimate';
   }
 
   // Mobile bottom tab bar (Sep 2026) -- lives outside #app, so it's never
@@ -1994,8 +1994,9 @@
     if ((j.variations || []).some(v => v.status === 'pending')) {
       return { label: 'Review variation', dot: 'st-amber', action: { label: 'Review variation', onclick: `selectedJobId='${j.id}'; render();` } };
     }
+    if (j.status === 'pending_contract_review') return { label: 'Booking received', dot: 'st-amber', action: { label: 'View booking', onclick: `selectedJobId='${j.id}'; render();` } };
     if (!j.contractor) {
-      return { label: 'Awaiting contractor match', dot: 'st-amber', action: { label: 'Cancel booking', onclick: `openCancelBookingFromCard('${j.id}')` } };
+      return { label: 'Finding your contractor', dot: 'st-amber', action: { label: 'Cancel booking', onclick: `openCancelBookingFromCard('${j.id}')` } };
     }
     return { label: 'In progress', dot: 'st-blue', action: { label: 'View booking', onclick: `selectedJobId='${j.id}'; render();` } };
   }
@@ -2081,7 +2082,7 @@
           <h2>Welcome to MySubbies</h2>
           <p>You haven't booked anything yet.</p>
           <div class="hero-panel-actions">
-            <a class="btn btn-black" style="width:auto;" href="https://www.mysubbies.com.au/#estimate">Book your first service</a>
+            <a class="btn btn-black" style="width:auto;" href="/#estimate">Book your first service</a>
             <button class="btn btn-outline" style="width:auto;" onclick="openProjectEnquiryForm()">Request a project quote</button>
           </div>
         </div>
@@ -2106,7 +2107,7 @@
         <h2>What needs sorting?</h2>
         <p>Book trusted help for the next job around your home, or tell us about a larger project.</p>
         <div class="hero-panel-actions">
-          <a class="btn btn-black" style="width:auto;" href="https://www.mysubbies.com.au/#estimate">Book a service</a>
+          <a class="btn btn-black" style="width:auto;" href="/#estimate">Book a service</a>
           <button class="btn btn-outline" style="width:auto;" onclick="openProjectEnquiryForm()">Plan a larger project</button>
         </div>
       </div>`;
@@ -2172,7 +2173,7 @@
     if (countLine) countLine.textContent = `${allJobs.length} booking${allJobs.length === 1 ? '' : 's'}`;
 
     if (allJobs.length === 0) {
-      wrap.innerHTML = `<div class="empty">No bookings yet. <a href="https://www.mysubbies.com.au/#estimate" style="text-decoration:underline;">Get an estimated price instantly</a> to submit one.</div>`;
+      wrap.innerHTML = `<div class="empty">No bookings yet. <a href="/#estimate" style="text-decoration:underline;">Get an estimated price instantly</a> to submit one.</div>`;
       return;
     }
     let html = jobStatusFilterChipsHtml(allJobs) + jobSearchBoxHtml();
