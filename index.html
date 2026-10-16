@@ -1709,13 +1709,6 @@
   </div>
 </footer>
 
-<div class="fs-modal-overlay" id="fsModalOverlay">
-  <div class="fs-modal">
-    <button class="fs-modal-close" onclick="closeFixSomething()">✕</button>
-    <div id="fsModalBody"></div>
-  </div>
-</div>
-
 <nav class="mobile-tabbar" aria-label="Primary">
   <a class="tab-item active" href="#top">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
@@ -1725,7 +1718,7 @@
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
     Bookings
   </a>
-  <button class="tab-item tab-fab" onclick="openFixSomething()">
+  <button class="tab-item tab-fab" onclick="openBookingPortal()">
     <span class="fab-circle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>
     New Job
   </button>
@@ -2661,7 +2654,7 @@
 
   // heroUploadPhoto() (the hero's own dedicated "Upload a photo" tile) was
   // removed Sep 2026 -- founder feedback that it duplicated the Fix
-  // Something modal it opened into (openFixSomething()), which already
+  // Something modal it opened into (openBookingPortal()), which already
   // offers photo upload itself. Fix Something is still reachable via the
   // "Other" category card and the mobile tab bar's FAB.
   function chooseQuickService(categoryLabel, taskQuery) {
@@ -2780,15 +2773,10 @@
   // actually prices the job.
   let fsImages = [];
 
-  function openFixSomething() {
-    fsImages = [];
-    document.getElementById('fsModalOverlay').classList.add('show');
-    renderFsForm();
+  function openBookingPortal() {
+    window.location.href = '/mysubbies-booking.html?new=1';
   }
-
-  function closeFixSomething() {
-    document.getElementById('fsModalOverlay').classList.remove('show');
-  }
+  function closeFixSomething() { /* Retained for legacy estimator handoffs. */ }
 
   // ============================================================
   // "Recommended for you" (Sept 2026) -- replaces the old static "Popular
@@ -2801,7 +2789,7 @@
   // Every card here is backed by something real -- no invented health
   // scores, no fabricated maintenance intervals (see CLAUDE.md's standing
   // rule on this). "Something Needs Fixing" is pure reuse of the existing
-  // openFixSomething() flow. The three life-event cards open a package
+  // openBookingPortal() flow. The three life-event cards open a package
   // modal that only ever quick-adds a task at its REAL flat rate-card price
   // (never a guessed quantity for an m²/lm/hour task) and otherwise hands
   // the customer to the normal estimator (goToEstimatorWithCategory) to
@@ -2824,7 +2812,7 @@
   // of catLabel calls the existing AI-triage flow directly -- used only
   // where no real category exists (Urgent Repairs' "Storm / Property
   // Damage"). Every card's fallback/photo-helper also calls
-  // openFixSomething() -- the one and only AI-classification entry point in
+  // openBookingPortal() -- the one and only AI-classification entry point in
   // this codebase, never duplicated.
   const LIFE_EVENT_PACKAGES = {
     newHome: {
@@ -3014,7 +3002,7 @@
   function lifeEventOptionAction(opt, id, idx) {
     if (opt.subOptions) return `showLifeEventSubOptions('${id}', ${idx})`;
     return opt.action === 'fixSomething'
-      ? 'closeLifeEventPackage(); openFixSomething();'
+      ? 'closeLifeEventPackage(); openBookingPortal();'
       : `closeLifeEventPackage(); goToEstimatorWithCategory('${escapeHtml(opt.catLabel).replace(/'/g, "\\'")}');`;
   }
 
@@ -3043,8 +3031,8 @@
       <div class="sub">${escapeHtml(pkg.blurb)}</div>
       ${pkg.safetyNotice ? `<div class="item-preview-warning" style="margin:12px 0;">${escapeHtml(pkg.safetyNotice)}</div>` : ''}
       <div style="margin-top:16px;">${optionRows}</div>
-      <button class="btn btn-outline" style="width:100%;" onclick="closeLifeEventPackage(); openFixSomething();">${escapeHtml(pkg.somethingElseLabel)}</button>
-      ${pkg.photoHelper ? `<div class="sub" style="margin-top:14px;text-align:center;cursor:pointer;text-decoration:underline;" onclick="closeLifeEventPackage(); openFixSomething();">${escapeHtml(pkg.photoHelper)}</div>` : ''}
+      <button class="btn btn-outline" style="width:100%;" onclick="closeLifeEventPackage(); openBookingPortal();">${escapeHtml(pkg.somethingElseLabel)}</button>
+      ${pkg.photoHelper ? `<div class="sub" style="margin-top:14px;text-align:center;cursor:pointer;text-decoration:underline;" onclick="closeLifeEventPackage(); openBookingPortal();">${escapeHtml(pkg.photoHelper)}</div>` : ''}
     `;
   }
 
@@ -3064,42 +3052,6 @@
     } catch (e) { /* non-critical -- falls back to the plain order already rendered */ }
   }
 
-  function renderFsForm() {
-    document.getElementById('fsModalBody').innerHTML = `
-      <h3>Fix Something</h3>
-      <div class="sub">Not sure what trade you need? Upload a photo and tell us what's wrong — we'll work out the job and the price.</div>
-
-      <label class="fs-field-label">Photo (recommended)</label>
-      <input type="file" id="fsPhotoInput" accept="image/*" multiple style="display:none;" onchange="onFsPhotoSelected(event)" />
-      <input type="file" id="fsPhotoCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="onFsPhotoSelected(event)" />
-      <div class="est-photo-drop-row">
-        <div class="est-photo-drop" onclick="document.getElementById('fsPhotoCameraInput').click()">
-          <span>📷 Take a photo</span>
-        </div>
-        <div class="est-photo-drop" onclick="document.getElementById('fsPhotoInput').click()">
-          <span>🖼️ Choose from gallery</span>
-        </div>
-      </div>
-      <div class="fs-photo-grid" id="fsPhotoGrid"></div>
-
-      <label class="fs-field-label">What's wrong?</label>
-      <textarea class="fs-textarea" id="fsDescription" placeholder="e.g. My gate won't close properly and the latch is broken."></textarea>
-
-      <div id="fsError" style="color:#B4232C;font-size:13px;margin-top:10px;display:none;"></div>
-
-      <button class="btn btn-black btn-full" style="width:100%;margin-top:20px;" id="fsSubmitBtn" onclick="submitFixSomething()">Get my price →</button>
-    `;
-  }
-
-  // A real phone camera photo (often 3-10MB straight off the sensor) sent
-  // as-is hits Vercel's hard serverless request-body size limit (4.5MB) --
-  // confirmed live: a 10MB test photo got back a plain-text 413
-  // "FUNCTION_PAYLOAD_TOO_LARGE" from Vercel's platform (never reaching
-  // classify-job.js at all), which broke submitFixSomething()'s
-  // `await res.json()` and surfaced as a generic "Something went wrong"
-  // with no indication why (founder report, Aug 2026). Downscaling to a
-  // sane max dimension before it's ever base64-encoded fixes this and, as
-  // a bonus, keeps the photo far smaller everywhere it's stored afterwards.
   function resizeImageFile(file, maxDim, quality) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -3124,97 +3076,6 @@
     });
   }
 
-  function onFsPhotoSelected(event) {
-    const files = Array.from(event.target.files || []).slice(0, 4 - fsImages.length);
-    files.forEach(file => {
-      resizeImageFile(file, 1600, 0.8).then(dataUrl => {
-        fsImages.push(dataUrl);
-        renderFsPhotoGrid();
-      }).catch(() => {
-        // Fall back to the original file rather than silently dropping the
-        // photo -- worst case it's the same size-risk as before, not worse.
-        const reader = new FileReader();
-        reader.onload = () => { fsImages.push(reader.result); renderFsPhotoGrid(); };
-        reader.readAsDataURL(file);
-      });
-    });
-  }
-
-  function renderFsPhotoGrid() {
-    const grid = document.getElementById('fsPhotoGrid');
-    if (!grid) return;
-    grid.innerHTML = fsImages.map(src => `<img src="${src}" />`).join('');
-  }
-
-  async function submitFixSomething() {
-    const description = document.getElementById('fsDescription').value.trim();
-    const errorBox = document.getElementById('fsError');
-    errorBox.style.display = 'none';
-
-    if (!description && fsImages.length === 0) {
-      errorBox.textContent = 'Add a photo or a short description so we know what we\'re looking at.';
-      errorBox.style.display = 'block';
-      return;
-    }
-
-    // A disabled button whose text just changes to "Having a look…" reads as
-    // stuck — nothing on screen moves while the AI call is in flight
-    // (founder feedback, Aug 2026). Replaces the whole form with the same
-    // spinner treatment the estimator's own thinking state uses, so it's
-    // unmistakably "still working."
-    document.getElementById('fsModalBody').innerHTML = `
-      <div class="est-thinking-panel" style="padding:44px 20px;">
-        <div class="spinner"></div>
-        <div class="label">${fsImages.length ? 'Analysing your photo and details…' : 'Analysing your description…'}</div>
-        <div class="sub">Matching this against the real Melbourne rate card.</div>
-      </div>
-    `;
-
-    try {
-      const res = await fetch('/api/classify-job', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description, images: fsImages }),
-      });
-      const data = await res.json();
-      renderFsResult(data, description);
-    } catch (err) {
-      renderFsResult({ manualReviewRequired: true, reason: 'Something went wrong — a MySubbies team member will review this and follow up.' }, description);
-    }
-  }
-
-  function renderFsResult(data, description) {
-    logFixSomethingRequest(data, description);
-
-    if (data.manualReviewRequired) {
-      document.getElementById('fsModalBody').innerHTML = `
-        <h3>Got it — we're on it</h3>
-        <div class="fs-result">
-          <p style="font-size:14px;line-height:1.6;">${escapeHtml(data.reason || 'This needs a quick human check before we can confirm a price.')}</p>
-          <p style="font-size:13px;color:var(--stone);margin-top:12px;">Head to <a href="https://app.mysubbies.com.au/mysubbies-booking.html" style="text-decoration:underline;">My Bookings</a> and register an account so we can follow up with your price — or browse the categories and book directly if you already know what you need.</p>
-        </div>
-        <button class="btn btn-outline btn-full" style="width:100%;margin-top:16px;" onclick="closeFixSomething()">Close</button>
-      `;
-      return;
-    }
-
-    const workList = (data.likelyWork || []).map(w => `<li>${escapeHtml(w)}</li>`).join('');
-    // Stashed rather than round-tripped through the onclick attribute below --
-    // same reasoning as estPendingAiEstimate: description is raw customer-
-    // typed text, unsafe/fragile to embed inside an HTML attribute.
-    fsPendingContinuation = { category: data.category, likelyService: data.likelyService || '', description: description || '' };
-    document.getElementById('fsModalBody').innerHTML = `
-      <h3>${escapeHtml(data.likelyService || data.category)}</h3>
-      <div class="fs-result">
-        <h4>Likely work</h4>
-        <ul>${workList}</ul>
-        <div class="fs-confidence">AI match confidence: ${Math.round(data.confidence)}%${data.askMoreQuestions ? ' — we\'ll ask a couple more questions to confirm.' : ''}</div>
-      </div>
-      <button class="btn btn-black btn-full" style="width:100%;margin-top:16px;" onclick="continueToEstimatorFromFsPending()">Continue to price →</button>
-    `;
-  }
-
-  let fsPendingContinuation = null;
   function continueToEstimatorFromFsPending() {
     if (!fsPendingContinuation) return;
     const { category, likelyService, description } = fsPendingContinuation;
@@ -4756,21 +4617,21 @@
   initRebookIfRequested();
 
   // Cross-page trigger for the Fix Something modal (added Aug 2026, Property
-  // Profile Phase 2) -- openFixSomething() only exists in this page's script,
+  // Profile Phase 2) -- openBookingPortal() only exists in this page's script,
   // so mysubbies-customer-portal.html's "Something need fixing?" CTA can't
   // call it directly. Same localStorage-flag handoff pattern as
   // mysubbies_rebook_request above, just for a modal open instead of a cart.
   function initFixSomethingIfRequested() {
     if (!localStorage.getItem('mysubbies_open_fix_something')) return;
     localStorage.removeItem('mysubbies_open_fix_something');
-    openFixSomething();
+    openBookingPortal();
   }
   initFixSomethingIfRequested();
 
   // Cross-page trigger to land directly on one category in the estimator
   // (Sep 2026, customer portal "My Home" dashboard category cards) -- same
   // handoff pattern as the two flags above, just calling
-  // goToEstimatorWithCategory() instead of openFixSomething()/a cart rebuild.
+  // goToEstimatorWithCategory() instead of openBookingPortal()/a cart rebuild.
   function initOpenCategoryIfRequested() {
     const params = new URLSearchParams(window.location.search);
     const label = localStorage.getItem('mysubbies_open_category') || params.get('service');
