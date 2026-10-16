@@ -89,6 +89,7 @@
 <div class="wrap" id="app"></div>
 
 <script src="js/address-autocomplete.js"></script>
+<script src="js/booking-cart.js"></script>
 <script>
   function getJobs() { return JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]'); }
   function saveJobs(jobs, syncJobs = jobs) {
@@ -177,30 +178,7 @@
     document.getElementById('businessNameField').style.display = type === 'business' ? '' : 'none';
   }
 
-  function renderGroupedItems(items) {
-    const uniqueCats = [...new Set(items.map(i => i.catLabel))];
-    const groups = uniqueCats.map(catLabel => ({
-      catLabel, catIcon: items.find(i => i.catLabel === catLabel).catIcon,
-      items: items.filter(i => i.catLabel === catLabel),
-    }));
-    const bundleNote = uniqueCats.length > 1
-      ? `<div style="font-size:11.5px;color:var(--stone);background:var(--paper);border-radius:8px;padding:9px 12px;margin-top:10px;line-height:1.5;">This will be booked as ${uniqueCats.length} separate jobs \u2014 one per trade, each with its own contractor.</div>`
-      : '';
-    return `
-      <div style="border-top:1px solid var(--line);padding-top:12px;">
-        ${groups.map(g => `
-          ${uniqueCats.length > 1 ? `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;color:var(--stone);margin:8px 0 4px;">${g.catIcon} ${g.catLabel}</div>` : ''}
-          ${g.items.map(i => `
-            <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;color:var(--stone);">
-              <span>${uniqueCats.length > 1 ? '' : (i.catIcon || '') + ' '}${i.taskName} <span style="color:var(--stone-light);">(${i.qty} ${i.unit})</span></span>
-              <span style="font-weight:600;color:var(--ink);">$${i.base.toLocaleString()}</span>
-            </div>
-          `).join('')}
-        `).join('')}
-      </div>
-      ${bundleNote}
-    `;
-  }
+  function renderGroupedItems(items) { return bookingCartMarkup(items); }
 
   function render() {
     if (!quote) {
@@ -223,7 +201,7 @@
           </div>
           <div class="qprice">$${quote.low.toLocaleString()}</div>
         </div>
-        ${quote.items && quote.items.length ? renderGroupedItems(quote.items) : ''}
+        ${renderGroupedItems(quote.items || [])}
         ${quote.photoDataUrls && quote.photoDataUrls.length > 1 ? `
           <div style="display:flex;gap:8px;overflow-x:auto;padding-top:12px;margin-top:12px;border-top:1px solid var(--line);">
             ${quote.photoDataUrls.map(src => `<img src="${src}" style="width:64px;height:64px;border-radius:8px;object-fit:cover;flex-shrink:0;" />`).join('')}
@@ -299,6 +277,7 @@
   }
 
   async function submitBooking() {
+    if (!quote?.items?.length) { showError("Add a task to your cart before continuing."); return; }
     const email = document.getElementById('fEmail').value.trim().toLowerCase();
     const password = document.getElementById('fPassword').value;
     if (!email || !password) { showError('Enter your email and password.'); highlightMissingFields(['fEmail', 'fPassword']); return; }
@@ -440,9 +419,9 @@
   let bookingSubmitting = false;
   const draftJobIds = {};
   function editPendingJob() {
-    if (bookingSubmitting || !quote) return;
-    localStorage.setItem('mysubbies_rebook_request', JSON.stringify({ ...quote, items: quote.items || [], editDraft: true }));
-    location.href = '/index.html#estimate';
+    if (bookingSubmitting) return;
+    document.getElementById('bookingCart')?.scrollIntoView({ behavior: 'smooth' });
+    openBookingCartAdd();
   }
   function removePendingJob() {
     if (bookingSubmitting) return;
@@ -458,7 +437,7 @@
       <h1 class="pagetitle">Review your booking</h1>
       <p class="pagesub">No booking fee. $0 due today. Job payments will be reviewed separately before any payment is requested.</p>
       ${renderGroupedItems(quote.items || [])}
-      <p class="pagesub">Estimated job total: $${Number(quote.low).toLocaleString()} including GST.</p>
+
       <button class="btn btn-outline" onclick="editPendingJob()">Edit cart</button>
       <button class="btn btn-outline" onclick="removePendingJob()">Remove job</button>
       <p class="pagesub">Your job will be held for MySubbies review before release to contractors.</p>
