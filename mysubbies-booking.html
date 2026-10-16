@@ -232,7 +232,7 @@
       </div>
 
       <p class="pagesub">No booking fee. $0 due at booking.</p>
-      <button class="btn btn-outline" onclick="editPendingJob()">Edit job</button>
+      <button class="btn btn-outline" onclick="editPendingJob()">Edit cart</button>
       <button class="btn btn-outline" onclick="removePendingJob()">Remove job</button>
       <h1 class="pagetitle">${mode === 'register'  ? 'A few details to send this off' : 'Welcome back'}</h1>
       <p class="pagesub">${mode === 'register' ? 'This creates your MySubbies account so you can track the job — separate from contractor logins.' : 'Log in to continue and track this job under your existing account.'}</p>
@@ -441,7 +441,7 @@
   const draftJobIds = {};
   function editPendingJob() {
     if (bookingSubmitting || !quote) return;
-    localStorage.setItem('mysubbies_rebook_request', JSON.stringify({ items: quote.items || [] }));
+    localStorage.setItem('mysubbies_rebook_request', JSON.stringify({ ...quote, items: quote.items || [], editDraft: true }));
     location.href = '/index.html#estimate';
   }
   function removePendingJob() {
@@ -459,7 +459,7 @@
       <p class="pagesub">No booking fee. $0 due today. Job payments will be reviewed separately before any payment is requested.</p>
       ${renderGroupedItems(quote.items || [])}
       <p class="pagesub">Estimated job total: $${Number(quote.low).toLocaleString()} including GST.</p>
-      <button class="btn btn-outline" onclick="editPendingJob()">Edit job</button>
+      <button class="btn btn-outline" onclick="editPendingJob()">Edit cart</button>
       <button class="btn btn-outline" onclick="removePendingJob()">Remove job</button>
       <p class="pagesub">Your job will be held for MySubbies review before release to contractors.</p>
       <div id="bookingError" role="alert"></div>
