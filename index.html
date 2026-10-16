@@ -4531,6 +4531,21 @@
     renderCart();
   }
 
+  function updateCartQuantity(idx, value) {
+    const item = cart[idx];
+    const qty = Number(value);
+    if (!item || !Number.isFinite(qty) || qty <= 0 || qty > 100000) { renderCart(); return; }
+    const cat = CATEGORIES.find(c => c.label === item.catLabel);
+    const task = cat && cat.tasks.find(t => t.name === item.taskName && !t.unavailable && !t.disabled);
+    if (!task || item.aiEstimated) { renderCart(); return; }
+    const rawBase = Math.round(qty * task.rate);
+    item.qty = qty;
+    item.minApplied = !!(task.minJobPrice && rawBase < task.minJobPrice);
+    item.base = item.minApplied ? task.minJobPrice : rawBase;
+    renderCart();
+    estResetPriceReveal();
+  }
+
   function removeFromCart(idx) {
     cart.splice(idx, 1);
     renderCart();
@@ -4568,6 +4583,7 @@
                 <div>
                   <div class="cart-item-name">${groups.length > 1 ? '' : item.catIcon + ' '}${escapeHtml(item.taskName)} ${item.aiEstimated ? '<span class="ai-estimate-tag">\ud83e\udd16 AI estimate</span>' : ''}</div>
                   <div class="cart-item-meta">${item.qty.toLocaleString()} ${item.unit}${item.needsSiteVisit ? ' \u00b7 needs site visit' : ''}</div>
+                  ${!item.aiEstimated ? `<label class="cart-item-meta">Quantity <input aria-label="Quantity for ${escapeHtml(item.taskName)}" type="number" min="0.01" max="100000" step="any" value="${Number(item.qty)}" onchange="updateCartQuantity(${item.idx}, this.value)" style="width:90px;padding:7px;border:1px solid var(--line);border-radius:6px;"> ${escapeHtml(item.unit || '')}</label>` : ''}
                 </div>
                 <div style="display:flex;align-items:center;">
                   <div class="cart-item-price">${item.aiEstimated ? '~$' + item.base.toLocaleString() : '$' + item.base.toLocaleString()}</div>
@@ -4730,6 +4746,12 @@
     showEstStep(2);
     const suburbInput = document.getElementById('estSuburb');
     if (suburbInput && req.suburb) suburbInput.value = req.suburb;
+    if (req.editDraft) {
+      selectedSite = req.site || selectedSite;
+      selectedAccess = req.access || selectedAccess;
+      selectedUrgency = req.urgency || selectedUrgency;
+      uploadedPhotos = Array.isArray(req.photoDataUrls) ? req.photoDataUrls : [];
+    }
   }
   initRebookIfRequested();
 

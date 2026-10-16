@@ -96,7 +96,7 @@ module.exports = async (req, res) => {
       }
 
       if (category && priceCents) {
-        const preview = await resolveScheduleForJob(supabase, category, parseInt(priceCents, 10));
+        const preview = await resolveScheduleForJob(supabase, category, parseInt(priceCents, 10), { booking: true });
         res.status(200).json({ preview });
         return;
       }

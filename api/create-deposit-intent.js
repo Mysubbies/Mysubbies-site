@@ -46,7 +46,7 @@ module.exports = async (req, res) => {
 
   try {
     const { jobId, category, suburb, contractorEmail, basePriceCents, accepted, termsVersion } = req.body || {};
-    if (!jobId || !category || !basePriceCents) {
+    if (!jobId || !category || !Number.isSafeInteger(basePriceCents) || basePriceCents <= 0) {
       res.status(400).json({ error: 'jobId, category and basePriceCents are required.' });
       return;
     }
@@ -64,13 +64,19 @@ module.exports = async (req, res) => {
     let schedule = job ? (await supabase.from('job_payment_schedules').select('*').eq('job_id', jobId)
       .order('version', { ascending: false }).limit(1).maybeSingle()).data : null;
 
+    // Booking never collects money, including retries of older checkout sessions.
+    if (schedule) {
+      res.status(409).json({ error: 'This job already has a payment schedule. Open My Jobs to manage it; no booking payment was taken.' });
+      return;
+    }
+
     if (!schedule) {
       if (!accepted) {
         res.status(400).json({ error: 'You must review and accept the payment schedule before booking.' });
         return;
       }
 
-      const resolved = await resolveScheduleForJob(supabase, category, basePriceCents);
+      const resolved = await resolveScheduleForJob(supabase, category, basePriceCents, { booking: true });
       const depositMilestone = resolved.milestones.find(m => m.milestone_type === 'deposit') || resolved.milestones[0];
 
       // High-value MySubbies bookings have no payment due at checkout.

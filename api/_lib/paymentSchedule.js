@@ -109,11 +109,11 @@ function validateTemplateSchedule(milestones, representativePriceCents, config) 
 // 'pending_admin_schedule' (manual_review category, or a structural job at
 // or above the high-value threshold — never auto-generate a schedule for
 // either of those, per the explicit compliance requirement).
-async function resolveScheduleForJob(supabase, category, priceCents) {
+async function resolveScheduleForJob(supabase, category, priceCents, options = {}) {
   const config = await getConfig(supabase);
   const rule = await getCategoryRule(supabase, category);
 
-  if (priceCents > NO_DEPOSIT_BOOKING_THRESHOLD_CENTS) {
+  if (options.booking === true || priceCents > NO_DEPOSIT_BOOKING_THRESHOLD_CENTS) {
     return {
       status: 'pending_admin_schedule',
       schedule_type: 'manual_review',
