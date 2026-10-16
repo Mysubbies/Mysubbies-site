@@ -2288,7 +2288,8 @@
   let fsImages = [];
 
   function openBookingPortal() {
-    window.location.href = '/mysubbies-booking.html?new=1';
+    showEstStep(1);
+    document.getElementById('estimate').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   function closeFixSomething() { /* Retained for legacy estimator handoffs. */ }
 
