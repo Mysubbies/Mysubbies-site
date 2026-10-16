@@ -44,3 +44,6 @@
 #estimate .booking-cart-item h3 { letter-spacing:normal; }
 #estimate #estBookingCart { background:white; border:1px solid var(--line); border-radius:14px; padding:18px; }
 @media(max-width:520px) { .booking-task-result { flex-wrap:wrap; } }
+
+/* The shared summary already provides the add-task action. */
+#estimate .btn[onclick="estAddAnotherService()"] { display:none; }
