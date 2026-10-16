@@ -91,7 +91,7 @@
 <script src="js/address-autocomplete.js"></script>
 <script>
   function getJobs() { return JSON.parse(localStorage.getItem('mysubbies_jobs') || '[]'); }
-  function saveJobs(jobs) {
+  function saveJobs(jobs, syncJobs = jobs) {
     // Sep 2026 (founder report): a customer's accumulated job history
     // (each job can carry a photo) can push this array past the browser's
     // localStorage quota -- this threw uncaught here, which meant
@@ -112,7 +112,7 @@
     // sync without each call site needing to know about the backend.
     getBookingAccessToken().then(token => token && fetch('/api/sync-jobs', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-      body: JSON.stringify({ role: 'customer', jobs }),
+      body: JSON.stringify({ role: 'customer', jobs: syncJobs }),
     })).catch(() => {});
   }
   function getCustomers() { return JSON.parse(localStorage.getItem('mysubbies_customers') || '{}'); }
@@ -125,7 +125,7 @@
   }
   function getPendingQuote() { return JSON.parse(localStorage.getItem('mysubbies_pending_quote') || 'null'); }
 
-  const quote = getPendingQuote();
+  let quote = getPendingQuote();
   const app = document.getElementById('app');
 
   async function getBookingAccessToken() {
@@ -231,7 +231,10 @@
         ` : ''}
       </div>
 
-      <h1 class="pagetitle">${mode === 'register' ? 'A few details to send this off' : 'Welcome back'}</h1>
+      <p class="pagesub">No booking fee. $0 due at booking.</p>
+      <button class="btn btn-outline" onclick="editPendingJob()">Edit job</button>
+      <button class="btn btn-outline" onclick="removePendingJob()">Remove job</button>
+      <h1 class="pagetitle">${mode === 'register'  ? 'A few details to send this off' : 'Welcome back'}</h1>
       <p class="pagesub">${mode === 'register' ? 'This creates your MySubbies account so you can track the job — separate from contractor logins.' : 'Log in to continue and track this job under your existing account.'}</p>
       <div class="toggle-mode" style="margin:4px 0 16px;">
         ${mode === 'register' ? `Already registered? <a href="#" onclick="mode='login'; render(); return false;">Log in</a>` : `New here? <a href="#" onclick="mode='register'; render(); return false;">Create an account</a>`}
@@ -269,7 +272,7 @@
         <label class="terms"><input type="checkbox" id="fTerms" /> I have read and accept the MySubbies <a href="mysubbies-terms.html" target="_blank" style="text-decoration:underline;">Terms &amp; Conditions</a> and <a href="mysubbies-privacy-policy.html" target="_blank" style="text-decoration:underline;">Privacy Policy</a>, including how payment stages are tracked.</label>
       ` : '<div class="divider"></div>'}
 
-      <button class="btn btn-black" onclick="submitBooking()">${mode === 'register' ? 'Approve & send to a contractor' : 'Log in & continue'}</button>
+      <button class="btn btn-black" onclick="submitBooking()">${mode === 'register' ? 'Continue to review booking' : 'Log in & continue'}</button>
       <div class="toggle-mode">
         ${mode === 'register' ? `Already registered? <a href="#" onclick="mode='login'; render(); return false;">Log in</a>` : `New here? <a href="#" onclick="mode='register'; render(); return false;">Create an account</a>`}
       </div>
@@ -433,14 +436,63 @@
   // several job records at once, so they still use the pre-Stripe
   // immediate-fictional-deposit path below until that's built out properly
   // — see CLAUDE.md.
+  let reviewCustomer = null;
+  let bookingSubmitting = false;
+  const draftJobIds = {};
+  function editPendingJob() {
+    if (bookingSubmitting || !quote) return;
+    localStorage.setItem('mysubbies_rebook_request', JSON.stringify({ items: quote.items || [] }));
+    location.href = '/index.html#estimate';
+  }
+  function removePendingJob() {
+    if (bookingSubmitting) return;
+    localStorage.removeItem('mysubbies_pending_quote');
+    quote = null;
+    reviewCustomer = null;
+    window.__mysubbiesPendingBooking = null;
+    render();
+  }
   function beginBookingFlow(customer) {
-    const items = quote.items || [];
-    const uniqueCats = [...new Set(items.map(i => i.catLabel))];
-    if (uniqueCats.length === 1) {
-      renderDepositPayment(customer, uniqueCats[0]);
-    } else {
-      createJob(customer);
-    }
+    reviewCustomer = customer;
+    app.innerHTML = `
+      <h1 class="pagetitle">Review your booking</h1>
+      <p class="pagesub">No booking fee. $0 due today. Job payments will be reviewed separately before any payment is requested.</p>
+      ${renderGroupedItems(quote.items || [])}
+      <p class="pagesub">Estimated job total: $${Number(quote.low).toLocaleString()} including GST.</p>
+      <button class="btn btn-outline" onclick="editPendingJob()">Edit job</button>
+      <button class="btn btn-outline" onclick="removePendingJob()">Remove job</button>
+      <p class="pagesub">Your job will be held for MySubbies review before release to contractors.</p>
+      <div id="bookingError" role="alert"></div>
+      <button class="btn btn-black" id="confirmFreeBooking" onclick="confirmFreeBooking()">Confirm booking — $0 due today</button>`;
+  }
+  async function confirmFreeBooking() {
+    if (bookingSubmitting || !reviewCustomer || !quote) return;
+    bookingSubmitting = true;
+    const button = document.getElementById('confirmFreeBooking');
+    button.disabled = true;
+    document.querySelectorAll('button[onclick="editPendingJob()"], button[onclick="removePendingJob()"]').forEach(b => b.disabled = true);
+    try {
+      const token = await getBookingAccessToken();
+      if (!token) throw new Error('Please log in again to confirm your booking.');
+      const categories = [...new Set(quote.items.map(i => i.catLabel))];
+      if (!categories.length) throw new Error('Please add a job before booking.');
+      for (const category of categories) {
+        const jobId = draftJobIds[category] || (draftJobIds[category] = 'job_' + crypto.randomUUID());
+        const response = await fetch('/api/create-deposit-intent', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ jobId, category, suburb: reviewCustomer.suburb || quote.suburb,
+            basePriceCents: Math.round(quote.items.filter(i => i.catLabel === category).reduce((sum, i) => sum + i.base, 0) * 100),
+            accepted: true, termsVersion: PAYMENT_TERMS_VERSION }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.noDepositRequired) throw new Error(data.error || 'Could not confirm booking. No booking payment was taken.');
+      }
+      createJob(reviewCustomer, { jobIds: draftJobIds, depositPaid: false, pendingContractReview: true });
+    } catch (error) {
+      document.getElementById('bookingError').textContent = error.message;
+      button.disabled = false;
+      document.querySelectorAll('button[onclick="editPendingJob()"], button[onclick="removePendingJob()"]').forEach(b => b.disabled = false);
+    } finally { bookingSubmitting = false; }
   }
 
   const PAYMENT_TERMS_VERSION = 'payment-schedule-2026-08-v1';
@@ -664,9 +716,9 @@
       const catHigh = catBase;
       const singleItem = catItems.length === 1 ? catItems[0] : null;
       const paymentSchedule = getPaymentScheduleForCategory(catLabel);
-      const useRealPayment = !isBundle && paymentInfo && paymentInfo.presetJobId;
+      const useRealPayment = paymentInfo && (paymentInfo.presetJobId || paymentInfo.jobIds?.[catLabel]);
       const job = {
-        id: useRealPayment ? paymentInfo.presetJobId : ('job_' + Date.now() + '_' + Math.floor(Math.random() * 1000)),
+        id: useRealPayment ? (paymentInfo.jobIds?.[catLabel] || paymentInfo.presetJobId) : ('job_' + Date.now() + '_' + Math.floor(Math.random() * 1000)),
         category: catLabel, icon: catItems[0].catIcon,
         items: catItems,
         unit: singleItem ? singleItem.unit : null, qty: singleItem ? singleItem.qty : null,
@@ -684,7 +736,7 @@
         // the old fictional immediate-deposit flag — see beginBookingFlow().
         // Single-category real payments record the true PaymentIntent id and
         // require an actual Stripe success before this ever runs.
-        paidStages: { deposit: useRealPayment ? !!paymentInfo.depositPaid : true },
+        paidStages: { deposit: useRealPayment ? !!paymentInfo.depositPaid : false },
         depositPaymentIntentId: useRealPayment ? paymentInfo.depositPaymentIntentId : null,
         messages: [], internalMessages: [],
         createdAt: new Date().toISOString(),
@@ -693,7 +745,7 @@
       createdJobs.push(job);
     });
 
-    saveJobs(jobs);
+    saveJobs(jobs, createdJobs);
     localStorage.removeItem('mysubbies_pending_quote');
 
     // Fire-and-forget, one per created job (a bundle notifies each trade's

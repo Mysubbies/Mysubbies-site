@@ -75,7 +75,8 @@ function initialRecord(submitted, row, auth) {
   safe.customerName = auth.role === 'customer' ? (auth.account.name || null) : null;
   safe.customerPhone = auth.role === 'customer' ? (auth.account.phone || null) : null;
   safe.paidStages = row.status === 'deposit_paid' ? { deposit: true } : {};
-  safe.status = row.status === 'deposit_paid' ? 'feed' : row.status;
+  const isZeroDepositReview = row.status === 'pending_deposit' && Number(row.deposit_amount_cents) === 0;
+  safe.status = isZeroDepositReview ? 'pending_contract_review' : row.status === 'deposit_paid' ? 'feed' : row.status;
   return restoreStructuredFields(safe, row);
 }
 

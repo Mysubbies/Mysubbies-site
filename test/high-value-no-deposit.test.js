@@ -77,3 +77,23 @@ test('server-side job reconstruction maps zero-deposit pending jobs to contract 
 test('contract-review jobs are excluded from contractor feed', () => {
   assert.match(getJobs, /r\.full_record && r\.full_record\.status === 'feed'/);
 });
+
+test('checkout resolves every job value to zero due without changing later stage schedules', async () => {
+  for (const cents of [10000, 500000, 990000, 990001]) {
+    const resolved = await payment.resolveScheduleForJob(fakeSupabase(), 'Decking', cents, { booking: true });
+    assert.equal(resolved.deposit_pct, 0);
+    assert.equal(resolved.milestones[0].amount_cents, 0);
+    assert.equal(resolved.status, 'pending_admin_schedule');
+  }
+});
+
+test('single and multi-trade bookings use final review and never mark unpaid deposits paid', () => {
+  const flow = bookingHtml.slice(bookingHtml.indexOf('function beginBookingFlow'), bookingHtml.indexOf('const PAYMENT_TERMS_VERSION'));
+  assert.match(flow, /Edit job/);
+  assert.match(flow, /Remove job/);
+  assert.match(flow, /Confirm booking — \$0 due today/);
+  assert.match(flow, /for \(const category of categories\)/);
+  assert.doesNotMatch(flow, /stripe\.confirmCardPayment/);
+  assert.match(bookingHtml, /deposit: useRealPayment \? !!paymentInfo.depositPaid : false/);
+  assert.match(depositApi, /resolveScheduleForJob\(supabase, category, basePriceCents, \{ booking: true \}\)/);
+});
